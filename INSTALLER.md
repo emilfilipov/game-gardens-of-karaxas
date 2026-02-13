@@ -15,7 +15,8 @@ powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 -Version 1.0.0
 
 Current status:
 - Launcher build is available now via Gradle (`:launcher:build`, `:launcher:fatJar`).
-- End-to-end Windows packaging via `scripts/pack.ps1` is target-state and expects additional runtime modules/artifacts (`:desktop:fatJar`) that are not scaffolded yet.
+- End-to-end Windows packaging via `scripts/pack.ps1` supports launcher-only mode (`-LauncherOnly`) and produces installer/update artifacts for the launcher while runtime modules are being scaffolded.
+- When `desktop/` exists, the same script packages launcher + game runtime together.
 
 This will:
 - build fat jars for the launcher and game

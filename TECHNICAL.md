@@ -60,7 +60,7 @@ Phase 3:
 
 Current status note:
 - The current Gradle project is launcher-first (`include("launcher")`).
-- Full runtime packaging in `scripts/pack.ps1` expects desktop/game artifacts and should be treated as target-state until those modules are scaffolded.
+- CI release flow now supports launcher-only packaging when runtime modules are absent, and switches to full launcher+runtime packaging once `desktop/build.gradle.kts` exists.
 - The CI release workflow runs launcher-only checks in scaffold mode and switches to full Velopack packaging once `desktop/build.gradle.kts` exists.
 
 ## Multiplayer-Readiness Guidelines

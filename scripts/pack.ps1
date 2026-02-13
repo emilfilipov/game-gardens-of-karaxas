@@ -1,6 +1,7 @@
 param(
   [string]$Version,
-  [string]$Configuration = "Release"
+  [string]$Configuration = "Release",
+  [switch]$LauncherOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,13 +40,20 @@ New-Item -ItemType Directory -Path $releasesDir -Force | Out-Null
 
 Set-Location $root
 
-./gradlew :launcher:fatJar :desktop:fatJar
+$desktopProject = Join-Path $root "desktop\\build.gradle.kts"
+$launcherOnlyMode = $LauncherOnly -or -not (Test-Path $desktopProject)
+if ($launcherOnlyMode) {
+  Write-Host "Launcher-only packaging mode enabled."
+  ./gradlew :launcher:fatJar
+} else {
+  ./gradlew :launcher:fatJar :desktop:fatJar
+}
 
 $launcherJar = Join-Path $root "launcher\\build\\libs\\launcher-all.jar"
 $gameJar = Join-Path $root "desktop\\build\\libs\\desktop-all.jar"
 
 if (-not (Test-Path $launcherJar)) { throw "Missing launcher jar at $launcherJar" }
-if (-not (Test-Path $gameJar)) { throw "Missing game jar at $gameJar" }
+if (-not $launcherOnlyMode -and -not (Test-Path $gameJar)) { throw "Missing game jar at $gameJar" }
 
 $launcherImageDir = Join-Path $packDir "launcher"
 $gameImageDir = Join-Path $packDir "game"
@@ -59,18 +67,22 @@ $launcherIcon = if ($iconPath -and (Test-Path $iconPath)) { @("--icon", $iconPat
 $gameIcon = if ($iconPath -and (Test-Path $iconPath)) { @("--icon", $iconPath) } else { @() }
 
 jpackage --type app-image --input (Split-Path $launcherJar) --main-jar (Split-Path $launcherJar -Leaf) --name "GardensOfKaraxasLauncher" --app-version $Version --dest $launcherImageDir @launcherIcon
-jpackage --type app-image --input (Split-Path $gameJar) --main-jar (Split-Path $gameJar -Leaf) --name "GardensOfKaraxas" --app-version $Version --dest $gameImageDir @gameIcon
+if (-not $launcherOnlyMode) {
+  jpackage --type app-image --input (Split-Path $gameJar) --main-jar (Split-Path $gameJar -Leaf) --name "GardensOfKaraxas" --app-version $Version --dest $gameImageDir @gameIcon
+}
 
 $launcherApp = Join-Path $launcherImageDir "GardensOfKaraxasLauncher"
 $gameApp = Join-Path $gameImageDir "GardensOfKaraxas"
 
 if (-not (Test-Path $launcherApp)) { throw "Missing launcher app image at $launcherApp" }
-if (-not (Test-Path $gameApp)) { throw "Missing game app image at $gameApp" }
+if (-not $launcherOnlyMode -and -not (Test-Path $gameApp)) { throw "Missing game app image at $gameApp" }
 
 New-Item -ItemType Directory -Path $payloadDir | Out-Null
 Copy-Item -Path (Join-Path $launcherApp "*") -Destination $payloadDir -Recurse
-New-Item -ItemType Directory -Path (Join-Path $payloadDir "game") | Out-Null
-Copy-Item -Path (Join-Path $gameApp "*") -Destination (Join-Path $payloadDir "game") -Recurse
+if (-not $launcherOnlyMode) {
+  New-Item -ItemType Directory -Path (Join-Path $payloadDir "game") | Out-Null
+  Copy-Item -Path (Join-Path $gameApp "*") -Destination (Join-Path $payloadDir "game") -Recurse
+}
 
 if (Test-Path $updateHelperProject) {
   dotnet publish $updateHelperProject -c Release -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true -p:PublishReadyToRun=true -o $updateHelperOutDir
