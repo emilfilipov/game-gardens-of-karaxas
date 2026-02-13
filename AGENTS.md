@@ -29,6 +29,7 @@
 
 ## Supporting Docs
 - `INSTALLER.md` - Windows installer/updater operation details.
+- `TASKS.md` - detailed development task tracking (active backlog + finished tasks).
 - `README.md` - quick repo orientation.
 - Release note templates:
   - `RELEASE_NOTES_TEMPLATE.md`
