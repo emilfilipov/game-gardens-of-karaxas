@@ -80,7 +80,6 @@ object LauncherMain {
 
         val backgroundImage = loadUiImage("/ui/main_menu_background.png")
         val rectangularButtonImage = loadUiImage("/ui/button_rec_no_flame.png")
-        val squareButtonImage = loadUiImage("/ui/button_sq_no_flame.png")
 
         val rootPanel = BackgroundPanel(backgroundImage).apply {
             layout = GridBagLayout()
@@ -88,26 +87,17 @@ object LauncherMain {
         val menuPanel = JPanel().apply {
             isOpaque = false
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = BorderFactory.createEmptyBorder(28, 28, 28, 28)
+            border = BorderFactory.createEmptyBorder(12, 24, 20, 24)
         }
         val status = JLabel("Choose an action.", SwingConstants.CENTER).apply {
             alignmentX = Component.CENTER_ALIGNMENT
             foreground = Color(239, 229, 203)
             font = Font("Serif", Font.PLAIN, 18)
         }
-        val crest = JLabel().apply {
-            alignmentX = Component.CENTER_ALIGNMENT
-            icon = squareButtonImage?.let { ImageIcon(scaleImage(it, 84, 84)) }
-        }
         val title = JLabel("Gardens of Karaxas", SwingConstants.CENTER).apply {
             alignmentX = Component.CENTER_ALIGNMENT
             foreground = Color(244, 230, 197)
             font = Font("Serif", Font.BOLD, 54)
-        }
-        val subtitle = JLabel("Main Menu", SwingConstants.CENTER).apply {
-            alignmentX = Component.CENTER_ALIGNMENT
-            foreground = Color(227, 213, 183)
-            font = Font("Serif", Font.BOLD, 26)
         }
 
         val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54))
@@ -158,26 +148,22 @@ object LauncherMain {
             kotlin.system.exitProcess(0)
         }
 
-        menuPanel.add(crest)
-        menuPanel.add(Box.createVerticalStrut(8))
         menuPanel.add(title)
-        menuPanel.add(Box.createVerticalStrut(2))
-        menuPanel.add(subtitle)
-        menuPanel.add(Box.createVerticalStrut(18))
+        menuPanel.add(Box.createVerticalStrut(12))
         menuPanel.add(resumeGame)
-        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(newGame)
-        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(saveGame)
-        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(loadGame)
-        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(settings)
-        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(credits)
-        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(exit)
-        menuPanel.add(Box.createVerticalStrut(14))
+        menuPanel.add(Box.createVerticalStrut(10))
         menuPanel.add(status)
 
         val constraints = GridBagConstraints().apply {
