@@ -38,10 +38,28 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Determine Release Mode
+        id: release-mode
+        shell: pwsh
+        run: |
+          $runtimeReady = Test-Path "desktop/build.gradle.kts"
+          "runtime_ready=$($runtimeReady.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          if ($runtimeReady) {
+            Write-Host "Runtime modules detected. Running full packaging flow."
+          } else {
+            Write-Host "Runtime modules not detected. Running launcher-only scaffold checks."
+          }
+
+      - name: Build Launcher (Scaffold Mode)
+        if: steps.release-mode.outputs.runtime_ready != 'true'
+        run: ./gradlew :launcher:build
+
       - name: Install Velopack CLI
+        if: steps.release-mode.outputs.runtime_ready == 'true'
         run: dotnet tool install -g vpk --version 0.0.1298
 
       - name: Download Previous Velopack Packages
+        if: steps.release-mode.outputs.runtime_ready == 'true'
         shell: pwsh
         env:
           GH_API_TOKEN: ${{ secrets.VELOPACK_TOKEN || secrets.velopack_token || github.token }}
@@ -111,12 +129,14 @@ jobs:
           }
 
       - name: Build and Pack
+        if: steps.release-mode.outputs.runtime_ready == 'true'
         shell: pwsh
         env:
           VELOPACK_TOKEN: ${{ secrets.VELOPACK_TOKEN || secrets.velopack_token }}
         run: powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 -Version ${{ steps.get-version.outputs.version }}
 
       - name: Verify Release Artifacts
+        if: steps.release-mode.outputs.runtime_ready == 'true'
         shell: pwsh
         run: |
           $releases = "releases/windows/RELEASES"
@@ -127,11 +147,13 @@ jobs:
           if (-not $nupkg -or $nupkg.Count -eq 0) { throw "Missing .nupkg in releases/windows" }
 
       - name: Render Release Body
+        if: steps.release-mode.outputs.runtime_ready == 'true'
         id: render-body
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File scripts/render-release-body.ps1 -Version ${{ steps.get-version.outputs.version }}
 
       - name: Upload Release (Velopack)
+        if: steps.release-mode.outputs.runtime_ready == 'true'
         shell: pwsh
         env:
           VELOPACK_TOKEN: ${{ secrets.VELOPACK_TOKEN || secrets.velopack_token }}
@@ -149,6 +171,7 @@ jobs:
           }
 
       - name: Update GitHub Release Notes
+        if: steps.release-mode.outputs.runtime_ready == 'true'
         uses: actions/github-script@v7
         with:
           script: |
