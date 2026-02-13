@@ -1,22 +1,35 @@
 package com.gok.launcher
 
 import java.awt.BorderLayout
+import java.awt.Color
+import java.awt.Component
 import java.awt.Dimension
 import java.awt.EventQueue
 import java.awt.Font
+import java.awt.Graphics
+import java.awt.Graphics2D
+import java.awt.GridBagConstraints
+import java.awt.GridBagLayout
+import java.awt.Insets
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 import java.time.Instant
 import java.time.ZoneId
+import javax.imageio.ImageIO
 import javax.swing.BorderFactory
+import javax.swing.Box
+import javax.swing.BoxLayout
 import javax.swing.ImageIcon
 import javax.swing.JButton
+import javax.swing.JEditorPane
 import javax.swing.JFrame
 import javax.swing.JLabel
+import javax.swing.JOptionPane
 import javax.swing.JPanel
-import javax.swing.JEditorPane
 import javax.swing.JProgressBar
 import javax.swing.JScrollPane
 import javax.swing.SwingConstants
@@ -60,102 +73,121 @@ object LauncherMain {
     }
 
     private fun createAndShow() {
-        val frame = JFrame("Gardens of Karaxas Launcher")
+        val frame = JFrame("Gardens of Karaxas")
         frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
-        frame.minimumSize = Dimension(840, 440)
+        frame.minimumSize = Dimension(960, 640)
+        frame.preferredSize = Dimension(1280, 720)
 
+        val backgroundImage = loadUiImage("/ui/main_menu_background.png")
+        val rectangularButtonImage = loadUiImage("/ui/button_rec_no_flame.png")
+        val squareButtonImage = loadUiImage("/ui/button_sq_no_flame.png")
+
+        val rootPanel = BackgroundPanel(backgroundImage).apply {
+            layout = GridBagLayout()
+        }
+        val menuPanel = JPanel().apply {
+            isOpaque = false
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            border = BorderFactory.createEmptyBorder(28, 28, 28, 28)
+        }
+        val status = JLabel("Choose an action.", SwingConstants.CENTER).apply {
+            alignmentX = Component.CENTER_ALIGNMENT
+            foreground = Color(239, 229, 203)
+            font = Font("Serif", Font.PLAIN, 18)
+        }
+        val crest = JLabel().apply {
+            alignmentX = Component.CENTER_ALIGNMENT
+            icon = squareButtonImage?.let { ImageIcon(scaleImage(it, 84, 84)) }
+        }
         val title = JLabel("Gardens of Karaxas", SwingConstants.CENTER).apply {
-            font = font.deriveFont(Font.BOLD, 18f)
+            alignmentX = Component.CENTER_ALIGNMENT
+            foreground = Color(244, 230, 197)
+            font = Font("Serif", Font.BOLD, 54)
         }
-        val status = JLabel("Ready", SwingConstants.CENTER)
-        val patchNotesPane = JEditorPane().apply {
-            contentType = "text/html"
-            isEditable = false
-            putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true)
-            background = java.awt.Color.WHITE
-            foreground = java.awt.Color.BLACK
-        }
-        val patchNotes = JScrollPane(patchNotesPane).apply {
-            border = BorderFactory.createTitledBorder("Patch Notes")
-            preferredSize = Dimension(760, 280)
+        val subtitle = JLabel("Main Menu", SwingConstants.CENTER).apply {
+            alignmentX = Component.CENTER_ALIGNMENT
+            foreground = Color(227, 213, 183)
+            font = Font("Serif", Font.BOLD, 26)
         }
 
-        val progress = JProgressBar().apply {
-            isIndeterminate = false
-            isVisible = false
-            string = ""
-            isStringPainted = true
-            preferredSize = Dimension(760, 18)
-        }
+        val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54))
+        val newGame = buildMenuButton("New Game", rectangularButtonImage, Dimension(360, 54))
+        val saveGame = buildMenuButton("Save Game", rectangularButtonImage, Dimension(360, 54))
+        val loadGame = buildMenuButton("Load Game", rectangularButtonImage, Dimension(360, 54))
+        val settings = buildMenuButton("Settings", rectangularButtonImage, Dimension(360, 54))
+        val credits = buildMenuButton("Credits", rectangularButtonImage, Dimension(360, 54))
+        val exit = buildMenuButton("Exit", rectangularButtonImage, Dimension(360, 54))
 
-        val centerPanel = JPanel(BorderLayout()).apply {
-            add(status, BorderLayout.NORTH)
-            add(patchNotes, BorderLayout.CENTER)
-            add(progress, BorderLayout.SOUTH)
-        }
-
-        var activeLog: Path? = null
-        val checkUpdates = JButton("Check for Updates")
-        val play = JButton("Play")
-        val launcherLogButton = JButton("Launcher Log")
-        val gameLogButton = JButton("Game Log")
-        val updateLogButton = JButton("Update Log")
-        val clearLogsButton = JButton("Clear Logs")
-        val controls = listOf(checkUpdates, play, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton)
-
-        checkUpdates.addActionListener {
-            status.text = "Checking for updates..."
-            runUpdate(status, patchNotesPane, patchNotes, progress, controls)
-        }
-        play.addActionListener {
-            status.text = "Launching game..."
+        resumeGame.addActionListener {
+            status.text = "Resume selected. Launching game..."
             launchGame(status)
         }
-        launcherLogButton.addActionListener {
-            val target = logsRoot().resolve("launcher.log")
-            activeLog = toggleLogView(activeLog, target, "Launcher Log", patchNotesPane, patchNotes, status)
+        newGame.addActionListener {
+            status.text = "New Game selected. Launching game..."
+            launchGame(status)
         }
-        gameLogButton.addActionListener {
-            val target = logsRoot().resolve("game.log")
-            activeLog = toggleLogView(activeLog, target, "Game Log", patchNotesPane, patchNotes, status)
+        saveGame.addActionListener {
+            status.text = "Save Game selected. Save support will be wired with runtime saves."
+            log("Save Game selected from main menu.")
         }
-        updateLogButton.addActionListener {
-            val target = resolveUpdateLogPath(installRoot())
-            activeLog = toggleLogView(activeLog, target, "Update Log", patchNotesPane, patchNotes, status)
+        loadGame.addActionListener {
+            status.text = "Load Game selected. Load support will be wired with runtime saves."
+            log("Load Game selected from main menu.")
         }
-        clearLogsButton.addActionListener {
-            clearLogs()
-            val currentLog = activeLog
-            if (currentLog != null && Files.exists(currentLog)) {
-                patchNotesPane.text = renderLogHtml(currentLog)
-                patchNotes.border = BorderFactory.createTitledBorder("Patch Notes - Log: ${currentLog.fileName}")
-                scrollToTop(patchNotesPane, patchNotes)
-                status.text = "Logs cleared."
-            } else {
-                applyPatchNotesView(patchNotesPane, patchNotes)
-                activeLog = null
-                status.text = "Logs cleared."
-            }
+        settings.addActionListener {
+            status.text = "Settings opened."
+            JOptionPane.showMessageDialog(
+                frame,
+                "Settings menu will be integrated with runtime configuration.",
+                "Settings",
+                JOptionPane.INFORMATION_MESSAGE
+            )
         }
-
-        val actionButtons = JPanel().apply {
-            add(checkUpdates)
-            add(play)
+        credits.addActionListener {
+            status.text = "Credits opened."
+            JOptionPane.showMessageDialog(
+                frame,
+                "Gardens of Karaxas\nCreated by Emil Filipov and contributors.",
+                "Credits",
+                JOptionPane.INFORMATION_MESSAGE
+            )
         }
-        val logButtons = JPanel().apply {
-            add(launcherLogButton)
-            add(gameLogButton)
-            add(updateLogButton)
-            add(clearLogsButton)
-        }
-        val buttons = JPanel(BorderLayout()).apply {
-            add(actionButtons, BorderLayout.NORTH)
-            add(logButtons, BorderLayout.SOUTH)
+        exit.addActionListener {
+            log("Exit selected from main menu.")
+            frame.dispose()
+            kotlin.system.exitProcess(0)
         }
 
-        frame.contentPane.add(title, BorderLayout.NORTH)
-        frame.contentPane.add(centerPanel, BorderLayout.CENTER)
-        frame.contentPane.add(buttons, BorderLayout.SOUTH)
+        menuPanel.add(crest)
+        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(title)
+        menuPanel.add(Box.createVerticalStrut(2))
+        menuPanel.add(subtitle)
+        menuPanel.add(Box.createVerticalStrut(18))
+        menuPanel.add(resumeGame)
+        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(newGame)
+        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(saveGame)
+        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(loadGame)
+        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(settings)
+        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(credits)
+        menuPanel.add(Box.createVerticalStrut(8))
+        menuPanel.add(exit)
+        menuPanel.add(Box.createVerticalStrut(14))
+        menuPanel.add(status)
+
+        val constraints = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            anchor = GridBagConstraints.CENTER
+            insets = Insets(10, 10, 10, 10)
+        }
+        rootPanel.add(menuPanel, constraints)
+        frame.contentPane.add(rootPanel, BorderLayout.CENTER)
         loadIconImages()?.let { images ->
             frame.iconImages = images
             frame.iconImage = images.first()
@@ -165,13 +197,93 @@ object LauncherMain {
         frame.pack()
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
-        applyPatchNotesView(patchNotesPane, patchNotes)
-        javax.swing.SwingUtilities.invokeLater {
-            patchNotesPane.caretPosition = 0
-            patchNotes.viewport.viewPosition = java.awt.Point(0, 0)
+    }
+
+    private fun loadUiImage(resourcePath: String): BufferedImage? {
+        return try {
+            LauncherMain::class.java.getResourceAsStream(resourcePath)?.use { input ->
+                ImageIO.read(input)
+            }
+        } catch (ex: Exception) {
+            log("Failed to load UI image $resourcePath", ex)
+            null
         }
-        loadIconImages()?.let { images ->
-            applyTaskbarIcon(images)
+    }
+
+    private fun buildMenuButton(text: String, background: BufferedImage?, size: Dimension): JButton {
+        val button = JButton(text).apply {
+            alignmentX = Component.CENTER_ALIGNMENT
+            preferredSize = size
+            maximumSize = size
+            minimumSize = size
+            horizontalTextPosition = SwingConstants.CENTER
+            verticalTextPosition = SwingConstants.CENTER
+            foreground = Color(247, 236, 209)
+            font = Font("Serif", Font.BOLD, 25)
+            isFocusPainted = false
+            margin = Insets(0, 0, 0, 0)
+        }
+        if (background != null) {
+            val icon = scaleImage(background, size.width, size.height)
+            button.icon = ImageIcon(icon)
+            button.rolloverIcon = ImageIcon(tint(icon, Color(255, 255, 255, 30)))
+            button.pressedIcon = ImageIcon(tint(icon, Color(0, 0, 0, 55)))
+            button.disabledIcon = ImageIcon(tint(icon, Color(0, 0, 0, 120)))
+            button.border = BorderFactory.createEmptyBorder()
+            button.isContentAreaFilled = false
+            button.isBorderPainted = false
+            button.isOpaque = false
+        } else {
+            button.background = Color(32, 39, 46)
+            button.foreground = Color.WHITE
+            button.border = BorderFactory.createLineBorder(Color(170, 170, 170), 1)
+            button.isContentAreaFilled = true
+            button.isBorderPainted = true
+        }
+        return button
+    }
+
+    private fun scaleImage(source: BufferedImage, width: Int, height: Int): BufferedImage {
+        val scaled = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+        val graphics = scaled.createGraphics()
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+        graphics.drawImage(source, 0, 0, width, height, null)
+        graphics.dispose()
+        return scaled
+    }
+
+    private fun tint(source: BufferedImage, color: Color): BufferedImage {
+        val tinted = BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_ARGB)
+        val graphics = tinted.createGraphics()
+        graphics.drawImage(source, 0, 0, null)
+        graphics.color = color
+        graphics.fillRect(0, 0, source.width, source.height)
+        graphics.dispose()
+        return tinted
+    }
+
+    private class BackgroundPanel(private val background: BufferedImage?) : JPanel() {
+        override fun paintComponent(graphics: Graphics) {
+            super.paintComponent(graphics)
+            val g2 = graphics.create() as Graphics2D
+            try {
+                if (background == null) {
+                    g2.color = Color(16, 20, 28)
+                    g2.fillRect(0, 0, width, height)
+                    return
+                }
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+                val scale = maxOf(width.toDouble() / background.width.toDouble(), height.toDouble() / background.height.toDouble())
+                val drawWidth = (background.width * scale).toInt()
+                val drawHeight = (background.height * scale).toInt()
+                val x = (width - drawWidth) / 2
+                val y = (height - drawHeight) / 2
+                g2.drawImage(background, x, y, drawWidth, drawHeight, null)
+            } finally {
+                g2.dispose()
+            }
         }
     }
 

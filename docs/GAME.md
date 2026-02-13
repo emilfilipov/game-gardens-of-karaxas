@@ -21,6 +21,15 @@ Karaxas is vast and mysterious. Each floor is a unique world with its own challe
 5. Descend to deeper floors with increasing difficulty.
 6. Repeat until defeat or run completion milestone.
 
+## Main Menu (Current UI Prototype)
+- Resume Game
+- New Game
+- Save Game
+- Load Game
+- Settings
+- Credits
+- Exit
+
 ## Modes and Scope
 - Current planned release mode:
   - Single-player.

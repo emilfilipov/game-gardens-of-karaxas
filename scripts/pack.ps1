@@ -58,8 +58,8 @@ if (-not $launcherOnlyMode -and -not (Test-Path $gameJar)) { throw "Missing game
 $launcherImageDir = Join-Path $packDir "launcher"
 $gameImageDir = Join-Path $packDir "game"
 $iconCandidates = @(
-  (Join-Path $root "game_icon.ico"),
-  (Join-Path $root "game_icon.png")
+  (Join-Path $root "assets\\icons\\game_icon.ico"),
+  (Join-Path $root "assets\\icons\\game_icon.png")
 )
 $iconPath = $iconCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 
