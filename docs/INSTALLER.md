@@ -23,7 +23,7 @@ This will:
 - generate Windows app images with `jpackage`
 - create a Velopack release under `releases/windows/`
 - replace the Velopack `Setup.exe` with a logging wrapper (auto-logs install)
-- render `RELEASE_NOTES_TEMPLATE.md` into `patch_notes.md` in the install root (if present)
+- render `docs/RELEASE_NOTES_TEMPLATE.md` into `patch_notes.md` in the install root (if present)
 
 The `releases/windows/` folder will contain:
 - `*Setup*.exe` (installer wrapper)

@@ -5,8 +5,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$templatePath = Join-Path $root "RELEASE_NOTES_TEMPLATE.md"
-$outPath = Join-Path $root "patch_notes.md"
+$templatePath = Join-Path $root "docs\\RELEASE_NOTES_TEMPLATE.md"
+$outPath = Join-Path $root "docs\\patch_notes.md"
 $date = (Get-Date).ToString("yyyy-MM-dd")
 
 if (Test-Path $templatePath) {

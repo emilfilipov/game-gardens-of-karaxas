@@ -24,6 +24,8 @@ Conclusion:
 
 ## Target Module Layout
 - Current scaffold in repo:
+  - `docs/`:
+    - Canonical and supporting project documentation.
   - `launcher/`:
     - Windows-only launcher/updater shell.
   - `assets/`:

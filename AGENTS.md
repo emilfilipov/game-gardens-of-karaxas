@@ -1,12 +1,12 @@
 # Gardens of Karaxas - Agent Guide
 
 ## Canonical Docs (Read First)
-- `GAME.md` - all game/product information and scope.
-- `TECHNICAL.md` - all technical architecture and engineering decisions.
+- `docs/GAME.md` - all game/product information and scope.
+- `docs/TECHNICAL.md` - all technical architecture and engineering decisions.
 
 ## Documentation Policy (Strict)
-1. `GAME.md` is the single source of truth for game information.
-2. `TECHNICAL.md` is the single source of truth for technical information.
+1. `docs/GAME.md` is the single source of truth for game information.
+2. `docs/TECHNICAL.md` is the single source of truth for technical information.
 3. No implementation change is complete until the relevant canonical doc is updated in the same change.
 4. Keep documentation constantly up to date; never defer doc updates to a later task.
 
@@ -28,11 +28,11 @@
 - Never print or log the token value.
 
 ## Supporting Docs
-- `INSTALLER.md` - Windows installer/updater operation details.
-- `TASKS.md` - detailed development task tracking (active backlog + finished tasks).
-- `README.md` - quick repo orientation.
+- `docs/INSTALLER.md` - Windows installer/updater operation details.
+- `docs/TASKS.md` - detailed development task tracking (active backlog + finished tasks).
+- `docs/README.md` - quick repo orientation.
 - Release note templates:
-  - `RELEASE_NOTES_TEMPLATE.md`
+  - `docs/RELEASE_NOTES_TEMPLATE.md`
   - `.github/release-body-template.md`
 
 ## Architecture Guardrails
@@ -42,6 +42,7 @@
 
 ## System Map
 - Current repo structure:
+  - `docs/` - repository documentation (canonical + supporting docs).
   - `launcher/` - Windows launcher/updater module (Gradle).
   - `assets/` - shared content/data.
   - `scripts/` and `.github/workflows/` - packaging/release automation.
