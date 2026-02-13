@@ -1,0 +1,2 @@
+- Initial template release for Gardens of Karaxas.
+- Replaced inherited game-specific documentation with neutral project scaffolding.

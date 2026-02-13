@@ -1,0 +1,91 @@
+# Gardens of Karaxas - Technical
+
+## Purpose
+This is the single source of truth for technical architecture, stack decisions, module boundaries, and distribution engineering.
+
+## Technology Decision: Kotlin + LibGDX
+Decision: use Kotlin + LibGDX.
+
+Why this is a good fit for current goals (Windows first, then Linux/Steam, then Android):
+- LibGDX is designed for multi-platform game deployment, including desktop and Android targets.
+- Official project bootstrap tooling supports Kotlin and target backends out of the box.
+- Kotlin has stable JVM and Android targets, which aligns with desktop + Android portability goals.
+- Steam distribution can consume desktop runtime artifacts directly (Windows and Linux depots).
+
+Conclusion:
+- Kotlin + LibGDX is a pragmatic and portable choice for the current roadmap.
+- Keep architecture modular so future portability remains low-friction.
+
+## Architecture Rules (Must Hold)
+1. Core gameplay logic must not depend on launcher/updater code.
+2. Game runtime must start and run without updater components.
+3. Platform wrappers (desktop/Android/launcher) can orchestrate, but not own gameplay rules.
+4. Interfaces between modules must be explicit and stable.
+
+## Target Module Layout
+- Current scaffold in repo:
+  - `launcher/`:
+    - Windows-only launcher/updater shell.
+  - `assets/`:
+    - Art/audio/data content independent from launcher code.
+  - `tools/`:
+    - Setup wrapper and update helper utilities.
+  - Root Gradle files:
+    - `settings.gradle.kts`, `build.gradle.kts`, `gradlew`, `gradle/`.
+- Planned runtime modules (to be added):
+  - `sim/`:
+    - Pure Kotlin domain logic and simulation rules.
+    - No LibGDX types.
+  - `game/`:
+    - LibGDX-facing gameplay orchestration and state projection.
+    - Input mapping and scene/state management.
+  - `desktop/`:
+    - Standalone desktop runtime entrypoint for Windows/Linux and Steam.
+
+## Portability Strategy
+- Shared code will live in `sim/` and most of `game/` once those modules are scaffolded.
+- Platform-specific code is isolated to wrappers like `desktop/` and `launcher/`.
+- Avoid filesystem, process, and OS calls in core gameplay modules.
+- Keep save/data formats platform-neutral and versioned.
+
+## Distribution Strategy
+Phase 1 (current priority):
+- Windows installer/launcher/updater using Velopack (`scripts/pack.ps1`, `.github/workflows/release.yml`).
+
+Phase 2:
+- Steam distribution for Windows and Linux using runtime artifacts from `desktop/`.
+
+Phase 3:
+- Android packaging by adding an Android wrapper module around shared logic.
+
+Current status note:
+- The current Gradle project is launcher-first (`include("launcher")`).
+- Full runtime packaging in `scripts/pack.ps1` expects desktop/game artifacts and should be treated as target-state until those modules are scaffolded.
+
+## Multiplayer-Readiness Guidelines
+Future modes include co-op and PvP, so prepare now:
+- Define command/state boundaries clearly in `sim/`.
+- Keep game-state serialization deterministic and versioned where practical.
+- Separate local presentation concerns from network-eligible gameplay state.
+- Treat netcode as an adapter layer, not gameplay authority.
+
+## Build, Test, and CI Requirements
+- Unit tests for core gameplay rules in `sim/`.
+- Integration tests for save/load compatibility.
+- Smoke tests for:
+  - standalone desktop runtime launch
+  - launcher -> runtime handoff
+  - Windows packaging artifact validity
+- CI should fail on broken module boundaries or packaging regressions.
+
+## Documentation Rule
+This file is the single source of truth for technical information.
+
+Any technical decision change is incomplete until this file is updated in the same change.
+
+## Sources
+- LibGDX official site (cross-platform framework overview): https://libgdx.com/
+- LibGDX Liftoff docs (project generation, Kotlin support, target backends): https://libgdx.com/wiki/getting-started/project-generation
+- Kotlin Multiplatform target support (JVM/Android target status): https://www.jetbrains.com/help/kotlin-multiplatform-dev/supported-platforms.html
+- Steamworks documentation hub (desktop distribution context): https://partner.steamgames.com/doc/home
+- Steamworks Linux requirements (Linux runtime considerations): https://partner.steamgames.com/doc/store/application/platforms/linux
