@@ -899,6 +899,19 @@ object LauncherMain {
 
     private fun handleUpdateHelperLine(line: String, status: JLabel, progress: JProgressBar) {
         when {
+            line.startsWith("DOWNLOAD_MODE:DELTA:") -> javax.swing.SwingUtilities.invokeLater {
+                val count = line.substringAfter("DOWNLOAD_MODE:DELTA:").substringBefore(":").toIntOrNull() ?: 0
+                status.text = if (count > 0) {
+                    "Delta update available (${count} package${if (count == 1) "" else "s"})."
+                } else {
+                    "Delta update available."
+                }
+            }
+
+            line.startsWith("DOWNLOAD_MODE:FULL:") -> javax.swing.SwingUtilities.invokeLater {
+                status.text = "Full update package required for this version."
+            }
+
             line == "STATUS:CHECKING" -> javax.swing.SwingUtilities.invokeLater {
                 progress.isIndeterminate = true
                 progress.string = "Checking for updates..."

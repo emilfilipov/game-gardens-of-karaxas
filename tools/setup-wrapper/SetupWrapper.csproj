@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\assets\icons\game_icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup Condition="'$(SetupCorePath)' != ''">
     <EmbeddedResource Include="$(SetupCorePath)" LogicalName="SetupCore.exe" />

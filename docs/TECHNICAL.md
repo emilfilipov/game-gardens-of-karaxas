@@ -66,6 +66,8 @@ Current status note:
 - The CI release workflow runs launcher-only checks in scaffold mode and switches to full Velopack packaging once `desktop/build.gradle.kts` exists.
 - The launcher currently renders a stylized main-menu prototype UI using Swing and image resources in `launcher/src/main/resources/ui/`.
 - Packaging icon assets are stored under `assets/icons/` and consumed by `scripts/pack.ps1`.
+- The setup wrapper executable icon is sourced from `assets/icons/game_icon.ico` (multi-size ICO entries for better shell/browser compatibility).
+- Update delivery uses Velopack package updates, not re-downloading installers; delta packages are used when available and full package fallback is automatic.
 
 ## Multiplayer-Readiness Guidelines
 Future modes include co-op and PvP, so prepare now:

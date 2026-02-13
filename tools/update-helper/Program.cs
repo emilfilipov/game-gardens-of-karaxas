@@ -45,6 +45,7 @@ internal static class Program
                 return ExitNoUpdate;
             }
 
+            EmitDownloadMode(logFile, updateInfo);
             Emit(logFile, "STATUS:DOWNLOADING");
             var lastProgress = -1;
             var totalBytes = EstimateTotalDownloadBytes(updateInfo);
@@ -135,6 +136,23 @@ internal static class Program
         var env = Environment.GetEnvironmentVariable("VELOPACK_TOKEN")
                   ?? Environment.GetEnvironmentVariable("VELOPACK_GITHUB_TOKEN");
         return env ?? string.Empty;
+    }
+
+    private static void EmitDownloadMode(string? logFile, UpdateInfo info)
+    {
+        if (info.DeltasToTarget != null && info.DeltasToTarget.Length > 0)
+        {
+            long size = 0;
+            foreach (var delta in info.DeltasToTarget)
+            {
+                if (delta != null && delta.Size > 0) size += delta.Size;
+            }
+            Emit(logFile, $"DOWNLOAD_MODE:DELTA:{info.DeltasToTarget.Length}:{size}");
+            return;
+        }
+
+        var fullSize = info.TargetFullRelease?.Size ?? 0;
+        Emit(logFile, $"DOWNLOAD_MODE:FULL:{fullSize}");
     }
 
     private static Options ParseArgs(string[] args)
