@@ -34,6 +34,7 @@ import javax.swing.JProgressBar
 import javax.swing.JScrollPane
 import javax.swing.SwingConstants
 import javax.swing.UIManager
+import javax.swing.plaf.basic.BasicProgressBarUI
 
 object LauncherMain {
     private data class PatchNotesSource(
@@ -64,6 +65,7 @@ object LauncherMain {
         EventQueue.invokeLater {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
+                UIManager.put("AuditoryCues.playList", null)
                 createAndShow()
             } catch (ex: Exception) {
                 log("Failed to start launcher UI.", ex)
@@ -80,30 +82,26 @@ object LauncherMain {
 
         val backgroundImage = loadUiImage("/ui/main_menu_background.png")
         val rectangularButtonImage = loadUiImage("/ui/button_rec_no_flame.png")
+        val launcherCanvasImage = loadUiImage("/ui/launcher_canvas.png")
         val brickTextureImage = loadUiImage("/ui/brick_material_ui.png")
 
         val rootPanel = BackgroundPanel(backgroundImage).apply {
             layout = BorderLayout()
-            border = BorderFactory.createEmptyBorder(14, 14, 14, 14)
+            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
         }
-        val contentPanel = JPanel(BorderLayout(18, 0)).apply {
+        val screenTitle = JLabel("Gardens of Karaxas", SwingConstants.CENTER).apply {
+            foreground = Color(244, 230, 197)
+            font = Font("Serif", Font.BOLD, 56)
+            border = BorderFactory.createEmptyBorder(8, 0, 6, 0)
+        }
+        val contentPanel = JPanel(BorderLayout(14, 0)).apply {
             isOpaque = false
         }
         val menuPanel = JPanel().apply {
             isOpaque = false
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = BorderFactory.createEmptyBorder(8, 8, 20, 12)
-            preferredSize = Dimension(420, 640)
-        }
-        val status = JLabel("Choose an action.", SwingConstants.CENTER).apply {
-            alignmentX = Component.CENTER_ALIGNMENT
-            foreground = Color(239, 229, 203)
-            font = Font("Serif", Font.PLAIN, 18)
-        }
-        val title = JLabel("Gardens of Karaxas", SwingConstants.CENTER).apply {
-            alignmentX = Component.CENTER_ALIGNMENT
-            foreground = Color(244, 230, 197)
-            font = Font("Serif", Font.BOLD, 54)
+            border = BorderFactory.createEmptyBorder(10, 8, 12, 8)
+            preferredSize = Dimension(402, 620)
         }
         val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54), 24f)
         val newGame = buildMenuButton("New Game", rectangularButtonImage, Dimension(360, 54), 24f)
@@ -116,18 +114,18 @@ object LauncherMain {
 
         val boxTitle = JLabel("", SwingConstants.LEFT).apply {
             foreground = Color(246, 233, 201)
-            font = Font("Serif", Font.BOLD, 34)
+            font = Font("Serif", Font.BOLD, 28)
         }
         val boxBody = JPanel().apply {
             isOpaque = false
             layout = BorderLayout()
-            preferredSize = Dimension(680, 420)
+            preferredSize = Dimension(690, 440)
         }
-        val menuBox = MenuContentBoxPanel(brickTextureImage).apply {
+        val menuBox = MenuContentBoxPanel(launcherCanvasImage ?: rectangularButtonImage, brickTextureImage).apply {
             layout = BorderLayout(0, 14)
-            border = BorderFactory.createEmptyBorder(18, 20, 20, 20)
-            preferredSize = Dimension(760, 560)
-            minimumSize = Dimension(640, 420)
+            border = BorderFactory.createEmptyBorder(22, 24, 20, 24)
+            preferredSize = Dimension(780, 580)
+            minimumSize = Dimension(660, 460)
             isVisible = false
             add(boxTitle, BorderLayout.NORTH)
             add(boxBody, BorderLayout.CENTER)
@@ -140,7 +138,7 @@ object LauncherMain {
             gridy = 0
             anchor = GridBagConstraints.NORTHWEST
             fill = GridBagConstraints.NONE
-            insets = Insets(8, 8, 8, 8)
+            insets = Insets(0, 0, 0, 0)
         }
         menuBoxContainer.add(menuBox, menuBoxConstraints)
 
@@ -148,19 +146,31 @@ object LauncherMain {
             contentType = "text/html"
             isEditable = false
             putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true)
-            background = Color(250, 248, 243)
-            foreground = Color(34, 34, 34)
+            isOpaque = false
+            background = Color(0, 0, 0, 0)
+            foreground = Color(245, 232, 206)
+            font = Font("Serif", Font.PLAIN, 17)
         }
         val patchNotes = JScrollPane(patchNotesPane).apply {
-            border = BorderFactory.createTitledBorder("Patch Notes")
-            preferredSize = Dimension(660, 330)
+            border = BorderFactory.createLineBorder(Color(196, 156, 108, 220), 2)
+            preferredSize = Dimension(680, 410)
+            isOpaque = false
+            viewport.isOpaque = false
+            background = Color(0, 0, 0, 0)
+            viewport.background = Color(0, 0, 0, 0)
+        }
+        val updateStatus = JLabel("Ready.", SwingConstants.LEFT).apply {
+            foreground = Color(242, 230, 203)
+            font = Font("Serif", Font.PLAIN, 16)
         }
         val progress = JProgressBar().apply {
             isIndeterminate = false
             isVisible = false
             string = ""
             isStringPainted = true
-            preferredSize = Dimension(660, 18)
+            preferredSize = Dimension(680, 18)
+            border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+            setUI(ThemedProgressBarUI())
         }
         val checkUpdates = buildMenuButton("Check Updates", rectangularButtonImage, Dimension(206, 42), 14f)
         val launcherLogButton = buildMenuButton("Launcher Log", rectangularButtonImage, Dimension(206, 42), 14f)
@@ -168,10 +178,6 @@ object LauncherMain {
         val updateLogButton = buildMenuButton("Update Log", rectangularButtonImage, Dimension(206, 42), 14f)
         val clearLogsButton = buildMenuButton("Clear Logs", rectangularButtonImage, Dimension(206, 42), 14f)
         val showPatchNotesButton = buildMenuButton("Patch Notes", rectangularButtonImage, Dimension(206, 42), 14f)
-        val updateToolsHeader = JLabel("Updater and Logs", SwingConstants.LEFT).apply {
-            foreground = Color(243, 233, 201)
-            font = Font("Serif", Font.BOLD, 26)
-        }
         val launcherButtons = JPanel(GridLayout(3, 2, 8, 8)).apply {
             isOpaque = false
             add(checkUpdates)
@@ -183,31 +189,31 @@ object LauncherMain {
         }
         val updateContent = JPanel(BorderLayout(0, 10)).apply {
             isOpaque = false
-            add(updateToolsHeader, BorderLayout.NORTH)
             add(patchNotes, BorderLayout.CENTER)
             add(JPanel(BorderLayout(0, 8)).apply {
                 isOpaque = false
                 add(progress, BorderLayout.NORTH)
                 add(launcherButtons, BorderLayout.CENTER)
+                add(updateStatus, BorderLayout.SOUTH)
             }, BorderLayout.SOUTH)
         }
         var activeLog: Path? = null
         val controls = listOf(checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton)
         checkUpdates.addActionListener {
-            status.text = "Checking for updates..."
-            runUpdate(status, patchNotesPane, patchNotes, progress, controls)
+            updateStatus.text = "Checking for updates..."
+            runUpdate(updateStatus, patchNotesPane, patchNotes, progress, controls)
         }
         launcherLogButton.addActionListener {
             val target = logsRoot().resolve("launcher.log")
-            activeLog = toggleLogView(activeLog, target, "Launcher Log", patchNotesPane, patchNotes, status)
+            activeLog = toggleLogView(activeLog, target, "Launcher Log", patchNotesPane, patchNotes, updateStatus)
         }
         gameLogButton.addActionListener {
             val target = logsRoot().resolve("game.log")
-            activeLog = toggleLogView(activeLog, target, "Game Log", patchNotesPane, patchNotes, status)
+            activeLog = toggleLogView(activeLog, target, "Game Log", patchNotesPane, patchNotes, updateStatus)
         }
         updateLogButton.addActionListener {
             val target = resolveUpdateLogPath(installRoot())
-            activeLog = toggleLogView(activeLog, target, "Update Log", patchNotesPane, patchNotes, status)
+            activeLog = toggleLogView(activeLog, target, "Update Log", patchNotesPane, patchNotes, updateStatus)
         }
         clearLogsButton.addActionListener {
             clearLogs()
@@ -216,38 +222,46 @@ object LauncherMain {
                 patchNotesPane.text = renderLogHtml(currentLog)
                 patchNotes.border = BorderFactory.createTitledBorder("Patch Notes - Log: ${currentLog.fileName}")
                 scrollToTop(patchNotesPane, patchNotes)
-                status.text = "Logs cleared."
+                updateStatus.text = "Logs cleared."
             } else {
                 applyPatchNotesView(patchNotesPane, patchNotes)
                 activeLog = null
-                status.text = "Logs cleared."
+                updateStatus.text = "Logs cleared."
             }
         }
         showPatchNotesButton.addActionListener {
             activeLog = null
             applyPatchNotesView(patchNotesPane, patchNotes)
-            status.text = "Showing patch notes."
+            updateStatus.text = "Showing patch notes."
         }
 
         var activeMenu: String? = null
+        fun formatVersionInfoLabel(): String {
+            val source = loadPatchNotesSource()
+            val meta = loadPatchNotesMeta(source.path, source.markdown)
+            val versionText = meta.version?.let { "v$it" } ?: "unknown"
+            val dateText = meta.date ?: "unknown"
+            return "<html>Current Version: $versionText<br/>Created: $dateText</html>"
+        }
         fun toggleMenuBox(menuName: String) {
             if (menuBox.isVisible && activeMenu == menuName) {
                 menuBox.isVisible = false
                 activeMenu = null
-                status.text = "$menuName closed."
             } else {
-                boxTitle.text = menuName
                 boxBody.removeAll()
                 if (menuName == "Update") {
+                    boxTitle.text = formatVersionInfoLabel()
                     boxBody.add(updateContent, BorderLayout.CENTER)
                     activeLog = null
                     applyPatchNotesView(patchNotesPane, patchNotes)
+                    updateStatus.text = "Ready."
+                } else {
+                    boxTitle.text = menuName
                 }
                 boxBody.revalidate()
                 boxBody.repaint()
                 menuBox.isVisible = true
                 activeMenu = menuName
-                status.text = "$menuName opened."
             }
             menuBoxContainer.revalidate()
             menuBoxContainer.repaint()
@@ -266,8 +280,7 @@ object LauncherMain {
             kotlin.system.exitProcess(0)
         }
 
-        menuPanel.add(title)
-        menuPanel.add(Box.createVerticalStrut(12))
+        menuPanel.add(Box.createVerticalStrut(16))
         menuPanel.add(resumeGame)
         menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(newGame)
@@ -283,9 +296,8 @@ object LauncherMain {
         menuPanel.add(credits)
         menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(exit)
-        menuPanel.add(Box.createVerticalStrut(10))
-        menuPanel.add(status)
 
+        rootPanel.add(screenTitle, BorderLayout.NORTH)
         contentPanel.add(menuPanel, BorderLayout.WEST)
         contentPanel.add(menuBoxContainer, BorderLayout.CENTER)
         rootPanel.add(contentPanel, BorderLayout.CENTER)
@@ -328,9 +340,10 @@ object LauncherMain {
         if (background != null) {
             val icon = scaleImage(background, size.width, size.height)
             button.icon = ImageIcon(icon)
-            button.rolloverIcon = ImageIcon(tint(icon, Color(255, 255, 255, 30)))
-            button.pressedIcon = ImageIcon(tint(icon, Color(0, 0, 0, 55)))
-            button.disabledIcon = ImageIcon(tint(icon, Color(0, 0, 0, 120)))
+            button.rolloverIcon = ImageIcon(icon)
+            button.pressedIcon = ImageIcon(icon)
+            button.disabledIcon = ImageIcon(icon)
+            button.isRolloverEnabled = false
             button.border = BorderFactory.createEmptyBorder()
             button.isContentAreaFilled = false
             button.isBorderPainted = false
@@ -389,7 +402,36 @@ object LauncherMain {
         }
     }
 
-    private class MenuContentBoxPanel(private val brickTexture: BufferedImage?) : JPanel() {
+    private class ThemedProgressBarUI : BasicProgressBarUI() {
+        override fun paintDeterminate(graphics: Graphics, component: javax.swing.JComponent) {
+            val g2 = graphics.create() as Graphics2D
+            try {
+                val width = progressBar.width
+                val height = progressBar.height
+                g2.color = Color(54, 41, 33, 220)
+                g2.fillRect(0, 0, width, height)
+                val amount = getAmountFull(Insets(0, 0, 0, 0), width, height).coerceAtLeast(0)
+                if (amount > 0) {
+                    g2.color = Color(210, 167, 102, 245)
+                    g2.fillRect(0, 0, amount, height)
+                    g2.color = Color(239, 210, 156, 185)
+                    g2.fillRect(0, 0, amount, (height / 2).coerceAtLeast(1))
+                }
+                g2.color = Color(120, 86, 54, 255)
+                g2.drawRect(0, 0, width - 1, height - 1)
+                if (progressBar.isStringPainted) {
+                    paintString(graphics, 0, 0, width, height, amount, Insets(0, 0, 0, 0))
+                }
+            } finally {
+                g2.dispose()
+            }
+        }
+    }
+
+    private class MenuContentBoxPanel(
+        private val frameTexture: BufferedImage?,
+        private val brickTexture: BufferedImage?
+    ) : JPanel() {
         init {
             isOpaque = false
         }
@@ -398,31 +440,44 @@ object LauncherMain {
             val g2 = graphics.create() as Graphics2D
             try {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-                val arc = 28
                 val w = width - 1
                 val h = height - 1
+                if (frameTexture != null) {
+                    g2.drawImage(frameTexture, 0, 0, width, height, null)
+                } else {
+                    g2.color = Color(58, 42, 34)
+                    g2.fillRect(0, 0, width, height)
+                }
+
+                val innerX = 14
+                val innerY = 14
+                val innerW = width - (innerX * 2)
+                val innerH = height - (innerY * 2)
                 if (brickTexture != null) {
-                    var y = 0
-                    while (y < height) {
-                        var x = 0
-                        while (x < width) {
+                    val previousClip = g2.clip
+                    g2.clipRect(innerX, innerY, innerW, innerH)
+                    var y = innerY
+                    while (y < innerY + innerH) {
+                        var x = innerX
+                        while (x < innerX + innerW) {
                             g2.drawImage(brickTexture, x, y, null)
                             x += brickTexture.width
                         }
                         y += brickTexture.height
                     }
+                    g2.clip = previousClip
                 } else {
                     g2.color = Color(52, 39, 32)
-                    g2.fillRoundRect(0, 0, w, h, arc, arc)
+                    g2.fillRect(innerX, innerY, innerW, innerH)
                 }
                 g2.color = Color(20, 15, 12, 138)
-                g2.fillRoundRect(0, 0, w, h, arc, arc)
+                g2.fillRect(innerX, innerY, innerW, innerH)
                 g2.color = Color(206, 170, 118, 228)
                 g2.stroke = java.awt.BasicStroke(3f)
-                g2.drawRoundRect(1, 1, w - 2, h - 2, arc, arc)
+                g2.drawRect(1, 1, w - 2, h - 2)
                 g2.color = Color(122, 93, 62, 210)
                 g2.stroke = java.awt.BasicStroke(1.5f)
-                g2.drawRoundRect(8, 8, w - 16, h - 16, arc - 8, arc - 8)
+                g2.drawRect(innerX, innerY, innerW, innerH)
             } finally {
                 g2.dispose()
             }
@@ -452,7 +507,6 @@ object LauncherMain {
                 val logPath = logsRoot().resolve("velopack.log")
                 val repoFile = payloadRoot.resolve("update_repo.txt")
                 val tokenFile = payloadRoot.resolve("update_token.txt")
-                val waitPid = ProcessHandle.current().pid().toString()
                 log("Starting update helper using ${helperExe.toAbsolutePath()}")
                 val builder = ProcessBuilder(
                     helperExe.toString(),
@@ -461,9 +515,7 @@ object LauncherMain {
                     "--token-file",
                     tokenFile.toString(),
                     "--log-file",
-                    logPath.toString(),
-                    "--waitpid",
-                    waitPid
+                    logPath.toString()
                 )
                     .directory(root.toFile())
                     .redirectErrorStream(true)
@@ -606,9 +658,9 @@ object LauncherMain {
             ""
         }
         return "<html><head><style>" +
-            "body{font-family:Consolas,monospace;font-size:12px;color:#000;background:#fff;margin:0;padding:8px;}" +
-            "h2{font-family:Segoe UI,Arial,sans-serif;font-size:14px;margin:0 0 6px 0;}" +
-            "p{font-family:Segoe UI,Arial,sans-serif;margin:0 0 8px 0;}" +
+            "body{font-family:Serif;font-size:14px;color:#f3e8cc;background:transparent;margin:0;padding:8px;}" +
+            "h2{font-family:Serif;font-size:18px;margin:0 0 6px 0;}" +
+            "p{font-family:Serif;margin:0 0 8px 0;}" +
             "pre{margin:0;white-space:pre-wrap;word-wrap:break-word;}" +
             "</style></head><body>" +
             "<h2>${escapeHtml(path.fileName.toString())}</h2>" +
@@ -824,14 +876,14 @@ object LauncherMain {
         val sb = StringBuilder()
         sb.append(
             "<html><head><style>" +
-                "body{font-family:Segoe UI,Arial,sans-serif;font-size:12px;color:#000;background:#fff;margin:0;padding:8px;}" +
-                "h1{font-size:18px;font-weight:700;margin:0 0 8px 0;}" +
-                "h2{font-size:14px;font-weight:600;margin:12px 0 6px 0;}" +
-                "h3{font-size:13px;font-weight:600;margin:10px 0 6px 0;}" +
-                "p{margin:0 0 6px 0;}" +
+                "body{font-family:Serif;font-size:16px;color:#f3e8cc;background:transparent;margin:0;padding:8px;}" +
+                "h1{font-size:24px;font-weight:700;margin:0 0 8px 0;}" +
+                "h2{font-size:20px;font-weight:600;margin:12px 0 6px 0;}" +
+                "h3{font-size:18px;font-weight:600;margin:10px 0 6px 0;}" +
+                "p{margin:0 0 8px 0;}" +
                 "ul{margin:0 0 6px 18px;padding:0;}" +
                 "li{margin:0 0 4px 0;}" +
-                "code{background:#f1f1f1;padding:1px 3px;border-radius:3px;font-family:Consolas,monospace;}" +
+                "code{background:rgba(0,0,0,0.35);padding:1px 3px;border-radius:3px;font-family:Serif;}" +
                 "</style></head><body>"
         )
         var inList = false
