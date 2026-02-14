@@ -45,7 +45,7 @@ Setup.exe only logs to file when `--log` is provided; the wrapper injects `--log
 ## Launcher behavior
 The launcher tries to run updates via `Update.exe --update`.
 Updates use Velopack package updates (delta packages when available, full package fallback when needed), not re-downloading the installer executable.
-Current launcher behavior downloads update packages during update checks and applies them after restart (no forced close during the download step).
+Current launcher behavior downloads update packages during update checks, applies them automatically, and restarts with auto-launch of the game.
 The game is launched from:
 `<install_root>/game/GardensOfKaraxas.exe`
 

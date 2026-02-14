@@ -57,6 +57,7 @@ object LauncherMain {
         Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
             log("Unhandled exception", throwable)
         }
+        val autoPlay = args.any { it == "--autoplay" }
         log("Launcher starting. Args=${args.joinToString(" ")}")
         if (args.any { it.startsWith("--veloapp-") }) {
             log("Detected Velopack hook args. Exiting after logging.")
@@ -66,7 +67,7 @@ object LauncherMain {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
                 UIManager.put("AuditoryCues.playList", null)
-                createAndShow()
+                createAndShow(autoPlay)
             } catch (ex: Exception) {
                 log("Failed to start launcher UI.", ex)
                 throw ex
@@ -74,7 +75,7 @@ object LauncherMain {
         }
     }
 
-    private fun createAndShow() {
+    private fun createAndShow(autoPlay: Boolean = false) {
         val frame = JFrame("Gardens of Karaxas")
         frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
         frame.minimumSize = Dimension(960, 640)
@@ -311,6 +312,12 @@ object LauncherMain {
         frame.pack()
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
+        if (autoPlay) {
+            javax.swing.SwingUtilities.invokeLater {
+                updateStatus.text = "Launching game..."
+                launchGame(updateStatus)
+            }
+        }
     }
 
     private fun loadUiImage(resourcePath: String): BufferedImage? {
@@ -507,6 +514,7 @@ object LauncherMain {
                 val logPath = logsRoot().resolve("velopack.log")
                 val repoFile = payloadRoot.resolve("update_repo.txt")
                 val tokenFile = payloadRoot.resolve("update_token.txt")
+                val waitPid = ProcessHandle.current().pid().toString()
                 log("Starting update helper using ${helperExe.toAbsolutePath()}")
                 val builder = ProcessBuilder(
                     helperExe.toString(),
@@ -515,7 +523,11 @@ object LauncherMain {
                     "--token-file",
                     tokenFile.toString(),
                     "--log-file",
-                    logPath.toString()
+                    logPath.toString(),
+                    "--waitpid",
+                    waitPid,
+                    "--restart-args",
+                    "--autoplay"
                 )
                     .directory(root.toFile())
                     .redirectErrorStream(true)
@@ -550,7 +562,7 @@ object LauncherMain {
                                     Thread.sleep(750)
                                     kotlin.system.exitProcess(0)
                                 }.start()
-                                "Update ready. Closing to apply."
+                                "Update ready. Restarting automatically..."
                             } else {
                                 "Update downloaded. Restart to apply."
                             }
