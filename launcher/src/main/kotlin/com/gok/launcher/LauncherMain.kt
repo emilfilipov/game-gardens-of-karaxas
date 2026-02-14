@@ -8,10 +8,15 @@ import java.awt.EventQueue
 import java.awt.Font
 import java.awt.Graphics
 import java.awt.Graphics2D
+import java.awt.GridBagConstraints
+import java.awt.GridBagLayout
 import java.awt.GridLayout
 import java.awt.Insets
+import java.awt.Rectangle
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -20,8 +25,6 @@ import java.time.Instant
 import java.time.ZoneId
 import javax.imageio.ImageIO
 import javax.swing.BorderFactory
-import javax.swing.Box
-import javax.swing.BoxLayout
 import javax.swing.ImageIcon
 import javax.swing.JButton
 import javax.swing.JEditorPane
@@ -92,14 +95,14 @@ object LauncherMain {
             font = Font("Serif", Font.BOLD, 56)
             border = BorderFactory.createEmptyBorder(8, 0, 6, 0)
         }
-        val contentPanel = JPanel(BorderLayout(8, 0)).apply {
+        val contentPanel = JPanel(GridBagLayout()).apply {
             isOpaque = false
         }
+        val menuLayout = GridLayout(8, 1, 0, 6)
         val menuPanel = JPanel().apply {
             isOpaque = false
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
-            preferredSize = Dimension(360, 460)
+            layout = menuLayout
+            preferredSize = Dimension(340, 460)
         }
         val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54), 24f)
         val newGame = buildMenuButton("New Game", rectangularButtonImage, Dimension(360, 54), 24f)
@@ -123,8 +126,7 @@ object LauncherMain {
             layout = BorderLayout(0, 14)
             border = BorderFactory.createEmptyBorder(20, 22, 18, 22)
             preferredSize = Dimension(760, 460)
-            minimumSize = Dimension(620, 460)
-            maximumSize = Dimension(Int.MAX_VALUE, 460)
+            minimumSize = Dimension(420, 320)
             isVisible = false
             add(boxTitle, BorderLayout.NORTH)
             add(boxBody, BorderLayout.CENTER)
@@ -133,6 +135,25 @@ object LauncherMain {
             isOpaque = false
         }
         menuBoxContainer.add(menuBox, BorderLayout.NORTH)
+        val menuConstraints = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            anchor = GridBagConstraints.NORTHWEST
+            fill = GridBagConstraints.NONE
+            weightx = 0.0
+            weighty = 0.0
+            insets = Insets(0, 0, 0, 8)
+        }
+        val boxConstraints = GridBagConstraints().apply {
+            gridx = 1
+            gridy = 0
+            anchor = GridBagConstraints.NORTHWEST
+            fill = GridBagConstraints.HORIZONTAL
+            weightx = 1.0
+            weighty = 0.0
+        }
+        contentPanel.add(menuPanel, menuConstraints)
+        contentPanel.add(menuBoxContainer, boxConstraints)
 
         val patchNotesPane = JEditorPane().apply {
             contentType = "text/html"
@@ -224,6 +245,61 @@ object LauncherMain {
             updateStatus.text = "Showing patch notes."
         }
 
+        val mainButtons = listOf(resumeGame, newGame, saveGame, loadGame, settings, update, credits, exit)
+        val toolButtons = listOf(checkUpdates, showPatchNotesButton, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton)
+
+        fun applyResponsiveLayout() {
+            val availableW = contentPanel.width.coerceAtLeast(1)
+            val availableH = contentPanel.height.coerceAtLeast(1)
+
+            var menuWidth = (availableW * 0.27).toInt().coerceIn(250, 420)
+            var columnGap = (availableW * 0.012).toInt().coerceIn(6, 18)
+            if (menuWidth + columnGap > availableW - 320) {
+                menuWidth = (availableW - 320 - columnGap).coerceAtLeast(220)
+            }
+
+            var buttonHeight = (availableH * 0.11).toInt().coerceIn(40, 64)
+            var gap = (buttonHeight * 0.12f).toInt().coerceIn(4, 10)
+            val rows = mainButtons.size
+            var stackHeight = (rows * buttonHeight) + ((rows - 1) * gap)
+            if (stackHeight > availableH) {
+                buttonHeight = ((availableH - ((rows - 1) * gap)) / rows).coerceAtLeast(34)
+                gap = (buttonHeight * 0.1f).toInt().coerceIn(3, 8)
+                stackHeight = (rows * buttonHeight) + ((rows - 1) * gap)
+            }
+
+            menuLayout.vgap = gap
+            menuPanel.preferredSize = Dimension(menuWidth, stackHeight)
+            val mainFontSize = (buttonHeight * 0.42f).coerceIn(16f, 28f)
+            mainButtons.forEach { resizeThemedButton(it, menuWidth, buttonHeight, mainFontSize) }
+
+            menuConstraints.insets = Insets(0, 0, 0, columnGap)
+            val boxWidth = (availableW - menuWidth - columnGap).coerceAtLeast(320)
+            menuBox.preferredSize = Dimension(boxWidth, stackHeight)
+
+            val innerWidth = (boxWidth - 44).coerceAtLeast(280)
+            val titleHeight = (buttonHeight * 0.95f).toInt().coerceIn(28, 52)
+            boxTitle.font = Font("Serif", Font.BOLD, (buttonHeight * 0.46f).toInt().coerceIn(16, 30))
+
+            val toolButtonHeight = (buttonHeight * 0.76f).toInt().coerceIn(30, 48)
+            val toolGap = (toolButtonHeight * 0.18f).toInt().coerceIn(6, 10)
+            val toolButtonWidth = ((innerWidth - toolGap) / 2).coerceAtLeast(120)
+            val toolFontSize = (toolButtonHeight * 0.35f).coerceIn(11f, 16f)
+            toolButtons.forEach { resizeThemedButton(it, toolButtonWidth, toolButtonHeight, toolFontSize) }
+            launcherButtons.preferredSize = Dimension(
+                innerWidth,
+                (toolButtonHeight * 3) + (toolGap * 2)
+            )
+
+            val progressHeight = (toolButtonHeight * 0.4f).toInt().coerceIn(12, 20)
+            progress.preferredSize = Dimension(innerWidth, progressHeight)
+            val patchHeight = (stackHeight - titleHeight - launcherButtons.preferredSize.height - progressHeight - 40).coerceAtLeast(140)
+            patchNotes.preferredSize = Dimension(innerWidth, patchHeight)
+
+            contentPanel.revalidate()
+            contentPanel.repaint()
+        }
+
         var activeMenu: String? = null
         fun formatVersionInfoLabel(): String {
             val source = loadPatchNotesSource()
@@ -270,24 +346,15 @@ object LauncherMain {
         }
 
         menuPanel.add(resumeGame)
-        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(newGame)
-        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(saveGame)
-        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(loadGame)
-        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(settings)
-        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(update)
-        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(credits)
-        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(exit)
 
         rootPanel.add(screenTitle, BorderLayout.NORTH)
-        contentPanel.add(menuPanel, BorderLayout.WEST)
-        contentPanel.add(menuBoxContainer, BorderLayout.CENTER)
         rootPanel.add(contentPanel, BorderLayout.CENTER)
         frame.contentPane.add(rootPanel, BorderLayout.CENTER)
         loadIconImages()?.let { images ->
@@ -299,6 +366,12 @@ object LauncherMain {
         frame.pack()
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
+        applyResponsiveLayout()
+        frame.addComponentListener(object : ComponentAdapter() {
+            override fun componentResized(e: ComponentEvent?) {
+                applyResponsiveLayout()
+            }
+        })
         if (autoPlay) {
             javax.swing.SwingUtilities.invokeLater {
                 updateStatus.text = "Launching game..."
@@ -321,18 +394,26 @@ object LauncherMain {
     private fun buildMenuButton(text: String, background: BufferedImage?, size: Dimension, fontSize: Float = 25f): JButton {
         val button = JButton(text).apply {
             alignmentX = Component.CENTER_ALIGNMENT
-            preferredSize = size
-            maximumSize = size
-            minimumSize = size
             horizontalTextPosition = SwingConstants.CENTER
             verticalTextPosition = SwingConstants.CENTER
             foreground = Color(247, 236, 209)
-            font = Font("Serif", Font.BOLD, fontSize.toInt())
             isFocusPainted = false
             margin = Insets(0, 0, 0, 0)
+            putClientProperty("bgImage", background)
         }
+        resizeThemedButton(button, size.width, size.height, fontSize)
+        return button
+    }
+
+    private fun resizeThemedButton(button: JButton, width: Int, height: Int, fontSize: Float) {
+        val size = Dimension(width, height)
+        button.preferredSize = size
+        button.maximumSize = size
+        button.minimumSize = size
+        button.font = Font("Serif", Font.BOLD, fontSize.toInt())
+        val background = button.getClientProperty("bgImage") as? BufferedImage
         if (background != null) {
-            val icon = scaleImage(background, size.width, size.height)
+            val icon = scaleImage(background, width, height)
             button.icon = ImageIcon(icon)
             button.rolloverIcon = ImageIcon(icon)
             button.pressedIcon = ImageIcon(icon)
@@ -349,7 +430,6 @@ object LauncherMain {
             button.isContentAreaFilled = true
             button.isBorderPainted = true
         }
-        return button
     }
 
     private fun scaleImage(source: BufferedImage, width: Int, height: Int): BufferedImage {
@@ -360,16 +440,6 @@ object LauncherMain {
         graphics.drawImage(source, 0, 0, width, height, null)
         graphics.dispose()
         return scaled
-    }
-
-    private fun tint(source: BufferedImage, color: Color): BufferedImage {
-        val tinted = BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_ARGB)
-        val graphics = tinted.createGraphics()
-        graphics.drawImage(source, 0, 0, null)
-        graphics.color = color
-        graphics.fillRect(0, 0, source.width, source.height)
-        graphics.dispose()
-        return tinted
     }
 
     private class BackgroundPanel(private val background: BufferedImage?) : JPanel() {
@@ -423,6 +493,8 @@ object LauncherMain {
     }
 
     private class MenuContentBoxPanel(private val frameTexture: BufferedImage?) : JPanel() {
+        private val sourceBounds: Rectangle = computeOpaqueBounds(frameTexture)
+
         init {
             isOpaque = false
         }
@@ -432,7 +504,18 @@ object LauncherMain {
             try {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
                 if (frameTexture != null) {
-                    g2.drawImage(frameTexture, 0, 0, width, height, null)
+                    g2.drawImage(
+                        frameTexture,
+                        0,
+                        0,
+                        width,
+                        height,
+                        sourceBounds.x,
+                        sourceBounds.y,
+                        sourceBounds.x + sourceBounds.width,
+                        sourceBounds.y + sourceBounds.height,
+                        null
+                    )
                 } else {
                     g2.color = Color(52, 39, 32)
                     g2.fillRect(0, 0, width, height)
@@ -441,6 +524,27 @@ object LauncherMain {
                 g2.dispose()
             }
             super.paintComponent(graphics)
+        }
+
+        private fun computeOpaqueBounds(image: BufferedImage?): Rectangle {
+            if (image == null) return Rectangle(0, 0, 1, 1)
+            var minX = image.width
+            var minY = image.height
+            var maxX = -1
+            var maxY = -1
+            for (y in 0 until image.height) {
+                for (x in 0 until image.width) {
+                    val alpha = image.getRGB(x, y).ushr(24) and 0xFF
+                    if (alpha > 8) {
+                        if (x < minX) minX = x
+                        if (y < minY) minY = y
+                        if (x > maxX) maxX = x
+                        if (y > maxY) maxY = y
+                    }
+                }
+            }
+            if (maxX < minX || maxY < minY) return Rectangle(0, 0, image.width, image.height)
+            return Rectangle(minX, minY, (maxX - minX + 1), (maxY - minY + 1))
         }
     }
 
