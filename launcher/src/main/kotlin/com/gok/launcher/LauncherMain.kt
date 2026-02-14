@@ -29,7 +29,6 @@ import javax.swing.JButton
 import javax.swing.JEditorPane
 import javax.swing.JFrame
 import javax.swing.JLabel
-import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JProgressBar
 import javax.swing.JScrollPane
@@ -81,10 +80,11 @@ object LauncherMain {
 
         val backgroundImage = loadUiImage("/ui/main_menu_background.png")
         val rectangularButtonImage = loadUiImage("/ui/button_rec_no_flame.png")
+        val brickTextureImage = loadUiImage("/ui/brick_material_ui.png")
 
         val rootPanel = BackgroundPanel(backgroundImage).apply {
             layout = BorderLayout()
-            border = BorderFactory.createEmptyBorder(18, 18, 18, 18)
+            border = BorderFactory.createEmptyBorder(14, 14, 14, 14)
         }
         val contentPanel = JPanel(BorderLayout(18, 0)).apply {
             isOpaque = false
@@ -92,7 +92,7 @@ object LauncherMain {
         val menuPanel = JPanel().apply {
             isOpaque = false
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = BorderFactory.createEmptyBorder(12, 24, 20, 24)
+            border = BorderFactory.createEmptyBorder(8, 8, 20, 12)
             preferredSize = Dimension(420, 640)
         }
         val status = JLabel("Choose an action.", SwingConstants.CENTER).apply {
@@ -105,14 +105,45 @@ object LauncherMain {
             foreground = Color(244, 230, 197)
             font = Font("Serif", Font.BOLD, 54)
         }
-        val toolsTitle = JLabel("Launcher Tools", SwingConstants.LEFT).apply {
-            foreground = Color(244, 230, 197)
-            font = Font("Serif", Font.BOLD, 32)
+        val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54), 24f)
+        val newGame = buildMenuButton("New Game", rectangularButtonImage, Dimension(360, 54), 24f)
+        val saveGame = buildMenuButton("Save Game", rectangularButtonImage, Dimension(360, 54), 24f)
+        val loadGame = buildMenuButton("Load Game", rectangularButtonImage, Dimension(360, 54), 24f)
+        val settings = buildMenuButton("Settings", rectangularButtonImage, Dimension(360, 54), 24f)
+        val update = buildMenuButton("Update", rectangularButtonImage, Dimension(360, 54), 24f)
+        val credits = buildMenuButton("Credits", rectangularButtonImage, Dimension(360, 54), 24f)
+        val exit = buildMenuButton("Exit", rectangularButtonImage, Dimension(360, 54), 24f)
+
+        val boxTitle = JLabel("", SwingConstants.LEFT).apply {
+            foreground = Color(246, 233, 201)
+            font = Font("Serif", Font.BOLD, 34)
         }
-        val toolStatus = JLabel("Patch notes loaded.", SwingConstants.LEFT).apply {
-            foreground = Color(233, 223, 196)
-            font = Font("Serif", Font.PLAIN, 18)
+        val boxBody = JPanel().apply {
+            isOpaque = false
+            layout = BorderLayout()
+            preferredSize = Dimension(680, 420)
         }
+        val menuBox = MenuContentBoxPanel(brickTextureImage).apply {
+            layout = BorderLayout(0, 14)
+            border = BorderFactory.createEmptyBorder(18, 20, 20, 20)
+            preferredSize = Dimension(760, 560)
+            minimumSize = Dimension(640, 420)
+            isVisible = false
+            add(boxTitle, BorderLayout.NORTH)
+            add(boxBody, BorderLayout.CENTER)
+        }
+        val menuBoxContainer = JPanel(GridBagLayout()).apply {
+            isOpaque = false
+        }
+        val menuBoxConstraints = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            anchor = GridBagConstraints.NORTHWEST
+            fill = GridBagConstraints.NONE
+            insets = Insets(8, 8, 8, 8)
+        }
+        menuBoxContainer.add(menuBox, menuBoxConstraints)
+
         val patchNotesPane = JEditorPane().apply {
             contentType = "text/html"
             isEditable = false
@@ -122,99 +153,61 @@ object LauncherMain {
         }
         val patchNotes = JScrollPane(patchNotesPane).apply {
             border = BorderFactory.createTitledBorder("Patch Notes")
-            preferredSize = Dimension(720, 360)
+            preferredSize = Dimension(660, 330)
         }
         val progress = JProgressBar().apply {
             isIndeterminate = false
             isVisible = false
             string = ""
             isStringPainted = true
-            preferredSize = Dimension(720, 20)
+            preferredSize = Dimension(660, 18)
         }
-
-        val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54), 24f)
-        val newGame = buildMenuButton("New Game", rectangularButtonImage, Dimension(360, 54), 24f)
-        val saveGame = buildMenuButton("Save Game", rectangularButtonImage, Dimension(360, 54), 24f)
-        val loadGame = buildMenuButton("Load Game", rectangularButtonImage, Dimension(360, 54), 24f)
-        val settings = buildMenuButton("Settings", rectangularButtonImage, Dimension(360, 54), 24f)
-        val credits = buildMenuButton("Credits", rectangularButtonImage, Dimension(360, 54), 24f)
-        val exit = buildMenuButton("Exit", rectangularButtonImage, Dimension(360, 54), 24f)
-
+        val checkUpdates = buildMenuButton("Check Updates", rectangularButtonImage, Dimension(206, 42), 14f)
+        val launcherLogButton = buildMenuButton("Launcher Log", rectangularButtonImage, Dimension(206, 42), 14f)
+        val gameLogButton = buildMenuButton("Game Log", rectangularButtonImage, Dimension(206, 42), 14f)
+        val updateLogButton = buildMenuButton("Update Log", rectangularButtonImage, Dimension(206, 42), 14f)
+        val clearLogsButton = buildMenuButton("Clear Logs", rectangularButtonImage, Dimension(206, 42), 14f)
+        val showPatchNotesButton = buildMenuButton("Patch Notes", rectangularButtonImage, Dimension(206, 42), 14f)
+        val updateToolsHeader = JLabel("Updater and Logs", SwingConstants.LEFT).apply {
+            foreground = Color(243, 233, 201)
+            font = Font("Serif", Font.BOLD, 26)
+        }
+        val launcherButtons = JPanel(GridLayout(3, 2, 8, 8)).apply {
+            isOpaque = false
+            add(checkUpdates)
+            add(showPatchNotesButton)
+            add(launcherLogButton)
+            add(gameLogButton)
+            add(updateLogButton)
+            add(clearLogsButton)
+        }
+        val updateContent = JPanel(BorderLayout(0, 10)).apply {
+            isOpaque = false
+            add(updateToolsHeader, BorderLayout.NORTH)
+            add(patchNotes, BorderLayout.CENTER)
+            add(JPanel(BorderLayout(0, 8)).apply {
+                isOpaque = false
+                add(progress, BorderLayout.NORTH)
+                add(launcherButtons, BorderLayout.CENTER)
+            }, BorderLayout.SOUTH)
+        }
         var activeLog: Path? = null
-        val checkUpdates = buildMenuButton("Check Updates", rectangularButtonImage, Dimension(220, 46), 16f)
-        val launcherLogButton = buildMenuButton("Launcher Log", rectangularButtonImage, Dimension(220, 46), 16f)
-        val gameLogButton = buildMenuButton("Game Log", rectangularButtonImage, Dimension(220, 46), 16f)
-        val updateLogButton = buildMenuButton("Update Log", rectangularButtonImage, Dimension(220, 46), 16f)
-        val clearLogsButton = buildMenuButton("Clear Logs", rectangularButtonImage, Dimension(220, 46), 16f)
-        val showPatchNotesButton = buildMenuButton("Patch Notes", rectangularButtonImage, Dimension(220, 46), 16f)
-
-        resumeGame.addActionListener {
-            status.text = "Resume selected. Launching game..."
-            toolStatus.text = "Launching game..."
-            launchGame(status)
-            toolStatus.text = status.text
-        }
-        newGame.addActionListener {
-            status.text = "New Game selected. Launching game..."
-            toolStatus.text = "Launching game..."
-            launchGame(status)
-            toolStatus.text = status.text
-        }
-        saveGame.addActionListener {
-            status.text = "Save Game selected. Save support will be wired with runtime saves."
-            toolStatus.text = status.text
-            log("Save Game selected from main menu.")
-        }
-        loadGame.addActionListener {
-            status.text = "Load Game selected. Load support will be wired with runtime saves."
-            toolStatus.text = status.text
-            log("Load Game selected from main menu.")
-        }
-        settings.addActionListener {
-            status.text = "Settings opened."
-            toolStatus.text = status.text
-            JOptionPane.showMessageDialog(
-                frame,
-                "Settings menu will be integrated with runtime configuration.",
-                "Settings",
-                JOptionPane.INFORMATION_MESSAGE
-            )
-        }
-        credits.addActionListener {
-            status.text = "Credits opened."
-            toolStatus.text = status.text
-            JOptionPane.showMessageDialog(
-                frame,
-                "Gardens of Karaxas\nCreated by Emil Filipov and contributors.",
-                "Credits",
-                JOptionPane.INFORMATION_MESSAGE
-            )
-        }
-        exit.addActionListener {
-            log("Exit selected from main menu.")
-            frame.dispose()
-            kotlin.system.exitProcess(0)
-        }
-        val controls = listOf(
-            checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton,
-            resumeGame, newGame
-        )
+        val controls = listOf(checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton)
         checkUpdates.addActionListener {
             status.text = "Checking for updates..."
-            toolStatus.text = status.text
-            runUpdate(toolStatus, patchNotesPane, patchNotes, progress, controls)
+            runUpdate(status, patchNotesPane, patchNotes, progress, controls)
         }
         launcherLogButton.addActionListener {
             val target = logsRoot().resolve("launcher.log")
-            activeLog = toggleLogView(activeLog, target, "Launcher Log", patchNotesPane, patchNotes, toolStatus)
+            activeLog = toggleLogView(activeLog, target, "Launcher Log", patchNotesPane, patchNotes, status)
         }
         gameLogButton.addActionListener {
             val target = logsRoot().resolve("game.log")
-            activeLog = toggleLogView(activeLog, target, "Game Log", patchNotesPane, patchNotes, toolStatus)
+            activeLog = toggleLogView(activeLog, target, "Game Log", patchNotesPane, patchNotes, status)
         }
         updateLogButton.addActionListener {
             val target = resolveUpdateLogPath(installRoot())
-            activeLog = toggleLogView(activeLog, target, "Update Log", patchNotesPane, patchNotes, toolStatus)
+            activeLog = toggleLogView(activeLog, target, "Update Log", patchNotesPane, patchNotes, status)
         }
         clearLogsButton.addActionListener {
             clearLogs()
@@ -223,17 +216,54 @@ object LauncherMain {
                 patchNotesPane.text = renderLogHtml(currentLog)
                 patchNotes.border = BorderFactory.createTitledBorder("Patch Notes - Log: ${currentLog.fileName}")
                 scrollToTop(patchNotesPane, patchNotes)
-                toolStatus.text = "Logs cleared."
+                status.text = "Logs cleared."
             } else {
                 applyPatchNotesView(patchNotesPane, patchNotes)
                 activeLog = null
-                toolStatus.text = "Logs cleared."
+                status.text = "Logs cleared."
             }
         }
         showPatchNotesButton.addActionListener {
             activeLog = null
             applyPatchNotesView(patchNotesPane, patchNotes)
-            toolStatus.text = "Showing patch notes."
+            status.text = "Showing patch notes."
+        }
+
+        var activeMenu: String? = null
+        fun toggleMenuBox(menuName: String) {
+            if (menuBox.isVisible && activeMenu == menuName) {
+                menuBox.isVisible = false
+                activeMenu = null
+                status.text = "$menuName closed."
+            } else {
+                boxTitle.text = menuName
+                boxBody.removeAll()
+                if (menuName == "Update") {
+                    boxBody.add(updateContent, BorderLayout.CENTER)
+                    activeLog = null
+                    applyPatchNotesView(patchNotesPane, patchNotes)
+                }
+                boxBody.revalidate()
+                boxBody.repaint()
+                menuBox.isVisible = true
+                activeMenu = menuName
+                status.text = "$menuName opened."
+            }
+            menuBoxContainer.revalidate()
+            menuBoxContainer.repaint()
+        }
+
+        resumeGame.addActionListener { toggleMenuBox("Resume Game") }
+        newGame.addActionListener { toggleMenuBox("New Game") }
+        saveGame.addActionListener { toggleMenuBox("Save Game") }
+        loadGame.addActionListener { toggleMenuBox("Load Game") }
+        settings.addActionListener { toggleMenuBox("Settings") }
+        update.addActionListener { toggleMenuBox("Update") }
+        credits.addActionListener { toggleMenuBox("Credits") }
+        exit.addActionListener {
+            log("Exit selected from main menu.")
+            frame.dispose()
+            kotlin.system.exitProcess(0)
         }
 
         menuPanel.add(title)
@@ -248,41 +278,16 @@ object LauncherMain {
         menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(settings)
         menuPanel.add(Box.createVerticalStrut(4))
+        menuPanel.add(update)
+        menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(credits)
         menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(exit)
         menuPanel.add(Box.createVerticalStrut(10))
         menuPanel.add(status)
 
-        val rightPanel = JPanel(BorderLayout(0, 10)).apply {
-            isOpaque = false
-            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
-        }
-        val toolsHeader = JPanel(BorderLayout()).apply {
-            isOpaque = false
-            add(toolsTitle, BorderLayout.NORTH)
-            add(toolStatus, BorderLayout.SOUTH)
-        }
-        val launcherButtons = JPanel(GridLayout(3, 2, 8, 8)).apply {
-            isOpaque = false
-            add(checkUpdates)
-            add(showPatchNotesButton)
-            add(launcherLogButton)
-            add(gameLogButton)
-            add(updateLogButton)
-            add(clearLogsButton)
-        }
-        val toolsBottom = JPanel(BorderLayout(0, 8)).apply {
-            isOpaque = false
-            add(progress, BorderLayout.NORTH)
-            add(launcherButtons, BorderLayout.CENTER)
-        }
-        rightPanel.add(toolsHeader, BorderLayout.NORTH)
-        rightPanel.add(patchNotes, BorderLayout.CENTER)
-        rightPanel.add(toolsBottom, BorderLayout.SOUTH)
-
         contentPanel.add(menuPanel, BorderLayout.WEST)
-        contentPanel.add(rightPanel, BorderLayout.CENTER)
+        contentPanel.add(menuBoxContainer, BorderLayout.CENTER)
         rootPanel.add(contentPanel, BorderLayout.CENTER)
         frame.contentPane.add(rootPanel, BorderLayout.CENTER)
         loadIconImages()?.let { images ->
@@ -294,11 +299,6 @@ object LauncherMain {
         frame.pack()
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
-        applyPatchNotesView(patchNotesPane, patchNotes)
-        javax.swing.SwingUtilities.invokeLater {
-            patchNotesPane.caretPosition = 0
-            patchNotes.viewport.viewPosition = java.awt.Point(0, 0)
-        }
     }
 
     private fun loadUiImage(resourcePath: String): BufferedImage? {
@@ -386,6 +386,47 @@ object LauncherMain {
             } finally {
                 g2.dispose()
             }
+        }
+    }
+
+    private class MenuContentBoxPanel(private val brickTexture: BufferedImage?) : JPanel() {
+        init {
+            isOpaque = false
+        }
+
+        override fun paintComponent(graphics: Graphics) {
+            val g2 = graphics.create() as Graphics2D
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+                val arc = 28
+                val w = width - 1
+                val h = height - 1
+                if (brickTexture != null) {
+                    var y = 0
+                    while (y < height) {
+                        var x = 0
+                        while (x < width) {
+                            g2.drawImage(brickTexture, x, y, null)
+                            x += brickTexture.width
+                        }
+                        y += brickTexture.height
+                    }
+                } else {
+                    g2.color = Color(52, 39, 32)
+                    g2.fillRoundRect(0, 0, w, h, arc, arc)
+                }
+                g2.color = Color(20, 15, 12, 138)
+                g2.fillRoundRect(0, 0, w, h, arc, arc)
+                g2.color = Color(206, 170, 118, 228)
+                g2.stroke = java.awt.BasicStroke(3f)
+                g2.drawRoundRect(1, 1, w - 2, h - 2, arc, arc)
+                g2.color = Color(122, 93, 62, 210)
+                g2.stroke = java.awt.BasicStroke(1.5f)
+                g2.drawRoundRect(8, 8, w - 16, h - 16, arc - 8, arc - 8)
+            } finally {
+                g2.dispose()
+            }
+            super.paintComponent(graphics)
         }
     }
 
