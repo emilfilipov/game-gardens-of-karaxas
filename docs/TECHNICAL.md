@@ -85,6 +85,40 @@ Future modes include co-op and PvP, so prepare now:
   - Windows packaging artifact validity
 - CI should fail on broken module boundaries or packaging regressions.
 
+## Procedural Audio Plan (Deferred)
+Status:
+- Planned only. No procedural audio generation is implemented yet.
+
+Goal:
+- Add free, programmatic runtime audio for both music and sound effects.
+
+Primary option (recommended):
+- `libpd` (Pure Data embedded):
+  - Free/open source and suitable for real-time procedural/adaptive audio.
+  - Good fit for runtime-generated music layers and event-driven SFX.
+
+Secondary options:
+- `Csound`:
+  - Free/open source and powerful for synthesis/composition scripting.
+  - Heavier integration footprint than `libpd`.
+- `Magenta RealTime`:
+  - Useful for AI-assisted real-time generation/prototyping.
+  - Requires strict review of model/weights license terms before production use.
+
+License guardrails:
+- Prefer solutions with commercial-friendly licenses for shipped game builds.
+- Treat non-commercial model licenses as prototype-only.
+- Complete license validation before integrating any AI model weights in release artifacts.
+
+Planned procedural SFX targets:
+- Footsteps (surface-variant transient synthesis).
+- Quiet fireplace crackle (continuous noise bed + random crackle events).
+- Sword clash (metallic transient + short resonant tail).
+
+Integration boundary:
+- Keep audio generation inside runtime modules (`game/`/future audio module), not launcher/updater code.
+- Preserve portability targets (Windows first, Linux/Steam next, Android later).
+
 ## Documentation Rule
 This file is the single source of truth for technical information.
 
