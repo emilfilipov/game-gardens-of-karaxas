@@ -120,7 +120,7 @@ object LauncherMain {
         }
         val menuBox = MenuContentBoxPanel(launcherCanvasImage ?: rectangularButtonImage).apply {
             layout = BorderLayout()
-            border = BorderFactory.createEmptyBorder(20, 22, 18, 22)
+            border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
             preferredSize = Dimension(760, 460)
             minimumSize = Dimension(420, 320)
             isVisible = false
@@ -276,9 +276,17 @@ object LauncherMain {
 
             menuConstraints.insets = Insets(0, 0, 0, columnGap)
             val boxWidth = (availableW - menuWidth - columnGap).coerceAtLeast(320)
-            menuBox.preferredSize = Dimension(boxWidth, stackHeight)
+            val boxHeight = stackHeight
+            menuBox.preferredSize = Dimension(boxWidth, boxHeight)
 
-            val innerWidth = (boxWidth - 44).coerceAtLeast(280)
+            val insetLeft = (boxWidth * 0.115f).toInt().coerceIn(30, 150)
+            val insetRight = (boxWidth * 0.115f).toInt().coerceIn(30, 150)
+            val insetTop = (boxHeight * 0.17f).toInt().coerceIn(36, 130)
+            val insetBottom = (boxHeight * 0.13f).toInt().coerceIn(28, 110)
+            menuBox.border = BorderFactory.createEmptyBorder(insetTop, insetLeft, insetBottom, insetRight)
+
+            val innerWidth = (boxWidth - insetLeft - insetRight).coerceAtLeast(240)
+            val innerHeight = (boxHeight - insetTop - insetBottom).coerceAtLeast(180)
             val versionHeight = (buttonHeight * 0.8f).toInt().coerceIn(24, 46)
             buildVersionLabel.font = Font("Serif", Font.BOLD, (buttonHeight * 0.36f).toInt().coerceIn(14, 24))
             buildVersionLabel.preferredSize = Dimension(innerWidth, versionHeight)
@@ -295,7 +303,7 @@ object LauncherMain {
 
             val progressHeight = (toolButtonHeight * 0.4f).toInt().coerceIn(12, 20)
             progress.preferredSize = Dimension(innerWidth, progressHeight)
-            val patchHeight = (stackHeight - versionHeight - launcherButtons.preferredSize.height - progressHeight - 36).coerceAtLeast(120)
+            val patchHeight = (innerHeight - versionHeight - launcherButtons.preferredSize.height - progressHeight - 16).coerceAtLeast(100)
             patchNotes.preferredSize = Dimension(innerWidth, patchHeight)
 
             contentPanel.revalidate()
