@@ -10,6 +10,7 @@ import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
+import java.awt.GridLayout
 import java.awt.Insets
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
@@ -82,12 +83,17 @@ object LauncherMain {
         val rectangularButtonImage = loadUiImage("/ui/button_rec_no_flame.png")
 
         val rootPanel = BackgroundPanel(backgroundImage).apply {
-            layout = GridBagLayout()
+            layout = BorderLayout()
+            border = BorderFactory.createEmptyBorder(18, 18, 18, 18)
+        }
+        val contentPanel = JPanel(BorderLayout(18, 0)).apply {
+            isOpaque = false
         }
         val menuPanel = JPanel().apply {
             isOpaque = false
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = BorderFactory.createEmptyBorder(12, 24, 20, 24)
+            preferredSize = Dimension(420, 640)
         }
         val status = JLabel("Choose an action.", SwingConstants.CENTER).apply {
             alignmentX = Component.CENTER_ALIGNMENT
@@ -99,33 +105,74 @@ object LauncherMain {
             foreground = Color(244, 230, 197)
             font = Font("Serif", Font.BOLD, 54)
         }
+        val toolsTitle = JLabel("Launcher Tools", SwingConstants.LEFT).apply {
+            foreground = Color(244, 230, 197)
+            font = Font("Serif", Font.BOLD, 32)
+        }
+        val toolStatus = JLabel("Patch notes loaded.", SwingConstants.LEFT).apply {
+            foreground = Color(233, 223, 196)
+            font = Font("Serif", Font.PLAIN, 18)
+        }
+        val patchNotesPane = JEditorPane().apply {
+            contentType = "text/html"
+            isEditable = false
+            putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true)
+            background = Color(250, 248, 243)
+            foreground = Color(34, 34, 34)
+        }
+        val patchNotes = JScrollPane(patchNotesPane).apply {
+            border = BorderFactory.createTitledBorder("Patch Notes")
+            preferredSize = Dimension(720, 360)
+        }
+        val progress = JProgressBar().apply {
+            isIndeterminate = false
+            isVisible = false
+            string = ""
+            isStringPainted = true
+            preferredSize = Dimension(720, 20)
+        }
 
-        val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54))
-        val newGame = buildMenuButton("New Game", rectangularButtonImage, Dimension(360, 54))
-        val saveGame = buildMenuButton("Save Game", rectangularButtonImage, Dimension(360, 54))
-        val loadGame = buildMenuButton("Load Game", rectangularButtonImage, Dimension(360, 54))
-        val settings = buildMenuButton("Settings", rectangularButtonImage, Dimension(360, 54))
-        val credits = buildMenuButton("Credits", rectangularButtonImage, Dimension(360, 54))
-        val exit = buildMenuButton("Exit", rectangularButtonImage, Dimension(360, 54))
+        val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54), 24f)
+        val newGame = buildMenuButton("New Game", rectangularButtonImage, Dimension(360, 54), 24f)
+        val saveGame = buildMenuButton("Save Game", rectangularButtonImage, Dimension(360, 54), 24f)
+        val loadGame = buildMenuButton("Load Game", rectangularButtonImage, Dimension(360, 54), 24f)
+        val settings = buildMenuButton("Settings", rectangularButtonImage, Dimension(360, 54), 24f)
+        val credits = buildMenuButton("Credits", rectangularButtonImage, Dimension(360, 54), 24f)
+        val exit = buildMenuButton("Exit", rectangularButtonImage, Dimension(360, 54), 24f)
+
+        var activeLog: Path? = null
+        val checkUpdates = buildMenuButton("Check Updates", rectangularButtonImage, Dimension(220, 46), 16f)
+        val launcherLogButton = buildMenuButton("Launcher Log", rectangularButtonImage, Dimension(220, 46), 16f)
+        val gameLogButton = buildMenuButton("Game Log", rectangularButtonImage, Dimension(220, 46), 16f)
+        val updateLogButton = buildMenuButton("Update Log", rectangularButtonImage, Dimension(220, 46), 16f)
+        val clearLogsButton = buildMenuButton("Clear Logs", rectangularButtonImage, Dimension(220, 46), 16f)
+        val showPatchNotesButton = buildMenuButton("Patch Notes", rectangularButtonImage, Dimension(220, 46), 16f)
 
         resumeGame.addActionListener {
             status.text = "Resume selected. Launching game..."
+            toolStatus.text = "Launching game..."
             launchGame(status)
+            toolStatus.text = status.text
         }
         newGame.addActionListener {
             status.text = "New Game selected. Launching game..."
+            toolStatus.text = "Launching game..."
             launchGame(status)
+            toolStatus.text = status.text
         }
         saveGame.addActionListener {
             status.text = "Save Game selected. Save support will be wired with runtime saves."
+            toolStatus.text = status.text
             log("Save Game selected from main menu.")
         }
         loadGame.addActionListener {
             status.text = "Load Game selected. Load support will be wired with runtime saves."
+            toolStatus.text = status.text
             log("Load Game selected from main menu.")
         }
         settings.addActionListener {
             status.text = "Settings opened."
+            toolStatus.text = status.text
             JOptionPane.showMessageDialog(
                 frame,
                 "Settings menu will be integrated with runtime configuration.",
@@ -135,6 +182,7 @@ object LauncherMain {
         }
         credits.addActionListener {
             status.text = "Credits opened."
+            toolStatus.text = status.text
             JOptionPane.showMessageDialog(
                 frame,
                 "Gardens of Karaxas\nCreated by Emil Filipov and contributors.",
@@ -146,6 +194,46 @@ object LauncherMain {
             log("Exit selected from main menu.")
             frame.dispose()
             kotlin.system.exitProcess(0)
+        }
+        val controls = listOf(
+            checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton,
+            resumeGame, newGame
+        )
+        checkUpdates.addActionListener {
+            status.text = "Checking for updates..."
+            toolStatus.text = status.text
+            runUpdate(toolStatus, patchNotesPane, patchNotes, progress, controls)
+        }
+        launcherLogButton.addActionListener {
+            val target = logsRoot().resolve("launcher.log")
+            activeLog = toggleLogView(activeLog, target, "Launcher Log", patchNotesPane, patchNotes, toolStatus)
+        }
+        gameLogButton.addActionListener {
+            val target = logsRoot().resolve("game.log")
+            activeLog = toggleLogView(activeLog, target, "Game Log", patchNotesPane, patchNotes, toolStatus)
+        }
+        updateLogButton.addActionListener {
+            val target = resolveUpdateLogPath(installRoot())
+            activeLog = toggleLogView(activeLog, target, "Update Log", patchNotesPane, patchNotes, toolStatus)
+        }
+        clearLogsButton.addActionListener {
+            clearLogs()
+            val currentLog = activeLog
+            if (currentLog != null && Files.exists(currentLog)) {
+                patchNotesPane.text = renderLogHtml(currentLog)
+                patchNotes.border = BorderFactory.createTitledBorder("Patch Notes - Log: ${currentLog.fileName}")
+                scrollToTop(patchNotesPane, patchNotes)
+                toolStatus.text = "Logs cleared."
+            } else {
+                applyPatchNotesView(patchNotesPane, patchNotes)
+                activeLog = null
+                toolStatus.text = "Logs cleared."
+            }
+        }
+        showPatchNotesButton.addActionListener {
+            activeLog = null
+            applyPatchNotesView(patchNotesPane, patchNotes)
+            toolStatus.text = "Showing patch notes."
         }
 
         menuPanel.add(title)
@@ -166,13 +254,36 @@ object LauncherMain {
         menuPanel.add(Box.createVerticalStrut(10))
         menuPanel.add(status)
 
-        val constraints = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 0
-            anchor = GridBagConstraints.CENTER
-            insets = Insets(10, 10, 10, 10)
+        val rightPanel = JPanel(BorderLayout(0, 10)).apply {
+            isOpaque = false
+            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
         }
-        rootPanel.add(menuPanel, constraints)
+        val toolsHeader = JPanel(BorderLayout()).apply {
+            isOpaque = false
+            add(toolsTitle, BorderLayout.NORTH)
+            add(toolStatus, BorderLayout.SOUTH)
+        }
+        val launcherButtons = JPanel(GridLayout(3, 2, 8, 8)).apply {
+            isOpaque = false
+            add(checkUpdates)
+            add(showPatchNotesButton)
+            add(launcherLogButton)
+            add(gameLogButton)
+            add(updateLogButton)
+            add(clearLogsButton)
+        }
+        val toolsBottom = JPanel(BorderLayout(0, 8)).apply {
+            isOpaque = false
+            add(progress, BorderLayout.NORTH)
+            add(launcherButtons, BorderLayout.CENTER)
+        }
+        rightPanel.add(toolsHeader, BorderLayout.NORTH)
+        rightPanel.add(patchNotes, BorderLayout.CENTER)
+        rightPanel.add(toolsBottom, BorderLayout.SOUTH)
+
+        contentPanel.add(menuPanel, BorderLayout.WEST)
+        contentPanel.add(rightPanel, BorderLayout.CENTER)
+        rootPanel.add(contentPanel, BorderLayout.CENTER)
         frame.contentPane.add(rootPanel, BorderLayout.CENTER)
         loadIconImages()?.let { images ->
             frame.iconImages = images
@@ -183,6 +294,11 @@ object LauncherMain {
         frame.pack()
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
+        applyPatchNotesView(patchNotesPane, patchNotes)
+        javax.swing.SwingUtilities.invokeLater {
+            patchNotesPane.caretPosition = 0
+            patchNotes.viewport.viewPosition = java.awt.Point(0, 0)
+        }
     }
 
     private fun loadUiImage(resourcePath: String): BufferedImage? {
@@ -196,7 +312,7 @@ object LauncherMain {
         }
     }
 
-    private fun buildMenuButton(text: String, background: BufferedImage?, size: Dimension): JButton {
+    private fun buildMenuButton(text: String, background: BufferedImage?, size: Dimension, fontSize: Float = 25f): JButton {
         val button = JButton(text).apply {
             alignmentX = Component.CENTER_ALIGNMENT
             preferredSize = size
@@ -205,7 +321,7 @@ object LauncherMain {
             horizontalTextPosition = SwingConstants.CENTER
             verticalTextPosition = SwingConstants.CENTER
             foreground = Color(247, 236, 209)
-            font = Font("Serif", Font.BOLD, 25)
+            font = Font("Serif", Font.BOLD, fontSize.toInt())
             isFocusPainted = false
             margin = Insets(0, 0, 0, 0)
         }
