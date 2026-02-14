@@ -113,22 +113,17 @@ object LauncherMain {
         val credits = buildMenuButton("Credits", rectangularButtonImage, Dimension(360, 54), 24f)
         val exit = buildMenuButton("Exit", rectangularButtonImage, Dimension(360, 54), 24f)
 
-        val boxTitle = JLabel("", SwingConstants.LEFT).apply {
-            foreground = Color(246, 233, 201)
-            font = Font("Serif", Font.BOLD, 28)
-        }
         val boxBody = JPanel().apply {
             isOpaque = false
             layout = BorderLayout()
             preferredSize = Dimension(690, 440)
         }
         val menuBox = MenuContentBoxPanel(launcherCanvasImage ?: rectangularButtonImage).apply {
-            layout = BorderLayout(0, 14)
+            layout = BorderLayout()
             border = BorderFactory.createEmptyBorder(20, 22, 18, 22)
             preferredSize = Dimension(760, 460)
             minimumSize = Dimension(420, 320)
             isVisible = false
-            add(boxTitle, BorderLayout.NORTH)
             add(boxBody, BorderLayout.CENTER)
         }
         val menuBoxContainer = JPanel(BorderLayout()).apply {
@@ -199,8 +194,14 @@ object LauncherMain {
             add(updateLogButton)
             add(clearLogsButton)
         }
-        val updateContent = JPanel(BorderLayout(0, 10)).apply {
+        val buildVersionLabel = JLabel("", SwingConstants.LEFT).apply {
+            foreground = Color(246, 233, 201)
+            font = Font("Serif", Font.BOLD, 18)
+            border = BorderFactory.createEmptyBorder(0, 0, 6, 0)
+        }
+        val updateContent = JPanel(BorderLayout(0, 8)).apply {
             isOpaque = false
+            add(buildVersionLabel, BorderLayout.NORTH)
             add(patchNotes, BorderLayout.CENTER)
             add(JPanel(BorderLayout(0, 8)).apply {
                 isOpaque = false
@@ -278,8 +279,9 @@ object LauncherMain {
             menuBox.preferredSize = Dimension(boxWidth, stackHeight)
 
             val innerWidth = (boxWidth - 44).coerceAtLeast(280)
-            val titleHeight = (buttonHeight * 0.95f).toInt().coerceIn(28, 52)
-            boxTitle.font = Font("Serif", Font.BOLD, (buttonHeight * 0.46f).toInt().coerceIn(16, 30))
+            val versionHeight = (buttonHeight * 0.8f).toInt().coerceIn(24, 46)
+            buildVersionLabel.font = Font("Serif", Font.BOLD, (buttonHeight * 0.36f).toInt().coerceIn(14, 24))
+            buildVersionLabel.preferredSize = Dimension(innerWidth, versionHeight)
 
             val toolButtonHeight = (buttonHeight * 0.76f).toInt().coerceIn(30, 48)
             val toolGap = (toolButtonHeight * 0.18f).toInt().coerceIn(6, 10)
@@ -293,7 +295,7 @@ object LauncherMain {
 
             val progressHeight = (toolButtonHeight * 0.4f).toInt().coerceIn(12, 20)
             progress.preferredSize = Dimension(innerWidth, progressHeight)
-            val patchHeight = (stackHeight - titleHeight - launcherButtons.preferredSize.height - progressHeight - 40).coerceAtLeast(140)
+            val patchHeight = (stackHeight - versionHeight - launcherButtons.preferredSize.height - progressHeight - 36).coerceAtLeast(120)
             patchNotes.preferredSize = Dimension(innerWidth, patchHeight)
 
             contentPanel.revalidate()
@@ -315,13 +317,11 @@ object LauncherMain {
             } else {
                 boxBody.removeAll()
                 if (menuName == "Update") {
-                    boxTitle.text = formatVersionInfoLabel()
+                    buildVersionLabel.text = formatVersionInfoLabel()
                     boxBody.add(updateContent, BorderLayout.CENTER)
                     activeLog = null
                     applyPatchNotesView(patchNotesPane, patchNotes)
                     updateStatus.text = "Ready."
-                } else {
-                    boxTitle.text = menuName
                 }
                 boxBody.revalidate()
                 boxBody.repaint()

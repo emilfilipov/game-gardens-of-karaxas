@@ -68,6 +68,7 @@ Current status note:
 - The `Update` menu box now uses `launcher_canvas.png` framing and transparent patch-notes rendering over themed textures.
 - Launcher UI layout is responsive: main menu/button stack and menu-box dimensions are recomputed proportionally on window resize.
 - Canvas box rendering aligns to the image's opaque bounds (ignoring transparent padding) for visual border alignment.
+- Menu-box title strips are removed; update metadata (`Build Version: vX.Y.Z (YYYY-MM-DD)`) is rendered inside the Update box with responsive sizing.
 - Update checks currently download updates in-app, trigger apply automatically, and restart the launcher with game auto-launch (`--autoplay`).
 - Packaging icon assets are stored under `assets/icons/` and consumed by `scripts/pack.ps1`.
 - The setup wrapper executable icon is sourced from `assets/icons/game_icon.ico` (multi-size ICO entries for better shell/browser compatibility).
