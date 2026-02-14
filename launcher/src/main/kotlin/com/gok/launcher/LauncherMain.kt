@@ -8,8 +8,6 @@ import java.awt.EventQueue
 import java.awt.Font
 import java.awt.Graphics
 import java.awt.Graphics2D
-import java.awt.GridBagConstraints
-import java.awt.GridBagLayout
 import java.awt.GridLayout
 import java.awt.Insets
 import java.awt.RenderingHints
@@ -84,7 +82,6 @@ object LauncherMain {
         val backgroundImage = loadUiImage("/ui/main_menu_background.png")
         val rectangularButtonImage = loadUiImage("/ui/button_rec_no_flame.png")
         val launcherCanvasImage = loadUiImage("/ui/launcher_canvas.png")
-        val brickTextureImage = loadUiImage("/ui/brick_material_ui.png")
 
         val rootPanel = BackgroundPanel(backgroundImage).apply {
             layout = BorderLayout()
@@ -95,14 +92,14 @@ object LauncherMain {
             font = Font("Serif", Font.BOLD, 56)
             border = BorderFactory.createEmptyBorder(8, 0, 6, 0)
         }
-        val contentPanel = JPanel(BorderLayout(14, 0)).apply {
+        val contentPanel = JPanel(BorderLayout(8, 0)).apply {
             isOpaque = false
         }
         val menuPanel = JPanel().apply {
             isOpaque = false
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = BorderFactory.createEmptyBorder(10, 8, 12, 8)
-            preferredSize = Dimension(402, 620)
+            border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
+            preferredSize = Dimension(360, 460)
         }
         val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54), 24f)
         val newGame = buildMenuButton("New Game", rectangularButtonImage, Dimension(360, 54), 24f)
@@ -122,26 +119,20 @@ object LauncherMain {
             layout = BorderLayout()
             preferredSize = Dimension(690, 440)
         }
-        val menuBox = MenuContentBoxPanel(launcherCanvasImage ?: rectangularButtonImage, brickTextureImage).apply {
+        val menuBox = MenuContentBoxPanel(launcherCanvasImage ?: rectangularButtonImage).apply {
             layout = BorderLayout(0, 14)
-            border = BorderFactory.createEmptyBorder(22, 24, 20, 24)
-            preferredSize = Dimension(780, 580)
-            minimumSize = Dimension(660, 460)
+            border = BorderFactory.createEmptyBorder(20, 22, 18, 22)
+            preferredSize = Dimension(760, 460)
+            minimumSize = Dimension(620, 460)
+            maximumSize = Dimension(Int.MAX_VALUE, 460)
             isVisible = false
             add(boxTitle, BorderLayout.NORTH)
             add(boxBody, BorderLayout.CENTER)
         }
-        val menuBoxContainer = JPanel(GridBagLayout()).apply {
+        val menuBoxContainer = JPanel(BorderLayout()).apply {
             isOpaque = false
         }
-        val menuBoxConstraints = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 0
-            anchor = GridBagConstraints.NORTHWEST
-            fill = GridBagConstraints.NONE
-            insets = Insets(0, 0, 0, 0)
-        }
-        menuBoxContainer.add(menuBox, menuBoxConstraints)
+        menuBoxContainer.add(menuBox, BorderLayout.NORTH)
 
         val patchNotesPane = JEditorPane().apply {
             contentType = "text/html"
@@ -150,20 +141,19 @@ object LauncherMain {
             isOpaque = false
             background = Color(0, 0, 0, 0)
             foreground = Color(245, 232, 206)
-            font = Font("Serif", Font.PLAIN, 17)
+            font = Font("Serif", Font.PLAIN, 13)
+            border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         }
         val patchNotes = JScrollPane(patchNotesPane).apply {
-            border = BorderFactory.createLineBorder(Color(196, 156, 108, 220), 2)
+            border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
+            viewportBorder = BorderFactory.createEmptyBorder(0, 0, 0, 0)
             preferredSize = Dimension(680, 410)
             isOpaque = false
             viewport.isOpaque = false
             background = Color(0, 0, 0, 0)
             viewport.background = Color(0, 0, 0, 0)
         }
-        val updateStatus = JLabel("Ready.", SwingConstants.LEFT).apply {
-            foreground = Color(242, 230, 203)
-            font = Font("Serif", Font.PLAIN, 16)
-        }
+        val updateStatus = JLabel("")
         val progress = JProgressBar().apply {
             isIndeterminate = false
             isVisible = false
@@ -195,7 +185,6 @@ object LauncherMain {
                 isOpaque = false
                 add(progress, BorderLayout.NORTH)
                 add(launcherButtons, BorderLayout.CENTER)
-                add(updateStatus, BorderLayout.SOUTH)
             }, BorderLayout.SOUTH)
         }
         var activeLog: Path? = null
@@ -221,7 +210,6 @@ object LauncherMain {
             val currentLog = activeLog
             if (currentLog != null && Files.exists(currentLog)) {
                 patchNotesPane.text = renderLogHtml(currentLog)
-                patchNotes.border = BorderFactory.createTitledBorder("Patch Notes - Log: ${currentLog.fileName}")
                 scrollToTop(patchNotesPane, patchNotes)
                 updateStatus.text = "Logs cleared."
             } else {
@@ -240,9 +228,9 @@ object LauncherMain {
         fun formatVersionInfoLabel(): String {
             val source = loadPatchNotesSource()
             val meta = loadPatchNotesMeta(source.path, source.markdown)
-            val versionText = meta.version?.let { "v$it" } ?: "unknown"
+            val versionText = meta.version?.let { "v$it" } ?: "vunknown"
             val dateText = meta.date ?: "unknown"
-            return "<html>Current Version: $versionText<br/>Created: $dateText</html>"
+            return "Build Version: $versionText ($dateText)"
         }
         fun toggleMenuBox(menuName: String) {
             if (menuBox.isVisible && activeMenu == menuName) {
@@ -281,7 +269,6 @@ object LauncherMain {
             kotlin.system.exitProcess(0)
         }
 
-        menuPanel.add(Box.createVerticalStrut(16))
         menuPanel.add(resumeGame)
         menuPanel.add(Box.createVerticalStrut(4))
         menuPanel.add(newGame)
@@ -435,10 +422,7 @@ object LauncherMain {
         }
     }
 
-    private class MenuContentBoxPanel(
-        private val frameTexture: BufferedImage?,
-        private val brickTexture: BufferedImage?
-    ) : JPanel() {
+    private class MenuContentBoxPanel(private val frameTexture: BufferedImage?) : JPanel() {
         init {
             isOpaque = false
         }
@@ -447,44 +431,12 @@ object LauncherMain {
             val g2 = graphics.create() as Graphics2D
             try {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-                val w = width - 1
-                val h = height - 1
                 if (frameTexture != null) {
                     g2.drawImage(frameTexture, 0, 0, width, height, null)
                 } else {
-                    g2.color = Color(58, 42, 34)
+                    g2.color = Color(52, 39, 32)
                     g2.fillRect(0, 0, width, height)
                 }
-
-                val innerX = 14
-                val innerY = 14
-                val innerW = width - (innerX * 2)
-                val innerH = height - (innerY * 2)
-                if (brickTexture != null) {
-                    val previousClip = g2.clip
-                    g2.clipRect(innerX, innerY, innerW, innerH)
-                    var y = innerY
-                    while (y < innerY + innerH) {
-                        var x = innerX
-                        while (x < innerX + innerW) {
-                            g2.drawImage(brickTexture, x, y, null)
-                            x += brickTexture.width
-                        }
-                        y += brickTexture.height
-                    }
-                    g2.clip = previousClip
-                } else {
-                    g2.color = Color(52, 39, 32)
-                    g2.fillRect(innerX, innerY, innerW, innerH)
-                }
-                g2.color = Color(20, 15, 12, 138)
-                g2.fillRect(innerX, innerY, innerW, innerH)
-                g2.color = Color(206, 170, 118, 228)
-                g2.stroke = java.awt.BasicStroke(3f)
-                g2.drawRect(1, 1, w - 2, h - 2)
-                g2.color = Color(122, 93, 62, 210)
-                g2.stroke = java.awt.BasicStroke(1.5f)
-                g2.drawRect(innerX, innerY, innerW, innerH)
             } finally {
                 g2.dispose()
             }
@@ -623,7 +575,7 @@ object LauncherMain {
     ) {
         val view = buildPatchNotesView()
         pane.text = view.html
-        scrollPane.border = BorderFactory.createTitledBorder(view.title)
+        scrollPane.border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         scrollToTop(pane, scrollPane)
     }
 
@@ -651,7 +603,7 @@ object LauncherMain {
             return activeLog
         }
         pane.text = renderLogHtml(requestedLog)
-        scrollPane.border = BorderFactory.createTitledBorder("Patch Notes - Log: $label")
+        scrollPane.border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         scrollToTop(pane, scrollPane)
         status.text = "Showing $label."
         return requestedLog
@@ -670,9 +622,9 @@ object LauncherMain {
             ""
         }
         return "<html><head><style>" +
-            "body{font-family:Serif;font-size:14px;color:#f3e8cc;background:transparent;margin:0;padding:8px;}" +
-            "h2{font-family:Serif;font-size:18px;margin:0 0 6px 0;}" +
-            "p{font-family:Serif;margin:0 0 8px 0;}" +
+            "body{font-family:Serif;font-size:12px;color:#f3e8cc;background:transparent;margin:0;padding:4px;}" +
+            "h2{font-family:Serif;font-size:14px;margin:0 0 4px 0;}" +
+            "p{font-family:Serif;margin:0 0 6px 0;}" +
             "pre{margin:0;white-space:pre-wrap;word-wrap:break-word;}" +
             "</style></head><body>" +
             "<h2>${escapeHtml(path.fileName.toString())}</h2>" +
@@ -888,11 +840,11 @@ object LauncherMain {
         val sb = StringBuilder()
         sb.append(
             "<html><head><style>" +
-                "body{font-family:Serif;font-size:16px;color:#f3e8cc;background:transparent;margin:0;padding:8px;}" +
-                "h1{font-size:24px;font-weight:700;margin:0 0 8px 0;}" +
-                "h2{font-size:20px;font-weight:600;margin:12px 0 6px 0;}" +
-                "h3{font-size:18px;font-weight:600;margin:10px 0 6px 0;}" +
-                "p{margin:0 0 8px 0;}" +
+                "body{font-family:Serif;font-size:13px;color:#f3e8cc;background:transparent;margin:0;padding:4px;}" +
+                "h1{font-size:18px;font-weight:700;margin:0 0 6px 0;}" +
+                "h2{font-size:16px;font-weight:600;margin:10px 0 4px 0;}" +
+                "h3{font-size:14px;font-weight:600;margin:8px 0 4px 0;}" +
+                "p{margin:0 0 6px 0;}" +
                 "ul{margin:0 0 6px 18px;padding:0;}" +
                 "li{margin:0 0 4px 0;}" +
                 "code{background:rgba(0,0,0,0.35);padding:1px 3px;border-radius:3px;font-family:Serif;}" +

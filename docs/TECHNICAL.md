@@ -65,6 +65,7 @@ Current status note:
 - CI release flow now supports launcher-only packaging when runtime modules are absent, and switches to full launcher+runtime packaging once `desktop/build.gradle.kts` exists.
 - The CI release workflow runs launcher-only checks in scaffold mode and switches to full Velopack packaging once `desktop/build.gradle.kts` exists.
 - The launcher currently renders a stylized left-aligned main-menu prototype UI using Swing and image resources in `launcher/src/main/resources/ui/`; launcher tools are surfaced inside the `Update` menu box (update check, patch notes view, and log panels).
+- The `Update` menu box now uses `launcher_canvas.png` framing and transparent patch-notes rendering over themed textures.
 - Update checks currently download updates in-app, trigger apply automatically, and restart the launcher with game auto-launch (`--autoplay`).
 - Packaging icon assets are stored under `assets/icons/` and consumed by `scripts/pack.ps1`.
 - The setup wrapper executable icon is sourced from `assets/icons/game_icon.ico` (multi-size ICO entries for better shell/browser compatibility).
