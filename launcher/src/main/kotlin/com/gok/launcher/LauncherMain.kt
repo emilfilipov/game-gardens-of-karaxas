@@ -1,6 +1,7 @@
 package com.gok.launcher
 
 import java.awt.BorderLayout
+import java.awt.CardLayout
 import java.awt.Color
 import java.awt.Component
 import java.awt.Dimension
@@ -17,6 +18,8 @@ import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -27,14 +30,20 @@ import javax.imageio.ImageIO
 import javax.swing.BorderFactory
 import javax.swing.ImageIcon
 import javax.swing.JButton
+import javax.swing.JList
+import javax.swing.JOptionPane
+import javax.swing.JPasswordField
 import javax.swing.JEditorPane
 import javax.swing.JFrame
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JProgressBar
 import javax.swing.JScrollPane
+import javax.swing.JTextArea
+import javax.swing.JTextField
 import javax.swing.SwingConstants
 import javax.swing.UIManager
+import javax.swing.DefaultListModel
 import javax.swing.plaf.basic.BasicProgressBarUI
 
 object LauncherMain {
@@ -104,13 +113,13 @@ object LauncherMain {
             layout = menuLayout
             preferredSize = Dimension(340, 460)
         }
-        val resumeGame = buildMenuButton("Resume Game", rectangularButtonImage, Dimension(360, 54), 24f)
-        val newGame = buildMenuButton("New Game", rectangularButtonImage, Dimension(360, 54), 24f)
-        val saveGame = buildMenuButton("Save Game", rectangularButtonImage, Dimension(360, 54), 24f)
-        val loadGame = buildMenuButton("Load Game", rectangularButtonImage, Dimension(360, 54), 24f)
-        val settings = buildMenuButton("Settings", rectangularButtonImage, Dimension(360, 54), 24f)
-        val update = buildMenuButton("Update", rectangularButtonImage, Dimension(360, 54), 24f)
-        val credits = buildMenuButton("Credits", rectangularButtonImage, Dimension(360, 54), 24f)
+        val loginMenu = buildMenuButton("Login", rectangularButtonImage, Dimension(360, 54), 24f)
+        val registerMenu = buildMenuButton("Register", rectangularButtonImage, Dimension(360, 54), 24f)
+        val lobbyMenu = buildMenuButton("Account Lobby", rectangularButtonImage, Dimension(360, 54), 22f)
+        val createCharacterMenu = buildMenuButton("Create Character", rectangularButtonImage, Dimension(360, 54), 21f)
+        val selectCharacterMenu = buildMenuButton("Select Character", rectangularButtonImage, Dimension(360, 54), 21f)
+        val updateMenu = buildMenuButton("Update", rectangularButtonImage, Dimension(360, 54), 24f)
+        val playMenu = buildMenuButton("Play", rectangularButtonImage, Dimension(360, 54), 24f)
         val exit = buildMenuButton("Exit", rectangularButtonImage, Dimension(360, 54), 24f)
 
         val boxBody = JPanel().apply {
@@ -123,7 +132,7 @@ object LauncherMain {
             border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
             preferredSize = Dimension(760, 460)
             minimumSize = Dimension(420, 320)
-            isVisible = false
+            isVisible = true
             add(boxBody, BorderLayout.CENTER)
         }
         val menuBoxContainer = JPanel(BorderLayout()).apply {
@@ -149,6 +158,16 @@ object LauncherMain {
         }
         contentPanel.add(menuPanel, menuConstraints)
         contentPanel.add(menuBoxContainer, boxConstraints)
+
+        val backendClient = KaraxasBackendClient.fromEnvironment()
+        var authSession: AuthSession? = null
+        var activeChannel: ChannelView? = null
+
+        fun defaultClientVersion(): String {
+            val source = loadPatchNotesSource()
+            val meta = loadPatchNotesMeta(source.path, source.markdown)
+            return meta.version ?: "0.0.0"
+        }
 
         val patchNotesPane = JEditorPane().apply {
             contentType = "text/html"
@@ -199,7 +218,8 @@ object LauncherMain {
             font = Font("Serif", Font.BOLD, 18)
             border = BorderFactory.createEmptyBorder(0, 0, 6, 0)
         }
-        val updateContent = JPanel(BorderLayout(0, 8)).apply {
+        val updateContent = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(0, 8)
             isOpaque = false
             add(buildVersionLabel, BorderLayout.NORTH)
             add(patchNotes, BorderLayout.CENTER)
@@ -209,6 +229,310 @@ object LauncherMain {
                 add(launcherButtons, BorderLayout.CENTER)
             }, BorderLayout.SOUTH)
         }
+
+        val cardsLayout = CardLayout()
+        val menuCards = JPanel(cardsLayout).apply {
+            isOpaque = false
+        }
+
+        val loginEmail = UiScaffold.textField()
+        val loginPassword = JPasswordField(24).apply {
+            preferredSize = UiScaffold.fieldSize
+            minimumSize = UiScaffold.fieldSize
+            maximumSize = UiScaffold.fieldSize
+            font = UiScaffold.bodyFont
+        }
+        val loginVersion = UiScaffold.textField().apply { text = defaultClientVersion() }
+        val loginStatus = JLabel("Ready.")
+        val loginSubmit = buildMenuButton("Login", rectangularButtonImage, Dimension(206, 42), 14f)
+
+        val registerEmail = UiScaffold.textField()
+        val registerName = UiScaffold.textField()
+        val registerPassword = JPasswordField(24).apply {
+            preferredSize = UiScaffold.fieldSize
+            minimumSize = UiScaffold.fieldSize
+            maximumSize = UiScaffold.fieldSize
+            font = UiScaffold.bodyFont
+        }
+        val registerStatus = JLabel("Ready.")
+        val registerSubmit = buildMenuButton("Create Account", rectangularButtonImage, Dimension(220, 42), 14f)
+
+        val userStatus = JLabel("Not authenticated.")
+        val channelModel = DefaultListModel<ChannelView>()
+        val channelList = JList(channelModel)
+        val characterModel = DefaultListModel<CharacterView>()
+        val characterList = JList(characterModel)
+        val chatArea = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            font = Font("Monospaced", Font.PLAIN, 12)
+        }
+        val lobbyStatus = JLabel("Lobby ready.")
+        val friendsArea = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            font = UiScaffold.bodyFont
+        }
+        val guildArea = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            font = UiScaffold.bodyFont
+        }
+        val messageInput = UiScaffold.textField(26)
+        val sendMessageButton = buildMenuButton("Send", rectangularButtonImage, Dimension(120, 38), 13f)
+        val refreshLobbyButton = buildMenuButton("Refresh Lobby", rectangularButtonImage, Dimension(160, 38), 13f)
+        val refreshChatButton = buildMenuButton("Refresh Chat", rectangularButtonImage, Dimension(160, 38), 13f)
+        val openUpdateFromLobby = buildMenuButton("Updater", rectangularButtonImage, Dimension(140, 38), 13f)
+        val logoutButton = buildMenuButton("Logout", rectangularButtonImage, Dimension(140, 38), 13f)
+
+        val createName = UiScaffold.textField()
+        val createPoints = UiScaffold.textField().apply { text = "20" }
+        val statStrength = UiScaffold.textField().apply { text = "0" }
+        val statAgility = UiScaffold.textField().apply { text = "0" }
+        val statIntellect = UiScaffold.textField().apply { text = "0" }
+        val skillAlchemy = UiScaffold.textField().apply { text = "0" }
+        val skillSword = UiScaffold.textField().apply { text = "0" }
+        val createStatus = JLabel("Allocate points to scaffold your first build.")
+        val createSubmit = buildMenuButton("Create Character", rectangularButtonImage, Dimension(220, 42), 14f)
+        val createRefresh = buildMenuButton("Refresh List", rectangularButtonImage, Dimension(180, 42), 14f)
+
+        val selectStatus = JLabel("Choose an active character.")
+        val selectRefresh = buildMenuButton("Refresh Characters", rectangularButtonImage, Dimension(220, 42), 14f)
+        val selectSubmit = buildMenuButton("Set Active", rectangularButtonImage, Dimension(180, 42), 14f)
+
+        val playStatus = JLabel("Launches the local game runtime.")
+        val playButton = buildMenuButton("Launch Game", rectangularButtonImage, Dimension(220, 42), 14f)
+
+        fun parsePoints(text: String): Int = text.trim().toIntOrNull()?.coerceAtLeast(0) ?: 0
+
+        fun withSession(onMissing: () -> Unit = {}, block: (AuthSession) -> Unit) {
+            val session = authSession
+            if (session == null) {
+                onMissing()
+                return
+            }
+            block(session)
+        }
+
+        fun runTask(
+            statusLabel: JLabel,
+            startText: String,
+            successText: String,
+            onFailure: (String) -> Unit = { statusLabel.text = it },
+            work: () -> Unit,
+        ) {
+            statusLabel.text = startText
+            Thread {
+                try {
+                    work()
+                    javax.swing.SwingUtilities.invokeLater { statusLabel.text = successText }
+                } catch (ex: Exception) {
+                    javax.swing.SwingUtilities.invokeLater {
+                        onFailure(ex.message ?: "Operation failed")
+                    }
+                }
+            }.start()
+        }
+
+        fun refreshCharacters(statusLabel: JLabel) {
+            withSession(onMissing = { statusLabel.text = "Please login first." }) { session ->
+                runTask(statusLabel, "Loading characters...", "Characters loaded.") {
+                    val characters = backendClient.listCharacters(session.accessToken, loginVersion.text.trim())
+                    javax.swing.SwingUtilities.invokeLater {
+                        characterModel.clear()
+                        characters.forEach { characterModel.addElement(it) }
+                    }
+                }
+            }
+        }
+
+        fun refreshChannels(statusLabel: JLabel) {
+            withSession(onMissing = { statusLabel.text = "Please login first." }) { session ->
+                runTask(statusLabel, "Loading channels...", "Channels loaded.") {
+                    val channels = backendClient.listChannels(session.accessToken, loginVersion.text.trim())
+                    javax.swing.SwingUtilities.invokeLater {
+                        channelModel.clear()
+                        channels.forEach { channelModel.addElement(it) }
+                        if (channels.isNotEmpty()) {
+                            channelList.selectedIndex = 0
+                            activeChannel = channels.first()
+                        }
+                    }
+                }
+            }
+        }
+
+        fun refreshLobby() {
+            withSession(onMissing = { lobbyStatus.text = "Please login first." }) { session ->
+                runTask(lobbyStatus, "Refreshing lobby...", "Lobby refreshed.") {
+                    val overview = backendClient.lobbyOverview(session.accessToken, loginVersion.text.trim())
+                    val channels = backendClient.listChannels(session.accessToken, loginVersion.text.trim())
+                    val characters = backendClient.listCharacters(session.accessToken, loginVersion.text.trim())
+                    javax.swing.SwingUtilities.invokeLater {
+                        userStatus.text = "Logged in as ${session.displayName} (${session.email})"
+                        friendsArea.text = if (overview.friends.isEmpty()) "No friends yet." else overview.friends.joinToString("\n")
+                        guildArea.text = if (overview.guilds.isEmpty()) "No guild membership yet." else overview.guilds.joinToString("\n")
+                        channelModel.clear()
+                        channels.forEach { channelModel.addElement(it) }
+                        if (channels.isNotEmpty()) {
+                            channelList.selectedIndex = 0
+                            activeChannel = channels.first()
+                        }
+                        characterModel.clear()
+                        characters.forEach { characterModel.addElement(it) }
+                    }
+                }
+            }
+        }
+
+        fun refreshMessages() {
+            withSession(onMissing = { lobbyStatus.text = "Please login first." }) { session ->
+                val channel = activeChannel
+                if (channel == null) {
+                    lobbyStatus.text = "Select a channel first."
+                    return@withSession
+                }
+                runTask(lobbyStatus, "Loading messages...", "Messages loaded.") {
+                    val messages = backendClient.listMessages(session.accessToken, loginVersion.text.trim(), channel.id)
+                    val rendered = messages.joinToString("\n") {
+                        "[${it.createdAt}] ${it.senderDisplayName}: ${it.content}"
+                    }
+                    javax.swing.SwingUtilities.invokeLater {
+                        chatArea.text = rendered.ifBlank { "No messages yet." }
+                        chatArea.caretPosition = 0
+                    }
+                }
+            }
+        }
+
+        val loginPanel = UiScaffold.contentPanel().apply {
+            layout = GridBagLayout()
+            add(UiScaffold.sectionLabel("Login"), UiScaffold.gbc(0))
+            add(UiScaffold.titledLabel("Email"), UiScaffold.gbc(1))
+            add(loginEmail, UiScaffold.gbc(2))
+            add(UiScaffold.titledLabel("Password"), UiScaffold.gbc(3))
+            add(loginPassword, UiScaffold.gbc(4))
+            add(UiScaffold.titledLabel("Client Version"), UiScaffold.gbc(5))
+            add(loginVersion, UiScaffold.gbc(6))
+            add(loginSubmit, UiScaffold.gbc(7))
+            add(loginStatus, UiScaffold.gbc(8))
+        }
+
+        val registerPanel = UiScaffold.contentPanel().apply {
+            layout = GridBagLayout()
+            add(UiScaffold.sectionLabel("Registration"), UiScaffold.gbc(0))
+            add(UiScaffold.titledLabel("Display Name"), UiScaffold.gbc(1))
+            add(registerName, UiScaffold.gbc(2))
+            add(UiScaffold.titledLabel("Email"), UiScaffold.gbc(3))
+            add(registerEmail, UiScaffold.gbc(4))
+            add(UiScaffold.titledLabel("Password"), UiScaffold.gbc(5))
+            add(registerPassword, UiScaffold.gbc(6))
+            add(registerSubmit, UiScaffold.gbc(7))
+            add(registerStatus, UiScaffold.gbc(8))
+        }
+
+        val lobbyPanel = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(8, 8)
+            add(JPanel(BorderLayout(8, 8)).apply {
+                isOpaque = false
+                add(userStatus, BorderLayout.WEST)
+                add(JPanel(GridLayout(1, 5, 6, 0)).apply {
+                    isOpaque = false
+                    add(refreshLobbyButton)
+                    add(refreshChatButton)
+                    add(openUpdateFromLobby)
+                    add(logoutButton)
+                }, BorderLayout.EAST)
+            }, BorderLayout.NORTH)
+            add(JPanel(BorderLayout(8, 8)).apply {
+                isOpaque = false
+                add(JScrollPane(channelList).apply { preferredSize = Dimension(220, 300) }, BorderLayout.WEST)
+                add(JPanel(BorderLayout(6, 6)).apply {
+                    isOpaque = false
+                    add(JScrollPane(chatArea), BorderLayout.CENTER)
+                    add(JPanel(BorderLayout(6, 0)).apply {
+                        isOpaque = false
+                        add(messageInput, BorderLayout.CENTER)
+                        add(sendMessageButton, BorderLayout.EAST)
+                    }, BorderLayout.SOUTH)
+                }, BorderLayout.CENTER)
+                add(JPanel(GridLayout(2, 1, 0, 8)).apply {
+                    isOpaque = false
+                    add(JScrollPane(friendsArea).apply {
+                        border = BorderFactory.createTitledBorder("Friends")
+                        preferredSize = Dimension(260, 150)
+                    })
+                    add(JScrollPane(guildArea).apply {
+                        border = BorderFactory.createTitledBorder("Guilds")
+                        preferredSize = Dimension(260, 150)
+                    })
+                }, BorderLayout.EAST)
+            }, BorderLayout.CENTER)
+            add(lobbyStatus, BorderLayout.SOUTH)
+        }
+
+        val createCharacterPanel = UiScaffold.contentPanel().apply {
+            layout = GridBagLayout()
+            add(UiScaffold.sectionLabel("Character Creation"), UiScaffold.gbc(0))
+            add(UiScaffold.titledLabel("Name"), UiScaffold.gbc(1))
+            add(createName, UiScaffold.gbc(2))
+            add(UiScaffold.titledLabel("Total Skill/Stat Points"), UiScaffold.gbc(3))
+            add(createPoints, UiScaffold.gbc(4))
+            add(UiScaffold.titledLabel("Stats (Strength / Agility / Intellect)"), UiScaffold.gbc(5))
+            add(JPanel(GridLayout(1, 3, 6, 0)).apply {
+                isOpaque = false
+                add(statStrength)
+                add(statAgility)
+                add(statIntellect)
+            }, UiScaffold.gbc(6))
+            add(UiScaffold.titledLabel("Skills (Alchemy / Sword Mastery)"), UiScaffold.gbc(7))
+            add(JPanel(GridLayout(1, 2, 6, 0)).apply {
+                isOpaque = false
+                add(skillAlchemy)
+                add(skillSword)
+            }, UiScaffold.gbc(8))
+            add(JPanel(GridLayout(1, 2, 6, 0)).apply {
+                isOpaque = false
+                add(createSubmit)
+                add(createRefresh)
+            }, UiScaffold.gbc(9))
+            add(createStatus, UiScaffold.gbc(10))
+        }
+
+        val selectCharacterPanel = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(0, 8)
+            add(UiScaffold.sectionLabel("Character Selection"), BorderLayout.NORTH)
+            add(JScrollPane(characterList), BorderLayout.CENTER)
+            add(JPanel(BorderLayout(6, 0)).apply {
+                isOpaque = false
+                add(JPanel(GridLayout(1, 2, 6, 0)).apply {
+                    isOpaque = false
+                    add(selectRefresh)
+                    add(selectSubmit)
+                }, BorderLayout.NORTH)
+                add(selectStatus, BorderLayout.SOUTH)
+            }, BorderLayout.SOUTH)
+        }
+
+        val playPanel = UiScaffold.contentPanel().apply {
+            layout = GridBagLayout()
+            add(UiScaffold.sectionLabel("Play"), UiScaffold.gbc(0))
+            add(playButton, UiScaffold.gbc(1))
+            add(playStatus, UiScaffold.gbc(2))
+        }
+
+        menuCards.add(loginPanel, "login")
+        menuCards.add(registerPanel, "register")
+        menuCards.add(lobbyPanel, "lobby")
+        menuCards.add(createCharacterPanel, "create_character")
+        menuCards.add(selectCharacterPanel, "select_character")
+        menuCards.add(updateContent, "update")
+        menuCards.add(playPanel, "play")
+        boxBody.add(menuCards, BorderLayout.CENTER)
+
         var activeLog: Path? = null
         val controls = listOf(checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton)
         checkUpdates.addActionListener {
@@ -246,7 +570,195 @@ object LauncherMain {
             updateStatus.text = "Showing patch notes."
         }
 
-        val mainButtons = listOf(resumeGame, newGame, saveGame, loadGame, settings, update, credits, exit)
+        fun showCard(card: String) {
+            if (card == "lobby" || card == "create_character" || card == "select_character" || card == "play") {
+                if (authSession == null) {
+                    JOptionPane.showMessageDialog(frame, "Please login first.", "Not Authenticated", JOptionPane.WARNING_MESSAGE)
+                    cardsLayout.show(menuCards, "login")
+                    return
+                }
+            }
+            if (card == "update") {
+                buildVersionLabel.text = "Build Version: v${defaultClientVersion()} (${Instant.now().atZone(ZoneId.systemDefault()).toLocalDate()})"
+                activeLog = null
+                applyPatchNotesView(patchNotesPane, patchNotes)
+                updateStatus.text = "Ready."
+            }
+            cardsLayout.show(menuCards, card)
+        }
+
+        loginSubmit.addActionListener {
+            val email = loginEmail.text.trim()
+            val password = String(loginPassword.password)
+            val version = loginVersion.text.trim().ifBlank { "0.0.0" }
+            if (email.isBlank() || password.isBlank()) {
+                loginStatus.text = "Email and password are required."
+                return@addActionListener
+            }
+            loginStatus.text = "Logging in..."
+            Thread {
+                try {
+                    val session = backendClient.login(email, password, version)
+                    authSession = session
+                    javax.swing.SwingUtilities.invokeLater {
+                        loginStatus.text = "Welcome ${session.displayName}"
+                        refreshLobby()
+                        showCard("lobby")
+                    }
+                } catch (ex: Exception) {
+                    javax.swing.SwingUtilities.invokeLater {
+                        loginStatus.text = ex.message ?: "Login failed."
+                    }
+                }
+            }.start()
+        }
+
+        registerSubmit.addActionListener {
+            val email = registerEmail.text.trim()
+            val displayName = registerName.text.trim()
+            val password = String(registerPassword.password)
+            val version = loginVersion.text.trim().ifBlank { "0.0.0" }
+            if (email.isBlank() || displayName.isBlank() || password.isBlank()) {
+                registerStatus.text = "All fields are required."
+                return@addActionListener
+            }
+            registerStatus.text = "Creating account..."
+            Thread {
+                try {
+                    val session = backendClient.register(email, password, displayName, version)
+                    authSession = session
+                    javax.swing.SwingUtilities.invokeLater {
+                        registerStatus.text = "Account created."
+                        refreshLobby()
+                        showCard("lobby")
+                    }
+                } catch (ex: Exception) {
+                    javax.swing.SwingUtilities.invokeLater {
+                        registerStatus.text = ex.message ?: "Registration failed."
+                    }
+                }
+            }.start()
+        }
+
+        refreshLobbyButton.addActionListener { refreshLobby() }
+        refreshChatButton.addActionListener { refreshMessages() }
+        openUpdateFromLobby.addActionListener { showCard("update") }
+        channelList.addListSelectionListener {
+            val selected = channelList.selectedValue ?: return@addListSelectionListener
+            activeChannel = selected
+            refreshMessages()
+        }
+
+        sendMessageButton.addActionListener {
+            val content = messageInput.text.trim()
+            if (content.isBlank()) {
+                lobbyStatus.text = "Message cannot be empty."
+                return@addActionListener
+            }
+            withSession(onMissing = { lobbyStatus.text = "Please login first." }) { session ->
+                val channel = activeChannel
+                if (channel == null) {
+                    lobbyStatus.text = "Select a channel first."
+                    return@withSession
+                }
+                runTask(lobbyStatus, "Sending message...", "Message sent.") {
+                    backendClient.sendMessage(session.accessToken, loginVersion.text.trim(), channel.id, content)
+                    javax.swing.SwingUtilities.invokeLater {
+                        messageInput.text = ""
+                    }
+                    refreshMessages()
+                }
+            }
+        }
+
+        createSubmit.addActionListener {
+            withSession(onMissing = { createStatus.text = "Please login first." }) { session ->
+                val name = createName.text.trim()
+                if (name.isBlank()) {
+                    createStatus.text = "Character name is required."
+                    return@withSession
+                }
+                val totalPoints = parsePoints(createPoints.text)
+                val stats = mapOf(
+                    "strength" to parsePoints(statStrength.text),
+                    "agility" to parsePoints(statAgility.text),
+                    "intellect" to parsePoints(statIntellect.text),
+                )
+                val skills = mapOf(
+                    "alchemy" to parsePoints(skillAlchemy.text),
+                    "sword_mastery" to parsePoints(skillSword.text),
+                )
+                runTask(createStatus, "Creating character...", "Character created.") {
+                    backendClient.createCharacter(
+                        accessToken = session.accessToken,
+                        clientVersion = loginVersion.text.trim(),
+                        name = name,
+                        totalPoints = totalPoints,
+                        stats = stats,
+                        skills = skills,
+                    )
+                    refreshCharacters(createStatus)
+                }
+            }
+        }
+        createRefresh.addActionListener { refreshCharacters(createStatus) }
+
+        selectRefresh.addActionListener { refreshCharacters(selectStatus) }
+        selectSubmit.addActionListener {
+            val selected = characterList.selectedValue
+            if (selected == null) {
+                selectStatus.text = "Select a character first."
+                return@addActionListener
+            }
+            withSession(onMissing = { selectStatus.text = "Please login first." }) { session ->
+                runTask(selectStatus, "Applying selection...", "Character selected.") {
+                    backendClient.selectCharacter(session.accessToken, loginVersion.text.trim(), selected.id)
+                    refreshCharacters(selectStatus)
+                }
+            }
+        }
+
+        logoutButton.addActionListener {
+            val session = authSession
+            authSession = null
+            if (session != null) {
+                Thread {
+                    try {
+                        backendClient.logout(session.accessToken, loginVersion.text.trim())
+                    } catch (_: Exception) {
+                        // best effort logout
+                    }
+                }.start()
+            }
+            userStatus.text = "Not authenticated."
+            friendsArea.text = ""
+            guildArea.text = ""
+            channelModel.clear()
+            characterModel.clear()
+            chatArea.text = ""
+            lobbyStatus.text = "Logged out."
+            showCard("login")
+        }
+
+        playButton.addActionListener {
+            playStatus.text = "Launching game..."
+            launchGame(playStatus)
+        }
+
+        loginMenu.addActionListener { showCard("login") }
+        registerMenu.addActionListener { showCard("register") }
+        lobbyMenu.addActionListener { showCard("lobby") }
+        createCharacterMenu.addActionListener { showCard("create_character") }
+        selectCharacterMenu.addActionListener { showCard("select_character") }
+        updateMenu.addActionListener { showCard("update") }
+        playMenu.addActionListener { showCard("play") }
+        exit.addActionListener {
+            log("Exit selected from main menu.")
+            frame.dispose()
+            kotlin.system.exitProcess(0)
+        }
+
+        val mainButtons = listOf(loginMenu, registerMenu, lobbyMenu, createCharacterMenu, selectCharacterMenu, updateMenu, playMenu, exit)
         val toolButtons = listOf(checkUpdates, showPatchNotesButton, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton)
 
         fun applyResponsiveLayout() {
@@ -310,56 +822,13 @@ object LauncherMain {
             contentPanel.repaint()
         }
 
-        var activeMenu: String? = null
-        fun formatVersionInfoLabel(): String {
-            val source = loadPatchNotesSource()
-            val meta = loadPatchNotesMeta(source.path, source.markdown)
-            val versionText = meta.version?.let { "v$it" } ?: "vunknown"
-            val dateText = meta.date ?: "unknown"
-            return "Build Version: $versionText ($dateText)"
-        }
-        fun toggleMenuBox(menuName: String) {
-            if (menuBox.isVisible && activeMenu == menuName) {
-                menuBox.isVisible = false
-                activeMenu = null
-            } else {
-                boxBody.removeAll()
-                if (menuName == "Update") {
-                    buildVersionLabel.text = formatVersionInfoLabel()
-                    boxBody.add(updateContent, BorderLayout.CENTER)
-                    activeLog = null
-                    applyPatchNotesView(patchNotesPane, patchNotes)
-                    updateStatus.text = "Ready."
-                }
-                boxBody.revalidate()
-                boxBody.repaint()
-                menuBox.isVisible = true
-                activeMenu = menuName
-            }
-            menuBoxContainer.revalidate()
-            menuBoxContainer.repaint()
-        }
-
-        resumeGame.addActionListener { toggleMenuBox("Resume Game") }
-        newGame.addActionListener { toggleMenuBox("New Game") }
-        saveGame.addActionListener { toggleMenuBox("Save Game") }
-        loadGame.addActionListener { toggleMenuBox("Load Game") }
-        settings.addActionListener { toggleMenuBox("Settings") }
-        update.addActionListener { toggleMenuBox("Update") }
-        credits.addActionListener { toggleMenuBox("Credits") }
-        exit.addActionListener {
-            log("Exit selected from main menu.")
-            frame.dispose()
-            kotlin.system.exitProcess(0)
-        }
-
-        menuPanel.add(resumeGame)
-        menuPanel.add(newGame)
-        menuPanel.add(saveGame)
-        menuPanel.add(loadGame)
-        menuPanel.add(settings)
-        menuPanel.add(update)
-        menuPanel.add(credits)
+        menuPanel.add(loginMenu)
+        menuPanel.add(registerMenu)
+        menuPanel.add(lobbyMenu)
+        menuPanel.add(createCharacterMenu)
+        menuPanel.add(selectCharacterMenu)
+        menuPanel.add(updateMenu)
+        menuPanel.add(playMenu)
         menuPanel.add(exit)
 
         rootPanel.add(screenTitle, BorderLayout.NORTH)
@@ -375,15 +844,21 @@ object LauncherMain {
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
         applyResponsiveLayout()
+        showCard("login")
         frame.addComponentListener(object : ComponentAdapter() {
             override fun componentResized(e: ComponentEvent?) {
                 applyResponsiveLayout()
             }
         })
+        frame.addWindowListener(object : WindowAdapter() {
+            override fun windowClosing(e: WindowEvent?) {
+                authSession = null
+            }
+        })
         if (autoPlay) {
             javax.swing.SwingUtilities.invokeLater {
-                updateStatus.text = "Launching game..."
-                launchGame(updateStatus)
+                playStatus.text = "Launching game..."
+                launchGame(playStatus)
             }
         }
     }

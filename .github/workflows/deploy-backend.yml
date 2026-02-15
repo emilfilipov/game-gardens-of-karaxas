@@ -1,0 +1,57 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'backend/**'
+      - '!backend/**/*.md'
+      - '!backend/**/*.MD'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      SERVICE_NAME: ${{ vars.KARAXAS_SERVICE_NAME }}
+      CLOUD_SQL_INSTANCE: ${{ vars.KARAXAS_CLOUD_SQL_INSTANCE }}
+      AR_REPO: ${{ vars.KARAXAS_AR_REPO }}
+      IMAGE_NAME: ${{ vars.KARAXAS_IMAGE_NAME }}
+      IMAGE_TAG: latest
+      DB_NAME: karaxas
+      DB_USER: ${{ secrets.KARAXAS_DB_USER }}
+      DB_PASSWORD: ${{ secrets.KARAXAS_DB_PASSWORD }}
+      JWT_SECRET: ${{ secrets.KARAXAS_JWT_SECRET }}
+      OPS_API_TOKEN: ${{ secrets.KARAXAS_OPS_TOKEN }}
+      JWT_ISSUER: karaxas
+      JWT_AUDIENCE: karaxas-client
+      JWT_ACCESS_TTL_MINUTES: 15
+      JWT_REFRESH_TTL_DAYS: 30
+      VERSION_GRACE_MINUTES_DEFAULT: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker Auth
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Deploy Backend to Cloud Run
+        run: backend/scripts/deploy_cloud_run.sh

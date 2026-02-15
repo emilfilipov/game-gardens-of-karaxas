@@ -1,2 +1,7 @@
-- Initial template release for Gardens of Karaxas.
-- Replaced inherited game-specific documentation with neutral project scaffolding.
+- Added MMORPG backend scaffold under `backend/` with FastAPI, Alembic migrations, auth/session APIs, lobby APIs, character APIs, chat APIs, and release policy ops endpoints.
+- Added backend Cloud Run deployment script (`backend/scripts/deploy_cloud_run.sh`) and local run script (`backend/scripts/run_local.sh`) following the markd-style deployment pattern.
+- Refactored launcher UI to structured account flow screens: Login, Register, Account Lobby, Character Creation, Character Selection, Play, and Update.
+- Added reusable launcher UI layout scaffold (`UiScaffold`) so screen alignment is consistent across account/lobby views.
+- Kept updater functionality integrated and accessible through the account flow via the Update screen/card.
+- Added backend-enforced version gating with a 5-minute grace window and ops activation endpoint for release-triggered forced-update flow.
+- Updated CI workflows so backend-only changes do not trigger launcher release jobs and backend changes deploy through a dedicated workflow.

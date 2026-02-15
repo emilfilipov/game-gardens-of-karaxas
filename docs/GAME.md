@@ -1,64 +1,61 @@
 # Gardens of Karaxas - Game
 
 ## High Concept
-Gardens of Karaxas is a top-down pixel art/stylized fantasy dungeon crawler.
-The game is a real-time, fast paced hack and slash where the player takes control of an adventurer and climbs the endless tower of Karaxas - one of the pilars of creation, in search for power, relics, and riches.
-
-Karaxas is vast and mysterious. Each floor is a unique world with its own challenges, secrets, and treasures... and enemies. Those who seek to devour any uninvited guests are many, though the guests themselves seldom find peaceful resolutions to conflicts involving magical artifacts or the occassional ritual.
+Gardens of Karaxas is now an online multiplayer RPG with account-based progression.
+Players authenticate into an account lobby where they manage social/community interactions,
+create/select characters, and enter gameplay sessions.
 
 ## Core Pillars
-- Fast, readable real-time combat.
-- Strong character identity and build expression.
-- High replayability through floor progression and run variety.
-- Atmospheric pixel/stylized fantasy presentation.
-- Tight moment-to-moment controls with clear feedback.
+- Persistent account identity with secure login sessions.
+- Social-first lobby: channels, chat, friend list, and guild presence.
+- Flexible character identity via point distribution into stats and skills.
+- Live-service readiness through version-gated updates and controlled rollout windows.
+- Launcher-driven desktop distribution and patching.
 
-## Core Gameplay Loop
-1. Choose a character.
-2. Enter a floor of the tower.
-3. Fight enemies, avoid hazards, and gather loot/resources.
-4. Make build/progression choices.
-5. Descend to deeper floors with increasing difficulty.
-6. Repeat until defeat or run completion milestone.
+## Account and Lobby Loop
+1. Open launcher and authenticate (register or login).
+2. Enter account lobby.
+3. Use social features:
+   - Global/direct/guild chat channels.
+   - Friend list visibility.
+   - Guild membership/rank visibility.
+4. Create a character or select an existing character.
+5. Start gameplay session.
 
-## Main Menu (Current UI Prototype)
-- Resume Game
-- New Game
-- Save Game
-- Load Game
-- Settings
-- Credits
-- Exit
+## Required Frontend Screens
+- Login screen.
+- Registration screen.
+- Account lobby screen.
+- Character creation screen.
+- Character selection screen.
 
-## Modes and Scope
-- Current planned release mode:
-  - Single-player.
-- Future planned modes:
-  - Co-op multiplayer (party progression through floors).
-  - PvP mode (players compete for tower riches/rewards).
+## Character Direction
+- No predefined classes.
+- Character creation uses a fixed point budget.
+- Players distribute points into stats and skills.
+- Exact stat/skill catalogs are intentionally deferred to a later design pass.
 
-## Content Direction
-- Character roster: multiple playable characters with distinct kits.
-- Enemies and encounters: scaling by floor depth and biome/theme.
-- Loot and progression: run-based and meta-progression details TBD.
-- Bosses and events: milestone floors and special encounter logic TBD.
+## Social Scope (Current)
+- Chat scope now:
+  - Global channels.
+  - Direct messages.
+  - Guild chat.
+- Guild management UX is planned as a follow-up menu/screen after baseline social/chat scaffolding.
 
-## Visual and Audio Direction
-- Art style: top-down pixel art with stylized fantasy treatment.
-- Readability first: combat telegraphs, hit feedback, and UI clarity over visual noise.
-- Mood: mystical, dangerous, ancient tower atmosphere.
+## Update Policy
+- Launcher/updater remains the distribution and update authority.
+- Backend enforces version policy with a grace window.
+- Current grace window target: 5 minutes before forced update lockout.
 
 ## Release Intent
-- Windows distribution first.
-- Linux and Steam distribution next.
-- Android portability planned for later.
+- Launcher-first distribution (Windows first).
+- Keep architecture portable for Linux/Steam/Android later, but Steam-specific distribution is not a current dependency.
 
 ## Open Design Decisions
-- Detailed combat stats and formulas.
-- Character progression model (run-only vs run + meta).
-- Itemization economy and rarity model.
-- Co-op and PvP progression/reward boundaries.
-- Narrative delivery and long-term world progression.
+- Final gameplay session flow after character selection.
+- Final stats/skills taxonomy and balancing model.
+- Guild management feature depth and permissions model.
+- Moderation/reporting model for chat and social systems.
 
 ## Documentation Rule
 This file is the single source of truth for all non-technical game/product information.

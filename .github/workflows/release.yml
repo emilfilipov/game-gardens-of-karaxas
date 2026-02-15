@@ -8,6 +8,7 @@ on:
     paths-ignore:
       - '**/*.md'
       - '**/*.MD'
+      - 'backend/**'
   workflow_dispatch:
 
 permissions:
@@ -168,6 +169,36 @@ jobs:
             Write-Host "Upload failed. Retrying in $delay seconds..."
             Start-Sleep -Seconds $delay
           }
+
+      - name: Notify Backend Release Activation
+        shell: pwsh
+        env:
+          KARAXAS_BACKEND_OPS_URL: ${{ secrets.KARAXAS_BACKEND_OPS_URL || vars.KARAXAS_BACKEND_OPS_URL }}
+          KARAXAS_OPS_TOKEN: ${{ secrets.KARAXAS_OPS_TOKEN }}
+        run: |
+          if (-not $env:KARAXAS_BACKEND_OPS_URL) {
+            Write-Host "KARAXAS_BACKEND_OPS_URL not configured. Skipping backend notification."
+            exit 0
+          }
+          if (-not $env:KARAXAS_OPS_TOKEN) {
+            Write-Host "KARAXAS_OPS_TOKEN not configured. Skipping backend notification."
+            exit 0
+          }
+
+          $url = "$($env:KARAXAS_BACKEND_OPS_URL.TrimEnd('/'))/ops/release/activate"
+          $payload = @{
+            latest_version = "${{ steps.get-version.outputs.version }}"
+            min_supported_version = "${{ steps.get-version.outputs.version }}"
+            grace_minutes = 5
+          } | ConvertTo-Json
+
+          Invoke-RestMethod `
+            -Uri $url `
+            -Method Post `
+            -Headers @{ "x-ops-token" = $env:KARAXAS_OPS_TOKEN } `
+            -ContentType "application/json" `
+            -Body $payload | Out-Null
+          Write-Host "Backend release activation notified."
 
       - name: Update GitHub Release Notes
         uses: actions/github-script@v7

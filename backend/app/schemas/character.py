@@ -1,0 +1,22 @@
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+
+class CharacterCreateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=64)
+    stat_points_total: int = Field(default=20, ge=1, le=200)
+    stats: dict[str, int] = Field(default_factory=dict)
+    skills: dict[str, int] = Field(default_factory=dict)
+
+
+class CharacterResponse(BaseModel):
+    id: int
+    name: str
+    stat_points_total: int
+    stat_points_used: int
+    stats: dict[str, int]
+    skills: dict[str, int]
+    is_selected: bool
+    created_at: datetime
+    updated_at: datetime
