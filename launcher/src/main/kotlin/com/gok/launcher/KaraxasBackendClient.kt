@@ -111,6 +111,21 @@ class KaraxasBackendClient(
         return parseSession(response.body())
     }
 
+    fun refresh(refreshToken: String, clientVersion: String): AuthSession {
+        val payload = mapOf(
+            "refresh_token" to refreshToken,
+            "client_version" to clientVersion,
+        )
+        val response = request(
+            method = "POST",
+            path = "/auth/refresh",
+            body = mapper.writeValueAsString(payload),
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        return parseSession(response.body())
+    }
+
     fun logout(accessToken: String, clientVersion: String) {
         val response = request(
             method = "POST",

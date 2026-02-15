@@ -32,10 +32,12 @@ import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 import java.time.Instant
 import java.time.ZoneId
+import java.util.Properties
 import javax.imageio.ImageIO
 import javax.swing.BorderFactory
 import javax.swing.ImageIcon
 import javax.swing.JButton
+import javax.swing.JCheckBox
 import javax.swing.JMenuItem
 import javax.swing.JComboBox
 import javax.swing.JList
@@ -73,6 +75,12 @@ object LauncherMain {
     private data class PatchNotesView(
         val title: String,
         val html: String
+    )
+
+    private data class LauncherPrefs(
+        val lastEmail: String = "",
+        val autoLoginEnabled: Boolean = false,
+        val autoLoginRefreshToken: String = ""
     )
 
     private data class CharacterArtOption(
@@ -153,6 +161,10 @@ object LauncherMain {
         rootPanel.add(headerPanel, BorderLayout.NORTH)
 
         val backendClient = KaraxasBackendClient.fromEnvironment()
+        var launcherPrefs = loadLauncherPrefs()
+        var lastEmail = launcherPrefs.lastEmail
+        var autoLoginEnabled = launcherPrefs.autoLoginEnabled
+        var autoLoginRefreshToken = launcherPrefs.autoLoginRefreshToken
 
         fun defaultClientVersion(): String {
             val source = loadPatchNotesSource()
@@ -200,14 +212,6 @@ object LauncherMain {
         settingsPopup.add(quickUpdateItem)
         settingsPopup.add(settingsItem)
         settingsPopup.add(exitItem)
-        settingsItem.addActionListener {
-            JOptionPane.showMessageDialog(
-                frame,
-                "Settings menu scaffold is ready. Gameplay/settings controls can be added next.",
-                "Settings",
-                JOptionPane.INFORMATION_MESSAGE
-            )
-        }
         exitItem.addActionListener {
             frame.dispose()
             kotlin.system.exitProcess(0)
@@ -308,6 +312,22 @@ object LauncherMain {
 
         val clientVersion = defaultClientVersion().ifBlank { "0.0.0" }
         var authSession: AuthSession? = null
+        fun persistLauncherPrefs() {
+            if (!autoLoginEnabled) {
+                autoLoginRefreshToken = ""
+            }
+            launcherPrefs = LauncherPrefs(
+                lastEmail = lastEmail,
+                autoLoginEnabled = autoLoginEnabled,
+                autoLoginRefreshToken = autoLoginRefreshToken
+            )
+            saveLauncherPrefs(launcherPrefs)
+        }
+        fun updateSettingsMenuAccess() {
+            val loggedIn = authSession != null
+            settingsItem.isVisible = loggedIn
+            settingsItem.isEnabled = loggedIn
+        }
 
         val userStatus = JLabel("Not authenticated.")
         val lobbyStatus = JLabel("Lobby ready.")
@@ -334,6 +354,7 @@ object LauncherMain {
             foreground = textColor
             font = UiScaffold.bodyFont
         }
+        authEmail.text = lastEmail
         var registerMode = false
 
         val characterModel = DefaultListModel<CharacterView>()
@@ -858,11 +879,41 @@ object LauncherMain {
             }
         }
 
+        lateinit var showCard: (String) -> Unit
+
+        fun resetAuthInputsForMode() {
+            if (registerMode) {
+                authEmail.text = ""
+                authPassword.text = ""
+                authDisplayName.text = ""
+            } else {
+                authEmail.text = lastEmail
+                authPassword.text = ""
+                authDisplayName.text = ""
+            }
+        }
+
+        fun applyAuthenticatedSession(session: AuthSession) {
+            authSession = session
+            lastEmail = session.email
+            if (autoLoginEnabled) {
+                autoLoginRefreshToken = session.refreshToken
+            }
+            persistLauncherPrefs()
+            registerMode = false
+            updateSettingsMenuAccess()
+            authStatus.text = " "
+            resetAuthInputsForMode()
+            refreshLobby()
+            showCard("lobby")
+        }
+
         fun applyAuthMode() {
             authDisplayName.isVisible = registerMode
             authSubmit.text = if (registerMode) "Register" else "Login"
             authToggleMode.text = if (registerMode) "Use Login" else "Create Account"
             authStatus.text = " "
+            resetAuthInputsForMode()
             authStandaloneContainer.revalidate()
             authStandaloneContainer.repaint()
             centeredContent.revalidate()
@@ -893,6 +944,47 @@ object LauncherMain {
         }
         authStandaloneContainer.add(authCard)
         applyAuthMode()
+        fun openSettingsDialog() {
+            val session = authSession ?: run {
+                authStatus.text = "Login first to open settings."
+                return
+            }
+            val autoLoginCheck = JCheckBox("Enable automatic login on startup").apply {
+                isOpaque = false
+                foreground = textColor
+                font = UiScaffold.bodyFont
+                isSelected = autoLoginEnabled
+            }
+            val noteLabel = JLabel("Automatic login uses your current session token.", SwingConstants.LEFT).apply {
+                foreground = textColor
+                font = Font("Serif", Font.PLAIN, 12)
+            }
+            val panel = JPanel(BorderLayout(0, 8)).apply {
+                isOpaque = false
+                border = BorderFactory.createEmptyBorder(8, 8, 2, 8)
+                add(autoLoginCheck, BorderLayout.NORTH)
+                add(noteLabel, BorderLayout.CENTER)
+            }
+            val result = JOptionPane.showConfirmDialog(
+                frame,
+                panel,
+                "Settings",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+            )
+            if (result == JOptionPane.OK_OPTION) {
+                autoLoginEnabled = autoLoginCheck.isSelected
+                autoLoginRefreshToken = if (autoLoginEnabled) session.refreshToken else ""
+                persistLauncherPrefs()
+                lobbyStatus.text = if (autoLoginEnabled) {
+                    "Automatic login enabled."
+                } else {
+                    "Automatic login disabled."
+                }
+            }
+        }
+        settingsItem.addActionListener { openSettingsDialog() }
+        updateSettingsMenuAccess()
 
         val lobbyPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(8, 8)
@@ -1034,7 +1126,7 @@ object LauncherMain {
             updateStatus.text = "Showing patch notes."
         }
 
-        fun showCard(card: String) {
+        showCard = fun(card: String) {
             val requiresAuth = card == "lobby" || card == "create_character" || card == "select_character" || card == "play"
             if (requiresAuth && authSession == null) {
                 showCard("auth")
@@ -1044,6 +1136,7 @@ object LauncherMain {
             if (card == "auth") {
                 shellPanel.isVisible = false
                 authStandaloneContainer.isVisible = true
+                resetAuthInputsForMode()
                 centeredContent.revalidate()
                 centeredContent.repaint()
                 return
@@ -1077,12 +1170,17 @@ object LauncherMain {
             runUpdate(updateStatus, patchNotesPane, patchNotes, progress, controls, autoRestartOnSuccess = true)
         }
 
-        fun formatAuthError(ex: Exception, registering: Boolean): String {
+        fun networkErrorMessage(ex: Exception): String? {
             val chain = generateSequence<Throwable>(ex) { it.cause }
             if (chain.any { it is UnknownHostException }) return "No internet connection. Check your network."
             if (chain.any { it is ConnectException }) return "Servers are currently unavailable. Please try again."
             if (chain.any { it is HttpTimeoutException || it is SocketTimeoutException }) return "Connection timed out. Please try again."
             if (chain.any { it is SSLException }) return "Secure connection failed. Please try again."
+            return null
+        }
+
+        fun formatAuthError(ex: Exception, registering: Boolean): String {
+            networkErrorMessage(ex)?.let { return it }
 
             val message = ex.message?.trim().orEmpty()
             val code = Regex("^(\\d{3}):").find(message)?.groupValues?.getOrNull(1)?.toIntOrNull()
@@ -1091,6 +1189,14 @@ object LauncherMain {
             if (code == 422 && message.contains(":")) return message.substringAfter(":").trim()
             if (code != null && message.contains(":")) return message.substringAfter(":").trim()
             return if (message.isNotBlank()) message else "Unable to contact authentication service."
+        }
+
+        fun formatAutoLoginError(ex: Exception): String {
+            networkErrorMessage(ex)?.let { return it }
+            val message = ex.message?.trim().orEmpty()
+            val code = Regex("^(\\d{3}):").find(message)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            if (code == 401 || code == 403) return "Automatic login expired. Please login."
+            return "Automatic login failed. Please login."
         }
 
         authSubmit.addActionListener {
@@ -1131,12 +1237,8 @@ object LauncherMain {
                     } else {
                         backendClient.login(email, password, clientVersion)
                     }
-                    authSession = session
                     javax.swing.SwingUtilities.invokeLater {
-                        authStatus.text = " "
-                        authPassword.text = ""
-                        refreshLobby()
-                        showCard("lobby")
+                        applyAuthenticatedSession(session)
                     }
                 } catch (ex: Exception) {
                     log("Authentication request failed against ${backendClient.endpoint()}", ex)
@@ -1238,6 +1340,8 @@ object LauncherMain {
         logoutButton.addActionListener {
             val session = authSession
             authSession = null
+            autoLoginRefreshToken = ""
+            persistLauncherPrefs()
             if (session != null) {
                 Thread {
                     try {
@@ -1255,6 +1359,8 @@ object LauncherMain {
             heldKeys.clear()
             lobbyStatus.text = "Logged out."
             gameStatus.text = "Logged out."
+            registerMode = false
+            updateSettingsMenuAccess()
             showCard("auth")
         }
 
@@ -1269,6 +1375,30 @@ object LauncherMain {
         frame.extendedState = frame.extendedState or JFrame.MAXIMIZED_BOTH
         frame.isVisible = true
         showCard("auth")
+        if (autoLoginEnabled && autoLoginRefreshToken.isNotBlank()) {
+            authStatus.text = "Attempting automatic login..."
+            Thread {
+                try {
+                    val session = backendClient.refresh(autoLoginRefreshToken, clientVersion)
+                    javax.swing.SwingUtilities.invokeLater {
+                        applyAuthenticatedSession(session)
+                    }
+                } catch (ex: Exception) {
+                    log("Automatic login failed against ${backendClient.endpoint()}", ex)
+                    val code = Regex("^(\\d{3}):").find(ex.message?.trim().orEmpty())
+                        ?.groupValues
+                        ?.getOrNull(1)
+                        ?.toIntOrNull()
+                    if (code == 401 || code == 403) {
+                        autoLoginRefreshToken = ""
+                        persistLauncherPrefs()
+                    }
+                    javax.swing.SwingUtilities.invokeLater {
+                        authStatus.text = formatAutoLoginError(ex)
+                    }
+                }
+            }.start()
+        }
 
         frame.addWindowListener(object : WindowAdapter() {
             override fun windowClosing(e: WindowEvent?) {
@@ -2183,6 +2313,55 @@ object LauncherMain {
     private fun findUpdateHelper(payloadRoot: Path): Path? {
         val helper = payloadRoot.resolve("UpdateHelper.exe")
         return helper.takeIf { Files.exists(it) }
+    }
+
+    private fun launcherPrefsPath(): Path {
+        return installRoot(payloadRoot()).resolve("launcher_prefs.properties")
+    }
+
+    private fun loadLauncherPrefs(): LauncherPrefs {
+        val path = launcherPrefsPath()
+        if (!Files.exists(path)) return LauncherPrefs()
+        return try {
+            val properties = Properties()
+            Files.newInputStream(path).use { input ->
+                properties.load(input)
+            }
+            val enabled = properties.getProperty("auto_login_enabled", "false").equals("true", ignoreCase = true)
+            LauncherPrefs(
+                lastEmail = properties.getProperty("last_email", "").trim(),
+                autoLoginEnabled = enabled,
+                autoLoginRefreshToken = if (enabled) {
+                    properties.getProperty("auto_login_refresh_token", "").trim()
+                } else {
+                    ""
+                }
+            )
+        } catch (_: Exception) {
+            LauncherPrefs()
+        }
+    }
+
+    private fun saveLauncherPrefs(prefs: LauncherPrefs) {
+        val path = launcherPrefsPath()
+        try {
+            val properties = Properties()
+            val refreshToken = if (prefs.autoLoginEnabled) prefs.autoLoginRefreshToken else ""
+            properties.setProperty("last_email", prefs.lastEmail)
+            properties.setProperty("auto_login_enabled", prefs.autoLoginEnabled.toString())
+            properties.setProperty("auto_login_refresh_token", refreshToken)
+            Files.createDirectories(path.parent)
+            Files.newOutputStream(
+                path,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE
+            ).use { output ->
+                properties.store(output, "Gardens of Karaxas launcher preferences")
+            }
+        } catch (ex: Exception) {
+            log("Failed to save launcher preferences.", ex)
+        }
     }
 
     private fun logsRoot(): Path {

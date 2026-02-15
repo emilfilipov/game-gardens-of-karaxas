@@ -14,6 +14,8 @@ create/select characters, and enter gameplay sessions.
 
 ## Account and Lobby Loop
 1. Open launcher and authenticate (register or login).
+   - Login form remembers and pre-fills the last successfully authenticated email.
+   - Register form always opens clean with hint text visible.
 2. Enter account lobby (account-only tools and updater access).
 3. Create a character or select an existing character.
 4. Enter gameplay session with the selected character.
@@ -43,6 +45,7 @@ create/select characters, and enter gameplay sessions.
 - Launcher/updater remains the distribution and update authority.
 - Backend enforces version policy with a grace window.
 - Current grace window target: 5 minutes before forced update lockout.
+- Optional automatic login is configured from in-session settings only (not from pre-login auth screen).
 
 ## Release Intent
 - Launcher-first distribution (Windows first).

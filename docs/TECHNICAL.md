@@ -76,6 +76,13 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Pressing Enter in auth inputs submits login/register depending on current toggle mode.
 - Auth form pre-validates email/password/display-name constraints client-side to mirror backend schema and reduce avoidable 422 responses.
 - Auth error mapping includes explicit UX strings for wrong credentials (`This account doesn't exist`) and common connectivity failures (offline, timeout, server unavailable, SSL errors).
+- Launcher persists lightweight auth preferences in `launcher_prefs.properties` under install root:
+  - `last_email` for login prefill.
+  - `auto_login_enabled` toggle.
+  - `auto_login_refresh_token` for startup refresh-auth.
+- Login mode pre-fills `last_email`, while register mode is always reset to empty inputs so hint text remains visible.
+- Settings menu item in the cog dropdown is only available when authenticated; auto-login can only be configured there.
+- When auto-login is enabled, launcher attempts `POST /auth/refresh` during startup and clears invalid refresh tokens on 401/403.
 - Account lobby is account-only (no chat/guild panels).
 - `play` card is currently an empty-world prototype gated by selected character, with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.

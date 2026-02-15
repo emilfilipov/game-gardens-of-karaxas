@@ -1,15 +1,4 @@
-- Reworked launcher entry UX into a single centered authentication panel with login/register toggle and transparent placeholder fields.
-- Switched launcher runtime to borderless fullscreen by default and added top-right cog dropdown with `Settings` and `Exit`.
-- Added centered footer version/date label to the launcher shell.
-- Updated launcher backend endpoint fallback to Cloud Run (instead of localhost) when `GOK_API_BASE_URL` is not set.
-- Improved auth failure reporting to show the real backend error and log auth exceptions to launcher logs.
-- Added one-click `Update & Restart` action to the top-right cog menu so updates can run directly from the login/auth flow.
-- Styled the cog dropdown to match the launcher/game visual theme (palette, typography, border, and hover behavior).
-- Added client-side auth input validation (email format, password length, display-name length) and richer 422 error detail rendering.
-- Updated release workflow to preserve a rolling delta package history (plus latest full fallback) so updates across skipped versions can remain delta-based instead of defaulting to full client downloads.
-- Fixed update card visual alignment so build version and patch notes render fully inside the brick frame, and hid visible scrollbars while keeping wheel scrolling.
-- Auth UX polish: Enter key now submits login/register, all active text fields show hint text, and auth screen now shows only the small centered auth box (large shell hidden on auth card).
-- Improved auth error handling with user-facing messages for invalid credentials (`This account doesn't exist`) and network/server connectivity failures.
-- Refactored character creation to include sex choice preview, stat/skill scaffold rows, and a fixed 10-point allocation model where each increment costs 1 point.
-- Wired selected-character handoff into a playable in-launcher world scene.
-- Added empty-world prototype gameplay with WASD movement and hard world-edge border collision.
+- Added launcher preference persistence for account auth (`launcher_prefs.properties`) so login remembers the last successfully used email.
+- Added logged-in-only settings control for automatic login, backed by refresh-token startup authentication (`/auth/refresh`).
+- Automatic login now clears invalid stored refresh tokens on auth rejection (401/403) and falls back to manual login cleanly.
+- Register mode now always opens with clean inputs/hint text, and returning to auth from other screens resets register fields instead of retaining stale form values.
