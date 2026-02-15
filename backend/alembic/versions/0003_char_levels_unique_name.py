@@ -1,6 +1,6 @@
 """Add character levels/experience and global unique character names.
 
-Revision ID: 0003_character_levels_unique_name
+Revision ID: 0003_char_levels_unique_name
 Revises: 0002_character_appearance_key
 Create Date: 2026-02-15 17:00:00
 """
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0003_character_levels_unique_name"
+revision = "0003_char_levels_unique_name"
 down_revision = "0002_character_appearance_key"
 branch_labels = None
 depends_on = None
