@@ -16,8 +16,11 @@ create/select characters, and enter gameplay sessions.
 1. Open launcher and authenticate (register or login).
    - Login form remembers and pre-fills the last successfully authenticated email.
    - Register form always opens clean with hint text visible.
-2. Enter account lobby (account-only tools and updater access).
-3. Create a character or select an existing character.
+2. Enter account lobby with persistent tab navigation (Lobby/Create/Select/Play).
+   - Top-right menu shows `Welcome [username].` and logged-in account actions.
+3. Default post-login routing:
+   - No characters: open Character Creation.
+   - Has characters: open Character Selection.
 4. Enter gameplay session with the selected character.
 5. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
 
@@ -46,6 +49,7 @@ create/select characters, and enter gameplay sessions.
 - Backend enforces version policy with a grace window.
 - Current grace window target: 5 minutes before forced update lockout.
 - Optional automatic login is configured from in-session settings only (not from pre-login auth screen).
+- Updater access is no longer a lobby tab; it is available from the top-right menu entry.
 
 ## Release Intent
 - Launcher-first distribution (Windows first).

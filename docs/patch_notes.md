@@ -1,4 +1,6 @@
-- Added launcher preference persistence for account auth (`launcher_prefs.properties`) so login remembers the last successfully used email.
-- Added logged-in-only settings control for automatic login, backed by refresh-token startup authentication (`/auth/refresh`).
-- Automatic login now clears invalid stored refresh tokens on auth rejection (401/403) and falls back to manual login cleanly.
-- Register mode now always opens with clean inputs/hint text, and returning to auth from other screens resets register fields instead of retaining stale form values.
+- Changed post-login routing: accounts with no characters open Character Creation by default; accounts with characters open Character Selection by default.
+- Replaced lobby-only navigation buttons with persistent authenticated tabs (Lobby/Create/Select/Play + Refresh) so navigation remains visible while switching screens.
+- Removed updater access from lobby navigation; updater remains accessible from the top-right dropdown (`Update & Restart`).
+- Added logged-in dropdown account identity header (`Welcome [username].`) and logged-in-only dropdown logout action.
+- Applied additional lobby/theme styling to combo boxes, character list panes, titled sections, and status text for visual consistency with the game palette.
+- Fixed character create/select flows to immediately reload character lists and UI state, including automatic list refresh right after character creation.

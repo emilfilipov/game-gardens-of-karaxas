@@ -72,6 +72,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
+- Cog dropdown includes a logged-in-only header line with account identity (`Welcome [username].`).
 - Combined auth uses a single centered panel (no large shell frame on auth screen) with login/register toggle and transparent placeholder-based fields.
 - Pressing Enter in auth inputs submits login/register depending on current toggle mode.
 - Auth form pre-validates email/password/display-name constraints client-side to mirror backend schema and reduce avoidable 422 responses.
@@ -83,13 +84,20 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Login mode pre-fills `last_email`, while register mode is always reset to empty inputs so hint text remains visible.
 - Settings menu item in the cog dropdown is only available when authenticated; auto-login can only be configured there.
 - When auto-login is enabled, launcher attempts `POST /auth/refresh` during startup and clears invalid refresh tokens on 401/403.
+- Cog dropdown also exposes a logged-in-only `Logout` action.
 - Account lobby is account-only (no chat/guild panels).
+- Account shell now keeps a persistent tab bar (Lobby/Create/Select/Play + Refresh) visible across authenticated cards.
+- Post-auth default routing is character-count based:
+  - no characters -> `create_character`
+  - one or more characters -> `select_character`
 - `play` card is currently an empty-world prototype gated by selected character, with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
 - Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` (or `GOK_CHARACTER_ART_DIR` override).
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
-- Update functionality remains accessible from within account-lobby flow via updater card access.
+- Character creation now performs immediate character-list reload and UI model refresh in the same flow to avoid stale/empty list states.
+- Character selection also performs an immediate list reload after setting active character.
+- Updater remains accessible through the cog menu (`Update & Restart`) and updater card, but is removed from lobby tab navigation.
 - Update card layout uses explicit inner padding; build/version text and patch notes are inset from the brick frame with hidden scrollbars (wheel scroll remains enabled).
 - Version/date is rendered in a centered footer on the launcher shell.
 

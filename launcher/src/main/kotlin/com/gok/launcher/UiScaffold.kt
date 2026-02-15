@@ -49,12 +49,14 @@ object UiScaffold {
     fun sectionLabel(text: String): JLabel {
         return JLabel(text, SwingConstants.LEFT).apply {
             font = sectionTitleFont
+            foreground = Color(244, 230, 197)
         }
     }
 
     fun titledLabel(text: String): JLabel {
         return JLabel(text, SwingConstants.LEFT).apply {
             font = bodyFont
+            foreground = Color(244, 230, 197)
         }
     }
 
