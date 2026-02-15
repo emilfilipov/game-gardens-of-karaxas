@@ -1,6 +1,7 @@
-- Changed post-login routing: accounts with no characters open Character Creation by default; accounts with characters open Character Selection by default.
-- Replaced lobby-only navigation buttons with persistent authenticated tabs (Lobby/Create/Select/Play + Refresh) so navigation remains visible while switching screens.
-- Removed updater access from lobby navigation; updater remains accessible from the top-right dropdown (`Update & Restart`).
-- Added logged-in dropdown account identity header (`Welcome [username].`) and logged-in-only dropdown logout action.
-- Applied additional lobby/theme styling to combo boxes, character list panes, titled sections, and status text for visual consistency with the game palette.
-- Fixed character create/select flows to immediately reload character lists and UI state, including automatic list refresh right after character creation.
+- Added character deletion support to backend and launcher character rows (with confirm dialog + automatic list refresh).
+- Added global duplicate-character-name enforcement (case-insensitive) with backend validation and DB unique index guard.
+- Added character progression scaffold fields (`level`, `experience`, `experience_to_next_level`) with defaults of level 1 / 0 XP and 100 XP-per-level progression rule.
+- Refactored character selection UI to row-based actions (`Play` and `Delete`) and removed explicit `Set Active` control from the user-facing flow.
+- Removed `Logged in as ...` UI label and removed skill-points counter label from character creation screen.
+- Improved art loading by searching character assets in payload/install/workdir paths (plus `GOK_CHARACTER_ART_DIR`) and improved missing-art fallback rendering.
+- Fixed authenticated tab view rendering by using opaque themed card surfaces to prevent visual overlap artifacts when switching tabs.

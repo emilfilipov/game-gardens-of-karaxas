@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext, get_auth_context, get_db
@@ -9,13 +10,18 @@ from app.models.character import Character
 from app.schemas.character import CharacterCreateRequest, CharacterResponse
 
 router = APIRouter(prefix="/characters", tags=["characters"])
+XP_PER_LEVEL = 100
 
 
 def _to_response(character: Character) -> CharacterResponse:
+    current_band_progress = character.experience % XP_PER_LEVEL
     return CharacterResponse(
         id=character.id,
         name=character.name,
         appearance_key=character.appearance_key,
+        level=character.level,
+        experience=character.experience,
+        experience_to_next_level=XP_PER_LEVEL - current_band_progress if current_band_progress > 0 else XP_PER_LEVEL,
         stat_points_total=character.stat_points_total,
         stat_points_used=character.stat_points_used,
         stats=character.stats,
@@ -40,6 +46,19 @@ def create_character(
     context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
+    normalized_name = payload.name.strip()
+    if not normalized_name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": "Character name is required", "code": "invalid_character_name"},
+        )
+    existing = db.execute(select(Character.id).where(func.lower(Character.name) == normalized_name.lower())).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": "Character name already exists", "code": "character_name_taken"},
+        )
+
     stat_points_used = sum(v for v in payload.stats.values() if isinstance(v, int) and v > 0) + sum(
         v for v in payload.skills.values() if isinstance(v, int) and v > 0
     )
@@ -51,16 +70,25 @@ def create_character(
 
     character = Character(
         user_id=context.user.id,
-        name=payload.name.strip(),
+        name=normalized_name,
         appearance_key=payload.appearance_key.strip(),
         stat_points_total=payload.stat_points_total,
         stat_points_used=stat_points_used,
+        level=1,
+        experience=0,
         stats=payload.stats,
         skills=payload.skills,
         is_selected=False,
     )
     db.add(character)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": "Character name already exists", "code": "character_name_taken"},
+        ) from None
     db.refresh(character)
     return _to_response(character)
 
@@ -80,3 +108,17 @@ def select_character(character_id: int, context: AuthContext = Depends(get_auth_
         db.add(row)
     db.commit()
     return {"ok": True, "character_id": character_id}
+
+
+@router.delete("/{character_id}")
+def delete_character(character_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+    character = db.get(Character, character_id)
+    if character is None or character.user_id != context.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Character not found", "code": "character_not_found"},
+        )
+    was_selected = character.is_selected
+    db.delete(character)
+    db.commit()
+    return {"ok": True, "character_id": character_id, "selection_cleared": was_selected}

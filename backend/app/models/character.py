@@ -15,6 +15,8 @@ class Character(Base):
     appearance_key: Mapped[str] = mapped_column(String(64), nullable=False, default="human_male")
     stat_points_total: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
     stat_points_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    experience: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     stats: Mapped[dict] = mapped_column(JSON, nullable=False)
     skills: Mapped[dict] = mapped_column(JSON, nullable=False)
     is_selected: Mapped[bool] = mapped_column(nullable=False, default=False)

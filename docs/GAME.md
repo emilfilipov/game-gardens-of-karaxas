@@ -7,7 +7,7 @@ create/select characters, and enter gameplay sessions.
 
 ## Core Pillars
 - Persistent account identity with secure login sessions.
-- Character-gated game session entry: a selected character is required to enter the world.
+- Character-gated game session entry from character list row actions.
 - Flexible character identity via point distribution into stats and skills.
 - Live-service readiness through version-gated updates and controlled rollout windows.
 - Launcher-driven desktop distribution and patching.
@@ -21,8 +21,9 @@ create/select characters, and enter gameplay sessions.
 3. Default post-login routing:
    - No characters: open Character Creation.
    - Has characters: open Character Selection.
-4. Enter gameplay session with the selected character.
-5. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
+4. On character selection, each row includes direct `Play` and `Delete` actions.
+5. Enter gameplay session from the chosen character row.
+6. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
 
 ## Required Frontend Screens
 - Combined authentication screen (login/register toggle in a single centered block).
@@ -36,6 +37,9 @@ create/select characters, and enter gameplay sessions.
 - Character creation uses a fixed point budget of 10.
 - Players distribute points into stats and skills.
 - Each stat/skill increase costs 1 point.
+- Character names are globally unique (case-insensitive).
+- Characters start at level 1 with 0 XP.
+- Current level progression scaffold uses 100 XP per level.
 - Character creation includes sex choice (current presets: male/female) with visual preview.
 - Initial visual presets currently wired: human male and human female.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.

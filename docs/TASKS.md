@@ -26,6 +26,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-015 | ✅ | 2 | Polish auth interactions: Enter-to-submit, full input hint coverage, explicit credential/network error messages, and auth-screen-only small box layout. |
 | GOK-MMO-016 | ✅ | 2 | Add remembered last-login email prefill and logged-in-only settings-controlled automatic login with startup refresh-session flow. |
 | GOK-MMO-017 | ✅ | 3 | Refactor authenticated shell UX into persistent themed tabs, character-count-based post-login routing, dropdown logout/welcome identity, and immediate character list refresh after create/select actions. |
+| GOK-MMO-018 | ✅ | 4 | Add character deletion, global duplicate-name prevention, level/XP scaffold, row-based character play flow, art-loading root fixes, and tab card rendering fixes. |
 | GOK-INIT-001 | ✅ | 2 | Create initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configure GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enable launcher-only Velopack packaging and publish first installer/release artifacts. |

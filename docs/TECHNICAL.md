@@ -34,6 +34,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `release_policy`: latest/min-supported version and enforce-after timestamp.
 - `characters`: user-owned character builds (stats/skills point allocations).
   - Includes `appearance_key` for visual preset selection persistence.
+  - Includes `level` and `experience` (starts at level 1 / 0 XP).
+  - Character names are globally unique (case-insensitive unique index on `lower(name)`).
 - `friendships`: friend graph.
 - `guilds`, `guild_members`: guild presence and rank scaffolding.
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
@@ -90,13 +92,16 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Post-auth default routing is character-count based:
   - no characters -> `create_character`
   - one or more characters -> `select_character`
-- `play` card is currently an empty-world prototype gated by selected character, with in-launcher gameplay handoff and WASD movement.
+- Character selection is row-based with per-row `Play` and `Delete` actions (no explicit "Set Active" control in the UI).
+- Launcher still syncs backend selected-character state implicitly on `Play` to satisfy character-gated backend features.
+- `play` card is currently an empty-world prototype entered from character row play actions, with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
-- Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` (or `GOK_CHARACTER_ART_DIR` override).
+- Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` in working dir, install root, payload root, or `GOK_CHARACTER_ART_DIR`.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
+- Skill-points counter label has been removed from UI while keeping allocation budget enforcement.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
-- Character creation now performs immediate character-list reload and UI model refresh in the same flow to avoid stale/empty list states.
-- Character selection also performs an immediate list reload after setting active character.
+- Character creation and deletion both perform immediate character-list reloads and UI refreshes to avoid stale list state.
+- Account cards now render on opaque themed surfaces to prevent visual overlap artifacts when switching tabs.
 - Updater remains accessible through the cog menu (`Update & Restart`) and updater card, but is removed from lobby tab navigation.
 - Update card layout uses explicit inner padding; build/version text and patch notes are inset from the brick frame with hidden scrollbars (wheel scroll remains enabled).
 - Version/date is rendered in a centered footer on the launcher shell.

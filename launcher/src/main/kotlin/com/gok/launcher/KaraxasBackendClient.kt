@@ -28,13 +28,15 @@ data class CharacterView(
     val id: Int,
     val name: String,
     val appearanceKey: String,
+    val level: Int,
+    val experience: Int,
+    val experienceToNextLevel: Int,
     val statPointsTotal: Int,
     val statPointsUsed: Int,
     val isSelected: Boolean
 ) {
     override fun toString(): String {
-        val selection = if (isSelected) " [ACTIVE]" else ""
-        return "$name (${statPointsUsed}/$statPointsTotal)$selection"
+        return "$name (Lv.$level)"
     }
 }
 
@@ -171,6 +173,9 @@ class KaraxasBackendClient(
                 id = item.path("id").asInt(),
                 name = item.path("name").asText(),
                 appearanceKey = item.path("appearance_key").asText("human_male"),
+                level = item.path("level").asInt(1),
+                experience = item.path("experience").asInt(0),
+                experienceToNextLevel = item.path("experience_to_next_level").asInt(100),
                 statPointsTotal = item.path("stat_points_total").asInt(),
                 statPointsUsed = item.path("stat_points_used").asInt(),
                 isSelected = item.path("is_selected").asBoolean(false),
@@ -207,6 +212,9 @@ class KaraxasBackendClient(
             id = item.path("id").asInt(),
             name = item.path("name").asText(),
             appearanceKey = item.path("appearance_key").asText("human_male"),
+            level = item.path("level").asInt(1),
+            experience = item.path("experience").asInt(0),
+            experienceToNextLevel = item.path("experience_to_next_level").asInt(100),
             statPointsTotal = item.path("stat_points_total").asInt(),
             statPointsUsed = item.path("stat_points_used").asInt(),
             isSelected = item.path("is_selected").asBoolean(false),
@@ -217,6 +225,16 @@ class KaraxasBackendClient(
         val response = request(
             method = "POST",
             path = "/characters/$characterId/select",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+    }
+
+    fun deleteCharacter(accessToken: String, clientVersion: String, characterId: Int) {
+        val response = request(
+            method = "DELETE",
+            path = "/characters/$characterId",
             accessToken = accessToken,
             clientVersion = clientVersion,
         )

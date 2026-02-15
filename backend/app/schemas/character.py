@@ -15,6 +15,9 @@ class CharacterResponse(BaseModel):
     id: int
     name: str
     appearance_key: str
+    level: int
+    experience: int
+    experience_to_next_level: int
     stat_points_total: int
     stat_points_used: int
     stats: dict[str, int]
