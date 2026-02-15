@@ -60,6 +60,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher release workflow (`.github/workflows/release.yml`):
   - ignores markdown-only commits.
   - ignores backend path changes so backend-only commits do not ship a launcher release.
+  - prefetches rolling historical delta packages (plus latest full fallback) before `vpk pack`, so update feeds support delta patching across skipped versions.
 - Backend deploy workflow (`.github/workflows/deploy-backend.yml`):
   - triggers on backend non-markdown changes.
   - deploys backend to Cloud Run.

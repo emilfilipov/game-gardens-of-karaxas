@@ -28,6 +28,7 @@ Logs are stored under `<install_root>\logs` and include launcher/game/update log
 - Workflow: `.github/workflows/release.yml`
 - Trigger: pushes to `main`/`master` excluding markdown-only and backend-only changes.
 - Publishes Velopack release artifacts and then notifies backend release policy endpoint for forced-update gating (5-minute grace).
+- Release packaging prefetches recent delta packages so clients can still use delta updates when they skip several versions.
 
 ## Notes on update tokens
 If the update feed is private, users need access tokens to fetch package metadata.
