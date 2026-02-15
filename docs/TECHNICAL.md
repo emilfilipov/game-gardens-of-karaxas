@@ -70,6 +70,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Screens are card-based (combined auth, lobby, character creation, character selection, update, play) instead of one-off ad hoc layouts.
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
+- Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Combined auth uses a single centered panel with login/register toggle and transparent placeholder-based fields.
 - Account lobby is account-only (no chat/guild panels).
 - `play` card is currently an empty-world prototype gated by selected character, with in-launcher gameplay handoff and WASD movement.

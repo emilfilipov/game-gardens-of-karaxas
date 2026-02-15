@@ -174,6 +174,24 @@ object LauncherMain {
         val quickUpdateItem = JMenuItem("Update & Restart")
         val settingsItem = JMenuItem("Settings")
         val exitItem = JMenuItem("Exit")
+        val menuBg = Color(52, 39, 32)
+        val menuHover = Color(84, 58, 41)
+        val menuFg = Color(247, 236, 209)
+        fun stylePopupItem(item: JMenuItem) {
+            item.font = Font("Serif", Font.BOLD, 15)
+            item.foreground = menuFg
+            item.background = menuBg
+            item.isOpaque = true
+            item.border = BorderFactory.createEmptyBorder(8, 14, 8, 14)
+            item.model.addChangeListener {
+                item.background = if (item.model.isArmed || item.model.isSelected) menuHover else menuBg
+            }
+        }
+        settingsPopup.background = menuBg
+        settingsPopup.border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+        stylePopupItem(quickUpdateItem)
+        stylePopupItem(settingsItem)
+        stylePopupItem(exitItem)
         settingsPopup.add(quickUpdateItem)
         settingsPopup.add(settingsItem)
         settingsPopup.add(exitItem)
