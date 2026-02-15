@@ -41,17 +41,48 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Preflight Deploy Inputs
+        id: preflight
+        shell: bash
+        run: |
+          missing=0
+          for key in PROJECT_ID REGION SERVICE_NAME CLOUD_SQL_INSTANCE AR_REPO IMAGE_NAME DB_USER DB_PASSWORD JWT_SECRET OPS_API_TOKEN; do
+            if [[ -z "${!key}" ]]; then
+              echo "Missing required env: $key"
+              missing=1
+            fi
+          done
+
+          if [[ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" || -z "${{ secrets.GCP_SERVICE_ACCOUNT }}" ]]; then
+            echo "Missing GCP auth secrets."
+            missing=1
+          fi
+
+          if [[ "$missing" -eq 1 ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Authenticate to Google Cloud
+        if: steps.preflight.outputs.enabled == 'true'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Setup gcloud
+        if: steps.preflight.outputs.enabled == 'true'
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker Auth
+        if: steps.preflight.outputs.enabled == 'true'
         run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
 
       - name: Deploy Backend to Cloud Run
+        if: steps.preflight.outputs.enabled == 'true'
         run: backend/scripts/deploy_cloud_run.sh
+
+      - name: Skip Deploy (Missing Secrets/Vars)
+        if: steps.preflight.outputs.enabled != 'true'
+        run: echo "Backend deploy skipped because required secrets or variables are not configured yet."
