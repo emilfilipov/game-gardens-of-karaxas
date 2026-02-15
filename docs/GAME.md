@@ -7,20 +7,19 @@ create/select characters, and enter gameplay sessions.
 
 ## Core Pillars
 - Persistent account identity with secure login sessions.
-- Social-first lobby: channels, chat, friend list, and guild presence.
+- Character-gated in-game social systems: chat/guild tools unlock only after selecting a character.
 - Flexible character identity via point distribution into stats and skills.
 - Live-service readiness through version-gated updates and controlled rollout windows.
 - Launcher-driven desktop distribution and patching.
 
 ## Account and Lobby Loop
 1. Open launcher and authenticate (register or login).
-2. Enter account lobby.
-3. Use social features:
+2. Enter account lobby (account-only tools and updater access).
+3. Create a character or select an existing character.
+4. Enter gameplay session context with the selected character.
+5. Use in-game social systems:
    - Global/direct/guild chat channels.
-   - Friend list visibility.
-   - Guild membership/rank visibility.
-4. Create a character or select an existing character.
-5. Start gameplay session.
+   - Guild presence/management entry points.
 
 ## Required Frontend Screens
 - Login screen.
@@ -36,11 +35,11 @@ create/select characters, and enter gameplay sessions.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.
 
 ## Social Scope (Current)
-- Chat scope now:
+- Chat scope now (in-game only, character required):
   - Global channels.
   - Direct messages.
   - Guild chat.
-- Guild management UX is planned as a follow-up menu/screen after baseline social/chat scaffolding.
+- Guild management UX is in-game only and is planned as a follow-up menu/screen after baseline social/chat scaffolding.
 
 ## Update Policy
 - Launcher/updater remains the distribution and update authority.

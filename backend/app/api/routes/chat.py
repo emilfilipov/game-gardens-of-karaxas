@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import AuthContext, get_auth_context, get_db
 from app.core.security import TokenPayloadError, decode_access_token
 from app.db.session import SessionLocal
+from app.models.character import Character
 from app.models.chat import ChatChannel, ChatMember, ChatMessage
 from app.models.session import UserSession
 from app.models.user import User
@@ -32,8 +33,20 @@ def _to_channel_response(channel: ChatChannel) -> ChannelResponse:
     return ChannelResponse(id=channel.id, name=channel.name, kind=channel.kind, guild_id=channel.guild_id)
 
 
+def _require_selected_character(db: Session, user_id: int) -> None:
+    selected = db.execute(
+        select(Character.id).where(and_(Character.user_id == user_id, Character.is_selected.is_(True)))
+    ).scalar_one_or_none()
+    if selected is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"message": "Character must be selected before using in-game chat", "code": "character_required"},
+        )
+
+
 @router.get("/channels", response_model=list[ChannelResponse])
 def list_channels(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+    _require_selected_character(db, context.user.id)
     rows = db.execute(
         select(ChatChannel)
         .outerjoin(ChatMember, ChatMember.channel_id == ChatChannel.id)
@@ -50,6 +63,7 @@ def create_or_get_direct_channel(
     context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
+    _require_selected_character(db, context.user.id)
     if payload.target_user_id == context.user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -94,6 +108,7 @@ def list_messages(
     context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
+    _require_selected_character(db, context.user.id)
     channel = db.get(ChatChannel, channel_id)
     if channel is None or not _can_access_channel(db, context.user.id, channel):
         raise HTTPException(
@@ -128,6 +143,7 @@ async def create_message(
     context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
+    _require_selected_character(db, context.user.id)
     channel = db.get(ChatChannel, payload.channel_id)
     if channel is None or not _can_access_channel(db, context.user.id, channel):
         raise HTTPException(
@@ -192,6 +208,12 @@ async def chat_ws(websocket: WebSocket):
             return
         if session.revoked_at is not None:
             await websocket.close(code=4401, reason="Session revoked")
+            return
+        selected_character = db.execute(
+            select(Character.id).where(and_(Character.user_id == user_id, Character.is_selected.is_(True)))
+        ).scalar_one_or_none()
+        if selected_character is None:
+            await websocket.close(code=4403, reason="Character required")
             return
         if not _can_access_channel(db, user_id, channel):
             await websocket.close(code=4403, reason="Channel access denied")

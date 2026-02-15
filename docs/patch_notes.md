@@ -1,3 +1,5 @@
-- Added backend deploy workflow auth fallback so GitHub Actions can authenticate with `GCP_SA_KEY_JSON` (service-account key) when WIF is not configured.
-- Hardened backend deploy flow with `SKIP_BOOTSTRAP=1` support to avoid requiring high-privilege project bootstrap operations in CI.
-- Updated launcher release trigger filters so editing `deploy-backend.yml` does not trigger a launcher release.
+- Moved chat and guild views out of the account lobby and into the in-game social screen, gated behind active character selection.
+- Enforced character selection on backend chat APIs and websocket chat access (`character_required` flow) so social features are only available in character session context.
+- Refined account lobby into account-only functionality (auth/account status, character summary, navigation, updater access).
+- Upgraded character creation UI structure with appearance selector + preview scaffold that auto-discovers art files from `assets/characters/` (or `GOK_CHARACTER_ART_DIR`).
+- Improved character selection UI with structured details panel and active-character status feedback.

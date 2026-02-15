@@ -22,6 +22,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Single FastAPI service (modular monolith) with:
   - REST APIs for auth, lobby, characters, chat, and ops.
   - WebSocket endpoint for realtime chat/events.
+- Chat endpoints are now character-gated: users must have an active selected character before chat access.
 - This keeps operational complexity low while preserving future split path (`api` + `realtime`) if scale requires it.
 
 ## Data Model (Initial)
@@ -63,6 +64,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 ## Launcher UI Structure Strategy
 - UI is organized with reusable screen scaffolds and layout tokens (`UiScaffold`) to keep alignment consistent across screens.
 - Screens are card-based (login, register, lobby, character creation, character selection, update, play) instead of one-off ad hoc layouts.
+- Account lobby is account-only (no chat/guild panels).
+- In-game social screen (`play` card) hosts chat/guild views and is gated by selected character.
+- Character creation/select screens are structured for art integration (appearance selector + preview panel) and can load art assets from `assets/characters/` (or `GOK_CHARACTER_ART_DIR` override).
 - Update functionality remains accessible from within account-lobby flow via updater card access.
 
 ## Logging Strategy

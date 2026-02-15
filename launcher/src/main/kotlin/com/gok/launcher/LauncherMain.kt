@@ -30,6 +30,7 @@ import javax.imageio.ImageIO
 import javax.swing.BorderFactory
 import javax.swing.ImageIcon
 import javax.swing.JButton
+import javax.swing.JComboBox
 import javax.swing.JList
 import javax.swing.JOptionPane
 import javax.swing.JPasswordField
@@ -61,6 +62,14 @@ object LauncherMain {
         val title: String,
         val html: String
     )
+
+    private data class CharacterArtOption(
+        val key: String,
+        val label: String,
+        val image: BufferedImage?
+    ) {
+        override fun toString(): String = label
+    }
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -119,7 +128,7 @@ object LauncherMain {
         val createCharacterMenu = buildMenuButton("Create Character", rectangularButtonImage, Dimension(360, 54), 21f)
         val selectCharacterMenu = buildMenuButton("Select Character", rectangularButtonImage, Dimension(360, 54), 21f)
         val updateMenu = buildMenuButton("Update", rectangularButtonImage, Dimension(360, 54), 24f)
-        val playMenu = buildMenuButton("Play", rectangularButtonImage, Dimension(360, 54), 24f)
+        val playMenu = buildMenuButton("In Game", rectangularButtonImage, Dimension(360, 54), 24f)
         val exit = buildMenuButton("Exit", rectangularButtonImage, Dimension(360, 54), 24f)
 
         val boxBody = JPanel().apply {
@@ -258,35 +267,23 @@ object LauncherMain {
         val registerSubmit = buildMenuButton("Create Account", rectangularButtonImage, Dimension(220, 42), 14f)
 
         val userStatus = JLabel("Not authenticated.")
-        val channelModel = DefaultListModel<ChannelView>()
-        val channelList = JList(channelModel)
+        val lobbyStatus = JLabel("Lobby ready.")
+        val characterSummary = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            font = UiScaffold.bodyFont
+            text = "No characters loaded."
+        }
+        val refreshLobbyButton = buildMenuButton("Refresh Lobby", rectangularButtonImage, Dimension(170, 38), 13f)
+        val openCreateFromLobby = buildMenuButton("Create Character", rectangularButtonImage, Dimension(170, 38), 13f)
+        val openSelectFromLobby = buildMenuButton("Select Character", rectangularButtonImage, Dimension(170, 38), 13f)
+        val openGameFromLobby = buildMenuButton("Enter Game", rectangularButtonImage, Dimension(170, 38), 13f)
+        val openUpdateFromLobby = buildMenuButton("Updater", rectangularButtonImage, Dimension(150, 38), 13f)
+        val logoutButton = buildMenuButton("Logout", rectangularButtonImage, Dimension(140, 38), 13f)
+
         val characterModel = DefaultListModel<CharacterView>()
         val characterList = JList(characterModel)
-        val chatArea = JTextArea().apply {
-            isEditable = false
-            lineWrap = true
-            wrapStyleWord = true
-            font = Font("Monospaced", Font.PLAIN, 12)
-        }
-        val lobbyStatus = JLabel("Lobby ready.")
-        val friendsArea = JTextArea().apply {
-            isEditable = false
-            lineWrap = true
-            wrapStyleWord = true
-            font = UiScaffold.bodyFont
-        }
-        val guildArea = JTextArea().apply {
-            isEditable = false
-            lineWrap = true
-            wrapStyleWord = true
-            font = UiScaffold.bodyFont
-        }
-        val messageInput = UiScaffold.textField(26)
-        val sendMessageButton = buildMenuButton("Send", rectangularButtonImage, Dimension(120, 38), 13f)
-        val refreshLobbyButton = buildMenuButton("Refresh Lobby", rectangularButtonImage, Dimension(160, 38), 13f)
-        val refreshChatButton = buildMenuButton("Refresh Chat", rectangularButtonImage, Dimension(160, 38), 13f)
-        val openUpdateFromLobby = buildMenuButton("Updater", rectangularButtonImage, Dimension(140, 38), 13f)
-        val logoutButton = buildMenuButton("Logout", rectangularButtonImage, Dimension(140, 38), 13f)
 
         val createName = UiScaffold.textField()
         val createPoints = UiScaffold.textField().apply { text = "20" }
@@ -298,15 +295,116 @@ object LauncherMain {
         val createStatus = JLabel("Allocate points to scaffold your first build.")
         val createSubmit = buildMenuButton("Create Character", rectangularButtonImage, Dimension(220, 42), 14f)
         val createRefresh = buildMenuButton("Refresh List", rectangularButtonImage, Dimension(180, 42), 14f)
+        val createAppearancePreview = JLabel("No art loaded", SwingConstants.CENTER).apply {
+            preferredSize = Dimension(230, 250)
+            minimumSize = Dimension(230, 250)
+            border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+            foreground = Color(245, 232, 206)
+            font = Font("Serif", Font.BOLD, 14)
+        }
 
         val selectStatus = JLabel("Choose an active character.")
         val selectRefresh = buildMenuButton("Refresh Characters", rectangularButtonImage, Dimension(220, 42), 14f)
         val selectSubmit = buildMenuButton("Set Active", rectangularButtonImage, Dimension(180, 42), 14f)
+        val selectCharacterDetails = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            font = UiScaffold.bodyFont
+            text = "Pick a character to view details."
+        }
 
-        val playStatus = JLabel("Launches the local game runtime.")
-        val playButton = buildMenuButton("Launch Game", rectangularButtonImage, Dimension(220, 42), 14f)
+        val channelModel = DefaultListModel<ChannelView>()
+        val channelList = JList(channelModel)
+        val chatArea = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            font = Font("Monospaced", Font.PLAIN, 12)
+        }
+        val guildArea = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            font = UiScaffold.bodyFont
+            text = "Guild data appears in-game."
+        }
+        val messageInput = UiScaffold.textField(26)
+        val sendMessageButton = buildMenuButton("Send", rectangularButtonImage, Dimension(120, 38), 13f)
+        val refreshGameButton = buildMenuButton("Refresh Game", rectangularButtonImage, Dimension(160, 38), 13f)
+        val refreshChatButton = buildMenuButton("Refresh Chat", rectangularButtonImage, Dimension(160, 38), 13f)
+        val launchRuntimeButton = buildMenuButton("Launch Runtime", rectangularButtonImage, Dimension(180, 38), 13f)
+        val gameStatus = JLabel("Log in and select a character to enter game features.")
+
+        val playStatus = JLabel("Game screen hosts in-session social features.")
+        var selectedCharacterId: Int? = null
+        var selectedCharacterName: String? = null
 
         fun parsePoints(text: String): Int = text.trim().toIntOrNull()?.coerceAtLeast(0) ?: 0
+
+        fun loadCharacterArtOptions(): List<CharacterArtOption> {
+            val options = mutableListOf<CharacterArtOption>()
+            val roots = mutableListOf<Path>()
+            System.getenv("GOK_CHARACTER_ART_DIR")
+                ?.takeIf { it.isNotBlank() }
+                ?.let { roots.add(Paths.get(it)) }
+            roots.add(Paths.get(System.getProperty("user.dir")).resolve("assets").resolve("characters"))
+
+            val imageExtensions = setOf("png", "jpg", "jpeg", "webp")
+            for (root in roots.distinct()) {
+                if (!Files.isDirectory(root)) continue
+                try {
+                    Files.list(root).use { stream ->
+                        stream
+                            .filter { Files.isRegularFile(it) }
+                            .sorted()
+                            .forEach { path ->
+                                val ext = path.fileName.toString().substringAfterLast('.', "").lowercase()
+                                if (ext !in imageExtensions) return@forEach
+                                val image = try {
+                                    ImageIO.read(path.toFile())
+                                } catch (_: Exception) {
+                                    null
+                                }
+                                if (image != null) {
+                                    val rawName = path.fileName.toString().substringBeforeLast('.')
+                                    val label = rawName.replace('_', ' ').replace('-', ' ')
+                                    options.add(CharacterArtOption(key = rawName, label = label, image = image))
+                                }
+                            }
+                    }
+                } catch (_: Exception) {
+                    // Ignore invalid art directories.
+                }
+            }
+            return options
+        }
+
+        val appearanceOptions = loadCharacterArtOptions()
+        val appearanceCombo = JComboBox<CharacterArtOption>().apply {
+            preferredSize = UiScaffold.fieldSize
+            minimumSize = UiScaffold.fieldSize
+            maximumSize = Dimension(300, UiScaffold.fieldSize.height)
+            font = UiScaffold.bodyFont
+            if (appearanceOptions.isEmpty()) {
+                addItem(CharacterArtOption("default", "Default (No Art Yet)", null))
+            } else {
+                appearanceOptions.forEach { addItem(it) }
+            }
+        }
+
+        fun applySelectedAppearancePreview() {
+            val option = appearanceCombo.selectedItem as? CharacterArtOption
+            val image = option?.image
+            if (image == null) {
+                createAppearancePreview.icon = null
+                createAppearancePreview.text = "No art loaded"
+                return
+            }
+            val scaled = scaleImage(image, createAppearancePreview.width.coerceAtLeast(180), createAppearancePreview.height.coerceAtLeast(220))
+            createAppearancePreview.icon = ImageIcon(scaled)
+            createAppearancePreview.text = ""
+        }
 
         fun withSession(onMissing: () -> Unit = {}, block: (AuthSession) -> Unit) {
             val session = authSession
@@ -344,6 +442,14 @@ object LauncherMain {
                     javax.swing.SwingUtilities.invokeLater {
                         characterModel.clear()
                         characters.forEach { characterModel.addElement(it) }
+                        val active = characters.firstOrNull { it.isSelected }
+                        selectedCharacterId = active?.id
+                        selectedCharacterName = active?.name
+                        if (active != null) {
+                            selectCharacterDetails.text = "Active Character\n\nName: ${active.name}\nPoints: ${active.statPointsUsed}/${active.statPointsTotal}\n\nThis character unlocks in-game chat/guild tools."
+                        } else {
+                            selectCharacterDetails.text = "Pick a character to view details."
+                        }
                     }
                 }
             }
@@ -368,34 +474,69 @@ object LauncherMain {
         fun refreshLobby() {
             withSession(onMissing = { lobbyStatus.text = "Please login first." }) { session ->
                 runTask(lobbyStatus, "Refreshing lobby...", "Lobby refreshed.") {
-                    val overview = backendClient.lobbyOverview(session.accessToken, loginVersion.text.trim())
-                    val channels = backendClient.listChannels(session.accessToken, loginVersion.text.trim())
                     val characters = backendClient.listCharacters(session.accessToken, loginVersion.text.trim())
                     javax.swing.SwingUtilities.invokeLater {
                         userStatus.text = "Logged in as ${session.displayName} (${session.email})"
-                        friendsArea.text = if (overview.friends.isEmpty()) "No friends yet." else overview.friends.joinToString("\n")
-                        guildArea.text = if (overview.guilds.isEmpty()) "No guild membership yet." else overview.guilds.joinToString("\n")
+                        characterModel.clear()
+                        characters.forEach { characterModel.addElement(it) }
+                        val active = characters.firstOrNull { it.isSelected }
+                        selectedCharacterId = active?.id
+                        selectedCharacterName = active?.name
+                        characterSummary.text = if (characters.isEmpty()) {
+                            "No characters created yet.\nUse Create Character to start."
+                        } else {
+                            val lines = characters.map { c ->
+                                val marker = if (c.isSelected) " [ACTIVE]" else ""
+                                "${c.name} (${c.statPointsUsed}/${c.statPointsTotal})$marker"
+                            }
+                            lines.joinToString("\n")
+                        }
+                    }
+                }
+            }
+        }
+
+        fun refreshGameSocial() {
+            withSession(onMissing = { gameStatus.text = "Please login first." }) { session ->
+                val selectedId = selectedCharacterId
+                if (selectedId == null) {
+                    gameStatus.text = "Select a character before entering game features."
+                    return@withSession
+                }
+                runTask(gameStatus, "Refreshing game social data...", "Game social refreshed.") {
+                    val overview = backendClient.lobbyOverview(session.accessToken, loginVersion.text.trim())
+                    val channels = backendClient.listChannels(session.accessToken, loginVersion.text.trim())
+                    javax.swing.SwingUtilities.invokeLater {
+                        guildArea.text = if (overview.guilds.isEmpty()) {
+                            "No guild membership yet."
+                        } else {
+                            overview.guilds.joinToString("\n")
+                        }
                         channelModel.clear()
                         channels.forEach { channelModel.addElement(it) }
                         if (channels.isNotEmpty()) {
                             channelList.selectedIndex = 0
                             activeChannel = channels.first()
+                        } else {
+                            activeChannel = null
                         }
-                        characterModel.clear()
-                        characters.forEach { characterModel.addElement(it) }
                     }
                 }
             }
         }
 
         fun refreshMessages() {
-            withSession(onMissing = { lobbyStatus.text = "Please login first." }) { session ->
-                val channel = activeChannel
-                if (channel == null) {
-                    lobbyStatus.text = "Select a channel first."
+            withSession(onMissing = { gameStatus.text = "Please login first." }) { session ->
+                if (selectedCharacterId == null) {
+                    gameStatus.text = "Select a character first."
                     return@withSession
                 }
-                runTask(lobbyStatus, "Loading messages...", "Messages loaded.") {
+                val channel = activeChannel
+                if (channel == null) {
+                    gameStatus.text = "Select a channel first."
+                    return@withSession
+                }
+                runTask(gameStatus, "Loading messages...", "Messages loaded.") {
                     val messages = backendClient.listMessages(session.accessToken, loginVersion.text.trim(), channel.id)
                     val rendered = messages.joinToString("\n") {
                         "[${it.createdAt}] ${it.senderDisplayName}: ${it.content}"
@@ -439,73 +580,72 @@ object LauncherMain {
             add(JPanel(BorderLayout(8, 8)).apply {
                 isOpaque = false
                 add(userStatus, BorderLayout.WEST)
-                add(JPanel(GridLayout(1, 5, 6, 0)).apply {
+                add(JPanel(GridLayout(1, 6, 6, 0)).apply {
                     isOpaque = false
                     add(refreshLobbyButton)
-                    add(refreshChatButton)
+                    add(openCreateFromLobby)
+                    add(openSelectFromLobby)
+                    add(openGameFromLobby)
                     add(openUpdateFromLobby)
                     add(logoutButton)
                 }, BorderLayout.EAST)
             }, BorderLayout.NORTH)
-            add(JPanel(BorderLayout(8, 8)).apply {
-                isOpaque = false
-                add(JScrollPane(channelList).apply { preferredSize = Dimension(220, 300) }, BorderLayout.WEST)
-                add(JPanel(BorderLayout(6, 6)).apply {
-                    isOpaque = false
-                    add(JScrollPane(chatArea), BorderLayout.CENTER)
-                    add(JPanel(BorderLayout(6, 0)).apply {
-                        isOpaque = false
-                        add(messageInput, BorderLayout.CENTER)
-                        add(sendMessageButton, BorderLayout.EAST)
-                    }, BorderLayout.SOUTH)
-                }, BorderLayout.CENTER)
-                add(JPanel(GridLayout(2, 1, 0, 8)).apply {
-                    isOpaque = false
-                    add(JScrollPane(friendsArea).apply {
-                        border = BorderFactory.createTitledBorder("Friends")
-                        preferredSize = Dimension(260, 150)
-                    })
-                    add(JScrollPane(guildArea).apply {
-                        border = BorderFactory.createTitledBorder("Guilds")
-                        preferredSize = Dimension(260, 150)
-                    })
-                }, BorderLayout.EAST)
+            add(JScrollPane(characterSummary).apply {
+                border = BorderFactory.createTitledBorder("Account Characters")
+                preferredSize = Dimension(780, 340)
             }, BorderLayout.CENTER)
             add(lobbyStatus, BorderLayout.SOUTH)
         }
 
         val createCharacterPanel = UiScaffold.contentPanel().apply {
-            layout = GridBagLayout()
-            add(UiScaffold.sectionLabel("Character Creation"), UiScaffold.gbc(0))
-            add(UiScaffold.titledLabel("Name"), UiScaffold.gbc(1))
-            add(createName, UiScaffold.gbc(2))
-            add(UiScaffold.titledLabel("Total Skill/Stat Points"), UiScaffold.gbc(3))
-            add(createPoints, UiScaffold.gbc(4))
-            add(UiScaffold.titledLabel("Stats (Strength / Agility / Intellect)"), UiScaffold.gbc(5))
-            add(JPanel(GridLayout(1, 3, 6, 0)).apply {
+            layout = BorderLayout(12, 8)
+            add(UiScaffold.sectionLabel("Character Creation"), BorderLayout.NORTH)
+            add(JPanel(BorderLayout(12, 8)).apply {
                 isOpaque = false
-                add(statStrength)
-                add(statAgility)
-                add(statIntellect)
-            }, UiScaffold.gbc(6))
-            add(UiScaffold.titledLabel("Skills (Alchemy / Sword Mastery)"), UiScaffold.gbc(7))
-            add(JPanel(GridLayout(1, 2, 6, 0)).apply {
-                isOpaque = false
-                add(skillAlchemy)
-                add(skillSword)
-            }, UiScaffold.gbc(8))
-            add(JPanel(GridLayout(1, 2, 6, 0)).apply {
-                isOpaque = false
-                add(createSubmit)
-                add(createRefresh)
-            }, UiScaffold.gbc(9))
-            add(createStatus, UiScaffold.gbc(10))
+                add(JPanel(BorderLayout(0, 6)).apply {
+                    isOpaque = false
+                    border = BorderFactory.createTitledBorder("Character Art Preview")
+                    add(createAppearancePreview, BorderLayout.CENTER)
+                }, BorderLayout.WEST)
+                add(JPanel(GridBagLayout()).apply {
+                    isOpaque = false
+                    add(UiScaffold.titledLabel("Name"), UiScaffold.gbc(0))
+                    add(createName, UiScaffold.gbc(1))
+                    add(UiScaffold.titledLabel("Appearance"), UiScaffold.gbc(2))
+                    add(appearanceCombo, UiScaffold.gbc(3))
+                    add(UiScaffold.titledLabel("Total Skill/Stat Points"), UiScaffold.gbc(4))
+                    add(createPoints, UiScaffold.gbc(5))
+                    add(UiScaffold.titledLabel("Stats (Strength / Agility / Intellect)"), UiScaffold.gbc(6))
+                    add(JPanel(GridLayout(1, 3, 6, 0)).apply {
+                        isOpaque = false
+                        add(statStrength)
+                        add(statAgility)
+                        add(statIntellect)
+                    }, UiScaffold.gbc(7))
+                    add(UiScaffold.titledLabel("Skills (Alchemy / Sword Mastery)"), UiScaffold.gbc(8))
+                    add(JPanel(GridLayout(1, 2, 6, 0)).apply {
+                        isOpaque = false
+                        add(skillAlchemy)
+                        add(skillSword)
+                    }, UiScaffold.gbc(9))
+                    add(JPanel(GridLayout(1, 2, 6, 0)).apply {
+                        isOpaque = false
+                        add(createSubmit)
+                        add(createRefresh)
+                    }, UiScaffold.gbc(10))
+                    add(createStatus, UiScaffold.gbc(11))
+                }, BorderLayout.CENTER)
+            }, BorderLayout.CENTER)
         }
 
         val selectCharacterPanel = UiScaffold.contentPanel().apply {
-            layout = BorderLayout(0, 8)
+            layout = BorderLayout(10, 8)
             add(UiScaffold.sectionLabel("Character Selection"), BorderLayout.NORTH)
             add(JScrollPane(characterList), BorderLayout.CENTER)
+            add(JScrollPane(selectCharacterDetails).apply {
+                border = BorderFactory.createTitledBorder("Selection Details")
+                preferredSize = Dimension(260, 220)
+            }, BorderLayout.EAST)
             add(JPanel(BorderLayout(6, 0)).apply {
                 isOpaque = false
                 add(JPanel(GridLayout(1, 2, 6, 0)).apply {
@@ -518,10 +658,42 @@ object LauncherMain {
         }
 
         val playPanel = UiScaffold.contentPanel().apply {
-            layout = GridBagLayout()
-            add(UiScaffold.sectionLabel("Play"), UiScaffold.gbc(0))
-            add(playButton, UiScaffold.gbc(1))
-            add(playStatus, UiScaffold.gbc(2))
+            layout = BorderLayout(8, 8)
+            add(UiScaffold.sectionLabel("In-Game Social"), BorderLayout.NORTH)
+            add(JPanel(BorderLayout(8, 8)).apply {
+                isOpaque = false
+                add(JScrollPane(channelList).apply {
+                    border = BorderFactory.createTitledBorder("Channels")
+                    preferredSize = Dimension(220, 300)
+                }, BorderLayout.WEST)
+                add(JPanel(BorderLayout(6, 6)).apply {
+                    isOpaque = false
+                    add(JScrollPane(chatArea).apply { border = BorderFactory.createTitledBorder("Chat") }, BorderLayout.CENTER)
+                    add(JPanel(BorderLayout(6, 0)).apply {
+                        isOpaque = false
+                        add(messageInput, BorderLayout.CENTER)
+                        add(sendMessageButton, BorderLayout.EAST)
+                    }, BorderLayout.SOUTH)
+                }, BorderLayout.CENTER)
+                add(JScrollPane(guildArea).apply {
+                    border = BorderFactory.createTitledBorder("Guild Overview")
+                    preferredSize = Dimension(260, 220)
+                }, BorderLayout.EAST)
+            }, BorderLayout.CENTER)
+            add(JPanel(BorderLayout(6, 0)).apply {
+                isOpaque = false
+                add(JPanel(GridLayout(1, 4, 6, 0)).apply {
+                    isOpaque = false
+                    add(refreshGameButton)
+                    add(refreshChatButton)
+                    add(launchRuntimeButton)
+                }, BorderLayout.NORTH)
+                add(JPanel(GridLayout(2, 1)).apply {
+                    isOpaque = false
+                    add(gameStatus)
+                    add(playStatus)
+                }, BorderLayout.SOUTH)
+            }, BorderLayout.SOUTH)
         }
 
         menuCards.add(loginPanel, "login")
@@ -578,11 +750,20 @@ object LauncherMain {
                     return
                 }
             }
+            if (card == "play" && selectedCharacterId == null) {
+                JOptionPane.showMessageDialog(frame, "Select a character before entering game features.", "Character Required", JOptionPane.WARNING_MESSAGE)
+                cardsLayout.show(menuCards, "select_character")
+                return
+            }
             if (card == "update") {
                 buildVersionLabel.text = "Build Version: v${defaultClientVersion()} (${Instant.now().atZone(ZoneId.systemDefault()).toLocalDate()})"
                 activeLog = null
                 applyPatchNotesView(patchNotesPane, patchNotes)
                 updateStatus.text = "Ready."
+            }
+            if (card == "play") {
+                refreshGameSocial()
+                playStatus.text = "In-game social ready for ${selectedCharacterName ?: "selected character"}."
             }
             cardsLayout.show(menuCards, card)
         }
@@ -641,27 +822,42 @@ object LauncherMain {
         }
 
         refreshLobbyButton.addActionListener { refreshLobby() }
+        openCreateFromLobby.addActionListener { showCard("create_character") }
+        openSelectFromLobby.addActionListener { showCard("select_character") }
+        openGameFromLobby.addActionListener { showCard("play") }
         refreshChatButton.addActionListener { refreshMessages() }
+        refreshGameButton.addActionListener { refreshGameSocial() }
         openUpdateFromLobby.addActionListener { showCard("update") }
+        appearanceCombo.addActionListener { applySelectedAppearancePreview() }
+        applySelectedAppearancePreview()
         channelList.addListSelectionListener {
             val selected = channelList.selectedValue ?: return@addListSelectionListener
             activeChannel = selected
             refreshMessages()
         }
+        characterList.addListSelectionListener {
+            val selected = characterList.selectedValue ?: return@addListSelectionListener
+            selectCharacterDetails.text =
+                "Character\n\nName: ${selected.name}\nAllocated: ${selected.statPointsUsed}/${selected.statPointsTotal}\nActive: ${if (selected.isSelected) "Yes" else "No"}"
+        }
 
         sendMessageButton.addActionListener {
             val content = messageInput.text.trim()
             if (content.isBlank()) {
-                lobbyStatus.text = "Message cannot be empty."
+                gameStatus.text = "Message cannot be empty."
                 return@addActionListener
             }
-            withSession(onMissing = { lobbyStatus.text = "Please login first." }) { session ->
-                val channel = activeChannel
-                if (channel == null) {
-                    lobbyStatus.text = "Select a channel first."
+            withSession(onMissing = { gameStatus.text = "Please login first." }) { session ->
+                if (selectedCharacterId == null) {
+                    gameStatus.text = "Select a character first."
                     return@withSession
                 }
-                runTask(lobbyStatus, "Sending message...", "Message sent.") {
+                val channel = activeChannel
+                if (channel == null) {
+                    gameStatus.text = "Select a channel first."
+                    return@withSession
+                }
+                runTask(gameStatus, "Sending message...", "Message sent.") {
                     backendClient.sendMessage(session.accessToken, loginVersion.text.trim(), channel.id, content)
                     javax.swing.SwingUtilities.invokeLater {
                         messageInput.text = ""
@@ -698,6 +894,7 @@ object LauncherMain {
                         skills = skills,
                     )
                     refreshCharacters(createStatus)
+                    refreshLobby()
                 }
             }
         }
@@ -714,6 +911,8 @@ object LauncherMain {
                 runTask(selectStatus, "Applying selection...", "Character selected.") {
                     backendClient.selectCharacter(session.accessToken, loginVersion.text.trim(), selected.id)
                     refreshCharacters(selectStatus)
+                    selectedCharacterId = selected.id
+                    selectedCharacterName = selected.name
                 }
             }
         }
@@ -731,17 +930,20 @@ object LauncherMain {
                 }.start()
             }
             userStatus.text = "Not authenticated."
-            friendsArea.text = ""
             guildArea.text = ""
+            characterSummary.text = ""
             channelModel.clear()
             characterModel.clear()
             chatArea.text = ""
+            selectedCharacterId = null
+            selectedCharacterName = null
             lobbyStatus.text = "Logged out."
+            gameStatus.text = "Logged out."
             showCard("login")
         }
 
-        playButton.addActionListener {
-            playStatus.text = "Launching game..."
+        launchRuntimeButton.addActionListener {
+            playStatus.text = "Launching local runtime..."
             launchGame(playStatus)
         }
 
