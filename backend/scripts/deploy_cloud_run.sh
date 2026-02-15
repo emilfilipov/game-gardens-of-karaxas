@@ -62,6 +62,7 @@ JWT_AUDIENCE="${JWT_AUDIENCE:-karaxas-client}"
 JWT_ACCESS_TTL_MINUTES="${JWT_ACCESS_TTL_MINUTES:-15}"
 JWT_REFRESH_TTL_DAYS="${JWT_REFRESH_TTL_DAYS:-30}"
 VERSION_GRACE_MINUTES_DEFAULT="${VERSION_GRACE_MINUTES_DEFAULT:-5}"
+SKIP_BOOTSTRAP="${SKIP_BOOTSTRAP:-0}"
 
 DB_HOST="/cloudsql/${CLOUD_SQL_INSTANCE}"
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
@@ -77,20 +78,22 @@ fi
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com sqladmin.googleapis.com >/dev/null
+if [[ "$SKIP_BOOTSTRAP" != "1" ]]; then
+  gcloud services enable run.googleapis.com artifactregistry.googleapis.com sqladmin.googleapis.com >/dev/null
 
-PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='get(projectNumber)')"
-RUN_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+  PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='get(projectNumber)')"
+  RUN_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member "serviceAccount:${RUN_SA}" \
-  --role "roles/cloudsql.client" \
-  --quiet >/dev/null
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member "serviceAccount:${RUN_SA}" \
+    --role "roles/cloudsql.client" \
+    --quiet >/dev/null
 
-if ! gcloud artifacts repositories describe "$AR_REPO" --location "$REGION" >/dev/null 2>&1; then
-  gcloud artifacts repositories create "$AR_REPO" \
-    --repository-format=docker \
-    --location "$REGION"
+  if ! gcloud artifacts repositories describe "$AR_REPO" --location "$REGION" >/dev/null 2>&1; then
+    gcloud artifacts repositories create "$AR_REPO" \
+      --repository-format=docker \
+      --location "$REGION"
+  fi
 fi
 
 docker build -t "$IMAGE_URI" -f "${ROOT_DIR}/Dockerfile" "$REPO_ROOT"

@@ -37,6 +37,7 @@ jobs:
       JWT_ACCESS_TTL_MINUTES: 15
       JWT_REFRESH_TTL_DAYS: 30
       VERSION_GRACE_MINUTES_DEFAULT: 5
+      SKIP_BOOTSTRAP: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,7 +54,17 @@ jobs:
             fi
           done
 
+          has_wif=1
           if [[ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" || -z "${{ secrets.GCP_SERVICE_ACCOUNT }}" ]]; then
+            has_wif=0
+          fi
+
+          has_sa_key=1
+          if [[ -z "${{ secrets.GCP_SA_KEY_JSON }}" ]]; then
+            has_sa_key=0
+          fi
+
+          if [[ "$has_wif" -eq 0 && "$has_sa_key" -eq 0 ]]; then
             echo "Missing GCP auth secrets."
             missing=1
           fi
@@ -68,8 +79,9 @@ jobs:
         if: steps.preflight.outputs.enabled == 'true'
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_WORKLOAD_IDENTITY_PROVIDER || '' }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT != '' && secrets.GCP_SERVICE_ACCOUNT || '' }}
+          credentials_json: ${{ secrets.GCP_SA_KEY_JSON != '' && secrets.GCP_SA_KEY_JSON || '' }}
 
       - name: Setup gcloud
         if: steps.preflight.outputs.enabled == 'true'

@@ -9,6 +9,7 @@ on:
       - '**/*.md'
       - '**/*.MD'
       - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
 permissions:
