@@ -51,6 +51,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - `POST /ops/release/activate`
   - Payload includes new version + `grace_minutes=5`.
 - Backend broadcasts `force_update` to connected websocket clients and enforces lockout after grace expires.
+- Backend release activation notification now retries and is non-blocking for release publishing; transient backend 5xx responses log warnings but do not fail launcher release artifacts.
 
 ## Deployment and Infra Pattern
 - Cloud Run deployment pattern follows `markd-backend` operational approach.

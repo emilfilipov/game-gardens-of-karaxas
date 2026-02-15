@@ -2,3 +2,4 @@
 - Updated login/register controls to use the same dark thin-border theme as the rest of the UI.
 - Styled previously unthemed controls (`+`/`-` stat buttons and top-right cog) to match the launcher visual system.
 - Kept existing functionality and layout flow unchanged while normalizing button visuals.
+- Hardened release automation so backend activation webhook retries and logs warning-only on repeated failure instead of failing the entire launcher release publish.

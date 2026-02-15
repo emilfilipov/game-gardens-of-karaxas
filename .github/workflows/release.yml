@@ -206,13 +206,33 @@ jobs:
             grace_minutes = 5
           } | ConvertTo-Json
 
-          Invoke-RestMethod `
-            -Uri $url `
-            -Method Post `
-            -Headers @{ "x-ops-token" = $env:KARAXAS_OPS_TOKEN } `
-            -ContentType "application/json" `
-            -Body $payload | Out-Null
-          Write-Host "Backend release activation notified."
+          $maxAttempts = 3
+          $notified = $false
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            try {
+              Invoke-RestMethod `
+                -Uri $url `
+                -Method Post `
+                -Headers @{ "x-ops-token" = $env:KARAXAS_OPS_TOKEN } `
+                -ContentType "application/json" `
+                -Body $payload | Out-Null
+              Write-Host "Backend release activation notified."
+              $notified = $true
+              break
+            } catch {
+              $message = $_.Exception.Message
+              if ($attempt -lt $maxAttempts) {
+                $delay = 10 * $attempt
+                Write-Host "Backend notification failed (attempt $attempt/$maxAttempts): $message. Retrying in $delay seconds..."
+                Start-Sleep -Seconds $delay
+              } else {
+                Write-Warning "Backend notification failed after $maxAttempts attempts: $message. Continuing release workflow."
+              }
+            }
+          }
+          if (-not $notified) {
+            exit 0
+          }
 
       - name: Update GitHub Release Notes
         uses: actions/github-script@v7
