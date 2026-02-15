@@ -54,47 +54,53 @@ jobs:
             fi
           done
 
-          has_wif=1
-          if [[ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" || -z "${{ secrets.GCP_SERVICE_ACCOUNT }}" ]]; then
-            has_wif=0
-          fi
-
-          has_sa_key=1
-          if [[ -z "${{ secrets.GCP_SA_KEY_JSON }}" ]]; then
-            has_sa_key=0
-          fi
-
-          if [[ "$has_wif" -eq 0 && "$has_sa_key" -eq 0 ]]; then
-            echo "Missing GCP auth secrets."
-            missing=1
-          fi
-
           if [[ "$missing" -eq 1 ]]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Authenticate to Google Cloud
+      - name: Resolve Auth Mode
+        id: auth-mode
         if: steps.preflight.outputs.enabled == 'true'
+        shell: bash
+        env:
+          HAS_SA_KEY: ${{ secrets.GCP_SA_KEY_JSON != '' }}
+          HAS_WIF: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+        run: |
+          if [[ "$HAS_SA_KEY" == "true" ]]; then
+            echo "mode=sa_key" >> "$GITHUB_OUTPUT"
+          elif [[ "$HAS_WIF" == "true" ]]; then
+            echo "mode=wif" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=none" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Authenticate to Google Cloud (SA Key)
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode == 'sa_key'
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_WORKLOAD_IDENTITY_PROVIDER || '' }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT != '' && secrets.GCP_SERVICE_ACCOUNT || '' }}
-          credentials_json: ${{ secrets.GCP_SA_KEY_JSON != '' && secrets.GCP_SA_KEY_JSON || '' }}
+          credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
+
+      - name: Authenticate to Google Cloud (WIF)
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode == 'wif'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Setup gcloud
-        if: steps.preflight.outputs.enabled == 'true'
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker Auth
-        if: steps.preflight.outputs.enabled == 'true'
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
 
       - name: Deploy Backend to Cloud Run
-        if: steps.preflight.outputs.enabled == 'true'
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         run: backend/scripts/deploy_cloud_run.sh
 
       - name: Skip Deploy (Missing Secrets/Vars)
-        if: steps.preflight.outputs.enabled != 'true'
-        run: echo "Backend deploy skipped because required secrets or variables are not configured yet."
+        if: steps.preflight.outputs.enabled != 'true' || steps.auth-mode.outputs.mode == 'none'
+        run: echo "Backend deploy skipped because required vars or cloud auth secrets are not configured."
