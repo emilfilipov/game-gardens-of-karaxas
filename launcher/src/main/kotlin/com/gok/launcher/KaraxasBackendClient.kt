@@ -292,9 +292,43 @@ class KaraxasBackendClient(
     private fun extractError(body: String): String {
         return try {
             val node = mapper.readTree(body)
-            when {
-                node.path("error").isObject -> node.path("error").path("message").asText(body)
-                node.path("detail").isObject -> node.path("detail").path("message").asText(body)
+            val detailObject = when {
+                node.path("error").isObject -> node.path("error")
+                node.path("detail").isObject -> node.path("detail")
+                else -> null
+            }
+            if (detailObject != null) {
+                val baseMessage = detailObject.path("message").asText("").ifBlank {
+                    detailObject.path("code").asText("Request failed")
+                }
+                val details = detailObject.path("details")
+                if (details.isArray && details.size() > 0) {
+                    val first = details[0]
+                    val loc = mutableListOf<String>()
+                    if (first.path("loc").isArray) {
+                        first.path("loc").forEach { part ->
+                            val text = part.asText().trim()
+                            if (text.isNotBlank() && text != "body") {
+                                loc.add(text)
+                            }
+                        }
+                    }
+                    val fieldPath = loc.joinToString(".")
+                    val message = first.path("msg").asText("").trim()
+                    if (message.isNotBlank()) {
+                        return if (fieldPath.isNotBlank()) {
+                            "$baseMessage ($fieldPath: $message)"
+                        } else {
+                            "$baseMessage ($message)"
+                        }
+                    }
+                }
+                if (baseMessage.isNotBlank()) {
+                    baseMessage
+                } else {
+                    body
+                }
+            } else when {
                 node.path("detail").isTextual -> node.path("detail").asText(body)
                 else -> body
             }

@@ -72,6 +72,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Combined auth uses a single centered panel with login/register toggle and transparent placeholder-based fields.
+- Auth form pre-validates email/password/display-name constraints client-side to mirror backend schema and reduce avoidable 422 responses.
 - Account lobby is account-only (no chat/guild panels).
 - `play` card is currently an empty-world prototype gated by selected character, with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.

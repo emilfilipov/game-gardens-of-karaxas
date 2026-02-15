@@ -5,6 +5,7 @@
 - Improved auth failure reporting to show the real backend error and log auth exceptions to launcher logs.
 - Added one-click `Update & Restart` action to the top-right cog menu so updates can run directly from the login/auth flow.
 - Styled the cog dropdown to match the launcher/game visual theme (palette, typography, border, and hover behavior).
+- Added client-side auth input validation (email format, password length, display-name length) and richer 422 error detail rendering.
 - Refactored character creation to include sex choice preview, stat/skill scaffold rows, and a fixed 10-point allocation model where each increment costs 1 point.
 - Wired selected-character handoff into a playable in-launcher world scene.
 - Added empty-world prototype gameplay with WASD movement and hard world-edge border collision.

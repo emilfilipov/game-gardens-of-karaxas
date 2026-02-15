@@ -1058,8 +1058,25 @@ object LauncherMain {
                 authStatus.text = "Email and password are required."
                 return@addActionListener
             }
-            if (registerMode && displayName.isBlank()) {
-                authStatus.text = "Display name is required."
+            val emailPattern = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+            if (!emailPattern.matches(email)) {
+                authStatus.text = "Enter a valid email address."
+                return@addActionListener
+            }
+            if (password.length < 8) {
+                authStatus.text = "Password must be at least 8 characters."
+                return@addActionListener
+            }
+            if (password.length > 128) {
+                authStatus.text = "Password must be 128 characters or fewer."
+                return@addActionListener
+            }
+            if (registerMode && displayName.length < 2) {
+                authStatus.text = "Display name must be at least 2 characters."
+                return@addActionListener
+            }
+            if (registerMode && displayName.length > 64) {
+                authStatus.text = "Display name must be 64 characters or fewer."
                 return@addActionListener
             }
             authStatus.text = if (registerMode) "Creating account..." else "Logging in..."
