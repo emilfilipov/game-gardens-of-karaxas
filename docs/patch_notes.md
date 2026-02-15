@@ -8,6 +8,8 @@
 - Added client-side auth input validation (email format, password length, display-name length) and richer 422 error detail rendering.
 - Updated release workflow to preserve a rolling delta package history (plus latest full fallback) so updates across skipped versions can remain delta-based instead of defaulting to full client downloads.
 - Fixed update card visual alignment so build version and patch notes render fully inside the brick frame, and hid visible scrollbars while keeping wheel scrolling.
+- Auth UX polish: Enter key now submits login/register, all active text fields show hint text, and auth screen now shows only the small centered auth box (large shell hidden on auth card).
+- Improved auth error handling with user-facing messages for invalid credentials (`This account doesn't exist`) and network/server connectivity failures.
 - Refactored character creation to include sex choice preview, stat/skill scaffold rows, and a fixed 10-point allocation model where each increment costs 1 point.
 - Wired selected-character handoff into a playable in-launcher world scene.
 - Added empty-world prototype gameplay with WASD movement and hard world-edge border collision.

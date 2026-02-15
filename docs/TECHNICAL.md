@@ -72,8 +72,10 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
-- Combined auth uses a single centered panel with login/register toggle and transparent placeholder-based fields.
+- Combined auth uses a single centered panel (no large shell frame on auth screen) with login/register toggle and transparent placeholder-based fields.
+- Pressing Enter in auth inputs submits login/register depending on current toggle mode.
 - Auth form pre-validates email/password/display-name constraints client-side to mirror backend schema and reduce avoidable 422 responses.
+- Auth error mapping includes explicit UX strings for wrong credentials (`This account doesn't exist`) and common connectivity failures (offline, timeout, server unavailable, SSL errors).
 - Account lobby is account-only (no chat/guild panels).
 - `play` card is currently an empty-world prototype gated by selected character, with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.

@@ -22,6 +22,10 @@ import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.awt.event.ActionEvent
 import java.awt.event.KeyEvent
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import java.net.http.HttpTimeoutException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -53,6 +57,7 @@ import javax.swing.DefaultListModel
 import javax.swing.Box
 import javax.swing.AbstractAction
 import javax.swing.plaf.basic.BasicProgressBarUI
+import javax.net.ssl.SSLException
 
 object LauncherMain {
     private data class PatchNotesSource(
@@ -218,7 +223,12 @@ object LauncherMain {
             preferredSize = Dimension(1040, 660)
             minimumSize = Dimension(900, 560)
         }
+        val authStandaloneContainer = JPanel(GridBagLayout()).apply {
+            isOpaque = false
+            isVisible = false
+        }
         centeredContent.add(shellPanel)
+        centeredContent.add(authStandaloneContainer)
         rootPanel.add(centeredContent, BorderLayout.CENTER)
 
         val patchNotesPane = JEditorPane().apply {
@@ -329,7 +339,7 @@ object LauncherMain {
         val characterModel = DefaultListModel<CharacterView>()
         val characterList = JList(characterModel)
 
-        val createName = UiScaffold.textField()
+        val createName = UiScaffold.ghostTextField("Character Name")
         val sexChoice = JComboBox<String>(arrayOf("Male", "Female")).apply {
             preferredSize = UiScaffold.fieldSize
             minimumSize = UiScaffold.fieldSize
@@ -853,8 +863,10 @@ object LauncherMain {
             authSubmit.text = if (registerMode) "Register" else "Login"
             authToggleMode.text = if (registerMode) "Use Login" else "Create Account"
             authStatus.text = " "
-            menuCards.revalidate()
-            menuCards.repaint()
+            authStandaloneContainer.revalidate()
+            authStandaloneContainer.repaint()
+            centeredContent.revalidate()
+            centeredContent.repaint()
         }
 
         val authInnerPanel = UiScaffold.contentPanel().apply {
@@ -879,6 +891,7 @@ object LauncherMain {
                 add(authInnerPanel, BorderLayout.CENTER)
             })
         }
+        authStandaloneContainer.add(authCard)
         applyAuthMode()
 
         val lobbyPanel = UiScaffold.contentPanel().apply {
@@ -978,7 +991,6 @@ object LauncherMain {
             }, BorderLayout.SOUTH)
         }
 
-        menuCards.add(authCard, "auth")
         menuCards.add(lobbyPanel, "lobby")
         menuCards.add(createCharacterPanel, "create_character")
         menuCards.add(selectCharacterPanel, "select_character")
@@ -1025,10 +1037,19 @@ object LauncherMain {
         fun showCard(card: String) {
             val requiresAuth = card == "lobby" || card == "create_character" || card == "select_character" || card == "play"
             if (requiresAuth && authSession == null) {
-                cardsLayout.show(menuCards, "auth")
+                showCard("auth")
                 authStatus.text = "Please login first."
                 return
             }
+            if (card == "auth") {
+                shellPanel.isVisible = false
+                authStandaloneContainer.isVisible = true
+                centeredContent.revalidate()
+                centeredContent.repaint()
+                return
+            }
+            authStandaloneContainer.isVisible = false
+            shellPanel.isVisible = true
             if (card == "play" && selectedCharacterId == null) {
                 JOptionPane.showMessageDialog(frame, "Select a character before entering game features.", "Character Required", JOptionPane.WARNING_MESSAGE)
                 cardsLayout.show(menuCards, "select_character")
@@ -1056,10 +1077,27 @@ object LauncherMain {
             runUpdate(updateStatus, patchNotesPane, patchNotes, progress, controls, autoRestartOnSuccess = true)
         }
 
+        fun formatAuthError(ex: Exception, registering: Boolean): String {
+            val chain = generateSequence<Throwable>(ex) { it.cause }
+            if (chain.any { it is UnknownHostException }) return "No internet connection. Check your network."
+            if (chain.any { it is ConnectException }) return "Servers are currently unavailable. Please try again."
+            if (chain.any { it is HttpTimeoutException || it is SocketTimeoutException }) return "Connection timed out. Please try again."
+            if (chain.any { it is SSLException }) return "Secure connection failed. Please try again."
+
+            val message = ex.message?.trim().orEmpty()
+            val code = Regex("^(\\d{3}):").find(message)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            if (code == 401) return "This account doesn't exist."
+            if (registering && code == 409) return "This account already exists."
+            if (code == 422 && message.contains(":")) return message.substringAfter(":").trim()
+            if (code != null && message.contains(":")) return message.substringAfter(":").trim()
+            return if (message.isNotBlank()) message else "Unable to contact authentication service."
+        }
+
         authSubmit.addActionListener {
             val email = authEmail.text.trim()
             val password = String(authPassword.password)
             val displayName = authDisplayName.text.trim()
+            val registering = registerMode
             if (email.isBlank() || password.isBlank()) {
                 authStatus.text = "Email and password are required."
                 return@addActionListener
@@ -1077,25 +1115,25 @@ object LauncherMain {
                 authStatus.text = "Password must be 128 characters or fewer."
                 return@addActionListener
             }
-            if (registerMode && displayName.length < 2) {
+            if (registering && displayName.length < 2) {
                 authStatus.text = "Display name must be at least 2 characters."
                 return@addActionListener
             }
-            if (registerMode && displayName.length > 64) {
+            if (registering && displayName.length > 64) {
                 authStatus.text = "Display name must be 64 characters or fewer."
                 return@addActionListener
             }
-            authStatus.text = if (registerMode) "Creating account..." else "Logging in..."
+            authStatus.text = if (registering) "Creating account..." else "Logging in..."
             Thread {
                 try {
-                    val session = if (registerMode) {
+                    val session = if (registering) {
                         backendClient.register(email, password, displayName, clientVersion)
                     } else {
                         backendClient.login(email, password, clientVersion)
                     }
                     authSession = session
                     javax.swing.SwingUtilities.invokeLater {
-                        authStatus.text = "Welcome ${session.displayName}"
+                        authStatus.text = " "
                         authPassword.text = ""
                         refreshLobby()
                         showCard("lobby")
@@ -1103,12 +1141,14 @@ object LauncherMain {
                 } catch (ex: Exception) {
                     log("Authentication request failed against ${backendClient.endpoint()}", ex)
                     javax.swing.SwingUtilities.invokeLater {
-                        val reason = ex.message?.takeIf { it.isNotBlank() } ?: ex::class.java.simpleName
-                        authStatus.text = reason
+                        authStatus.text = formatAuthError(ex, registering)
                     }
                 }
             }.start()
         }
+        authEmail.addActionListener { authSubmit.doClick() }
+        authPassword.addActionListener { authSubmit.doClick() }
+        authDisplayName.addActionListener { authSubmit.doClick() }
 
         authToggleMode.addActionListener {
             registerMode = !registerMode
