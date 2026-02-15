@@ -9,6 +9,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Database: PostgreSQL (Cloud SQL), database name `karaxas`.
 - Migrations: Alembic.
 - Service hosting: Google Cloud Run.
+- Launcher backend endpoint resolution:
+  - Uses `GOK_API_BASE_URL` when explicitly set.
+  - Falls back to deployed Cloud Run API URL when not set (instead of localhost), to keep production auth usable by default.
 
 ## Architecture Rules (Must Hold)
 1. Gameplay/runtime logic remains decoupled from launcher/updater internals.

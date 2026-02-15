@@ -66,14 +66,18 @@ class KaraxasBackendClient(
     private val httpClient: HttpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(),
 ) {
     companion object {
+        private const val DEFAULT_CLOUD_BACKEND = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
+
         fun fromEnvironment(): KaraxasBackendClient {
             val endpoint = System.getenv("GOK_API_BASE_URL")
                 ?.takeIf { it.isNotBlank() }
                 ?.trimEnd('/')
-                ?: "http://localhost:8080"
+                ?: DEFAULT_CLOUD_BACKEND
             return KaraxasBackendClient(endpoint)
         }
     }
+
+    fun endpoint(): String = baseUrl
 
     fun register(email: String, password: String, displayName: String, clientVersion: String): AuthSession {
         val payload = mapOf(

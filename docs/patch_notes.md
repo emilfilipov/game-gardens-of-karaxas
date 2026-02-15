@@ -1,6 +1,8 @@
 - Reworked launcher entry UX into a single centered authentication panel with login/register toggle and transparent placeholder fields.
 - Switched launcher runtime to borderless fullscreen by default and added top-right cog dropdown with `Settings` and `Exit`.
 - Added centered footer version/date label to the launcher shell.
+- Updated launcher backend endpoint fallback to Cloud Run (instead of localhost) when `GOK_API_BASE_URL` is not set.
+- Improved auth failure reporting to show the real backend error and log auth exceptions to launcher logs.
 - Refactored character creation to include sex choice preview, stat/skill scaffold rows, and a fixed 10-point allocation model where each increment costs 1 point.
 - Wired selected-character handoff into a playable in-launcher world scene.
 - Added empty-world prototype gameplay with WASD movement and hard world-edge border collision.

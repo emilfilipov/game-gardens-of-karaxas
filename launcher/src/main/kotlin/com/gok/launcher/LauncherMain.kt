@@ -1051,8 +1051,10 @@ object LauncherMain {
                         showCard("lobby")
                     }
                 } catch (ex: Exception) {
+                    log("Authentication request failed against ${backendClient.endpoint()}", ex)
                     javax.swing.SwingUtilities.invokeLater {
-                        authStatus.text = ex.message ?: "Authentication failed."
+                        val reason = ex.message?.takeIf { it.isNotBlank() } ?: ex::class.java.simpleName
+                        authStatus.text = reason
                     }
                 }
             }.start()
