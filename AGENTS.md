@@ -27,6 +27,26 @@
 - GitHub PAT for Actions API access is stored at `/home/emillfilipov/.secrets/github_pat.env` as `GITHUB_PAT`.
 - Never print or log the token value.
 
+## Validated Command Cookbook
+- Repository inspection:
+  - `git status --short`
+  - `git diff --stat`
+  - `git diff -- <path>`
+  - `sed -n '1,220p' <path>`
+  - `grep -n "<pattern>" <path>`
+- Backend checks:
+  - `python3 -m compileall backend/app`
+- Launcher checks:
+  - `./gradlew :launcher:test`
+- Commit/push flow:
+  - `git add <paths>`
+  - `git commit -m "<message>"`
+  - `git push`
+- GitHub Actions polling (2-3 minute cadence):
+  - `source /home/emillfilipov/.secrets/github_pat.env`
+  - `curl -fsSL -H "Authorization: Bearer $GITHUB_PAT" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/emilfilipov/game-gardens-of-karaxas/actions/runs?per_page=30"`
+  - `sleep 125 && ...` (repeat until `status=completed` for relevant workflows)
+
 ## Supporting Docs
 - `docs/INSTALLER.md` - Windows installer/updater operation details.
 - `docs/TASKS.md` - detailed development task tracking (active backlog + finished tasks).
