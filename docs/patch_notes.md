@@ -7,6 +7,7 @@
 - Styled the cog dropdown to match the launcher/game visual theme (palette, typography, border, and hover behavior).
 - Added client-side auth input validation (email format, password length, display-name length) and richer 422 error detail rendering.
 - Updated release workflow to preserve a rolling delta package history (plus latest full fallback) so updates across skipped versions can remain delta-based instead of defaulting to full client downloads.
+- Fixed update card visual alignment so build version and patch notes render fully inside the brick frame, and hid visible scrollbars while keeping wheel scrolling.
 - Refactored character creation to include sex choice preview, stat/skill scaffold rows, and a fixed 10-point allocation model where each increment costs 1 point.
 - Wired selected-character handoff into a playable in-launcher world scene.
 - Added empty-world prototype gameplay with WASD movement and hard world-edge border collision.

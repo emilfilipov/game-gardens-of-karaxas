@@ -229,16 +229,21 @@ object LauncherMain {
             background = Color(0, 0, 0, 0)
             foreground = Color(245, 232, 206)
             font = Font("Serif", Font.PLAIN, 13)
-            border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
+            border = BorderFactory.createEmptyBorder(8, 10, 8, 10)
         }
         val patchNotes = JScrollPane(patchNotesPane).apply {
-            border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
+            border = BorderFactory.createEmptyBorder(6, 8, 6, 8)
             viewportBorder = BorderFactory.createEmptyBorder(0, 0, 0, 0)
             preferredSize = Dimension(680, 410)
             isOpaque = false
             viewport.isOpaque = false
             background = Color(0, 0, 0, 0)
             viewport.background = Color(0, 0, 0, 0)
+            verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_NEVER
+            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+            verticalScrollBar.preferredSize = Dimension(0, 0)
+            horizontalScrollBar.preferredSize = Dimension(0, 0)
+            setWheelScrollingEnabled(true)
         }
         val updateStatus = JLabel("")
         val progress = JProgressBar().apply {
@@ -266,14 +271,15 @@ object LauncherMain {
             add(updateLogButton)
             add(clearLogsButton)
         }
-        val buildVersionLabel = JLabel("", SwingConstants.LEFT).apply {
+        val buildVersionLabel = JLabel("", SwingConstants.CENTER).apply {
             foreground = Color(246, 233, 201)
             font = Font("Serif", Font.BOLD, 18)
-            border = BorderFactory.createEmptyBorder(0, 0, 6, 0)
+            border = BorderFactory.createEmptyBorder(4, 8, 8, 8)
         }
         val updateContent = UiScaffold.contentPanel().apply {
             layout = BorderLayout(0, 8)
             isOpaque = false
+            border = BorderFactory.createEmptyBorder(6, 10, 6, 10)
             add(buildVersionLabel, BorderLayout.NORTH)
             add(patchNotes, BorderLayout.CENTER)
             add(JPanel(BorderLayout(0, 8)).apply {
@@ -1541,7 +1547,6 @@ object LauncherMain {
     ) {
         val view = buildPatchNotesView()
         pane.text = view.html
-        scrollPane.border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         scrollToTop(pane, scrollPane)
     }
 
@@ -1569,7 +1574,6 @@ object LauncherMain {
             return activeLog
         }
         pane.text = renderLogHtml(requestedLog)
-        scrollPane.border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         scrollToTop(pane, scrollPane)
         status.text = "Showing $label."
         return requestedLog

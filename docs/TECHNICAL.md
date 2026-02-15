@@ -81,6 +81,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
 - Update functionality remains accessible from within account-lobby flow via updater card access.
+- Update card layout uses explicit inner padding; build/version text and patch notes are inset from the brick frame with hidden scrollbars (wheel scroll remains enabled).
 - Version/date is rendered in a centered footer on the launcher shell.
 
 ## Logging Strategy
