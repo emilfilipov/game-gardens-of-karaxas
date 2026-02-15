@@ -27,6 +27,7 @@ data class AuthSession(
 data class CharacterView(
     val id: Int,
     val name: String,
+    val appearanceKey: String,
     val statPointsTotal: Int,
     val statPointsUsed: Int,
     val isSelected: Boolean
@@ -150,6 +151,7 @@ class KaraxasBackendClient(
             CharacterView(
                 id = item.path("id").asInt(),
                 name = item.path("name").asText(),
+                appearanceKey = item.path("appearance_key").asText("human_male"),
                 statPointsTotal = item.path("stat_points_total").asInt(),
                 statPointsUsed = item.path("stat_points_used").asInt(),
                 isSelected = item.path("is_selected").asBoolean(false),
@@ -161,12 +163,14 @@ class KaraxasBackendClient(
         accessToken: String,
         clientVersion: String,
         name: String,
+        appearanceKey: String,
         totalPoints: Int,
         stats: Map<String, Int>,
         skills: Map<String, Int>,
     ): CharacterView {
         val payload = mapOf(
             "name" to name,
+            "appearance_key" to appearanceKey,
             "stat_points_total" to totalPoints,
             "stats" to stats,
             "skills" to skills,
@@ -183,6 +187,7 @@ class KaraxasBackendClient(
         return CharacterView(
             id = item.path("id").asInt(),
             name = item.path("name").asText(),
+            appearanceKey = item.path("appearance_key").asText("human_male"),
             statPointsTotal = item.path("stat_points_total").asInt(),
             statPointsUsed = item.path("stat_points_used").asInt(),
             isSelected = item.path("is_selected").asBoolean(false),

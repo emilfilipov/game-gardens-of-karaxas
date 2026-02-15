@@ -1,5 +1,6 @@
-- Moved chat and guild views out of the account lobby and into the in-game social screen, gated behind active character selection.
-- Enforced character selection on backend chat APIs and websocket chat access (`character_required` flow) so social features are only available in character session context.
-- Refined account lobby into account-only functionality (auth/account status, character summary, navigation, updater access).
-- Upgraded character creation UI structure with appearance selector + preview scaffold that auto-discovers art files from `assets/characters/` (or `GOK_CHARACTER_ART_DIR`).
-- Improved character selection UI with structured details panel and active-character status feedback.
+- Validated and integrated new character sprites: both male/female idle sprites (`32x32`) and walk/run sheets (`192x128`, 4 directions x 6 frames).
+- Moved new character art assets into `assets/characters/` and wired launcher discovery so they are loaded automatically.
+- Added animated character preview controls in character creation (Idle/Walk/Run) using the supplied sprite sheets.
+- Enhanced character selection with appearance-aware details and visual preview.
+- Persisted character visual preset selection in backend (`appearance_key` on `characters`) and added migration `0002_character_appearance_key`.
+- Updated launcher/backend character API wiring so create/list/select flow now carries appearance keys end-to-end.

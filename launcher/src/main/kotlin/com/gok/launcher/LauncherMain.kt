@@ -43,6 +43,7 @@ import javax.swing.JScrollPane
 import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.SwingConstants
+import javax.swing.Timer
 import javax.swing.UIManager
 import javax.swing.DefaultListModel
 import javax.swing.plaf.basic.BasicProgressBarUI
@@ -66,7 +67,13 @@ object LauncherMain {
     private data class CharacterArtOption(
         val key: String,
         val label: String,
-        val image: BufferedImage?
+        val idle: BufferedImage?,
+        val walkSheet: BufferedImage?,
+        val runSheet: BufferedImage?,
+        val frameWidth: Int = 32,
+        val frameHeight: Int = 32,
+        val directions: Int = 4,
+        val framesPerDirection: Int = 6,
     ) {
         override fun toString(): String = label
     }
@@ -339,6 +346,7 @@ object LauncherMain {
         val playStatus = JLabel("Game screen hosts in-session social features.")
         var selectedCharacterId: Int? = null
         var selectedCharacterName: String? = null
+        var selectedCharacterAppearanceKey: String? = null
 
         fun parsePoints(text: String): Int = text.trim().toIntOrNull()?.coerceAtLeast(0) ?: 0
 
@@ -349,8 +357,10 @@ object LauncherMain {
                 ?.takeIf { it.isNotBlank() }
                 ?.let { roots.add(Paths.get(it)) }
             roots.add(Paths.get(System.getProperty("user.dir")).resolve("assets").resolve("characters"))
+            roots.add(Paths.get(System.getProperty("user.dir")))
 
-            val imageExtensions = setOf("png", "jpg", "jpeg", "webp")
+            val grouped = linkedMapOf<String, MutableMap<String, BufferedImage>>()
+            val matcher = Regex("^karaxas_([a-z0-9_]+)_(idle_32|walk_sheet_4dir_6f|run_sheet_4dir_6f)\\.png$")
             for (root in roots.distinct()) {
                 if (!Files.isDirectory(root)) continue
                 try {
@@ -359,17 +369,17 @@ object LauncherMain {
                             .filter { Files.isRegularFile(it) }
                             .sorted()
                             .forEach { path ->
-                                val ext = path.fileName.toString().substringAfterLast('.', "").lowercase()
-                                if (ext !in imageExtensions) return@forEach
+                                val fileName = path.fileName.toString().lowercase()
+                                val match = matcher.matchEntire(fileName) ?: return@forEach
                                 val image = try {
                                     ImageIO.read(path.toFile())
                                 } catch (_: Exception) {
                                     null
                                 }
                                 if (image != null) {
-                                    val rawName = path.fileName.toString().substringBeforeLast('.')
-                                    val label = rawName.replace('_', ' ').replace('-', ' ')
-                                    options.add(CharacterArtOption(key = rawName, label = label, image = image))
+                                    val key = match.groupValues[1]
+                                    val kind = match.groupValues[2]
+                                    grouped.getOrPut(key) { mutableMapOf() }[kind] = image
                                 }
                             }
                     }
@@ -377,25 +387,108 @@ object LauncherMain {
                     // Ignore invalid art directories.
                 }
             }
+
+            fun formatLabel(key: String): String {
+                return key.split('_').joinToString(" ") { part ->
+                    if (part.isEmpty()) part else part.replaceFirstChar { c -> c.uppercase() }
+                }
+            }
+
+            grouped.entries.sortedBy { it.key }.forEach { (key, images) ->
+                val idle = images["idle_32"]
+                val walk = images["walk_sheet_4dir_6f"]
+                val run = images["run_sheet_4dir_6f"]
+                val reference = walk ?: run
+                val frameWidth = when {
+                    reference != null && reference.width % 6 == 0 -> reference.width / 6
+                    idle != null -> idle.width
+                    else -> 32
+                }.coerceAtLeast(1)
+                val frameHeight = when {
+                    reference != null && reference.height % 4 == 0 -> reference.height / 4
+                    idle != null -> idle.height
+                    else -> 32
+                }.coerceAtLeast(1)
+                options.add(
+                    CharacterArtOption(
+                        key = key,
+                        label = formatLabel(key),
+                        idle = idle,
+                        walkSheet = walk,
+                        runSheet = run,
+                        frameWidth = frameWidth,
+                        frameHeight = frameHeight,
+                    )
+                )
+            }
             return options
         }
 
         val appearanceOptions = loadCharacterArtOptions()
+        val appearanceByKey = appearanceOptions.associateBy { it.key }
         val appearanceCombo = JComboBox<CharacterArtOption>().apply {
             preferredSize = UiScaffold.fieldSize
             minimumSize = UiScaffold.fieldSize
             maximumSize = Dimension(300, UiScaffold.fieldSize.height)
             font = UiScaffold.bodyFont
             if (appearanceOptions.isEmpty()) {
-                addItem(CharacterArtOption("default", "Default (No Art Yet)", null))
+                addItem(
+                    CharacterArtOption(
+                        key = "human_male",
+                        label = "Default (No Art Yet)",
+                        idle = null,
+                        walkSheet = null,
+                        runSheet = null,
+                    )
+                )
             } else {
                 appearanceOptions.forEach { addItem(it) }
+            }
+        }
+        val appearanceAnimationMode = JComboBox<String>(arrayOf("Idle", "Walk", "Run")).apply {
+            preferredSize = UiScaffold.fieldSize
+            minimumSize = UiScaffold.fieldSize
+            maximumSize = Dimension(300, UiScaffold.fieldSize.height)
+            font = UiScaffold.bodyFont
+        }
+        val selectAppearancePreview = JLabel("No preview", SwingConstants.CENTER).apply {
+            preferredSize = Dimension(180, 190)
+            minimumSize = Dimension(180, 190)
+            border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+            foreground = Color(245, 232, 206)
+            font = Font("Serif", Font.BOLD, 14)
+        }
+        var previewFrameIndex = 0
+        var previewDirection = 0
+
+        fun renderArtFrame(option: CharacterArtOption, mode: String, frameIndex: Int, direction: Int): BufferedImage? {
+            fun safeFrameFromSheet(sheet: BufferedImage?, frameCount: Int): BufferedImage? {
+                if (sheet == null || frameCount <= 0) return null
+                val dir = direction.coerceIn(0, option.directions - 1)
+                val animationFrame = frameIndex.coerceIn(0, frameCount - 1)
+                val x = animationFrame * option.frameWidth
+                val y = dir * option.frameHeight
+                if (x + option.frameWidth > sheet.width || y + option.frameHeight > sheet.height) return null
+                return sheet.getSubimage(x, y, option.frameWidth, option.frameHeight)
+            }
+
+            return when (mode) {
+                "Walk" -> safeFrameFromSheet(option.walkSheet, option.framesPerDirection)
+                    ?: option.idle
+                    ?: safeFrameFromSheet(option.runSheet, option.framesPerDirection)
+                "Run" -> safeFrameFromSheet(option.runSheet, option.framesPerDirection)
+                    ?: option.idle
+                    ?: safeFrameFromSheet(option.walkSheet, option.framesPerDirection)
+                else -> option.idle
+                    ?: safeFrameFromSheet(option.walkSheet, option.framesPerDirection)
+                    ?: safeFrameFromSheet(option.runSheet, option.framesPerDirection)
             }
         }
 
         fun applySelectedAppearancePreview() {
             val option = appearanceCombo.selectedItem as? CharacterArtOption
-            val image = option?.image
+            val mode = appearanceAnimationMode.selectedItem?.toString() ?: "Idle"
+            val image = option?.let { renderArtFrame(it, mode, previewFrameIndex, previewDirection) }
             if (image == null) {
                 createAppearancePreview.icon = null
                 createAppearancePreview.text = "No art loaded"
@@ -405,6 +498,33 @@ object LauncherMain {
             createAppearancePreview.icon = ImageIcon(scaled)
             createAppearancePreview.text = ""
         }
+
+        fun applySelectionPreview(character: CharacterView?) {
+            if (character == null) {
+                selectAppearancePreview.icon = null
+                selectAppearancePreview.text = "No preview"
+                return
+            }
+            val option = appearanceByKey[character.appearanceKey]
+            val image = if (option != null) renderArtFrame(option, "Idle", 0, 0) else null
+            if (image == null) {
+                selectAppearancePreview.icon = null
+                selectAppearancePreview.text = character.appearanceKey
+                return
+            }
+            val scaled = scaleImage(image, selectAppearancePreview.width.coerceAtLeast(140), selectAppearancePreview.height.coerceAtLeast(160))
+            selectAppearancePreview.icon = ImageIcon(scaled)
+            selectAppearancePreview.text = ""
+        }
+
+        val previewTimer = Timer(140) {
+            val option = appearanceCombo.selectedItem as? CharacterArtOption ?: return@Timer
+            val mode = appearanceAnimationMode.selectedItem?.toString() ?: "Idle"
+            val frameCount = if (mode == "Idle") 1 else option.framesPerDirection
+            previewFrameIndex = (previewFrameIndex + 1) % frameCount.coerceAtLeast(1)
+            applySelectedAppearancePreview()
+        }
+        previewTimer.start()
 
         fun withSession(onMissing: () -> Unit = {}, block: (AuthSession) -> Unit) {
             val session = authSession
@@ -445,10 +565,18 @@ object LauncherMain {
                         val active = characters.firstOrNull { it.isSelected }
                         selectedCharacterId = active?.id
                         selectedCharacterName = active?.name
+                        selectedCharacterAppearanceKey = active?.appearanceKey
                         if (active != null) {
-                            selectCharacterDetails.text = "Active Character\n\nName: ${active.name}\nPoints: ${active.statPointsUsed}/${active.statPointsTotal}\n\nThis character unlocks in-game chat/guild tools."
+                            selectCharacterDetails.text =
+                                "Active Character\n\nName: ${active.name}\nAppearance: ${active.appearanceKey}\nPoints: ${active.statPointsUsed}/${active.statPointsTotal}\n\nThis character unlocks in-game chat/guild tools."
+                            val appearance = appearanceByKey[active.appearanceKey]
+                            if (appearance != null) {
+                                appearanceCombo.selectedItem = appearance
+                            }
+                            applySelectionPreview(active)
                         } else {
                             selectCharacterDetails.text = "Pick a character to view details."
+                            applySelectionPreview(null)
                         }
                     }
                 }
@@ -482,6 +610,7 @@ object LauncherMain {
                         val active = characters.firstOrNull { it.isSelected }
                         selectedCharacterId = active?.id
                         selectedCharacterName = active?.name
+                        selectedCharacterAppearanceKey = active?.appearanceKey
                         characterSummary.text = if (characters.isEmpty()) {
                             "No characters created yet.\nUse Create Character to start."
                         } else {
@@ -491,6 +620,7 @@ object LauncherMain {
                             }
                             lines.joinToString("\n")
                         }
+                        applySelectionPreview(active)
                     }
                 }
             }
@@ -613,27 +743,29 @@ object LauncherMain {
                     add(createName, UiScaffold.gbc(1))
                     add(UiScaffold.titledLabel("Appearance"), UiScaffold.gbc(2))
                     add(appearanceCombo, UiScaffold.gbc(3))
-                    add(UiScaffold.titledLabel("Total Skill/Stat Points"), UiScaffold.gbc(4))
-                    add(createPoints, UiScaffold.gbc(5))
-                    add(UiScaffold.titledLabel("Stats (Strength / Agility / Intellect)"), UiScaffold.gbc(6))
+                    add(UiScaffold.titledLabel("Preview Animation"), UiScaffold.gbc(4))
+                    add(appearanceAnimationMode, UiScaffold.gbc(5))
+                    add(UiScaffold.titledLabel("Total Skill/Stat Points"), UiScaffold.gbc(6))
+                    add(createPoints, UiScaffold.gbc(7))
+                    add(UiScaffold.titledLabel("Stats (Strength / Agility / Intellect)"), UiScaffold.gbc(8))
                     add(JPanel(GridLayout(1, 3, 6, 0)).apply {
                         isOpaque = false
                         add(statStrength)
                         add(statAgility)
                         add(statIntellect)
-                    }, UiScaffold.gbc(7))
-                    add(UiScaffold.titledLabel("Skills (Alchemy / Sword Mastery)"), UiScaffold.gbc(8))
+                    }, UiScaffold.gbc(9))
+                    add(UiScaffold.titledLabel("Skills (Alchemy / Sword Mastery)"), UiScaffold.gbc(10))
                     add(JPanel(GridLayout(1, 2, 6, 0)).apply {
                         isOpaque = false
                         add(skillAlchemy)
                         add(skillSword)
-                    }, UiScaffold.gbc(9))
+                    }, UiScaffold.gbc(11))
                     add(JPanel(GridLayout(1, 2, 6, 0)).apply {
                         isOpaque = false
                         add(createSubmit)
                         add(createRefresh)
-                    }, UiScaffold.gbc(10))
-                    add(createStatus, UiScaffold.gbc(11))
+                    }, UiScaffold.gbc(12))
+                    add(createStatus, UiScaffold.gbc(13))
                 }, BorderLayout.CENTER)
             }, BorderLayout.CENTER)
         }
@@ -642,9 +774,13 @@ object LauncherMain {
             layout = BorderLayout(10, 8)
             add(UiScaffold.sectionLabel("Character Selection"), BorderLayout.NORTH)
             add(JScrollPane(characterList), BorderLayout.CENTER)
-            add(JScrollPane(selectCharacterDetails).apply {
-                border = BorderFactory.createTitledBorder("Selection Details")
-                preferredSize = Dimension(260, 220)
+            add(JPanel(BorderLayout(0, 8)).apply {
+                isOpaque = false
+                add(selectAppearancePreview, BorderLayout.NORTH)
+                add(JScrollPane(selectCharacterDetails).apply {
+                    border = BorderFactory.createTitledBorder("Selection Details")
+                    preferredSize = Dimension(260, 220)
+                }, BorderLayout.CENTER)
             }, BorderLayout.EAST)
             add(JPanel(BorderLayout(6, 0)).apply {
                 isOpaque = false
@@ -682,7 +818,7 @@ object LauncherMain {
             }, BorderLayout.CENTER)
             add(JPanel(BorderLayout(6, 0)).apply {
                 isOpaque = false
-                add(JPanel(GridLayout(1, 4, 6, 0)).apply {
+                add(JPanel(GridLayout(1, 3, 6, 0)).apply {
                     isOpaque = false
                     add(refreshGameButton)
                     add(refreshChatButton)
@@ -763,7 +899,8 @@ object LauncherMain {
             }
             if (card == "play") {
                 refreshGameSocial()
-                playStatus.text = "In-game social ready for ${selectedCharacterName ?: "selected character"}."
+                val appearance = selectedCharacterAppearanceKey ?: "unknown appearance"
+                playStatus.text = "In-game social ready for ${selectedCharacterName ?: "selected character"} ($appearance)."
             }
             cardsLayout.show(menuCards, card)
         }
@@ -828,7 +965,14 @@ object LauncherMain {
         refreshChatButton.addActionListener { refreshMessages() }
         refreshGameButton.addActionListener { refreshGameSocial() }
         openUpdateFromLobby.addActionListener { showCard("update") }
-        appearanceCombo.addActionListener { applySelectedAppearancePreview() }
+        appearanceCombo.addActionListener {
+            previewFrameIndex = 0
+            applySelectedAppearancePreview()
+        }
+        appearanceAnimationMode.addActionListener {
+            previewFrameIndex = 0
+            applySelectedAppearancePreview()
+        }
         applySelectedAppearancePreview()
         channelList.addListSelectionListener {
             val selected = channelList.selectedValue ?: return@addListSelectionListener
@@ -838,7 +982,8 @@ object LauncherMain {
         characterList.addListSelectionListener {
             val selected = characterList.selectedValue ?: return@addListSelectionListener
             selectCharacterDetails.text =
-                "Character\n\nName: ${selected.name}\nAllocated: ${selected.statPointsUsed}/${selected.statPointsTotal}\nActive: ${if (selected.isSelected) "Yes" else "No"}"
+                "Character\n\nName: ${selected.name}\nAppearance: ${selected.appearanceKey}\nAllocated: ${selected.statPointsUsed}/${selected.statPointsTotal}\nActive: ${if (selected.isSelected) "Yes" else "No"}"
+            applySelectionPreview(selected)
         }
 
         sendMessageButton.addActionListener {
@@ -885,10 +1030,12 @@ object LauncherMain {
                     "sword_mastery" to parsePoints(skillSword.text),
                 )
                 runTask(createStatus, "Creating character...", "Character created.") {
+                    val appearance = appearanceCombo.selectedItem as? CharacterArtOption
                     backendClient.createCharacter(
                         accessToken = session.accessToken,
                         clientVersion = loginVersion.text.trim(),
                         name = name,
+                        appearanceKey = appearance?.key ?: "human_male",
                         totalPoints = totalPoints,
                         stats = stats,
                         skills = skills,
@@ -913,6 +1060,7 @@ object LauncherMain {
                     refreshCharacters(selectStatus)
                     selectedCharacterId = selected.id
                     selectedCharacterName = selected.name
+                    selectedCharacterAppearanceKey = selected.appearanceKey
                 }
             }
         }
@@ -937,6 +1085,7 @@ object LauncherMain {
             chatArea.text = ""
             selectedCharacterId = null
             selectedCharacterName = null
+            selectedCharacterAppearanceKey = null
             lobbyStatus.text = "Logged out."
             gameStatus.text = "Logged out."
             showCard("login")

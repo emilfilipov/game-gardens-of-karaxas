@@ -30,6 +30,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `user_sessions`: refresh/session records and client version tracking.
 - `release_policy`: latest/min-supported version and enforce-after timestamp.
 - `characters`: user-owned character builds (stats/skills point allocations).
+  - Includes `appearance_key` for visual preset selection persistence.
 - `friendships`: friend graph.
 - `guilds`, `guild_members`: guild presence and rank scaffolding.
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
@@ -67,6 +68,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Account lobby is account-only (no chat/guild panels).
 - In-game social screen (`play` card) hosts chat/guild views and is gated by selected character.
 - Character creation/select screens are structured for art integration (appearance selector + preview panel) and can load art assets from `assets/characters/` (or `GOK_CHARACTER_ART_DIR` override).
+- Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
 - Update functionality remains accessible from within account-lobby flow via updater card access.
 
 ## Logging Strategy

@@ -15,6 +15,7 @@ def _to_response(character: Character) -> CharacterResponse:
     return CharacterResponse(
         id=character.id,
         name=character.name,
+        appearance_key=character.appearance_key,
         stat_points_total=character.stat_points_total,
         stat_points_used=character.stat_points_used,
         stats=character.stats,
@@ -51,6 +52,7 @@ def create_character(
     character = Character(
         user_id=context.user.id,
         name=payload.name.strip(),
+        appearance_key=payload.appearance_key.strip(),
         stat_points_total=payload.stat_points_total,
         stat_points_used=stat_points_used,
         stats=payload.stats,

@@ -32,6 +32,7 @@ create/select characters, and enter gameplay sessions.
 - No predefined classes.
 - Character creation uses a fixed point budget.
 - Players distribute points into stats and skills.
+- Initial visual presets currently wired: human male and human female.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.
 
 ## Social Scope (Current)

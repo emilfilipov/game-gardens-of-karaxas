@@ -12,6 +12,7 @@ class Character(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    appearance_key: Mapped[str] = mapped_column(String(64), nullable=False, default="human_male")
     stat_points_total: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
     stat_points_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     stats: Mapped[dict] = mapped_column(JSON, nullable=False)
