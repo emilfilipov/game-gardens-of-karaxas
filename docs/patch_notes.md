@@ -1,7 +1,5 @@
-- Removed authenticated-menu `Play`/`Refresh` tab buttons; tabs are now `Lobby`, `Create`, and `Select` only.
-- Removed manual `Refresh` buttons from character create/select screens and switched to automatic character-list refresh on login routing, select-screen entry, character create, and character delete.
-- Moved gameplay rendering into a dedicated scene container, so entering play from a character card fully switches out of account-card UI.
-- Kept gameplay entry only on character-row `Play` actions and removed menu-level play entry points.
-- Converted core authenticated content surfaces (including frame panels and character list viewport) to opaque themed rendering to prevent overlap/ghosting artifacts during menu switches and delete flows.
-- Standardized character list rows as fixed-size themed cards for consistent select-screen structure.
-- Removed the extra separator strip from the top-right dropdown menu to better match the game theme.
+- Redesigned launcher UI controls to use shape-based themed rendering (thin borders + painted fills) instead of PNG-based button/panel skins.
+- Kept the same full-screen background image for the main visual theme while replacing interactive chrome.
+- Updated form fields to consistent bordered inputs for clearer structure and alignment stability.
+- Reworked major container frames to painted gradient panels, reducing visual artifacts from textured frame overlays.
+- Preserved existing account/auth/character/game flow behavior while applying the new styling system.

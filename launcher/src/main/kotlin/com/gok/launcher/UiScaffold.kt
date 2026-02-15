@@ -24,6 +24,10 @@ object UiScaffold {
     val rowInsets: Insets = Insets(4, 0, 4, 0)
     val sectionInsets: Insets = Insets(10, 0, 10, 0)
     val fieldSize: Dimension = Dimension(260, 34)
+    private val textColor = Color(244, 230, 197)
+    private val panelBorder = Color(172, 132, 87)
+    private val panelBg = Color(27, 20, 16, 245)
+    private val inputBg = Color(33, 24, 19, 220)
     val titleFont: Font = Font("Serif", Font.BOLD, 26)
     val sectionTitleFont: Font = Font("Serif", Font.BOLD, 18)
     val bodyFont: Font = Font("Serif", Font.PLAIN, 14)
@@ -31,8 +35,11 @@ object UiScaffold {
     fun contentPanel(): JPanel {
         return JPanel().apply {
             isOpaque = true
-            background = Color(27, 20, 16, 245)
-            border = BorderFactory.createEmptyBorder(contentPadding.top, contentPadding.left, contentPadding.bottom, contentPadding.right)
+            background = panelBg
+            border = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(panelBorder, 1),
+                BorderFactory.createEmptyBorder(contentPadding.top, contentPadding.left, contentPadding.bottom, contentPadding.right)
+            )
         }
     }
 
@@ -50,14 +57,14 @@ object UiScaffold {
     fun sectionLabel(text: String): JLabel {
         return JLabel(text, SwingConstants.LEFT).apply {
             font = sectionTitleFont
-            foreground = Color(244, 230, 197)
+            foreground = textColor
         }
     }
 
     fun titledLabel(text: String): JLabel {
         return JLabel(text, SwingConstants.LEFT).apply {
             font = bodyFont
-            foreground = Color(244, 230, 197)
+            foreground = textColor
         }
     }
 
@@ -76,11 +83,14 @@ object UiScaffold {
             minimumSize = fieldSize
             maximumSize = fieldSize
             font = bodyFont
-            foreground = Color(244, 230, 197)
-            caretColor = Color(244, 230, 197)
-            background = Color(0, 0, 0, 0)
-            isOpaque = false
-            border = BorderFactory.createEmptyBorder(6, 2, 6, 2)
+            foreground = textColor
+            caretColor = textColor
+            background = inputBg
+            isOpaque = true
+            border = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(panelBorder, 1),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)
+            )
         }
     }
 
@@ -90,11 +100,14 @@ object UiScaffold {
             minimumSize = fieldSize
             maximumSize = fieldSize
             font = bodyFont
-            foreground = Color(244, 230, 197)
-            caretColor = Color(244, 230, 197)
-            background = Color(0, 0, 0, 0)
-            isOpaque = false
-            border = BorderFactory.createEmptyBorder(6, 2, 6, 2)
+            foreground = textColor
+            caretColor = textColor
+            background = inputBg
+            isOpaque = true
+            border = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(panelBorder, 1),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)
+            )
         }
     }
 
@@ -114,7 +127,7 @@ private class HintTextField(
         val g2 = graphics.create() as Graphics2D
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            g2.color = Color(244, 230, 197, 140)
+            g2.color = Color(244, 230, 197, 145)
             g2.font = font
             val y = (height + g2.fontMetrics.ascent - g2.fontMetrics.descent) / 2
             g2.drawString(placeholder, insets.left, y)
@@ -134,7 +147,7 @@ private class HintPasswordField(
         val g2 = graphics.create() as Graphics2D
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            g2.color = Color(244, 230, 197, 140)
+            g2.color = Color(244, 230, 197, 145)
             g2.font = font
             val y = (height + g2.fontMetrics.ascent - g2.fontMetrics.descent) / 2
             g2.drawString(placeholder, insets.left, y)

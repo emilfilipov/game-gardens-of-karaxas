@@ -32,6 +32,7 @@ create/select characters, and enter gameplay sessions.
 - Character creation screen.
 - Character selection screen.
 - In-game world screen.
+- Shared menu/form controls use a consistent thin-border panel/button style over the same background key art.
 
 ## Character Direction
 - No predefined classes.

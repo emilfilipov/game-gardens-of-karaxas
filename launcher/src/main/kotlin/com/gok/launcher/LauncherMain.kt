@@ -9,11 +9,11 @@ import java.awt.EventQueue
 import java.awt.Font
 import java.awt.Graphics
 import java.awt.Graphics2D
+import java.awt.GradientPaint
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.GridLayout
 import java.awt.Insets
-import java.awt.Rectangle
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.awt.event.ComponentAdapter
@@ -129,8 +129,7 @@ object LauncherMain {
         frame.preferredSize = Dimension(1600, 900)
 
         val backgroundImage = loadUiImage("/ui/main_menu_background.png")
-        val rectangularButtonImage = loadUiImage("/ui/button_rec_no_flame.png")
-        val launcherCanvasImage = loadUiImage("/ui/launcher_canvas.png")
+        val rectangularButtonImage: BufferedImage? = null
         val textColor = Color(244, 230, 197)
 
         val rootPanel = BackgroundPanel(backgroundImage).apply {
@@ -231,7 +230,7 @@ object LauncherMain {
         }
 
         val centeredContent = JPanel(GridBagLayout()).apply { isOpaque = false }
-        val shellPanel = MenuContentBoxPanel(launcherCanvasImage ?: rectangularButtonImage).apply {
+        val shellPanel = MenuContentBoxPanel().apply {
             layout = BorderLayout()
             border = BorderFactory.createEmptyBorder(28, 34, 28, 34)
             preferredSize = Dimension(1040, 660)
@@ -1132,7 +1131,7 @@ object LauncherMain {
         }
         val authCard = JPanel(GridBagLayout()).apply {
             isOpaque = false
-            add(MenuContentBoxPanel(launcherCanvasImage ?: rectangularButtonImage).apply {
+            add(MenuContentBoxPanel().apply {
                 layout = BorderLayout()
                 preferredSize = Dimension(470, 300)
                 minimumSize = Dimension(420, 270)
@@ -1662,7 +1661,7 @@ object LauncherMain {
         }
     }
 
-    private fun buildMenuButton(text: String, background: BufferedImage?, size: Dimension, fontSize: Float = 25f): JButton {
+    private fun buildMenuButton(text: String, buttonTexture: BufferedImage?, size: Dimension, fontSize: Float = 25f): JButton {
         val button = JButton(text).apply {
             alignmentX = Component.CENTER_ALIGNMENT
             horizontalTextPosition = SwingConstants.CENTER
@@ -1670,36 +1669,42 @@ object LauncherMain {
             foreground = Color(247, 236, 209)
             isFocusPainted = false
             margin = Insets(0, 0, 0, 0)
-            putClientProperty("bgImage", background)
+            isContentAreaFilled = true
+            isBorderPainted = true
+            isOpaque = true
+            border = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                BorderFactory.createEmptyBorder(4, 10, 4, 10)
+            )
+            background = Color(68, 50, 37)
+            isRolloverEnabled = true
+            model.addChangeListener {
+                background = when {
+                    !model.isEnabled -> Color(45, 34, 26)
+                    model.isPressed -> Color(52, 39, 30)
+                    model.isRollover -> Color(84, 62, 45)
+                    else -> Color(68, 50, 37)
+                }
+            }
         }
-        resizeThemedButton(button, size.width, size.height, fontSize)
+        resizeThemedButton(button, size.width, size.height, fontSize, buttonTexture)
         return button
     }
 
-    private fun resizeThemedButton(button: JButton, width: Int, height: Int, fontSize: Float) {
+    private fun resizeThemedButton(
+        button: JButton,
+        width: Int,
+        height: Int,
+        fontSize: Float,
+        buttonTexture: BufferedImage? = null
+    ) {
         val size = Dimension(width, height)
         button.preferredSize = size
         button.maximumSize = size
         button.minimumSize = size
         button.font = Font("Serif", Font.BOLD, fontSize.toInt())
-        val background = button.getClientProperty("bgImage") as? BufferedImage
-        if (background != null) {
-            val icon = scaleImage(background, width, height)
-            button.icon = ImageIcon(icon)
-            button.rolloverIcon = ImageIcon(icon)
-            button.pressedIcon = ImageIcon(icon)
-            button.disabledIcon = ImageIcon(icon)
-            button.isRolloverEnabled = false
-            button.border = BorderFactory.createEmptyBorder()
-            button.isContentAreaFilled = false
-            button.isBorderPainted = false
-            button.isOpaque = false
-        } else {
-            button.background = Color(32, 39, 46)
-            button.foreground = Color.WHITE
-            button.border = BorderFactory.createLineBorder(Color(170, 170, 170), 1)
-            button.isContentAreaFilled = true
-            button.isBorderPainted = true
+        if (buttonTexture != null) {
+            // The launcher intentionally ignores button art in favor of shape-based themed controls.
         }
     }
 
@@ -1763,9 +1768,7 @@ object LauncherMain {
         }
     }
 
-    private class MenuContentBoxPanel(private val frameTexture: BufferedImage?) : JPanel() {
-        private val sourceBounds: Rectangle = computeOpaqueBounds(frameTexture)
-
+    private class MenuContentBoxPanel : JPanel() {
         init {
             isOpaque = true
             background = Color(27, 20, 16)
@@ -1776,47 +1779,22 @@ object LauncherMain {
             val g2 = graphics.create() as Graphics2D
             try {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-                if (frameTexture != null) {
-                    g2.drawImage(
-                        frameTexture,
-                        0,
-                        0,
-                        width,
-                        height,
-                        sourceBounds.x,
-                        sourceBounds.y,
-                        sourceBounds.x + sourceBounds.width,
-                        sourceBounds.y + sourceBounds.height,
-                        null
-                    )
-                } else {
-                    g2.color = Color(52, 39, 32)
-                    g2.fillRect(0, 0, width, height)
-                }
+                g2.paint = GradientPaint(
+                    0f,
+                    0f,
+                    Color(50, 36, 28, 245),
+                    0f,
+                    height.toFloat(),
+                    Color(28, 21, 17, 250)
+                )
+                g2.fillRect(0, 0, width, height)
+                g2.color = Color(171, 131, 86, 240)
+                g2.drawRect(0, 0, (width - 1).coerceAtLeast(0), (height - 1).coerceAtLeast(0))
+                g2.color = Color(240, 210, 157, 65)
+                g2.drawRect(2, 2, (width - 5).coerceAtLeast(0), (height - 5).coerceAtLeast(0))
             } finally {
                 g2.dispose()
             }
-        }
-
-        private fun computeOpaqueBounds(image: BufferedImage?): Rectangle {
-            if (image == null) return Rectangle(0, 0, 1, 1)
-            var minX = image.width
-            var minY = image.height
-            var maxX = -1
-            var maxY = -1
-            for (y in 0 until image.height) {
-                for (x in 0 until image.width) {
-                    val alpha = image.getRGB(x, y).ushr(24) and 0xFF
-                    if (alpha > 8) {
-                        if (x < minX) minX = x
-                        if (y < minY) minY = y
-                        if (x > maxX) maxX = x
-                        if (y > maxY) maxY = y
-                    }
-                }
-            }
-            if (maxX < minX || maxY < minY) return Rectangle(0, 0, image.width, image.height)
-            return Rectangle(minX, minY, (maxX - minX + 1), (maxY - minY + 1))
         }
     }
 
