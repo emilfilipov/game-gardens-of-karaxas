@@ -3,6 +3,7 @@
 - Added centered footer version/date label to the launcher shell.
 - Updated launcher backend endpoint fallback to Cloud Run (instead of localhost) when `GOK_API_BASE_URL` is not set.
 - Improved auth failure reporting to show the real backend error and log auth exceptions to launcher logs.
+- Added one-click `Update & Restart` action to the top-right cog menu so updates can run directly from the login/auth flow.
 - Refactored character creation to include sex choice preview, stat/skill scaffold rows, and a fixed 10-point allocation model where each increment costs 1 point.
 - Wired selected-character handoff into a playable in-launcher world scene.
 - Added empty-world prototype gameplay with WASD movement and hard world-edge border collision.

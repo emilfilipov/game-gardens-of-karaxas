@@ -171,8 +171,10 @@ object LauncherMain {
         rootPanel.add(footerVersionLabel, BorderLayout.SOUTH)
 
         val settingsPopup = JPopupMenu()
+        val quickUpdateItem = JMenuItem("Update & Restart")
         val settingsItem = JMenuItem("Settings")
         val exitItem = JMenuItem("Exit")
+        settingsPopup.add(quickUpdateItem)
         settingsPopup.add(settingsItem)
         settingsPopup.add(exitItem)
         settingsItem.addActionListener {
@@ -997,7 +999,8 @@ object LauncherMain {
         }
 
         fun showCard(card: String) {
-            if (card != "auth" && authSession == null) {
+            val requiresAuth = card == "lobby" || card == "create_character" || card == "select_character" || card == "play"
+            if (requiresAuth && authSession == null) {
                 cardsLayout.show(menuCards, "auth")
                 authStatus.text = "Please login first."
                 return
@@ -1021,6 +1024,12 @@ object LauncherMain {
                 gameWorldPanel.requestFocusInWindow()
             }
             cardsLayout.show(menuCards, card)
+        }
+
+        quickUpdateItem.addActionListener {
+            showCard("update")
+            updateStatus.text = "Checking for updates..."
+            runUpdate(updateStatus, patchNotesPane, patchNotes, progress, controls, autoRestartOnSuccess = true)
         }
 
         authSubmit.addActionListener {
@@ -1370,7 +1379,8 @@ object LauncherMain {
         patchNotesPane: JEditorPane,
         patchNotesPaneScroll: JScrollPane,
         progress: JProgressBar,
-        controls: List<JButton>
+        controls: List<JButton>,
+        autoRestartOnSuccess: Boolean = false
     ) {
         setUpdatingState(progress, controls, true)
         val payloadRoot = payloadRoot()
@@ -1429,7 +1439,7 @@ object LauncherMain {
                     status.text = when (exitCode) {
                         0 -> {
                             applyPatchNotesView(patchNotesPane, patchNotesPaneScroll)
-                            if (outputLines.any { it == "UPDATE_APPLYING" }) {
+                            if (outputLines.any { it == "UPDATE_APPLYING" } || autoRestartOnSuccess) {
                                 log("Update applying. Exiting launcher.")
                                 Thread {
                                     Thread.sleep(750)
