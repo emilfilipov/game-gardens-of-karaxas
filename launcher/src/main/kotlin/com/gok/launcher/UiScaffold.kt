@@ -31,7 +31,7 @@ object UiScaffold {
     fun contentPanel(): JPanel {
         return JPanel().apply {
             isOpaque = true
-            background = Color(27, 20, 16, 210)
+            background = Color(27, 20, 16, 245)
             border = BorderFactory.createEmptyBorder(contentPadding.top, contentPadding.left, contentPadding.bottom, contentPadding.right)
         }
     }

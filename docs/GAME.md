@@ -16,13 +16,14 @@ create/select characters, and enter gameplay sessions.
 1. Open launcher and authenticate (register or login).
    - Login form remembers and pre-fills the last successfully authenticated email.
    - Register form always opens clean with hint text visible.
-2. Enter account lobby with persistent tab navigation (Lobby/Create/Select/Play).
+2. Enter account lobby with persistent tab navigation (Lobby/Create/Select).
    - Top-right menu shows `Welcome [username].` and logged-in account actions.
 3. Default post-login routing:
    - No characters: open Character Creation.
    - Has characters: open Character Selection.
 4. On character selection, each row includes direct `Play` and `Delete` actions.
-5. Enter gameplay session from the chosen character row.
+5. Enter gameplay session from the chosen character row (`Play` action on that row only).
+   - World/session opens in a dedicated gameplay scene (separate from lobby/select cards).
 6. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
 
 ## Required Frontend Screens

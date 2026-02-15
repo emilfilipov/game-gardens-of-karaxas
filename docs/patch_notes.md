@@ -1,7 +1,7 @@
-- Added character deletion support to backend and launcher character rows (with confirm dialog + automatic list refresh).
-- Added global duplicate-character-name enforcement (case-insensitive) with backend validation and DB unique index guard.
-- Added character progression scaffold fields (`level`, `experience`, `experience_to_next_level`) with defaults of level 1 / 0 XP and 100 XP-per-level progression rule.
-- Refactored character selection UI to row-based actions (`Play` and `Delete`) and removed explicit `Set Active` control from the user-facing flow.
-- Removed `Logged in as ...` UI label and removed skill-points counter label from character creation screen.
-- Improved art loading by searching character assets in payload/install/workdir paths (plus `GOK_CHARACTER_ART_DIR`) and improved missing-art fallback rendering.
-- Fixed authenticated tab view rendering by using opaque themed card surfaces to prevent visual overlap artifacts when switching tabs.
+- Removed authenticated-menu `Play`/`Refresh` tab buttons; tabs are now `Lobby`, `Create`, and `Select` only.
+- Removed manual `Refresh` buttons from character create/select screens and switched to automatic character-list refresh on login routing, select-screen entry, character create, and character delete.
+- Moved gameplay rendering into a dedicated scene container, so entering play from a character card fully switches out of account-card UI.
+- Kept gameplay entry only on character-row `Play` actions and removed menu-level play entry points.
+- Converted core authenticated content surfaces (including frame panels and character list viewport) to opaque themed rendering to prevent overlap/ghosting artifacts during menu switches and delete flows.
+- Standardized character list rows as fixed-size themed cards for consistent select-screen structure.
+- Removed the extra separator strip from the top-right dropdown menu to better match the game theme.

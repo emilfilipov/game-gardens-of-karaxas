@@ -88,13 +88,16 @@ This is the single source of truth for technical architecture, stack decisions, 
 - When auto-login is enabled, launcher attempts `POST /auth/refresh` during startup and clears invalid refresh tokens on 401/403.
 - Cog dropdown also exposes a logged-in-only `Logout` action.
 - Account lobby is account-only (no chat/guild panels).
-- Account shell now keeps a persistent tab bar (Lobby/Create/Select/Play + Refresh) visible across authenticated cards.
+- Account shell now keeps a persistent tab bar (Lobby/Create/Select) visible across authenticated cards.
 - Post-auth default routing is character-count based:
   - no characters -> `create_character`
   - one or more characters -> `select_character`
 - Character selection is row-based with per-row `Play` and `Delete` actions (no explicit "Set Active" control in the UI).
 - Launcher still syncs backend selected-character state implicitly on `Play` to satisfy character-gated backend features.
-- `play` card is currently an empty-world prototype entered from character row play actions, with in-launcher gameplay handoff and WASD movement.
+- Character selection uses fixed-size themed character cards with per-row `Play` and `Delete` actions.
+- Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
+- Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
+- `play` scene is currently an empty-world prototype with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
 - Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` in working dir, install root, payload root, or `GOK_CHARACTER_ART_DIR`.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
