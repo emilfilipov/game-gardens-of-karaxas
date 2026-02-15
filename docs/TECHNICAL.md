@@ -64,12 +64,17 @@ This is the single source of truth for technical architecture, stack decisions, 
 
 ## Launcher UI Structure Strategy
 - UI is organized with reusable screen scaffolds and layout tokens (`UiScaffold`) to keep alignment consistent across screens.
-- Screens are card-based (login, register, lobby, character creation, character selection, update, play) instead of one-off ad hoc layouts.
+- Screens are card-based (combined auth, lobby, character creation, character selection, update, play) instead of one-off ad hoc layouts.
+- Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
+- Combined auth uses a single centered panel with login/register toggle and transparent placeholder-based fields.
 - Account lobby is account-only (no chat/guild panels).
-- In-game social screen (`play` card) hosts chat/guild views and is gated by selected character.
-- Character creation/select screens are structured for art integration (appearance selector + preview panel) and can load art assets from `assets/characters/` (or `GOK_CHARACTER_ART_DIR` override).
+- `play` card is currently an empty-world prototype gated by selected character, with in-launcher gameplay handoff and WASD movement.
+- World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
+- Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` (or `GOK_CHARACTER_ART_DIR` override).
+- Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
 - Update functionality remains accessible from within account-lobby flow via updater card access.
+- Version/date is rendered in a centered footer on the launcher shell.
 
 ## Logging Strategy
 - Launcher logs to local files in install-root `logs/` (launcher, game, updater logs).

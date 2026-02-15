@@ -1,6 +1,6 @@
-- Validated and integrated new character sprites: both male/female idle sprites (`32x32`) and walk/run sheets (`192x128`, 4 directions x 6 frames).
-- Moved new character art assets into `assets/characters/` and wired launcher discovery so they are loaded automatically.
-- Added animated character preview controls in character creation (Idle/Walk/Run) using the supplied sprite sheets.
-- Enhanced character selection with appearance-aware details and visual preview.
-- Persisted character visual preset selection in backend (`appearance_key` on `characters`) and added migration `0002_character_appearance_key`.
-- Updated launcher/backend character API wiring so create/list/select flow now carries appearance keys end-to-end.
+- Reworked launcher entry UX into a single centered authentication panel with login/register toggle and transparent placeholder fields.
+- Switched launcher runtime to borderless fullscreen by default and added top-right cog dropdown with `Settings` and `Exit`.
+- Added centered footer version/date label to the launcher shell.
+- Refactored character creation to include sex choice preview, stat/skill scaffold rows, and a fixed 10-point allocation model where each increment costs 1 point.
+- Wired selected-character handoff into a playable in-launcher world scene.
+- Added empty-world prototype gameplay with WASD movement and hard world-edge border collision.

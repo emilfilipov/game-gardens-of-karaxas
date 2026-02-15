@@ -2,12 +2,17 @@ package com.gok.launcher
 
 import java.awt.Dimension
 import java.awt.Font
+import java.awt.Graphics
+import java.awt.Graphics2D
+import java.awt.RenderingHints
 import java.awt.GridBagConstraints
 import java.awt.Insets
+import java.awt.Color
 import javax.swing.BorderFactory
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.JPasswordField
 import javax.swing.JTextField
 import javax.swing.SwingConstants
 
@@ -62,8 +67,76 @@ object UiScaffold {
         }
     }
 
+    fun ghostTextField(placeholder: String, columns: Int = 24): JTextField {
+        return HintTextField(placeholder, columns).apply {
+            preferredSize = fieldSize
+            minimumSize = fieldSize
+            maximumSize = fieldSize
+            font = bodyFont
+            foreground = Color(244, 230, 197)
+            caretColor = Color(244, 230, 197)
+            background = Color(0, 0, 0, 0)
+            isOpaque = false
+            border = BorderFactory.createEmptyBorder(6, 2, 6, 2)
+        }
+    }
+
+    fun ghostPasswordField(placeholder: String, columns: Int = 24): JPasswordField {
+        return HintPasswordField(placeholder, columns).apply {
+            preferredSize = fieldSize
+            minimumSize = fieldSize
+            maximumSize = fieldSize
+            font = bodyFont
+            foreground = Color(244, 230, 197)
+            caretColor = Color(244, 230, 197)
+            background = Color(0, 0, 0, 0)
+            isOpaque = false
+            border = BorderFactory.createEmptyBorder(6, 2, 6, 2)
+        }
+    }
+
     fun applyBodyFont(component: JComponent): JComponent {
         component.font = bodyFont
         return component
+    }
+}
+
+private class HintTextField(
+    private val placeholder: String,
+    columns: Int
+) : JTextField(columns) {
+    override fun paintComponent(graphics: Graphics) {
+        super.paintComponent(graphics)
+        if (text.isNotEmpty() || hasFocus()) return
+        val g2 = graphics.create() as Graphics2D
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            g2.color = Color(244, 230, 197, 140)
+            g2.font = font
+            val y = (height + g2.fontMetrics.ascent - g2.fontMetrics.descent) / 2
+            g2.drawString(placeholder, insets.left, y)
+        } finally {
+            g2.dispose()
+        }
+    }
+}
+
+private class HintPasswordField(
+    private val placeholder: String,
+    columns: Int
+) : JPasswordField(columns) {
+    override fun paintComponent(graphics: Graphics) {
+        super.paintComponent(graphics)
+        if (password.isNotEmpty() || hasFocus()) return
+        val g2 = graphics.create() as Graphics2D
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            g2.color = Color(244, 230, 197, 140)
+            g2.font = font
+            val y = (height + g2.fontMetrics.ascent - g2.fontMetrics.descent) / 2
+            g2.drawString(placeholder, insets.left, y)
+        } finally {
+            g2.dispose()
+        }
     }
 }
