@@ -73,6 +73,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Screens are card-based (combined auth, lobby, character creation, character selection, update, play) instead of one-off ad hoc layouts.
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Launcher keeps the same full-screen background art image, but interactive UI chrome now uses lightweight shape-based rendering (thin borders + painted fills/gradients) instead of PNG-framed button/panel surfaces.
+- Launcher button styling is enforced through a shared `BasicButtonUI`-based theme path so all runtime buttons (auth, tabs, action rows, settings cog, and stat +/- controls) render consistently across platform look-and-feels.
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Cog dropdown includes a logged-in-only header line with account identity (`Welcome [username].`).

@@ -59,6 +59,7 @@ import javax.swing.UIManager
 import javax.swing.Box
 import javax.swing.AbstractAction
 import javax.swing.border.TitledBorder
+import javax.swing.plaf.basic.BasicButtonUI
 import javax.swing.plaf.basic.BasicProgressBarUI
 import javax.net.ssl.SSLException
 
@@ -143,15 +144,11 @@ object LauncherMain {
             border = BorderFactory.createEmptyBorder(4, 0, 4, 0)
         }
         val settingsButton = JButton("\u2699").apply {
-            font = Font("Serif", Font.BOLD, 24)
-            foreground = textColor
-            isFocusPainted = false
-            isContentAreaFilled = false
-            isBorderPainted = false
-            isOpaque = false
+            font = Font("Serif", Font.BOLD, 20)
             preferredSize = Dimension(42, 42)
             toolTipText = "Menu"
         }
+        applyThemedButtonStyle(settingsButton, 20f, compactPadding = true)
         val headerPanel = JPanel(BorderLayout()).apply {
             isOpaque = false
             add(Box.createHorizontalStrut(42), BorderLayout.WEST)
@@ -675,14 +672,14 @@ object LauncherMain {
                 preferredSize = Dimension(36, 28)
                 minimumSize = Dimension(36, 28)
                 maximumSize = Dimension(36, 28)
-                font = Font("Serif", Font.BOLD, 15)
             }
+            applyThemedButtonStyle(minus, 15f, compactPadding = true)
             val plus = JButton("+").apply {
                 preferredSize = Dimension(36, 28)
                 minimumSize = Dimension(36, 28)
                 maximumSize = Dimension(36, 28)
-                font = Font("Serif", Font.BOLD, 15)
             }
+            applyThemedButtonStyle(plus, 15f, compactPadding = true)
             val value = JLabel("0", SwingConstants.CENTER).apply {
                 preferredSize = Dimension(42, 28)
                 foreground = textColor
@@ -1661,32 +1658,38 @@ object LauncherMain {
         }
     }
 
+    private fun applyThemedButtonStyle(button: JButton, fontSize: Float, compactPadding: Boolean = false) {
+        button.setUI(BasicButtonUI())
+        button.foreground = Color(247, 236, 209)
+        button.font = Font("Serif", Font.BOLD, fontSize.toInt())
+        button.isFocusPainted = false
+        button.isContentAreaFilled = true
+        button.isBorderPainted = true
+        button.isOpaque = true
+        button.background = Color(68, 50, 37)
+        button.border = BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+            if (compactPadding) BorderFactory.createEmptyBorder(2, 6, 2, 6) else BorderFactory.createEmptyBorder(4, 10, 4, 10)
+        )
+        button.isRolloverEnabled = true
+        button.model.addChangeListener {
+            button.background = when {
+                !button.model.isEnabled -> Color(45, 34, 26)
+                button.model.isPressed -> Color(52, 39, 30)
+                button.model.isRollover -> Color(84, 62, 45)
+                else -> Color(68, 50, 37)
+            }
+        }
+    }
+
     private fun buildMenuButton(text: String, buttonTexture: BufferedImage?, size: Dimension, fontSize: Float = 25f): JButton {
         val button = JButton(text).apply {
             alignmentX = Component.CENTER_ALIGNMENT
             horizontalTextPosition = SwingConstants.CENTER
             verticalTextPosition = SwingConstants.CENTER
-            foreground = Color(247, 236, 209)
-            isFocusPainted = false
             margin = Insets(0, 0, 0, 0)
-            isContentAreaFilled = true
-            isBorderPainted = true
-            isOpaque = true
-            border = BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color(172, 132, 87), 1),
-                BorderFactory.createEmptyBorder(4, 10, 4, 10)
-            )
-            background = Color(68, 50, 37)
-            isRolloverEnabled = true
-            model.addChangeListener {
-                background = when {
-                    !model.isEnabled -> Color(45, 34, 26)
-                    model.isPressed -> Color(52, 39, 30)
-                    model.isRollover -> Color(84, 62, 45)
-                    else -> Color(68, 50, 37)
-                }
-            }
         }
+        applyThemedButtonStyle(button, fontSize)
         resizeThemedButton(button, size.width, size.height, fontSize, buttonTexture)
         return button
     }

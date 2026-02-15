@@ -1,5 +1,4 @@
-- Redesigned launcher UI controls to use shape-based themed rendering (thin borders + painted fills) instead of PNG-based button/panel skins.
-- Kept the same full-screen background image for the main visual theme while replacing interactive chrome.
-- Updated form fields to consistent bordered inputs for clearer structure and alignment stability.
-- Reworked major container frames to painted gradient panels, reducing visual artifacts from textured frame overlays.
-- Preserved existing account/auth/character/game flow behavior while applying the new styling system.
+- Applied a unified themed button renderer to all launcher buttons to remove white/default OS-style boxes.
+- Updated login/register controls to use the same dark thin-border theme as the rest of the UI.
+- Styled previously unthemed controls (`+`/`-` stat buttons and top-right cog) to match the launcher visual system.
+- Kept existing functionality and layout flow unchanged while normalizing button visuals.
