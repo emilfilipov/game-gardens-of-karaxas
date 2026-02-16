@@ -27,7 +27,7 @@ create/select characters, and enter gameplay sessions.
 4. On character selection, each row includes direct `Play` and `Delete` actions.
    - Character preview/details update only when the character card row itself is clicked.
    - Action buttons do not change the current preview selection.
-   - Admin accounts also get per-character map assignment controls in each row.
+   - Admin accounts also get a per-character level override dropdown in each row; choosing a level there forces spawn at that level's spawn point for that play launch.
    - Character rows show current location (area + coordinates when known).
 5. Enter gameplay session from the chosen character row (`Play` action on that row only).
    - World/session opens in a dedicated gameplay scene (separate from lobby/select cards).
@@ -57,6 +57,9 @@ create/select characters, and enter gameplay sessions.
 - Character creation preview is currently static (idle frame) and no longer includes a preview-animation selector.
 - Sex switching must always map to the correct preset in both directions (male->female and female->male) without substring ambiguity.
 - Character preview rendering preserves sprite aspect ratio to avoid stretching between male/female presets.
+- Character creation layout uses split tables: stats on the left and level-1 skill choices on the right.
+- Level-1 starter skills currently scaffolded: Ember, Cleave, Quick Strike, Bandage.
+- Stats/skills have placeholder tooltips for future design descriptions.
 - Character art loading accepts both canonical filenames and fallback naming/folder layouts so male/female previews continue working when asset files are reorganized.
 - Initial visual presets currently wired: human male and human female.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.

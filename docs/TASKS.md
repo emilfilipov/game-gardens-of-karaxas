@@ -37,6 +37,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-030 | ✅ | 4 | Persist character runtime location in DB (`level_id` + coordinates), resume from saved position on play, expose location in character list/details, and add live-editable level-editor grid dimensions. |
 | GOK-MMO-031 | ✅ | 3 | Polish updater/level-tool theming and asset reliability: `Game is up to date` status text, hardened themed combo defaults + scrollbar skinning, grid-size controls moved above grid canvas, payload copy of character art assets, and cleanup of obsolete unused launcher UI PNG resources. |
 | GOK-MMO-032 | ✅ | 2 | Fix character preview reliability and sex mapping: probe ancestor asset roots when launcher is started from subdirectories, prevent `female`/`male` substring collisions in appearance selection, and preserve sprite aspect ratio in create/select preview rendering. |
+| GOK-MMO-033 | ✅ | 3 | Complete pending create/select UI polish: remove duplicate list heading and rename details panel, remove create preview title, split create screen into stat table + rectangular starter-skill choices with tooltips, anchor create action at bottom-right, and make admin level dropdown act as play-time spawn override. |
 | GOK-INIT-001 | ✅ | 2 | Create initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configure GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enable launcher-only Velopack packaging and publish first installer/release artifacts. |

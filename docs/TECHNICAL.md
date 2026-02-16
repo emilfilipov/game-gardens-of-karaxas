@@ -109,7 +109,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher still syncs backend selected-character state implicitly on `Play` to satisfy character-gated backend features.
 - Character selection uses fixed-size themed character cards with per-row `Play` and `Delete` actions.
 - Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
-- Admin-only launcher controls (level-builder tab and per-character level assignment dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
+- Admin-only launcher controls (level-builder tab and per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
 - Level-builder tool supports drag/erase wall placement and single spawn-point placement on a fixed grid, with named save/load against backend `/levels` APIs.
 - Level-builder grid defaults to a larger map footprint (`80x48`) with a zoomed-out editor cell size to keep more of the map visible while editing.
 - Level-builder grid dimensions are user-editable at runtime (`width`/`height`) with validation and immediate canvas resize/clamping.
@@ -128,8 +128,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Sex-to-appearance mapping now uses token-safe matching (`female`/`male` boundary checks) to avoid substring collisions like `female` matching `male`.
 - Preview image scaling is aspect-preserving with nearest-neighbor interpolation to keep sprite proportions and pixel art sharpness.
 - Release packaging copies `assets/characters/` into payload (`payload/assets/characters`) so installed launcher builds can resolve preview art without relying on local repo folders.
-- Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
+- Character creation point allocation uses a fixed 10-point budget with +/− controls for stats and themed rectangular toggle choices for starter skills.
 - Skill-points counter label has been removed from UI while keeping allocation budget enforcement.
+- Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
 - Character creation and deletion both perform immediate character-list reloads and UI refreshes to avoid stale list state.
 - Account cards now render on opaque themed surfaces to prevent visual overlap artifacts when switching tabs.

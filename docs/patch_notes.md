@@ -1,3 +1,5 @@
-- Fixed character art preview discovery when launching from subdirectories (for example `repo/launcher`) by probing ancestor asset roots in addition to payload/install paths.
-- Fixed sex preset switching so selecting `Male` no longer resolves to female art due to substring collisions.
-- Updated character preview rendering to preserve sprite aspect ratio with nearest-neighbor scaling, preventing stretched male/female previews.
+- Reworked Character List screen structure: removed duplicated top title, moved list heading into the list container, and renamed the details panel to `Character details`.
+- Reworked Create Character layout: removed `Character Art Preview` heading, split stats/skills into side-by-side tables, and anchored `Create Character` to the bottom-right of the creation area.
+- Added stylized rectangular starter-skill choices (`Ember`, `Cleave`, `Quick Strike`, `Bandage`) with placeholder tooltips for stats and skills.
+- Changed admin character-card level dropdown behavior to a play-time override (`Current Location` vs selected level), so choosing a level forces spawn at that level's spawn point on launch.
+- Hardened themed dropdown rendering to suppress platform-default white/blue list styling artifacts.

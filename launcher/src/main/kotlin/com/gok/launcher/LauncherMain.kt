@@ -53,6 +53,7 @@ import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
 import javax.swing.JTextField
+import javax.swing.JToggleButton
 import javax.swing.SwingConstants
 import javax.swing.Timer
 import javax.swing.UIManager
@@ -400,7 +401,7 @@ object LauncherMain {
             border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
         }
         val characterRowsScroll = ThemedScrollPane(characterRowsPanel).apply {
-            border = themedTitledBorder("Characters")
+            border = themedTitledBorder("Character List")
             horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
         }
 
@@ -424,6 +425,8 @@ object LauncherMain {
             foreground = THEME_TEXT_COLOR
             font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
         }
+        createName.toolTipText = "Enter a unique character name."
+        sexChoice.toolTipText = "Choose the visual sex preset for this character."
 
         val selectStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val selectCharacterDetails = JTextArea().apply {
@@ -868,26 +871,40 @@ object LauncherMain {
             "intellect" to 0,
         )
         val skillAllocations = linkedMapOf(
-            "alchemy" to 0,
-            "sword_mastery" to 0,
+            "ember" to 0,
+            "cleave" to 0,
+            "quick_strike" to 0,
+            "bandage" to 0,
         )
-        val valueLabels = mutableMapOf<String, JLabel>()
+        val statValueLabels = mutableMapOf<String, JLabel>()
+        val skillToggleButtons = mutableMapOf<String, JToggleButton>()
+        val statTooltips = mapOf(
+            "strength" to "Placeholder: increases melee damage.",
+            "agility" to "Placeholder: increases movement and attack speed.",
+            "intellect" to "Placeholder: increases magic potency.",
+        )
+        val skillTooltips = mapOf(
+            "ember" to "Placeholder: light fire spell.",
+            "cleave" to "Placeholder: wide melee slash.",
+            "quick_strike" to "Placeholder: fast single-target attack.",
+            "bandage" to "Placeholder: minor self-heal over time.",
+        )
 
         fun updatePointUi() {
-            statAllocations.forEach { (key, value) -> valueLabels["stat:$key"]?.text = value.toString() }
-            skillAllocations.forEach { (key, value) -> valueLabels["skill:$key"]?.text = value.toString() }
+            statAllocations.forEach { (key, value) -> statValueLabels[key]?.text = value.toString() }
+            skillAllocations.forEach { (key, value) -> skillToggleButtons[key]?.isSelected = value > 0 }
         }
 
-        fun adjustAllocation(bucket: MutableMap<String, Int>, key: String, delta: Int) {
-            val current = bucket[key] ?: 0
+        fun adjustStatAllocation(key: String, delta: Int) {
+            val current = statAllocations[key] ?: 0
             if (delta > 0 && pointsRemaining <= 0) return
             if (delta < 0 && current <= 0) return
-            bucket[key] = current + delta
+            statAllocations[key] = current + delta
             pointsRemaining -= delta
             updatePointUi()
         }
 
-        fun allocationRow(title: String, bucket: MutableMap<String, Int>, key: String, scope: String): JPanel {
+        fun statAllocationRow(title: String, key: String): JPanel {
             val minus = JButton("-").apply {
                 preferredSize = Dimension(36, 28)
                 minimumSize = Dimension(36, 28)
@@ -905,12 +922,17 @@ object LauncherMain {
                 foreground = textColor
                 font = Font(THEME_FONT_FAMILY, Font.BOLD, 16)
             }
-            valueLabels["$scope:$key"] = value
-            minus.addActionListener { adjustAllocation(bucket, key, -1) }
-            plus.addActionListener { adjustAllocation(bucket, key, 1) }
+            statValueLabels[key] = value
+            minus.toolTipText = statTooltips[key]
+            plus.toolTipText = statTooltips[key]
+            minus.addActionListener { adjustStatAllocation(key, -1) }
+            plus.addActionListener { adjustStatAllocation(key, 1) }
+            val label = UiScaffold.titledLabel(title).apply {
+                toolTipText = statTooltips[key]
+            }
             return JPanel(BorderLayout(8, 0)).apply {
                 isOpaque = false
-                add(UiScaffold.titledLabel(title), BorderLayout.WEST)
+                add(label, BorderLayout.WEST)
                 add(JPanel(GridLayout(1, 3, 4, 0)).apply {
                     isOpaque = false
                     add(minus)
@@ -918,6 +940,38 @@ object LauncherMain {
                     add(plus)
                 }, BorderLayout.EAST)
             }
+        }
+
+        fun toggleSkillSelection(key: String) {
+            val current = skillAllocations[key] ?: 0
+            if (current > 0) {
+                skillAllocations[key] = 0
+                pointsRemaining += 1
+                updatePointUi()
+                return
+            }
+            if (pointsRemaining <= 0) {
+                updatePointUi()
+                return
+            }
+            skillAllocations[key] = 1
+            pointsRemaining -= 1
+            updatePointUi()
+        }
+
+        fun skillSelectionButton(key: String, title: String): JToggleButton {
+            val button = JToggleButton(title).apply {
+                preferredSize = Dimension(170, 34)
+                minimumSize = Dimension(170, 34)
+                maximumSize = Dimension(Int.MAX_VALUE, 34)
+                horizontalAlignment = SwingConstants.CENTER
+                margin = Insets(0, 8, 0, 8)
+                toolTipText = skillTooltips[key]
+            }
+            applyThemedToggleStyle(button, 13f)
+            button.addActionListener { toggleSkillSelection(key) }
+            skillToggleButtons[key] = button
+            return button
         }
 
         val gameTileSize = 64f
@@ -1168,16 +1222,19 @@ object LauncherMain {
                 .toSet()
         }
 
-        fun enterGameWithCharacter(character: CharacterView, level: LevelDataView?) {
+        fun enterGameWithCharacter(character: CharacterView, level: LevelDataView?, forceSpawn: Boolean = false) {
             activeGameCharacterView = character
             gameCharacterName = character.name
             gameCharacterAppearance = resolveAppearanceOption(character.appearanceKey)
             applyGameLevel(level)
-            resetPlayerPosition(character.locationX, character.locationY)
+            resetPlayerPosition(
+                if (forceSpawn) null else character.locationX,
+                if (forceSpawn) null else character.locationY
+            )
             clampPlayerToWorld()
             gameStatus.text = " "
             val levelName = level?.name ?: "Default"
-            playStatus.text = if (character.locationX != null && character.locationY != null) {
+            playStatus.text = if (!forceSpawn && character.locationX != null && character.locationY != null) {
                 "Loaded $levelName at (${character.locationX}, ${character.locationY})."
             } else {
                 "Loaded $levelName at spawn."
@@ -1255,21 +1312,27 @@ object LauncherMain {
         lateinit var showCard: (String) -> Unit
         lateinit var populateCharacterViewsFn: (List<CharacterView>) -> Unit
 
-        fun playWithCharacter(character: CharacterView) {
+        fun playWithCharacter(character: CharacterView, overrideLevelId: Int? = null) {
             withSession(onMissing = { authStatus.text = "Please login first." }) { session ->
                 Thread {
                     try {
                         backendClient.selectCharacter(session.accessToken, clientVersion, character.id)
-                        val selectedLevel = character.levelId?.let { levelId ->
+                        val requestedLevelId = overrideLevelId ?: character.levelId
+                        val selectedLevel = requestedLevelId?.let { levelId ->
                             levelDetailsById[levelId] ?: backendClient.getLevel(session.accessToken, clientVersion, levelId).also {
                                 levelDetailsById[levelId] = it
                             }
+                        }
+                        val gameplayCharacter = if (overrideLevelId != null) {
+                            character.copy(levelId = overrideLevelId, locationX = null, locationY = null)
+                        } else {
+                            character
                         }
                         javax.swing.SwingUtilities.invokeLater {
                             if (selectedLevel != null) {
                                 activeGameLevelId = selectedLevel.id
                             }
-                            enterGameWithCharacter(character, selectedLevel)
+                            enterGameWithCharacter(gameplayCharacter, selectedLevel, forceSpawn = overrideLevelId != null)
                             showCard("play")
                         }
                     } catch (ex: Exception) {
@@ -1357,49 +1420,21 @@ object LauncherMain {
                         foreground = textColor
                         font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
                     }
+                    var playLevelOverrideCombo: ThemedComboBox<Any>? = null
                     val actions = if (adminMode) {
                         val levelCombo = ThemedComboBox<Any>().apply {
                             preferredSize = Dimension(170, 30)
                             minimumSize = Dimension(170, 30)
                             maximumSize = Dimension(170, 30)
                             font = UiScaffold.bodyFont
-                            val values: Array<Any> = if (availableLevels.isEmpty()) {
-                                arrayOf("No levels")
-                            } else {
-                                availableLevels.toTypedArray()
-                            }
-                            model = javax.swing.DefaultComboBoxModel(values)
-                            isEnabled = availableLevels.isNotEmpty()
-                            if (character.levelId != null) {
-                                val selected = availableLevels.firstOrNull { it.id == character.levelId }
-                                if (selected != null) {
-                                    selectedItem = selected
-                                }
-                            }
+                            val values = mutableListOf<Any>("Current Location")
+                            values.addAll(availableLevels)
+                            model = javax.swing.DefaultComboBoxModel(values.toTypedArray())
+                            selectedItem = "Current Location"
+                            isEnabled = values.size > 1
+                            toolTipText = "Admin override: choose a level to force spawn at that level's spawn point."
                         }
-                        var levelSelectionBound = false
-                        levelCombo.addActionListener {
-                            if (!levelSelectionBound) return@addActionListener
-                            val chosen = levelCombo.selectedItem as? LevelSummaryView ?: return@addActionListener
-                            withSession(onMissing = { selectStatus.text = "Please login first." }) { session ->
-                                Thread {
-                                    try {
-                                        backendClient.assignCharacterLevel(session.accessToken, clientVersion, character.id, chosen.id)
-                                        val refreshed = backendClient.listCharacters(session.accessToken, clientVersion)
-                                        javax.swing.SwingUtilities.invokeLater {
-                                            populateCharacterViewsFn(refreshed)
-                                            selectStatus.text = " "
-                                        }
-                                    } catch (ex: Exception) {
-                                        log("Character level assignment failed against ${backendClient.endpoint()}", ex)
-                                        javax.swing.SwingUtilities.invokeLater {
-                                            selectStatus.text = formatServiceError(ex, "Unable to assign location.")
-                                        }
-                                    }
-                                }.start()
-                            }
-                        }
-                        levelSelectionBound = true
+                        playLevelOverrideCombo = levelCombo
                         JPanel(BorderLayout(0, 4)).apply {
                             isOpaque = false
                             add(levelCombo, BorderLayout.NORTH)
@@ -1430,7 +1465,10 @@ object LauncherMain {
                     }
                     row.addMouseListener(rowSelectionHandler)
                     info.addMouseListener(rowSelectionHandler)
-                    playButton.addActionListener { playWithCharacter(character) }
+                    playButton.addActionListener {
+                        val overrideLevelId = (playLevelOverrideCombo?.selectedItem as? LevelSummaryView)?.id
+                        playWithCharacter(character, overrideLevelId)
+                    }
                     deleteButton.addActionListener { deleteCharacter(character) }
                     characterRowsPanel.add(row)
                     characterRowsPanel.add(Box.createVerticalStrut(8))
@@ -1656,41 +1694,61 @@ object LauncherMain {
             add(JPanel(BorderLayout(12, 8)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
-                add(JPanel(BorderLayout(0, 6)).apply {
+                add(JPanel(BorderLayout()).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    border = themedTitledBorder("Character Art Preview")
+                    border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
                     add(createAppearancePreview, BorderLayout.CENTER)
                 }, BorderLayout.WEST)
-                add(JPanel(GridBagLayout()).apply {
+                add(JPanel(BorderLayout(0, 10)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(UiScaffold.titledLabel("Name"), UiScaffold.gbc(0))
-                    add(createName, UiScaffold.gbc(1))
-                    add(UiScaffold.titledLabel("Sex"), UiScaffold.gbc(2))
-                    add(sexChoice, UiScaffold.gbc(3))
-                    add(UiScaffold.titledLabel("Scaffold: Start stats/skills"), UiScaffold.gbc(4))
-                    add(allocationRow("Strength", statAllocations, "strength", "stat"), UiScaffold.gbc(5, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(allocationRow("Agility", statAllocations, "agility", "stat"), UiScaffold.gbc(6, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(allocationRow("Intellect", statAllocations, "intellect", "stat"), UiScaffold.gbc(7, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(allocationRow("Alchemy", skillAllocations, "alchemy", "skill"), UiScaffold.gbc(8, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(allocationRow("Sword Mastery", skillAllocations, "sword_mastery", "skill"), UiScaffold.gbc(9, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(createSubmit, UiScaffold.gbc(10))
-                    add(createStatus, UiScaffold.gbc(11))
+                    add(JPanel(GridBagLayout()).apply {
+                        isOpaque = false
+                        add(UiScaffold.titledLabel("Name"), UiScaffold.gbc(0))
+                        add(createName, UiScaffold.gbc(1))
+                        add(UiScaffold.titledLabel("Sex"), UiScaffold.gbc(2))
+                        add(sexChoice, UiScaffold.gbc(3))
+                        add(UiScaffold.titledLabel("Scaffold: Start stats/skills"), UiScaffold.gbc(4))
+                    }, BorderLayout.NORTH)
+                    add(JPanel(GridLayout(1, 2, 10, 0)).apply {
+                        isOpaque = false
+                        add(JPanel(GridBagLayout()).apply {
+                            isOpaque = true
+                            background = Color(24, 18, 15)
+                            border = themedTitledBorder("Stats")
+                            add(statAllocationRow("Strength", "strength"), UiScaffold.gbc(0, 1.0, GridBagConstraints.HORIZONTAL))
+                            add(statAllocationRow("Agility", "agility"), UiScaffold.gbc(1, 1.0, GridBagConstraints.HORIZONTAL))
+                            add(statAllocationRow("Intellect", "intellect"), UiScaffold.gbc(2, 1.0, GridBagConstraints.HORIZONTAL))
+                        })
+                        add(JPanel(GridBagLayout()).apply {
+                            isOpaque = true
+                            background = Color(24, 18, 15)
+                            border = themedTitledBorder("Skills")
+                            add(skillSelectionButton("ember", "Ember"), UiScaffold.gbc(0, 1.0, GridBagConstraints.HORIZONTAL))
+                            add(skillSelectionButton("cleave", "Cleave"), UiScaffold.gbc(1, 1.0, GridBagConstraints.HORIZONTAL))
+                            add(skillSelectionButton("quick_strike", "Quick Strike"), UiScaffold.gbc(2, 1.0, GridBagConstraints.HORIZONTAL))
+                            add(skillSelectionButton("bandage", "Bandage"), UiScaffold.gbc(3, 1.0, GridBagConstraints.HORIZONTAL))
+                        })
+                    }, BorderLayout.CENTER)
+                    add(JPanel(BorderLayout(8, 0)).apply {
+                        isOpaque = false
+                        add(createStatus, BorderLayout.CENTER)
+                        add(createSubmit, BorderLayout.EAST)
+                    }, BorderLayout.SOUTH)
                 }, BorderLayout.CENTER)
             }, BorderLayout.CENTER)
         }
 
         val selectCharacterPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(10, 8)
-            add(UiScaffold.sectionLabel("Character List"), BorderLayout.NORTH)
             add(characterRowsScroll, BorderLayout.CENTER)
             add(JPanel(BorderLayout(0, 8)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
                 add(selectAppearancePreview, BorderLayout.NORTH)
                 add(ThemedScrollPane(selectCharacterDetails).apply {
-                    border = themedTitledBorder("Selection Details")
+                    border = themedTitledBorder("Character details")
                     preferredSize = Dimension(260, 220)
                 }, BorderLayout.CENTER)
             }, BorderLayout.EAST)
@@ -2301,6 +2359,35 @@ object LauncherMain {
         applyButtonVisualState()
     }
 
+    private fun applyThemedToggleStyle(button: JToggleButton, fontSize: Float) {
+        button.setUI(BasicButtonUI())
+        button.foreground = THEME_TEXT_COLOR
+        button.font = Font(THEME_FONT_FAMILY, Font.BOLD, fontSize.toInt())
+        button.isFocusPainted = false
+        button.isContentAreaFilled = true
+        button.isBorderPainted = true
+        button.isOpaque = true
+        button.isRolloverEnabled = true
+        val paddingBorder = BorderFactory.createEmptyBorder(4, 10, 4, 10)
+        fun applyToggleVisualState() {
+            val selected = button.model.isSelected
+            button.background = when {
+                !button.model.isEnabled -> Color(45, 34, 26)
+                selected -> Color(106, 76, 51)
+                button.model.isPressed -> Color(52, 39, 30)
+                button.model.isRollover -> Color(84, 62, 45)
+                else -> Color(68, 50, 37)
+            }
+            button.border = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(if (selected) Color(224, 184, 126) else Color(172, 132, 87), 1),
+                paddingBorder
+            )
+        }
+        button.model.addChangeListener { applyToggleVisualState() }
+        button.addPropertyChangeListener("enabled") { applyToggleVisualState() }
+        applyToggleVisualState()
+    }
+
     private fun buildMenuButton(text: String, buttonTexture: BufferedImage?, size: Dimension, fontSize: Float = 25f): JButton {
         val button = JButton(text).apply {
             alignmentX = Component.CENTER_ALIGNMENT
@@ -2401,10 +2488,18 @@ object LauncherMain {
                     cellHasFocus: Boolean
                 ): Component {
                     val rendered = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus) as JLabel
+                    if (list != null) {
+                        list.background = comboBg
+                        list.foreground = THEME_TEXT_COLOR
+                        list.selectionBackground = comboHover
+                        list.selectionForeground = THEME_TEXT_COLOR
+                        list.font = Font(THEME_FONT_FAMILY, Font.PLAIN, 14)
+                    }
                     rendered.isOpaque = true
                     rendered.foreground = THEME_TEXT_COLOR
                     rendered.background = if (isSelected) comboHover else comboBg
                     rendered.font = Font(THEME_FONT_FAMILY, Font.PLAIN, 14)
+                    rendered.border = BorderFactory.createEmptyBorder(3, 8, 3, 8)
                     return rendered
                 }
             }
