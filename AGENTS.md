@@ -38,6 +38,8 @@
   - `python3 -m compileall backend/app`
 - Launcher checks:
   - `./gradlew :launcher:test`
+- Local environment constraint:
+  - Do not run `dotnet` build/publish commands locally in this repo (this workstation is Linux-first for launcher/backend work and does not have a local `dotnet` toolchain installed).
 - Commit/push flow:
   - `git add <paths>`
   - `git commit -m "<message>"`

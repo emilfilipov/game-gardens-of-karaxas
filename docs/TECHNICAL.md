@@ -78,7 +78,10 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Launcher keeps the same full-screen background art image, but interactive UI chrome now uses lightweight shape-based rendering (thin borders + painted fills/gradients) instead of PNG-framed button/panel surfaces.
 - Launcher button styling is enforced through a shared `BasicButtonUI`-based theme path so all runtime buttons (auth, tabs, action rows, settings cog, and stat +/- controls) render consistently across platform look-and-feels.
+- Account tab active-state now uses button highlight styling (background/border emphasis) instead of relying on disabled/dimmed tab text.
 - Launcher text styling is normalized to one shared theme font family/color token across labels, buttons, update controls, and rendered patch-note/log text.
+- Dropdowns are standardized through a reusable themed combo-box class (shared renderer + arrow button UI) to avoid per-screen styling drift and remove platform-default white dropdown surfaces.
+- Scroll containers are standardized through a reusable themed scroll-pane class so list/details/editor panes share consistent opaque/transparent surface behavior.
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Cog dropdown includes a logged-in-only header line with account identity (`Welcome [username].`).
@@ -113,6 +116,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
 - When a character has an assigned `level_id`, gameplay loads spawn/walls from backend level data and applies tile-based wall collision in addition to world-edge collision.
 - Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` in working dir, install root, payload root, or `GOK_CHARACTER_ART_DIR`.
+- Character creation preview now renders a static idle-frame preview (sex/appearance-driven) without a preview-animation mode selector.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
 - Skill-points counter label has been removed from UI while keeping allocation budget enforcement.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
@@ -120,7 +124,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Account cards now render on opaque themed surfaces to prevent visual overlap artifacts when switching tabs.
 - Updater remains accessible through the cog menu (`Update & Restart`) and updater card, but is removed from lobby tab navigation.
 - Update card layout uses explicit inner padding; build/version text and patch notes are inset from the brick frame with hidden scrollbars (wheel scroll remains enabled).
-- Update progress visualization (determinate and indeterminate phases) uses a themed brown fill/frame style with themed font/color progress text.
+- Update flow now uses status-text updates only (no visual progress bar), so updater state is communicated without extra bar controls.
+- Update helper applies Velopack updates in silent mode and is built as a windowless helper executable to reduce updater pop-up windows during apply/restart flow.
 - Version/date is rendered in a centered footer on the launcher shell.
 
 ## Logging Strategy

@@ -20,6 +20,7 @@ create/select characters, and enter gameplay sessions.
 2. Enter account menu with persistent tab navigation (Create/Select).
    - Top-right menu shows `Welcome [username].` and logged-in account actions.
    - Admin-only menus/features are unlocked by the account's backend `is_admin` flag (not by hardcoded email).
+   - Authenticated tab order is `Character List` (left), `Create Character` (middle), `Levels` (right/admin-only).
 3. Default post-login routing:
    - No characters: open Character Creation.
    - Has characters: open Character Selection.
@@ -51,6 +52,7 @@ create/select characters, and enter gameplay sessions.
 - Characters start at level 1 with 0 XP.
 - Current level progression scaffold uses 100 XP per level.
 - Character creation includes sex choice (current presets: male/female) with visual preview.
+- Character creation preview is currently static (idle frame) and no longer includes a preview-animation selector.
 - Initial visual presets currently wired: human male and human female.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.
 
@@ -64,6 +66,7 @@ create/select characters, and enter gameplay sessions.
 - Current grace window target: 5 minutes before forced update lockout.
 - Optional automatic login is configured from in-session settings only (not from pre-login auth screen).
 - Updater access is no longer a lobby tab; it is available from the top-right menu entry.
+- Updater progression is shown through status text messages in the update screen (no progress bar widget).
 
 ## Release Intent
 - Launcher-first distribution (Windows first).

@@ -71,7 +71,7 @@ internal static class Program
                 var waitPid = options.WaitPid;
                 var restartArgs = options.RestartArgs ?? Array.Empty<string>();
                 Emit(logFile, "STATUS:APPLYING");
-                UpdateExe.Apply(locator, updateInfo.TargetFullRelease, silent: false, waitPid: (uint)waitPid, restart: true, restartArgs: restartArgs);
+                UpdateExe.Apply(locator, updateInfo.TargetFullRelease, silent: true, waitPid: (uint)waitPid, restart: true, restartArgs: restartArgs);
                 Emit(logFile, "UPDATE_APPLYING");
                 return 0;
             }

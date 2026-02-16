@@ -31,6 +31,8 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-024 | ✅ | 2 | Normalize launcher text/font theme coverage (including update menu text), style update progress bars for both determinate/indeterminate states, switch register toggle label to `Back`, and hard-pin cog control to a true square render. |
 | GOK-MMO-025 | ✅ | 4 | Add admin-only level builder flow (backend `levels` APIs + launcher level editor UI), per-character level assignment controls, and gameplay handoff that loads assigned level spawn/wall collision data. |
 | GOK-MMO-026 | ✅ | 2 | Replace hardcoded admin email checks with database-backed `users.is_admin` authority and propagate admin state through auth session payloads to gate launcher admin menus. |
+| GOK-MMO-027 | ✅ | 2 | Simplify updater UX to status-text-only feedback (remove progress bars) and reduce update pop-up windows by running Velopack apply in silent mode with a windowless helper binary target. |
+| GOK-MMO-028 | ✅ | 3 | Refine authenticated UI structure: remove create-preview animation controls, reorder tabs to Character List/Create/Levels, remove redundant create-screen back navigation, and standardize dropdown/scroll styling through shared themed UI classes. |
 | GOK-INIT-001 | ✅ | 2 | Create initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configure GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enable launcher-only Velopack packaging and publish first installer/release artifacts. |

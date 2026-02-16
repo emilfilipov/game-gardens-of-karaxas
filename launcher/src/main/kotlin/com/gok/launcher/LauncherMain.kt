@@ -50,7 +50,6 @@ import javax.swing.JFrame
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
-import javax.swing.JProgressBar
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
 import javax.swing.JTextField
@@ -61,7 +60,7 @@ import javax.swing.Box
 import javax.swing.AbstractAction
 import javax.swing.border.TitledBorder
 import javax.swing.plaf.basic.BasicButtonUI
-import javax.swing.plaf.basic.BasicProgressBarUI
+import javax.swing.plaf.basic.BasicComboBoxUI
 import javax.net.ssl.SSLException
 
 object LauncherMain {
@@ -270,14 +269,10 @@ object LauncherMain {
             font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
             border = BorderFactory.createEmptyBorder(8, 10, 8, 10)
         }
-        val patchNotes = JScrollPane(patchNotesPane).apply {
+        val patchNotes = ThemedScrollPane(patchNotesPane, transparent = true).apply {
             border = BorderFactory.createEmptyBorder(6, 8, 6, 8)
             viewportBorder = BorderFactory.createEmptyBorder(0, 0, 0, 0)
             preferredSize = Dimension(680, 410)
-            isOpaque = false
-            viewport.isOpaque = false
-            background = Color(0, 0, 0, 0)
-            viewport.background = Color(0, 0, 0, 0)
             verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_NEVER
             horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             verticalScrollBar.preferredSize = Dimension(0, 0)
@@ -287,19 +282,7 @@ object LauncherMain {
         val updateStatus = JLabel(" ", SwingConstants.CENTER).apply {
             foreground = textColor
             font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
-            border = BorderFactory.createEmptyBorder(2, 0, 2, 0)
-        }
-        val progress = JProgressBar().apply {
-            isIndeterminate = false
-            isVisible = false
-            string = ""
-            isStringPainted = true
-            preferredSize = Dimension(680, 18)
-            border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
-            foreground = textColor
-            font = Font(THEME_FONT_FAMILY, Font.BOLD, 12)
-            setForeground(textColor)
-            setUI(ThemedProgressBarUI())
+            border = BorderFactory.createEmptyBorder(4, 0, 8, 0)
         }
         val checkUpdates = buildMenuButton("Check Updates", rectangularButtonImage, Dimension(206, 42), 14f)
         val launcherLogButton = buildMenuButton("Launcher Log", rectangularButtonImage, Dimension(206, 42), 14f)
@@ -329,15 +312,14 @@ object LauncherMain {
             border = BorderFactory.createEmptyBorder(6, 10, 6, 10)
             add(buildVersionLabel, BorderLayout.NORTH)
             add(patchNotes, BorderLayout.CENTER)
-            add(JPanel(BorderLayout(0, 8)).apply {
+            add(JPanel(BorderLayout(0, 10)).apply {
                 isOpaque = false
-                add(progress, BorderLayout.NORTH)
-                add(updateStatus, BorderLayout.CENTER)
+                add(updateStatus, BorderLayout.NORTH)
                 add(JPanel(BorderLayout(0, 8)).apply {
                     isOpaque = false
                     add(launcherButtons, BorderLayout.CENTER)
                     add(updateBackButton, BorderLayout.SOUTH)
-                }, BorderLayout.SOUTH)
+                }, BorderLayout.CENTER)
             }, BorderLayout.SOUTH)
         }
 
@@ -384,34 +366,13 @@ object LauncherMain {
             }
         }
 
-        fun themeComboBox(combo: JComboBox<*>) {
-            combo.background = Color(58, 42, 33)
-            combo.foreground = textColor
-            combo.isOpaque = true
-            combo.border = BorderFactory.createLineBorder(panelBorder, 1)
-            combo.renderer = object : DefaultListCellRenderer() {
-                override fun getListCellRendererComponent(
-                    list: JList<*>?,
-                    value: Any?,
-                    index: Int,
-                    isSelected: Boolean,
-                    cellHasFocus: Boolean
-                ): Component {
-                    val rendered = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus)
-                    rendered.foreground = textColor
-                    rendered.background = if (isSelected) menuHover else Color(58, 42, 33)
-                    return rendered
-                }
-            }
-        }
-
         fun themeStatusLabel(label: JLabel) {
             label.foreground = textColor
             label.font = UiScaffold.bodyFont
         }
 
-        val tabCreate = buildMenuButton("Create Character", rectangularButtonImage, Dimension(190, 38), 13f)
         val tabSelect = buildMenuButton("Character List", rectangularButtonImage, Dimension(190, 38), 13f)
+        val tabCreate = buildMenuButton("Create Character", rectangularButtonImage, Dimension(190, 38), 13f)
         val tabLevelTool = buildMenuButton("Levels", rectangularButtonImage, Dimension(150, 38), 13f).apply {
             isVisible = false
         }
@@ -437,18 +398,15 @@ object LauncherMain {
             background = Color(24, 18, 15)
             border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
         }
-        val characterRowsScroll = JScrollPane(characterRowsPanel).apply {
+        val characterRowsScroll = ThemedScrollPane(characterRowsPanel).apply {
             border = themedTitledBorder("Characters")
-            viewport.isOpaque = true
-            viewport.background = Color(24, 18, 15)
-            isOpaque = true
-            background = Color(24, 18, 15)
             horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
-            verticalScrollBar.unitIncrement = 18
         }
 
         val createName = UiScaffold.ghostTextField("Character Name")
-        val sexChoice = JComboBox<String>(arrayOf("Male", "Female")).apply {
+        val sexChoice = ThemedComboBox<String>().apply {
+            addItem("Male")
+            addItem("Female")
             preferredSize = UiScaffold.fieldSize
             minimumSize = UiScaffold.fieldSize
             maximumSize = UiScaffold.fieldSize
@@ -456,7 +414,6 @@ object LauncherMain {
         }
         val createStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val createSubmit = buildMenuButton("Create Character", rectangularButtonImage, Dimension(220, 42), 14f)
-        val createBackToSelect = buildMenuButton("Back to Select", rectangularButtonImage, Dimension(180, 42), 14f)
         val createAppearancePreview = JLabel("No art loaded", SwingConstants.CENTER).apply {
             preferredSize = Dimension(230, 250)
             minimumSize = Dimension(230, 250)
@@ -466,14 +423,6 @@ object LauncherMain {
             foreground = THEME_TEXT_COLOR
             font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
         }
-        val createAnimationMode = JComboBox<String>(arrayOf("Idle", "Walk", "Run")).apply {
-            preferredSize = UiScaffold.fieldSize
-            minimumSize = UiScaffold.fieldSize
-            maximumSize = UiScaffold.fieldSize
-            font = UiScaffold.bodyFont
-        }
-        themeComboBox(sexChoice)
-        themeComboBox(createAnimationMode)
 
         val selectStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val selectCharacterDetails = JTextArea().apply {
@@ -595,9 +544,6 @@ object LauncherMain {
             foreground = THEME_TEXT_COLOR
             font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
         }
-        var previewFrameIndex = 0
-        var previewDirection = 0
-
         fun renderArtFrame(option: CharacterArtOption, mode: String, frameIndex: Int, direction: Int): BufferedImage? {
             fun safeFrameFromSheet(sheet: BufferedImage?, frameCount: Int): BufferedImage? {
                 if (sheet == null || frameCount <= 0) return null
@@ -624,8 +570,7 @@ object LauncherMain {
 
         fun applyCreateAppearancePreview() {
             val option = appearanceByKey[createAppearanceKey]
-            val mode = createAnimationMode.selectedItem?.toString() ?: "Idle"
-            val image = option?.let { renderArtFrame(it, mode, previewFrameIndex, previewDirection) }
+            val image = option?.let { renderArtFrame(it, "Idle", 0, 0) }
             if (image == null) {
                 createAppearancePreview.icon = null
                 createAppearancePreview.text = if (appearanceOptions.isEmpty()) "No art loaded" else "Preview unavailable"
@@ -654,15 +599,6 @@ object LauncherMain {
             selectAppearancePreview.text = ""
         }
 
-        val previewTimer = Timer(140) {
-            val option = appearanceByKey[createAppearanceKey] ?: return@Timer
-            val mode = createAnimationMode.selectedItem?.toString() ?: "Idle"
-            val frameCount = if (mode == "Idle") 1 else option.framesPerDirection
-            previewFrameIndex = (previewFrameIndex + 1) % frameCount.coerceAtLeast(1)
-            applyCreateAppearancePreview()
-        }
-        previewTimer.start()
-
         val levelEditorCols = 40
         val levelEditorRows = 24
         val levelEditorCell = 24
@@ -670,13 +606,12 @@ object LauncherMain {
         val levelEditorWalls = mutableSetOf<Pair<Int, Int>>()
         var levelEditorTool = "wall"
         val levelEditorName = UiScaffold.ghostTextField("Level Name")
-        val levelLoadCombo = JComboBox<Any>().apply {
+        val levelLoadCombo = ThemedComboBox<Any>().apply {
             preferredSize = UiScaffold.fieldSize
             minimumSize = UiScaffold.fieldSize
             maximumSize = UiScaffold.fieldSize
             font = UiScaffold.bodyFont
         }
-        themeComboBox(levelLoadCombo)
         val levelToolSpawnButton = buildMenuButton("Spawn", rectangularButtonImage, Dimension(120, 36), 12f)
         val levelToolWallButton = buildMenuButton("Wall", rectangularButtonImage, Dimension(120, 36), 12f)
         val levelToolLoadButton = buildMenuButton("Load", rectangularButtonImage, Dimension(120, 36), 12f)
@@ -1203,7 +1138,7 @@ object LauncherMain {
                         font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
                     }
                     val actions = if (adminMode) {
-                        val levelCombo = JComboBox<Any>().apply {
+                        val levelCombo = ThemedComboBox<Any>().apply {
                             preferredSize = Dimension(170, 30)
                             minimumSize = Dimension(170, 30)
                             maximumSize = Dimension(170, 30)
@@ -1222,7 +1157,6 @@ object LauncherMain {
                                 }
                             }
                         }
-                        themeComboBox(levelCombo)
                         var levelSelectionBound = false
                         levelCombo.addActionListener {
                             if (!levelSelectionBound) return@addActionListener
@@ -1460,23 +1394,24 @@ object LauncherMain {
         updateSettingsMenuAccess()
 
         val accountTabButtons = linkedMapOf(
-            "create_character" to tabCreate,
             "select_character" to tabSelect,
+            "create_character" to tabCreate,
             "level_tool" to tabLevelTool
         )
         fun setActiveAccountTab(card: String) {
             accountTabButtons.forEach { (name, button) ->
                 val isActive = name == card
                 if (!button.isVisible) return@forEach
-                button.isEnabled = !isActive
-                button.foreground = if (isActive) Color(255, 247, 224) else textColor
+                button.putClientProperty("gokActiveTab", isActive)
+                button.isEnabled = true
+                button.foreground = textColor
             }
         }
         val accountTabsPanel = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0)).apply {
             isOpaque = true
             background = panelBg
-            add(tabCreate)
             add(tabSelect)
+            add(tabCreate)
             add(tabLevelTool)
         }
         val accountTopBar = JPanel(BorderLayout(10, 0)).apply {
@@ -1514,21 +1449,14 @@ object LauncherMain {
                     add(createName, UiScaffold.gbc(1))
                     add(UiScaffold.titledLabel("Sex"), UiScaffold.gbc(2))
                     add(sexChoice, UiScaffold.gbc(3))
-                    add(UiScaffold.titledLabel("Preview Animation"), UiScaffold.gbc(4))
-                    add(createAnimationMode, UiScaffold.gbc(5))
-                    add(UiScaffold.titledLabel("Scaffold: Start stats/skills"), UiScaffold.gbc(6))
-                    add(allocationRow("Strength", statAllocations, "strength", "stat"), UiScaffold.gbc(7, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(allocationRow("Agility", statAllocations, "agility", "stat"), UiScaffold.gbc(8, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(allocationRow("Intellect", statAllocations, "intellect", "stat"), UiScaffold.gbc(9, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(allocationRow("Alchemy", skillAllocations, "alchemy", "skill"), UiScaffold.gbc(10, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(allocationRow("Sword Mastery", skillAllocations, "sword_mastery", "skill"), UiScaffold.gbc(11, 1.0, GridBagConstraints.HORIZONTAL))
-                    add(JPanel(GridLayout(1, 2, 6, 0)).apply {
-                        isOpaque = true
-                        background = Color(24, 18, 15)
-                        add(createSubmit)
-                        add(createBackToSelect)
-                    }, UiScaffold.gbc(12))
-                    add(createStatus, UiScaffold.gbc(13))
+                    add(UiScaffold.titledLabel("Scaffold: Start stats/skills"), UiScaffold.gbc(4))
+                    add(allocationRow("Strength", statAllocations, "strength", "stat"), UiScaffold.gbc(5, 1.0, GridBagConstraints.HORIZONTAL))
+                    add(allocationRow("Agility", statAllocations, "agility", "stat"), UiScaffold.gbc(6, 1.0, GridBagConstraints.HORIZONTAL))
+                    add(allocationRow("Intellect", statAllocations, "intellect", "stat"), UiScaffold.gbc(7, 1.0, GridBagConstraints.HORIZONTAL))
+                    add(allocationRow("Alchemy", skillAllocations, "alchemy", "skill"), UiScaffold.gbc(8, 1.0, GridBagConstraints.HORIZONTAL))
+                    add(allocationRow("Sword Mastery", skillAllocations, "sword_mastery", "skill"), UiScaffold.gbc(9, 1.0, GridBagConstraints.HORIZONTAL))
+                    add(createSubmit, UiScaffold.gbc(10))
+                    add(createStatus, UiScaffold.gbc(11))
                 }, BorderLayout.CENTER)
             }, BorderLayout.CENTER)
         }
@@ -1541,13 +1469,9 @@ object LauncherMain {
                 isOpaque = true
                 background = Color(24, 18, 15)
                 add(selectAppearancePreview, BorderLayout.NORTH)
-                add(JScrollPane(selectCharacterDetails).apply {
+                add(ThemedScrollPane(selectCharacterDetails).apply {
                     border = themedTitledBorder("Selection Details")
                     preferredSize = Dimension(260, 220)
-                    viewport.isOpaque = true
-                    viewport.background = Color(24, 18, 15)
-                    isOpaque = true
-                    background = Color(24, 18, 15)
                 }, BorderLayout.CENTER)
             }, BorderLayout.EAST)
             add(JPanel(BorderLayout(6, 0)).apply {
@@ -1607,13 +1531,9 @@ object LauncherMain {
                     add(UiScaffold.titledLabel("Drag on the grid to place the active element. Right-drag removes wall blocks."), UiScaffold.gbc(6))
                     add(levelToolStatus, UiScaffold.gbc(7, 1.0, GridBagConstraints.HORIZONTAL))
                 }, BorderLayout.WEST)
-                add(JScrollPane(levelEditorCanvas).apply {
+                add(ThemedScrollPane(levelEditorCanvas).apply {
                     border = themedTitledBorder("Level Grid 40x24")
                     preferredSize = Dimension(980, 620)
-                    isOpaque = true
-                    viewport.isOpaque = true
-                    background = Color(24, 18, 15)
-                    viewport.background = Color(24, 18, 15)
                 }, BorderLayout.CENTER)
             }, BorderLayout.CENTER)
         }
@@ -1646,7 +1566,7 @@ object LauncherMain {
         val controls = listOf(checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton)
         checkUpdates.addActionListener {
             updateStatus.text = "Checking for updates..."
-            runUpdate(updateStatus, patchNotesPane, patchNotes, progress, controls)
+            runUpdate(updateStatus, patchNotesPane, patchNotes, controls)
         }
         launcherLogButton.addActionListener {
             val target = logsRoot().resolve("launcher.log")
@@ -1759,7 +1679,7 @@ object LauncherMain {
         quickUpdateItem.addActionListener {
             showCard("update")
             updateStatus.text = "Checking for updates..."
-            runUpdate(updateStatus, patchNotesPane, patchNotes, progress, controls, autoRestartOnSuccess = true)
+            runUpdate(updateStatus, patchNotesPane, patchNotes, controls, autoRestartOnSuccess = true)
         }
 
         fun networkErrorMessage(ex: Exception): String? {
@@ -1853,7 +1773,6 @@ object LauncherMain {
         tabSelect.addActionListener { showCard("select_character") }
         tabLevelTool.addActionListener { showCard("level_tool") }
         updateBackButton.addActionListener { showCard(lastAccountCard) }
-        createBackToSelect.addActionListener { showCard("select_character") }
         playBackToLobby.addActionListener { showCard("select_character") }
         levelToolSpawnButton.addActionListener { setLevelToolMode("spawn") }
         levelToolWallButton.addActionListener { setLevelToolMode("wall") }
@@ -1932,13 +1851,8 @@ object LauncherMain {
                 }.start()
             }
         }
-        createAnimationMode.addActionListener {
-            previewFrameIndex = 0
-            applyCreateAppearancePreview()
-        }
         sexChoice.addActionListener {
             createAppearanceKey = appearanceForSex(isFemale = sexChoice.selectedIndex == 1)
-            previewFrameIndex = 0
             applyCreateAppearancePreview()
         }
         applyCreateAppearancePreview()
@@ -2094,20 +2008,34 @@ object LauncherMain {
         button.isContentAreaFilled = true
         button.isBorderPainted = true
         button.isOpaque = true
-        button.background = Color(68, 50, 37)
-        button.border = BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Color(172, 132, 87), 1),
-            if (compactPadding) BorderFactory.createEmptyBorder(2, 6, 2, 6) else BorderFactory.createEmptyBorder(4, 10, 4, 10)
-        )
-        button.isRolloverEnabled = true
-        button.model.addChangeListener {
+        val paddingBorder = if (compactPadding) {
+            BorderFactory.createEmptyBorder(2, 6, 2, 6)
+        } else {
+            BorderFactory.createEmptyBorder(4, 10, 4, 10)
+        }
+        fun applyButtonVisualState() {
+            val activeTab = button.getClientProperty("gokActiveTab") == true
             button.background = when {
+                activeTab -> Color(106, 76, 51)
                 !button.model.isEnabled -> Color(45, 34, 26)
                 button.model.isPressed -> Color(52, 39, 30)
                 button.model.isRollover -> Color(84, 62, 45)
                 else -> Color(68, 50, 37)
             }
+            button.border = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(if (activeTab) Color(224, 184, 126) else Color(172, 132, 87), 1),
+                paddingBorder
+            )
         }
+        button.border = BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+            paddingBorder
+        )
+        button.isRolloverEnabled = true
+        button.model.addChangeListener { applyButtonVisualState() }
+        button.addPropertyChangeListener("enabled") { applyButtonVisualState() }
+        button.addPropertyChangeListener("gokActiveTab") { applyButtonVisualState() }
+        applyButtonVisualState()
     }
 
     private fun buildMenuButton(text: String, buttonTexture: BufferedImage?, size: Dimension, fontSize: Float = 25f): JButton {
@@ -2173,54 +2101,79 @@ object LauncherMain {
         }
     }
 
-    private class ThemedProgressBarUI : BasicProgressBarUI() {
-        override fun getSelectionForeground(): Color = THEME_TEXT_COLOR
-        override fun getSelectionBackground(): Color = Color(38, 28, 22)
-
-        override fun paintIndeterminate(graphics: Graphics, component: javax.swing.JComponent) {
-            val g2 = graphics.create() as Graphics2D
-            try {
-                val width = progressBar.width
-                val height = progressBar.height
-                g2.color = Color(54, 41, 33)
-                g2.fillRect(0, 0, width, height)
-                val box = getBox(boxRect) ?: Rectangle(0, 0, 0, 0)
-                g2.color = Color(184, 136, 84)
-                g2.fillRect(box.x, 0, box.width, height)
-                g2.color = Color(220, 180, 126)
-                g2.fillRect(box.x, 0, box.width, (height / 2).coerceAtLeast(1))
-                g2.color = Color(120, 86, 54)
-                g2.drawRect(0, 0, width - 1, height - 1)
-                if (progressBar.isStringPainted) {
-                    paintString(graphics, 0, 0, width, height, box.width, Insets(0, 0, 0, 0))
+    private class ThemedComboBox<E> : JComboBox<E>() {
+        init {
+            val comboBg = Color(58, 42, 33)
+            val comboHover = Color(84, 62, 45)
+            val comboBorder = Color(172, 132, 87)
+            val comboArrowBg = Color(68, 50, 37)
+            isOpaque = true
+            background = comboBg
+            foreground = THEME_TEXT_COLOR
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 14)
+            border = BorderFactory.createLineBorder(comboBorder, 1)
+            renderer = object : DefaultListCellRenderer() {
+                override fun getListCellRendererComponent(
+                    list: JList<*>?,
+                    value: Any?,
+                    index: Int,
+                    isSelected: Boolean,
+                    cellHasFocus: Boolean
+                ): Component {
+                    val rendered = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus)
+                    rendered.foreground = THEME_TEXT_COLOR
+                    rendered.background = if (isSelected) comboHover else comboBg
+                    rendered.font = Font(THEME_FONT_FAMILY, Font.PLAIN, 14)
+                    return rendered
                 }
-            } finally {
-                g2.dispose()
             }
+            setUI(object : BasicComboBoxUI() {
+                override fun paintCurrentValueBackground(g: Graphics, bounds: Rectangle, hasFocus: Boolean) {
+                    g.color = comboBg
+                    g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height)
+                }
+
+                override fun createArrowButton(): JButton {
+                    return JButton("v").apply {
+                        setUI(BasicButtonUI())
+                        isFocusable = false
+                        isBorderPainted = true
+                        isOpaque = true
+                        background = comboArrowBg
+                        foreground = THEME_TEXT_COLOR
+                        font = Font(THEME_FONT_FAMILY, Font.BOLD, 12)
+                        border = BorderFactory.createLineBorder(comboBorder, 1)
+                        margin = Insets(0, 0, 0, 0)
+                    }
+                }
+            })
         }
+    }
 
-        override fun paintDeterminate(graphics: Graphics, component: javax.swing.JComponent) {
-            val g2 = graphics.create() as Graphics2D
-            try {
-                val width = progressBar.width
-                val height = progressBar.height
-                g2.color = Color(54, 41, 33)
-                g2.fillRect(0, 0, width, height)
-                val amount = getAmountFull(Insets(0, 0, 0, 0), width, height).coerceAtLeast(0)
-                if (amount > 0) {
-                    g2.color = Color(184, 136, 84)
-                    g2.fillRect(0, 0, amount, height)
-                    g2.color = Color(220, 180, 126)
-                    g2.fillRect(0, 0, amount, (height / 2).coerceAtLeast(1))
-                }
-                g2.color = Color(120, 86, 54)
-                g2.drawRect(0, 0, width - 1, height - 1)
-                if (progressBar.isStringPainted) {
-                    paintString(graphics, 0, 0, width, height, amount, Insets(0, 0, 0, 0))
-                }
-            } finally {
-                g2.dispose()
+    private class ThemedScrollPane(
+        view: Component? = null,
+        transparent: Boolean = false
+    ) : JScrollPane(view) {
+        init {
+            if (transparent) {
+                isOpaque = false
+                viewport.isOpaque = false
+                background = Color(0, 0, 0, 0)
+                viewport.background = Color(0, 0, 0, 0)
+                border = BorderFactory.createEmptyBorder()
+                viewportBorder = BorderFactory.createEmptyBorder()
+            } else {
+                val bg = Color(24, 18, 15)
+                val borderColor = Color(172, 132, 87)
+                isOpaque = true
+                viewport.isOpaque = true
+                background = bg
+                viewport.background = bg
+                border = BorderFactory.createLineBorder(borderColor, 1)
+                viewportBorder = BorderFactory.createEmptyBorder()
             }
+            verticalScrollBar.unitIncrement = 18
+            horizontalScrollBar.unitIncrement = 18
         }
     }
 
@@ -2258,18 +2211,17 @@ object LauncherMain {
         status: JLabel,
         patchNotesPane: JEditorPane,
         patchNotesPaneScroll: JScrollPane,
-        progress: JProgressBar,
         controls: List<JButton>,
         autoRestartOnSuccess: Boolean = false
     ) {
-        setUpdatingState(progress, controls, true)
+        setUpdatingState(controls, true)
         val payloadRoot = payloadRoot()
         val root = installRoot(payloadRoot)
         val helperExe = findUpdateHelper(payloadRoot)
         if (helperExe == null) {
             status.text = "Updater helper not found. Reinstall from the latest release."
             log("Update helper missing. Checked ${payloadRoot.toAbsolutePath()}")
-            setUpdatingState(progress, controls, false)
+            setUpdatingState(controls, false)
             return
         }
         Thread {
@@ -2310,7 +2262,7 @@ object LauncherMain {
                         if (line.isEmpty()) return@forEach
                         outputLines.add(line)
                         log("Update helper output: $line")
-                        handleUpdateHelperLine(line, status, progress)
+                        handleUpdateHelperLine(line, status)
                     }
                 }
                 val exitCode = process.waitFor()
@@ -2333,13 +2285,13 @@ object LauncherMain {
                         2 -> "No updates available."
                         else -> buildUpdateFailureMessage(exitCode, root, output)
                     }
-                    setUpdatingState(progress, controls, false)
+                    setUpdatingState(controls, false)
                 }
                 log("Update finished with exit code $exitCode")
             } catch (ex: Exception) {
                 javax.swing.SwingUtilities.invokeLater {
                     status.text = "Update failed: ${ex.message}"
-                    setUpdatingState(progress, controls, false)
+                    setUpdatingState(controls, false)
                 }
                 log("Update failed", ex)
             }
@@ -2855,17 +2807,11 @@ object LauncherMain {
         }
     }
 
-    private fun setUpdatingState(progress: JProgressBar, controls: List<JButton>, updating: Boolean) {
-        progress.isVisible = updating
-        progress.minimum = 0
-        progress.maximum = 100
-        progress.value = 0
-        progress.isIndeterminate = updating
-        progress.string = if (updating) "Checking for updates..." else ""
+    private fun setUpdatingState(controls: List<JButton>, updating: Boolean) {
         controls.forEach { it.isEnabled = !updating }
     }
 
-    private fun handleUpdateHelperLine(line: String, status: JLabel, progress: JProgressBar) {
+    private fun handleUpdateHelperLine(line: String, status: JLabel) {
         when {
             line.startsWith("DOWNLOAD_MODE:DELTA:") -> javax.swing.SwingUtilities.invokeLater {
                 val count = line.substringAfter("DOWNLOAD_MODE:DELTA:").substringBefore(":").toIntOrNull() ?: 0
@@ -2881,15 +2827,10 @@ object LauncherMain {
             }
 
             line == "STATUS:CHECKING" -> javax.swing.SwingUtilities.invokeLater {
-                progress.isIndeterminate = true
-                progress.string = "Checking for updates..."
                 status.text = "Checking for updates..."
             }
 
             line == "STATUS:DOWNLOADING" -> javax.swing.SwingUtilities.invokeLater {
-                progress.isIndeterminate = false
-                progress.value = 0
-                progress.string = "Downloading update... 0%"
                 status.text = "Downloading update..."
             }
 
@@ -2900,13 +2841,6 @@ object LauncherMain {
                 val speedBps = parts.getOrNull(1)?.toLongOrNull()?.coerceAtLeast(0L)
                 val speedText = formatSpeed(speedBps)
                 javax.swing.SwingUtilities.invokeLater {
-                    progress.isIndeterminate = false
-                    progress.value = percent
-                    progress.string = if (speedText != null) {
-                        "Downloading update... ${percent}% (${speedText})"
-                    } else {
-                        "Downloading update... ${percent}%"
-                    }
                     status.text = if (percent >= 100) {
                         "Preparing update..."
                     } else if (speedText != null) {
@@ -2918,8 +2852,6 @@ object LauncherMain {
             }
 
             line == "STATUS:APPLYING" -> javax.swing.SwingUtilities.invokeLater {
-                progress.isIndeterminate = true
-                progress.string = "Applying update..."
                 status.text = "Applying update..."
             }
         }
