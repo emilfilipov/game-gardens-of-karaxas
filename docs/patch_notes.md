@@ -1,3 +1,5 @@
-- Converted Create Character skill slots to fixed square buttons while preserving six slots per row.
-- Added a standardized themed skill tooltip template with sections for full name, mana/energy/life costs, effects, damage/cooldown, type tag, and description.
-- Filled current starter skill tooltips with placeholder values so the tooltip UI can be visually validated in-game.
+- Fixed Create Character skill tooltip visuals by removing white-edge artifacts and applying consistent themed tooltip styling.
+- Stabilized skill tooltip hover behavior with tuned tooltip timing so hover display is more reliable.
+- Moved level-builder `Load`, `Save`, and `Back` actions into the top header strip and kept the editor body focused on building controls.
+- Improved level-builder auth error messaging so invalid/expired tokens show a clear re-login prompt.
+- Save now validates level name and syncs current grid-size inputs before persisting level data (size, spawn, walls) to the database.

@@ -71,6 +71,7 @@ create/select characters, and enter gameplay sessions.
   - skill type tag
   - description box
 - Current starter skill tooltips are populated with placeholder data for UI validation.
+- Skill tooltips are themed to the game palette and stay visible longer for reliable hover inspection.
 - Character creation identity controls are aligned in one horizontal row: Name, Sex, Race, Background, Affiliation.
 - Character creation footer shows a live point budget label (`x/10 points left`) beside the `Create Character` action.
 - Stats/skills have placeholder tooltips for future design descriptions.
@@ -93,6 +94,8 @@ create/select characters, and enter gameplay sessions.
 - When no update is available, updater status reads `Game is up to date.`.
 - Admin level editor now uses a larger, zoomed-out grid and shows a character sprite marker at spawn position.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
+- Admin level editor now keeps `Load`, `Save`, and `Back` in the top strip; the editor body below is focused on build controls and grid interaction only.
+- Saving a level requires a non-empty level name and persists the current grid size, spawn, and wall layout data to the database.
 - Level builder opens as a separate dedicated scene for admins.
 - Level builder now uses a compact control strip and a virtual panning grid that supports up to 100000x100000 logical dimensions.
 

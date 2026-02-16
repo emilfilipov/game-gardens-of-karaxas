@@ -44,6 +44,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-037 | ✅ | 2 | Rework Create Character identity row so `Race/Background/Affiliation` sit horizontally beside `Name/Sex`, lock stats/skills controls to fixed sizes, and make level-editor scene fit within screen bounds by shrinking canvas minimums and splitting top controls into two compact rows. |
 | GOK-MMO-038 | ✅ | 2 | Stabilize Create Character UX by fixing preview zoom consistency, expanding stats into fixed-size control/description cards with square +/- controls, resizing skills to a six-slot row layout, and restoring a live `x/10 points left` indicator beside the create action. |
 | GOK-MMO-039 | ✅ | 2 | Convert create-screen skill slots to fixed square buttons (6 per row) and add standardized hover tooltip templates (name, costs, effects, damage/cooldown, type tag, description) with placeholder content for starter skills. |
+| GOK-MMO-040 | ✅ | 2 | Fix themed skill tooltip behavior (remove white border artifacts and stabilize hover timing), move level-builder `Load/Save/Back` into the top header strip, improve invalid-token messaging, and enforce grid-input sync + named-level validation during level save. |
 | GOK-INIT-001 | ✅ | 2 | Create initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configure GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enable launcher-only Velopack packaging and publish first installer/release artifacts. |

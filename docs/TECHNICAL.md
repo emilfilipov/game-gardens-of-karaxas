@@ -114,6 +114,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Admin-only launcher controls (level-builder tab and per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
 - Level-builder tool supports drag/erase wall placement and single spawn-point placement on a fixed grid, with named save/load against backend `/levels` APIs.
 - Level-builder is rendered in a dedicated scene (outside account card stack) with compact top controls for faster editing workflows.
+- Level-builder scene header strip now contains `Load`, `Save`, and `Back`; lower editor rows are reserved for level-editing controls and viewport/grid inputs.
 - Level-builder grid defaults to a large logical footprint (`100000x100000`) and uses viewport panning for editing.
 - Level-builder top controls are split into two compact rows and grid canvas minimum size is constrained so the scene stays within visible screen bounds on common desktop resolutions.
 - Level-builder grid dimensions are user-editable at runtime (`width`/`height`) with validation and immediate canvas resize/clamping.
@@ -140,9 +141,11 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Skill selection uses fixed-size square themed buttons arranged as two rows with six slots per row.
 - Skill hover details are rendered through a shared HTML tooltip template containing name, costs (mana/energy/life), effects, damage+cooldown, type tag, and description sections.
 - Starter skills currently use placeholder tooltip values to validate themed tooltip layout before gameplay balancing data is finalized.
+- Tooltip rendering is now explicitly themed via UI defaults (background/foreground/border/font) and tuned ToolTipManager timings (short initial delay, long dismiss delay, zero reshow delay) for more stable hover behavior.
 - Character creation now renders Name/Sex/Race/Background/Affiliation in one horizontal identity row, with fixed-size stats/skills tables and fixed-size row controls to prevent layout drift.
 - Character creation action row now includes a live point-budget label (`x/10 points left`) anchored immediately left of the `Create Character` button.
 - Launcher character create API payload now forwards race/background/affiliation and backend persists them in `characters`; list/create responses return those fields for UI/detail rendering.
+- Service error formatting now maps `401/403` and `invalid token` responses to a clear session-expiry message (`Session expired or invalid token. Please log in again.`), including level-builder operations.
 - Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.
 - Character preview rendering normalizes sprite frames to a fixed preview canvas before scaling, keeping sex-switch preview zoom consistent.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.

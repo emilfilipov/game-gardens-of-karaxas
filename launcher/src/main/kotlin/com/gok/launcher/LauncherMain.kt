@@ -55,6 +55,7 @@ import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.JToggleButton
 import javax.swing.SwingConstants
+import javax.swing.ToolTipManager
 import javax.swing.Timer
 import javax.swing.UIManager
 import javax.swing.Box
@@ -280,6 +281,13 @@ object LauncherMain {
             isVisible = false
             border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
         }
+        UIManager.put("ToolTip.background", Color(31, 24, 20))
+        UIManager.put("ToolTip.foreground", THEME_TEXT_COLOR)
+        UIManager.put("ToolTip.border", BorderFactory.createLineBorder(Color(172, 132, 87), 1))
+        UIManager.put("ToolTip.font", Font(THEME_FONT_FAMILY, Font.PLAIN, 12))
+        ToolTipManager.sharedInstance().initialDelay = 120
+        ToolTipManager.sharedInstance().reshowDelay = 0
+        ToolTipManager.sharedInstance().dismissDelay = 30_000
         val authStandaloneContainer = JPanel(GridBagLayout()).apply {
             isOpaque = false
             isVisible = false
@@ -1142,7 +1150,7 @@ object LauncherMain {
             val typeTag = escapeHtml(template.skillTypeTag)
             val description = escapeHtml(template.description)
             return (
-                "<html><body style='margin:0;padding:0;font-family:$THEME_FONT_FAMILY;color:$THEME_TEXT_HEX;'>" +
+                "<html><body style='margin:0;padding:0;background:#1f1814;font-family:$THEME_FONT_FAMILY;color:$THEME_TEXT_HEX;'>" +
                     "<div style='width:320px;background:#1f1814;border:1px solid #ac8457;padding:8px;'>" +
                     "<div style='font-size:14px;font-weight:bold;margin-bottom:6px;'>$title</div>" +
                     "<div style='font-size:12px;margin-bottom:6px;'><b>Cost</b>: Mana $mana | Energy $energy | Life $life</div>" +
@@ -1266,6 +1274,7 @@ object LauncherMain {
                 toolTipText = tooltipTemplate?.let { renderSkillTooltip(it) }
             }
             applyThemedToggleStyle(button, 11f)
+            ToolTipManager.sharedInstance().registerComponent(button)
             button.addActionListener { toggleSkillSelection(key) }
             skillToggleButtons[key] = button
             return button
@@ -1611,6 +1620,10 @@ object LauncherMain {
             if (chain.any { it is HttpTimeoutException || it is SocketTimeoutException }) return "Connection timed out. Please try again."
             if (chain.any { it is SSLException }) return "Secure connection failed. Please try again."
             val message = ex.message?.trim().orEmpty()
+            val code = Regex("^(\\d{3}):").find(message)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            if (code == 401 || code == 403 || message.contains("invalid token", ignoreCase = true)) {
+                return "Session expired or invalid token. Please log in again."
+            }
             if (message.contains(":")) {
                 val detail = message.substringAfter(":").trim()
                 if (detail.isNotBlank()) return detail
@@ -2151,7 +2164,23 @@ object LauncherMain {
 
         val levelToolPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(8, 8)
-            add(UiScaffold.sectionLabel("Level Builder (Admin)"), BorderLayout.NORTH)
+            add(JPanel(BorderLayout(8, 0)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(6, 8, 6, 8)
+                )
+                add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                    isOpaque = false
+                    add(levelToolLoadButton)
+                    add(levelToolSaveButton)
+                    add(levelToolBackButton)
+                }, BorderLayout.WEST)
+                add(UiScaffold.sectionLabel("Level Builder (Admin)").apply {
+                    horizontalAlignment = SwingConstants.RIGHT
+                }, BorderLayout.EAST)
+            }, BorderLayout.NORTH)
             add(JPanel(BorderLayout(8, 8)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
@@ -2174,9 +2203,6 @@ object LauncherMain {
                             })
                             add(UiScaffold.titledLabel("Load"))
                             add(levelLoadCombo)
-                            add(levelToolLoadButton)
-                            add(levelToolSaveButton)
-                            add(levelToolBackButton)
                             add(UiScaffold.titledLabel("Tool"))
                             add(levelToolSpawnButton)
                             add(levelToolWallButton)
@@ -2528,6 +2554,9 @@ object LauncherMain {
         levelToolSaveButton.addActionListener {
             if (!isAdminAccount()) {
                 levelToolStatus.text = "Admin access required."
+                return@addActionListener
+            }
+            if (!applyRequestedGridSizeFromInputs()) {
                 return@addActionListener
             }
             val levelName = levelEditorName.text.trim()
