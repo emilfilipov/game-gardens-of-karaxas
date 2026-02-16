@@ -71,14 +71,14 @@ This is the single source of truth for technical architecture, stack decisions, 
 
 ## Launcher UI Structure Strategy
 - UI is organized with reusable screen scaffolds and layout tokens (`UiScaffold`) to keep alignment consistent across screens.
-- Screens are card-based (combined auth, lobby, character creation, character selection, update, play) instead of one-off ad hoc layouts.
+- Screens are card-based (combined auth, character creation, character selection, update, play) instead of one-off ad hoc layouts.
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Launcher keeps the same full-screen background art image, but interactive UI chrome now uses lightweight shape-based rendering (thin borders + painted fills/gradients) instead of PNG-framed button/panel surfaces.
 - Launcher button styling is enforced through a shared `BasicButtonUI`-based theme path so all runtime buttons (auth, tabs, action rows, settings cog, and stat +/- controls) render consistently across platform look-and-feels.
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Cog dropdown includes a logged-in-only header line with account identity (`Welcome [username].`).
-- Combined auth uses a single centered panel (no large shell frame on auth screen) with login/register toggle and transparent placeholder-based fields.
+- Combined auth uses a single centered panel (no large shell frame on auth screen) with login/register toggle, centered fields, and bordered solid input styling.
 - Pressing Enter in auth inputs submits login/register depending on current toggle mode.
 - Auth form pre-validates email/password/display-name constraints client-side to mirror backend schema and reduce avoidable 422 responses.
 - Auth error mapping includes explicit UX strings for wrong credentials (`This account doesn't exist`) and common connectivity failures (offline, timeout, server unavailable, SSL errors).
@@ -90,14 +90,15 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Settings menu item in the cog dropdown is only available when authenticated; auto-login can only be configured there.
 - When auto-login is enabled, launcher attempts `POST /auth/refresh` during startup and clears invalid refresh tokens on 401/403.
 - Cog dropdown also exposes a logged-in-only `Logout` action.
-- Account lobby is account-only (no chat/guild panels).
-- Account shell now keeps a persistent tab bar (Lobby/Create/Select) visible across authenticated cards.
+- Account menu is account-only (no chat/guild panels).
+- Account shell now keeps a persistent tab bar (Create/Select) visible across authenticated cards.
 - Post-auth default routing is character-count based:
   - no characters -> `create_character`
   - one or more characters -> `select_character`
 - Character selection is row-based with per-row `Play` and `Delete` actions (no explicit "Set Active" control in the UI).
 - Launcher still syncs backend selected-character state implicitly on `Play` to satisfy character-gated backend features.
 - Character selection uses fixed-size themed character cards with per-row `Play` and `Delete` actions.
+- Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
 - Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
 - `play` scene is currently an empty-world prototype with in-launcher gameplay handoff and WASD movement.

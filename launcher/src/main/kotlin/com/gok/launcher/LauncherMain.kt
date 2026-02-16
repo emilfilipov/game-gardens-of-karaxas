@@ -147,8 +147,12 @@ object LauncherMain {
             font = Font("Serif", Font.BOLD, 20)
             preferredSize = Dimension(42, 42)
             toolTipText = "Menu"
+            margin = Insets(0, 0, 0, 0)
+            horizontalAlignment = SwingConstants.CENTER
+            verticalAlignment = SwingConstants.CENTER
         }
         applyThemedButtonStyle(settingsButton, 20f, compactPadding = true)
+        settingsButton.border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
         val headerPanel = JPanel(BorderLayout()).apply {
             isOpaque = false
             add(Box.createHorizontalStrut(42), BorderLayout.WEST)
@@ -193,7 +197,7 @@ object LauncherMain {
         val menuBg = Color(52, 39, 32)
         val menuHover = Color(84, 58, 41)
         val menuFg = Color(247, 236, 209)
-        val panelBg = Color(42, 31, 25, 190)
+        val panelBg = Color(42, 31, 25)
         val panelBorder = Color(172, 132, 87)
         fun stylePopupItem(item: JMenuItem) {
             item.font = Font("Serif", Font.BOLD, 15)
@@ -235,7 +239,7 @@ object LauncherMain {
         }
         val gameSceneContainer = JPanel(BorderLayout()).apply {
             isOpaque = true
-            background = Color(12, 10, 9, 240)
+            background = Color(12, 10, 9)
             isVisible = false
             border = BorderFactory.createEmptyBorder(20, 20, 20, 20)
         }
@@ -387,18 +391,6 @@ object LauncherMain {
             label.font = UiScaffold.bodyFont
         }
 
-        val lobbyStatus = JLabel(" ").apply { themeStatusLabel(this) }
-        val characterSummary = JTextArea().apply {
-            isEditable = false
-            lineWrap = true
-            wrapStyleWord = true
-            font = UiScaffold.bodyFont
-            foreground = textColor
-            background = Color(31, 24, 20, 220)
-            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
-            text = "No characters loaded."
-        }
-        val tabLobby = buildMenuButton("Lobby", rectangularButtonImage, Dimension(150, 38), 13f)
         val tabCreate = buildMenuButton("Create", rectangularButtonImage, Dimension(150, 38), 13f)
         val tabSelect = buildMenuButton("Select", rectangularButtonImage, Dimension(150, 38), 13f)
 
@@ -427,6 +419,7 @@ object LauncherMain {
             viewport.background = Color(24, 18, 15)
             isOpaque = true
             background = Color(24, 18, 15)
+            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             verticalScrollBar.unitIncrement = 18
         }
 
@@ -439,10 +432,12 @@ object LauncherMain {
         }
         val createStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val createSubmit = buildMenuButton("Create Character", rectangularButtonImage, Dimension(220, 42), 14f)
-        val createBackToLobby = buildMenuButton("Back to Lobby", rectangularButtonImage, Dimension(180, 42), 14f)
+        val createBackToSelect = buildMenuButton("Back to Select", rectangularButtonImage, Dimension(180, 42), 14f)
         val createAppearancePreview = JLabel("No art loaded", SwingConstants.CENTER).apply {
             preferredSize = Dimension(230, 250)
             minimumSize = Dimension(230, 250)
+            isOpaque = true
+            background = Color(31, 24, 20)
             border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
             foreground = Color(245, 232, 206)
             font = Font("Serif", Font.BOLD, 14)
@@ -457,21 +452,20 @@ object LauncherMain {
         themeComboBox(createAnimationMode)
 
         val selectStatus = JLabel(" ").apply { themeStatusLabel(this) }
-        val selectBackToLobby = buildMenuButton("Back to Lobby", rectangularButtonImage, Dimension(180, 42), 14f)
         val selectCharacterDetails = JTextArea().apply {
             isEditable = false
             lineWrap = true
             wrapStyleWord = true
             font = UiScaffold.bodyFont
             foreground = textColor
-            background = Color(31, 24, 20, 220)
+            background = Color(31, 24, 20)
             border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
             text = "Choose a character row to preview."
         }
 
         val gameStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val playStatus = JLabel(" ").apply { themeStatusLabel(this) }
-        val playBackToLobby = buildMenuButton("Back to Lobby", rectangularButtonImage, Dimension(180, 42), 14f)
+        val playBackToLobby = buildMenuButton("Back to Select", rectangularButtonImage, Dimension(180, 42), 14f)
         var selectedCharacterId: Int? = null
         var selectedCharacterView: CharacterView? = null
 
@@ -568,6 +562,8 @@ object LauncherMain {
         val selectAppearancePreview = JLabel("No preview", SwingConstants.CENTER).apply {
             preferredSize = Dimension(180, 190)
             minimumSize = Dimension(180, 190)
+            isOpaque = true
+            background = Color(31, 24, 20)
             border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
             foreground = Color(245, 232, 206)
             font = Font("Serif", Font.BOLD, 14)
@@ -729,7 +725,7 @@ object LauncherMain {
 
         val gameWorldPanel = object : JPanel() {
             init {
-                isOpaque = false
+                isOpaque = true
                 isFocusable = true
                 border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
             }
@@ -978,13 +974,13 @@ object LauncherMain {
                 characters.forEach { character ->
                     val playButton = buildMenuButton("Play", rectangularButtonImage, Dimension(110, 32), 12f)
                     val deleteButton = buildMenuButton("Delete", rectangularButtonImage, Dimension(110, 32), 12f)
-                    val row = JPanel(BorderLayout(8, 0)).apply {
+                    val row = object : JPanel(BorderLayout(8, 0)) {
+                        override fun getPreferredSize(): Dimension = Dimension(0, 72)
+                        override fun getMinimumSize(): Dimension = Dimension(0, 72)
+                        override fun getMaximumSize(): Dimension = Dimension(Int.MAX_VALUE, 72)
+                    }.apply {
                         isOpaque = true
-                        background = Color(39, 29, 24, 220)
-                        val rowSize = Dimension(760, 72)
-                        preferredSize = rowSize
-                        minimumSize = rowSize
-                        maximumSize = Dimension(Int.MAX_VALUE, 72)
+                        background = Color(39, 29, 24)
                         border = BorderFactory.createCompoundBorder(
                             BorderFactory.createLineBorder(Color(172, 132, 87), 1),
                             BorderFactory.createEmptyBorder(8, 10, 8, 10)
@@ -1034,13 +1030,6 @@ object LauncherMain {
                 applySelectionPreview(null)
             }
             renderCharacterRows(characters)
-            characterSummary.text = if (characters.isEmpty()) {
-                "No characters created yet.\nUse Create Character to start."
-            } else {
-                characters.joinToString("\n") { c ->
-                    "${c.name} (Lv.${c.level}) - ${c.appearanceKey}"
-                }
-            }
         }
 
         fun refreshCharacters(
@@ -1090,7 +1079,7 @@ object LauncherMain {
             updateSettingsMenuAccess()
             authStatus.text = "Loading account..."
             resetAuthInputsForMode()
-            refreshCharacters(lobbyStatus) { characters ->
+            refreshCharacters(selectStatus) { characters ->
                 authStatus.text = " "
                 if (characters.isEmpty()) {
                     createStatus.text = " "
@@ -1116,14 +1105,15 @@ object LauncherMain {
 
         val authInnerPanel = UiScaffold.contentPanel().apply {
             layout = GridBagLayout()
-            add(authDisplayName, UiScaffold.gbc(0))
-            add(authEmail, UiScaffold.gbc(1))
-            add(authPassword, UiScaffold.gbc(2))
+            add(authDisplayName, UiScaffold.gbc(0).apply { anchor = GridBagConstraints.CENTER })
+            add(authEmail, UiScaffold.gbc(1).apply { anchor = GridBagConstraints.CENTER })
+            add(authPassword, UiScaffold.gbc(2).apply { anchor = GridBagConstraints.CENTER })
             add(JPanel(GridLayout(1, 2, 8, 0)).apply {
-                isOpaque = false
+                isOpaque = true
+                background = Color(24, 18, 15)
                 add(authSubmit)
                 add(authToggleMode)
-            }, UiScaffold.gbc(3))
+            }, UiScaffold.gbc(3).apply { anchor = GridBagConstraints.CENTER })
             add(authStatus, UiScaffold.gbc(4, weightX = 1.0, fill = GridBagConstraints.HORIZONTAL))
         }
         val authCard = JPanel(GridBagLayout()).apply {
@@ -1170,14 +1160,13 @@ object LauncherMain {
                 autoLoginEnabled = autoLoginCheck.isSelected
                 autoLoginRefreshToken = if (autoLoginEnabled) session.refreshToken else ""
                 persistLauncherPrefs()
-                lobbyStatus.text = " "
+                selectStatus.text = " "
             }
         }
         settingsItem.addActionListener { openSettingsDialog() }
         updateSettingsMenuAccess()
 
         val accountTabButtons = linkedMapOf(
-            "lobby" to tabLobby,
             "create_character" to tabCreate,
             "select_character" to tabSelect
         )
@@ -1188,9 +1177,9 @@ object LauncherMain {
                 button.foreground = if (isActive) Color(255, 247, 224) else textColor
             }
         }
-        val accountTabsPanel = JPanel(GridLayout(1, 3, 8, 0)).apply {
-            isOpaque = false
-            add(tabLobby)
+        val accountTabsPanel = JPanel(GridLayout(1, 2, 8, 0)).apply {
+            isOpaque = true
+            background = panelBg
             add(tabCreate)
             add(tabSelect)
         }
@@ -1210,31 +1199,21 @@ object LauncherMain {
         }
         shellPanel.add(accountTopBar, BorderLayout.NORTH)
 
-        val lobbyPanel = UiScaffold.contentPanel().apply {
-            layout = BorderLayout(8, 8)
-            add(JScrollPane(characterSummary).apply {
-                border = themedTitledBorder("Account Characters")
-                preferredSize = Dimension(780, 340)
-                viewport.isOpaque = true
-                viewport.background = Color(24, 18, 15)
-                isOpaque = true
-                background = Color(24, 18, 15)
-            }, BorderLayout.CENTER)
-            add(lobbyStatus, BorderLayout.SOUTH)
-        }
-
         val createCharacterPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(12, 8)
             add(UiScaffold.sectionLabel("Character Creation"), BorderLayout.NORTH)
             add(JPanel(BorderLayout(12, 8)).apply {
-                isOpaque = false
+                isOpaque = true
+                background = Color(24, 18, 15)
                 add(JPanel(BorderLayout(0, 6)).apply {
-                    isOpaque = false
+                    isOpaque = true
+                    background = Color(24, 18, 15)
                     border = themedTitledBorder("Character Art Preview")
                     add(createAppearancePreview, BorderLayout.CENTER)
                 }, BorderLayout.WEST)
                 add(JPanel(GridBagLayout()).apply {
-                    isOpaque = false
+                    isOpaque = true
+                    background = Color(24, 18, 15)
                     add(UiScaffold.titledLabel("Name"), UiScaffold.gbc(0))
                     add(createName, UiScaffold.gbc(1))
                     add(UiScaffold.titledLabel("Sex"), UiScaffold.gbc(2))
@@ -1248,9 +1227,10 @@ object LauncherMain {
                     add(allocationRow("Alchemy", skillAllocations, "alchemy", "skill"), UiScaffold.gbc(10, 1.0, GridBagConstraints.HORIZONTAL))
                     add(allocationRow("Sword Mastery", skillAllocations, "sword_mastery", "skill"), UiScaffold.gbc(11, 1.0, GridBagConstraints.HORIZONTAL))
                     add(JPanel(GridLayout(1, 2, 6, 0)).apply {
-                        isOpaque = false
+                        isOpaque = true
+                        background = Color(24, 18, 15)
                         add(createSubmit)
-                        add(createBackToLobby)
+                        add(createBackToSelect)
                     }, UiScaffold.gbc(12))
                     add(createStatus, UiScaffold.gbc(13))
                 }, BorderLayout.CENTER)
@@ -1262,7 +1242,8 @@ object LauncherMain {
             add(UiScaffold.sectionLabel("Character Selection"), BorderLayout.NORTH)
             add(characterRowsScroll, BorderLayout.CENTER)
             add(JPanel(BorderLayout(0, 8)).apply {
-                isOpaque = false
+                isOpaque = true
+                background = Color(24, 18, 15)
                 add(selectAppearancePreview, BorderLayout.NORTH)
                 add(JScrollPane(selectCharacterDetails).apply {
                     border = themedTitledBorder("Selection Details")
@@ -1274,11 +1255,8 @@ object LauncherMain {
                 }, BorderLayout.CENTER)
             }, BorderLayout.EAST)
             add(JPanel(BorderLayout(6, 0)).apply {
-                isOpaque = false
-                add(JPanel(GridLayout(1, 1, 6, 0)).apply {
-                    isOpaque = false
-                    add(selectBackToLobby)
-                }, BorderLayout.NORTH)
+                isOpaque = true
+                background = Color(24, 18, 15)
                 add(selectStatus, BorderLayout.SOUTH)
             }, BorderLayout.SOUTH)
         }
@@ -1288,10 +1266,12 @@ object LauncherMain {
             add(UiScaffold.sectionLabel("Game World"), BorderLayout.NORTH)
             add(gameWorldPanel, BorderLayout.CENTER)
             add(JPanel(BorderLayout(6, 0)).apply {
-                isOpaque = false
+                isOpaque = true
+                background = Color(24, 18, 15)
                 add(playBackToLobby, BorderLayout.NORTH)
                 add(JPanel(GridLayout(2, 1)).apply {
-                    isOpaque = false
+                    isOpaque = true
+                    background = Color(24, 18, 15)
                     add(gameStatus)
                     add(playStatus)
                 }, BorderLayout.SOUTH)
@@ -1299,11 +1279,10 @@ object LauncherMain {
         }
         gameSceneContainer.add(playPanel, BorderLayout.CENTER)
 
-        menuCards.add(lobbyPanel, "lobby")
         menuCards.add(createCharacterPanel, "create_character")
         menuCards.add(selectCharacterPanel, "select_character")
         menuCards.add(updateContent, "update")
-        var lastAccountCard = "lobby"
+        var lastAccountCard = "select_character"
 
         var activeLog: Path? = null
         val controls = listOf(checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton)
@@ -1343,10 +1322,10 @@ object LauncherMain {
         }
 
         showCard = fun(card: String) {
-            val requiresAuth = card == "lobby" || card == "create_character" || card == "select_character" || card == "play"
+            val requiresAuth = card == "create_character" || card == "select_character" || card == "play"
             if (requiresAuth && authSession == null) {
                 showCard("auth")
-                authStatus.text = "Please login first."
+                authStatus.text = " "
                 return
             }
             if (card == "auth") {
@@ -1394,11 +1373,11 @@ object LauncherMain {
                 gameWorldPanel.requestFocusInWindow()
             } else if (card == "select_character") {
                 refreshCharacters(selectStatus)
-            } else if (card == "lobby" && loadedCharacters.isEmpty()) {
-                refreshCharacters(lobbyStatus)
             }
             if (card != "play") {
                 cardsLayout.show(menuCards, card)
+                menuCards.revalidate()
+                menuCards.repaint()
             }
             centeredContent.revalidate()
             centeredContent.repaint()
@@ -1497,12 +1476,10 @@ object LauncherMain {
             applyAuthMode()
         }
 
-        tabLobby.addActionListener { showCard("lobby") }
         tabCreate.addActionListener { showCard("create_character") }
         tabSelect.addActionListener { showCard("select_character") }
         updateBackButton.addActionListener { showCard(lastAccountCard) }
-        createBackToLobby.addActionListener { showCard("lobby") }
-        selectBackToLobby.addActionListener { showCard("lobby") }
+        createBackToSelect.addActionListener { showCard("select_character") }
         playBackToLobby.addActionListener { showCard("select_character") }
         createAnimationMode.addActionListener {
             previewFrameIndex = 0
@@ -1546,7 +1523,6 @@ object LauncherMain {
                             createName.text = ""
                             populateCharacterViewsFn(refreshed)
                             createStatus.text = " "
-                            lobbyStatus.text = " "
                             if (refreshed.isNotEmpty()) {
                                 showCard("select_character")
                             }
@@ -1575,7 +1551,6 @@ object LauncherMain {
                     }
                 }.start()
             }
-            characterSummary.text = ""
             loadedCharacters = emptyList()
             characterRowsPanel.removeAll()
             characterRowsPanel.revalidate()
@@ -1583,7 +1558,6 @@ object LauncherMain {
             selectedCharacterId = null
             selectedCharacterView = null
             heldKeys.clear()
-            lobbyStatus.text = " "
             createStatus.text = " "
             selectStatus.text = " "
             gameStatus.text = " "
@@ -1641,7 +1615,7 @@ object LauncherMain {
                 if (authSession != null && selectedCharacterId != null) {
                     showCard("play")
                 } else {
-                    authStatus.text = "Login to continue."
+                    authStatus.text = " "
                 }
             }
         }

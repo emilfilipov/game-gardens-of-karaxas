@@ -2,7 +2,7 @@
 
 ## High Concept
 Gardens of Karaxas is now an online multiplayer RPG with account-based progression.
-Players authenticate into an account lobby where they manage social/community interactions,
+Players authenticate into an account menu shell where they manage social/community interactions,
 create/select characters, and enter gameplay sessions.
 
 ## Core Pillars
@@ -12,11 +12,11 @@ create/select characters, and enter gameplay sessions.
 - Live-service readiness through version-gated updates and controlled rollout windows.
 - Launcher-driven desktop distribution and patching.
 
-## Account and Lobby Loop
+## Account and Menu Loop
 1. Open launcher and authenticate (register or login).
    - Login form remembers and pre-fills the last successfully authenticated email.
    - Register form always opens clean with hint text visible.
-2. Enter account lobby with persistent tab navigation (Lobby/Create/Select).
+2. Enter account menu with persistent tab navigation (Create/Select).
    - Top-right menu shows `Welcome [username].` and logged-in account actions.
 3. Default post-login routing:
    - No characters: open Character Creation.
@@ -28,7 +28,7 @@ create/select characters, and enter gameplay sessions.
 
 ## Required Frontend Screens
 - Combined authentication screen (login/register toggle in a single centered block).
-- Account lobby screen.
+- Account menu shell screen (Create/Select tabs).
 - Character creation screen.
 - Character selection screen.
 - In-game world screen.

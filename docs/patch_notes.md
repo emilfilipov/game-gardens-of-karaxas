@@ -1,5 +1,7 @@
-- Applied a unified themed button renderer to all launcher buttons to remove white/default OS-style boxes.
-- Updated login/register controls to use the same dark thin-border theme as the rest of the UI.
-- Styled previously unthemed controls (`+`/`-` stat buttons and top-right cog) to match the launcher visual system.
-- Kept existing functionality and layout flow unchanged while normalizing button visuals.
-- Hardened release automation so backend activation webhook retries and logs warning-only on repeated failure instead of failing the entire launcher release publish.
+- Removed the separate Lobby screen and merged authenticated navigation to `Create` and `Select` tabs only.
+- Centered login/register form fields and controls in the auth card.
+- Removed the `Login to continue` message from autoplay fallback behavior.
+- Made the top-right cog button render as a square themed control.
+- Updated post-login UI surfaces to solid opaque colors to prevent transparent bleed-through and stacked-menu ghosting artifacts.
+- Enforced fixed-height character cards with horizontal-scroll suppression so rows fit the selection list viewport.
+- Updated create/select back-navigation labels and routes to match the new Create/Select-only flow.
