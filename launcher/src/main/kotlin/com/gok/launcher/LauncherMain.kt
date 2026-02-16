@@ -1606,7 +1606,7 @@ object LauncherMain {
                             selectedCharacterId = character.id
                             selectedCharacterView = character
                             selectCharacterDetails.text =
-                                "Name: ${character.name}\nLevel: ${character.level}\nExperience: ${character.experience}\nAppearance: ${character.appearanceKey}\nLocation: $locationLabel"
+                                "Name: ${character.name}\nLevel: ${character.level}\nExperience: ${character.experience}\nAppearance: ${character.appearanceKey}\nRace: ${character.race}\nBackground: ${character.background}\nAffiliation: ${character.affiliation}\nLocation: $locationLabel"
                             applySelectionPreview(character)
                             renderCharacterRows(loadedCharacters)
                         }
@@ -2405,6 +2405,9 @@ object LauncherMain {
                             clientVersion = clientVersion,
                             name = name,
                             appearanceKey = createAppearanceKey,
+                            race = raceChoice.selectedItem?.toString()?.trim().orEmpty(),
+                            background = backgroundChoice.selectedItem?.toString()?.trim().orEmpty(),
+                            affiliation = affiliationChoice.selectedItem?.toString()?.trim().orEmpty(),
                             totalPoints = buildPointBudget,
                             stats = stats,
                             skills = skills,
@@ -2416,6 +2419,9 @@ object LauncherMain {
                             skillAllocations.keys.forEach { skillAllocations[it] = 0 }
                             updatePointUi()
                             createName.text = ""
+                            raceChoice.selectedIndex = 0
+                            backgroundChoice.selectedIndex = 0
+                            affiliationChoice.selectedIndex = 0
                             populateCharacterViewsFn(refreshed)
                             createStatus.text = " "
                             if (refreshed.isNotEmpty()) {

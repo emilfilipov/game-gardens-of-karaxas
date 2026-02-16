@@ -61,6 +61,7 @@ create/select characters, and enter gameplay sessions.
 - Level-1 starter skills currently scaffolded: Ember, Cleave, Quick Strike, Bandage.
 - Character creation now also includes scaffold dropdowns for race, background, and affiliation above the skills list.
 - Stats/skills have placeholder tooltips for future design descriptions.
+- Character creation selections are persisted on character records (stats, skills, race, background, affiliation, appearance).
 - Character art loading accepts both canonical filenames and fallback naming/folder layouts so male/female previews continue working when asset files are reorganized.
 - Initial visual presets currently wired: human male and human female.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.

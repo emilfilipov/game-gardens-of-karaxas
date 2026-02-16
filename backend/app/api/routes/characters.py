@@ -28,6 +28,9 @@ def _to_response(character: Character) -> CharacterResponse:
         location_x=character.location_x,
         location_y=character.location_y,
         appearance_key=character.appearance_key,
+        race=character.race,
+        background=character.background,
+        affiliation=character.affiliation,
         level=character.level,
         experience=character.experience,
         experience_to_next_level=XP_PER_LEVEL - current_band_progress if current_band_progress > 0 else XP_PER_LEVEL,
@@ -55,6 +58,10 @@ def create_character(
     context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
+    def normalize_profile_value(value: str, fallback: str) -> str:
+        normalized = value.strip()
+        return normalized if normalized else fallback
+
     normalized_name = payload.name.strip()
     if not normalized_name:
         raise HTTPException(
@@ -81,6 +88,9 @@ def create_character(
         user_id=context.user.id,
         name=normalized_name,
         appearance_key=payload.appearance_key.strip(),
+        race=normalize_profile_value(payload.race, "Human"),
+        background=normalize_profile_value(payload.background, "Drifter"),
+        affiliation=normalize_profile_value(payload.affiliation, "Unaffiliated"),
         stat_points_total=payload.stat_points_total,
         stat_points_used=stat_points_used,
         level=1,

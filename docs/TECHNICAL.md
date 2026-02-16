@@ -35,6 +35,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `release_policy`: latest/min-supported version and enforce-after timestamp.
 - `characters`: user-owned character builds (stats/skills point allocations).
   - Includes `appearance_key` for visual preset selection persistence.
+  - Includes `race`, `background`, and `affiliation` for character identity scaffolds selected in creation UI.
   - Includes `level` and `experience` (starts at level 1 / 0 XP).
   - Includes nullable `level_id` to map a character to a saved world layout.
   - Includes nullable `location_x`/`location_y` for persisted world coordinates.
@@ -132,6 +133,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Release packaging copies `assets/characters/` into payload (`payload/assets/characters`) so installed launcher builds can resolve preview art without relying on local repo folders.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stats and themed rectangular toggle choices for starter skills.
 - Character creation now uses expanded two-column stat allocation rows and includes scaffold dropdowns (race/background/affiliation) above the skills area.
+- Launcher character create API payload now forwards race/background/affiliation and backend persists them in `characters`; list/create responses return those fields for UI/detail rendering.
 - Skill-points counter label has been removed from UI while keeping allocation budget enforcement.
 - Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.
 - Character preview rendering normalizes sprite frames to a fixed preview canvas before scaling, keeping sex-switch preview zoom consistent.
