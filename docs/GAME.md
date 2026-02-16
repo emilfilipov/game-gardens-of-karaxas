@@ -94,7 +94,8 @@ create/select characters, and enter gameplay sessions.
 - When no update is available, updater status reads `Game is up to date.`.
 - Admin level editor now uses a larger, zoomed-out grid and shows a character sprite marker at spawn position.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
-- Admin level editor now keeps `Load`, `Save`, and `Back` in the top strip; the editor body below is focused on build controls and grid interaction only.
+- Admin level editor now keeps `Load`, `Save`, and `Back` in the top strip; the top strip also contains the `Load Existing` dropdown and `Save Level` name box next to their respective buttons.
+- The editor body below is focused on build controls and grid interaction only.
 - Saving a level requires a non-empty level name and persists the current grid size, spawn, and wall layout data to the database.
 - Level builder opens as a separate dedicated scene for admins.
 - Level builder now uses a compact control strip and a virtual panning grid that supports up to 100000x100000 logical dimensions.

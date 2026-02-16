@@ -2173,7 +2173,15 @@ object LauncherMain {
                 )
                 add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                     isOpaque = false
+                    add(UiScaffold.titledLabel("Load Existing"))
+                    add(levelLoadCombo)
                     add(levelToolLoadButton)
+                    add(UiScaffold.titledLabel("Save Level"))
+                    add(levelEditorName.apply {
+                        preferredSize = Dimension(150, UiScaffold.fieldSize.height)
+                        minimumSize = preferredSize
+                        maximumSize = preferredSize
+                    })
                     add(levelToolSaveButton)
                     add(levelToolBackButton)
                 }, BorderLayout.WEST)
@@ -2195,14 +2203,6 @@ object LauncherMain {
                         isOpaque = false
                         add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                             isOpaque = false
-                            add(UiScaffold.titledLabel("Level"))
-                            add(levelEditorName.apply {
-                                preferredSize = Dimension(150, UiScaffold.fieldSize.height)
-                                minimumSize = preferredSize
-                                maximumSize = preferredSize
-                            })
-                            add(UiScaffold.titledLabel("Load"))
-                            add(levelLoadCombo)
                             add(UiScaffold.titledLabel("Tool"))
                             add(levelToolSpawnButton)
                             add(levelToolWallButton)

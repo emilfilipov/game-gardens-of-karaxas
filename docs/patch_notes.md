@@ -1,5 +1,2 @@
-- Fixed Create Character skill tooltip visuals by removing white-edge artifacts and applying consistent themed tooltip styling.
-- Stabilized skill tooltip hover behavior with tuned tooltip timing so hover display is more reliable.
-- Moved level-builder `Load`, `Save`, and `Back` actions into the top header strip and kept the editor body focused on building controls.
-- Improved level-builder auth error messaging so invalid/expired tokens show a clear re-login prompt.
-- Save now validates level name and syncs current grid-size inputs before persisting level data (size, spawn, walls) to the database.
+- Moved level-builder `Load Existing` dropdown and `Save Level` name input into the top header strip next to their respective `Load` and `Save` buttons.
+- Kept level-editor body rows focused on build tools and grid/viewport controls by removing duplicate load/name fields from the editor controls area.

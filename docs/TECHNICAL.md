@@ -114,7 +114,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Admin-only launcher controls (level-builder tab and per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
 - Level-builder tool supports drag/erase wall placement and single spawn-point placement on a fixed grid, with named save/load against backend `/levels` APIs.
 - Level-builder is rendered in a dedicated scene (outside account card stack) with compact top controls for faster editing workflows.
-- Level-builder scene header strip now contains `Load`, `Save`, and `Back`; lower editor rows are reserved for level-editing controls and viewport/grid inputs.
+- Level-builder scene header strip now contains `Load`, `Save`, and `Back`, plus the load-dropdown and level-name input placed adjacent to their respective actions.
+- Lower editor rows are reserved for level-editing controls and viewport/grid inputs.
 - Level-builder grid defaults to a large logical footprint (`100000x100000`) and uses viewport panning for editing.
 - Level-builder top controls are split into two compact rows and grid canvas minimum size is constrained so the scene stays within visible screen bounds on common desktop resolutions.
 - Level-builder grid dimensions are user-editable at runtime (`width`/`height`) with validation and immediate canvas resize/clamping.
