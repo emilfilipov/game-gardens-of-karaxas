@@ -32,6 +32,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-021 | ✅ | 2 | Enforce consistent theme rendering on all launcher buttons (including auth submit/toggle, settings cog, and stat +/- controls) to eliminate platform-default white button artifacts. |
 | GOK-MMO-022 | ✅ | 2 | Harden release workflow backend activation notification with retries and non-blocking failure handling so transient backend outages do not fail launcher releases. |
 | GOK-MMO-023 | ✅ | 3 | Consolidate authenticated navigation to Create/Select, center auth fields, harden opaque surface rendering, and normalize fixed-size character card layout without horizontal list overflow. |
+| GOK-MMO-024 | ✅ | 2 | Normalize launcher text/font theme coverage (including update menu text), style update progress bars for both determinate/indeterminate states, switch register toggle label to `Back`, and hard-pin cog control to a true square render. |
 | GOK-INIT-001 | ✅ | 2 | Create initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configure GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enable launcher-only Velopack packaging and publish first installer/release artifacts. |

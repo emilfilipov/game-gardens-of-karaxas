@@ -16,6 +16,7 @@ create/select characters, and enter gameplay sessions.
 1. Open launcher and authenticate (register or login).
    - Login form remembers and pre-fills the last successfully authenticated email.
    - Register form always opens clean with hint text visible.
+   - Register mode actions are `Register` and `Back` (returns to login mode).
 2. Enter account menu with persistent tab navigation (Create/Select).
    - Top-right menu shows `Welcome [username].` and logged-in account actions.
 3. Default post-login routing:

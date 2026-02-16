@@ -75,10 +75,12 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Launcher keeps the same full-screen background art image, but interactive UI chrome now uses lightweight shape-based rendering (thin borders + painted fills/gradients) instead of PNG-framed button/panel surfaces.
 - Launcher button styling is enforced through a shared `BasicButtonUI`-based theme path so all runtime buttons (auth, tabs, action rows, settings cog, and stat +/- controls) render consistently across platform look-and-feels.
+- Launcher text styling is normalized to one shared theme font family/color token across labels, buttons, update controls, and rendered patch-note/log text.
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Cog dropdown includes a logged-in-only header line with account identity (`Welcome [username].`).
 - Combined auth uses a single centered panel (no large shell frame on auth screen) with login/register toggle, centered fields, and bordered solid input styling.
+- Register mode now uses `Register` + `Back` actions (instead of `Use Login`) for clearer return-to-login flow.
 - Pressing Enter in auth inputs submits login/register depending on current toggle mode.
 - Auth form pre-validates email/password/display-name constraints client-side to mirror backend schema and reduce avoidable 422 responses.
 - Auth error mapping includes explicit UX strings for wrong credentials (`This account doesn't exist`) and common connectivity failures (offline, timeout, server unavailable, SSL errors).
@@ -111,6 +113,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Account cards now render on opaque themed surfaces to prevent visual overlap artifacts when switching tabs.
 - Updater remains accessible through the cog menu (`Update & Restart`) and updater card, but is removed from lobby tab navigation.
 - Update card layout uses explicit inner padding; build/version text and patch notes are inset from the brick frame with hidden scrollbars (wheel scroll remains enabled).
+- Update progress visualization (determinate and indeterminate phases) uses a themed brown fill/frame style with themed font/color progress text.
 - Version/date is rendered in a centered footer on the launcher shell.
 
 ## Logging Strategy

@@ -14,6 +14,7 @@ import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.GridLayout
 import java.awt.Insets
+import java.awt.Rectangle
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.awt.event.ComponentAdapter
@@ -64,6 +65,10 @@ import javax.swing.plaf.basic.BasicProgressBarUI
 import javax.net.ssl.SSLException
 
 object LauncherMain {
+    private const val THEME_FONT_FAMILY = "Serif"
+    private val THEME_TEXT_COLOR = Color(244, 230, 197)
+    private const val THEME_TEXT_HEX = "#f4e6c5"
+
     private data class PatchNotesSource(
         val path: Path?,
         val markdown: String
@@ -131,7 +136,7 @@ object LauncherMain {
 
         val backgroundImage = loadUiImage("/ui/main_menu_background.png")
         val rectangularButtonImage: BufferedImage? = null
-        val textColor = Color(244, 230, 197)
+        val textColor = THEME_TEXT_COLOR
 
         val rootPanel = BackgroundPanel(backgroundImage).apply {
             layout = BorderLayout()
@@ -140,11 +145,11 @@ object LauncherMain {
 
         val screenTitle = JLabel("Gardens of Karaxas", SwingConstants.CENTER).apply {
             foreground = textColor
-            font = Font("Serif", Font.BOLD, 56)
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 56)
             border = BorderFactory.createEmptyBorder(4, 0, 4, 0)
         }
         val settingsButton = JButton("\u2699").apply {
-            font = Font("Serif", Font.BOLD, 20)
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 20)
             preferredSize = Dimension(42, 42)
             toolTipText = "Menu"
             margin = Insets(0, 0, 0, 0)
@@ -157,7 +162,10 @@ object LauncherMain {
             isOpaque = false
             add(Box.createHorizontalStrut(42), BorderLayout.WEST)
             add(screenTitle, BorderLayout.CENTER)
-            add(settingsButton, BorderLayout.EAST)
+            add(JPanel(GridBagLayout()).apply {
+                isOpaque = false
+                add(settingsButton)
+            }, BorderLayout.EAST)
         }
         rootPanel.add(headerPanel, BorderLayout.NORTH)
 
@@ -183,7 +191,7 @@ object LauncherMain {
 
         val footerVersionLabel = JLabel(footerVersionText(), SwingConstants.CENTER).apply {
             foreground = textColor
-            font = Font("Serif", Font.PLAIN, 12)
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
             border = BorderFactory.createEmptyBorder(3, 0, 0, 0)
         }
         rootPanel.add(footerVersionLabel, BorderLayout.SOUTH)
@@ -196,11 +204,11 @@ object LauncherMain {
         val exitItem = JMenuItem("Exit")
         val menuBg = Color(52, 39, 32)
         val menuHover = Color(84, 58, 41)
-        val menuFg = Color(247, 236, 209)
+        val menuFg = THEME_TEXT_COLOR
         val panelBg = Color(42, 31, 25)
         val panelBorder = Color(172, 132, 87)
         fun stylePopupItem(item: JMenuItem) {
-            item.font = Font("Serif", Font.BOLD, 15)
+            item.font = Font(THEME_FONT_FAMILY, Font.BOLD, 15)
             item.foreground = menuFg
             item.background = menuBg
             item.isOpaque = true
@@ -258,8 +266,8 @@ object LauncherMain {
             putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true)
             isOpaque = false
             background = Color(0, 0, 0, 0)
-            foreground = Color(245, 232, 206)
-            font = Font("Serif", Font.PLAIN, 13)
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
             border = BorderFactory.createEmptyBorder(8, 10, 8, 10)
         }
         val patchNotes = JScrollPane(patchNotesPane).apply {
@@ -276,7 +284,11 @@ object LauncherMain {
             horizontalScrollBar.preferredSize = Dimension(0, 0)
             setWheelScrollingEnabled(true)
         }
-        val updateStatus = JLabel("")
+        val updateStatus = JLabel(" ", SwingConstants.CENTER).apply {
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
+            border = BorderFactory.createEmptyBorder(2, 0, 2, 0)
+        }
         val progress = JProgressBar().apply {
             isIndeterminate = false
             isVisible = false
@@ -284,6 +296,9 @@ object LauncherMain {
             isStringPainted = true
             preferredSize = Dimension(680, 18)
             border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 12)
+            setForeground(textColor)
             setUI(ThemedProgressBarUI())
         }
         val checkUpdates = buildMenuButton("Check Updates", rectangularButtonImage, Dimension(206, 42), 14f)
@@ -303,8 +318,8 @@ object LauncherMain {
             add(clearLogsButton)
         }
         val buildVersionLabel = JLabel("", SwingConstants.CENTER).apply {
-            foreground = Color(246, 233, 201)
-            font = Font("Serif", Font.BOLD, 18)
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 18)
             border = BorderFactory.createEmptyBorder(4, 8, 8, 8)
         }
         val updateContent = UiScaffold.contentPanel().apply {
@@ -317,8 +332,12 @@ object LauncherMain {
             add(JPanel(BorderLayout(0, 8)).apply {
                 isOpaque = false
                 add(progress, BorderLayout.NORTH)
-                add(launcherButtons, BorderLayout.CENTER)
-                add(updateBackButton, BorderLayout.SOUTH)
+                add(updateStatus, BorderLayout.CENTER)
+                add(JPanel(BorderLayout(0, 8)).apply {
+                    isOpaque = false
+                    add(launcherButtons, BorderLayout.CENTER)
+                    add(updateBackButton, BorderLayout.SOUTH)
+                }, BorderLayout.SOUTH)
             }, BorderLayout.SOUTH)
         }
 
@@ -361,7 +380,7 @@ object LauncherMain {
                 title
             ).apply {
                 titleColor = textColor
-                titleFont = Font("Serif", Font.BOLD, 14)
+                titleFont = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
             }
         }
 
@@ -439,8 +458,8 @@ object LauncherMain {
             isOpaque = true
             background = Color(31, 24, 20)
             border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
-            foreground = Color(245, 232, 206)
-            font = Font("Serif", Font.BOLD, 14)
+            foreground = THEME_TEXT_COLOR
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
         }
         val createAnimationMode = JComboBox<String>(arrayOf("Idle", "Walk", "Run")).apply {
             preferredSize = UiScaffold.fieldSize
@@ -565,8 +584,8 @@ object LauncherMain {
             isOpaque = true
             background = Color(31, 24, 20)
             border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
-            foreground = Color(245, 232, 206)
-            font = Font("Serif", Font.BOLD, 14)
+            foreground = THEME_TEXT_COLOR
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
         }
         var previewFrameIndex = 0
         var previewDirection = 0
@@ -679,7 +698,7 @@ object LauncherMain {
             val value = JLabel("0", SwingConstants.CENTER).apply {
                 preferredSize = Dimension(42, 28)
                 foreground = textColor
-                font = Font("Serif", Font.BOLD, 16)
+                font = Font(THEME_FONT_FAMILY, Font.BOLD, 16)
             }
             valueLabels["$scope:$key"] = value
             minus.addActionListener { adjustAllocation(bucket, key, -1) }
@@ -792,9 +811,9 @@ object LauncherMain {
                     }
 
                     g2.color = textColor
-                    g2.font = Font("Serif", Font.BOLD, 15)
+                    g2.font = Font(THEME_FONT_FAMILY, Font.BOLD, 15)
                     g2.drawString(gameCharacterName, playerDrawX - 4, playerDrawY - 8)
-                    g2.font = Font("Serif", Font.PLAIN, 14)
+                    g2.font = Font(THEME_FONT_FAMILY, Font.PLAIN, 14)
                     g2.drawString("WASD to move. Border blocks world edge.", 12, 22)
                 } finally {
                     g2.dispose()
@@ -988,7 +1007,7 @@ object LauncherMain {
                     }
                     val info = JLabel("${character.name}  |  Level ${character.level}  |  XP ${character.experience} (next ${character.experienceToNextLevel})").apply {
                         foreground = textColor
-                        font = Font("Serif", Font.BOLD, 14)
+                        font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
                     }
                     val actions = JPanel(GridLayout(1, 2, 6, 0)).apply {
                         isOpaque = false
@@ -1094,7 +1113,7 @@ object LauncherMain {
         fun applyAuthMode() {
             authDisplayName.isVisible = registerMode
             authSubmit.text = if (registerMode) "Register" else "Login"
-            authToggleMode.text = if (registerMode) "Use Login" else "Create Account"
+            authToggleMode.text = if (registerMode) "Back" else "Create Account"
             authStatus.text = " "
             resetAuthInputsForMode()
             authStandaloneContainer.revalidate()
@@ -1141,7 +1160,7 @@ object LauncherMain {
             }
             val noteLabel = JLabel("Automatic login uses your current session token.", SwingConstants.LEFT).apply {
                 foreground = textColor
-                font = Font("Serif", Font.PLAIN, 12)
+                font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
             }
             val panel = JPanel(BorderLayout(0, 8)).apply {
                 isOpaque = false
@@ -1192,7 +1211,7 @@ object LauncherMain {
             )
             add(JLabel("Account", SwingConstants.LEFT).apply {
                 foreground = textColor
-                font = Font("Serif", Font.BOLD, 18)
+                font = Font(THEME_FONT_FAMILY, Font.BOLD, 18)
             }, BorderLayout.WEST)
             add(accountTabsPanel, BorderLayout.EAST)
             isVisible = false
@@ -1634,8 +1653,8 @@ object LauncherMain {
 
     private fun applyThemedButtonStyle(button: JButton, fontSize: Float, compactPadding: Boolean = false) {
         button.setUI(BasicButtonUI())
-        button.foreground = Color(247, 236, 209)
-        button.font = Font("Serif", Font.BOLD, fontSize.toInt())
+        button.foreground = THEME_TEXT_COLOR
+        button.font = Font(THEME_FONT_FAMILY, Font.BOLD, fontSize.toInt())
         button.isFocusPainted = false
         button.isContentAreaFilled = true
         button.isBorderPainted = true
@@ -1679,7 +1698,7 @@ object LauncherMain {
         button.preferredSize = size
         button.maximumSize = size
         button.minimumSize = size
-        button.font = Font("Serif", Font.BOLD, fontSize.toInt())
+        button.font = Font(THEME_FONT_FAMILY, Font.BOLD, fontSize.toInt())
         if (buttonTexture != null) {
             // The launcher intentionally ignores button art in favor of shape-based themed controls.
         }
@@ -1720,21 +1739,46 @@ object LauncherMain {
     }
 
     private class ThemedProgressBarUI : BasicProgressBarUI() {
+        override fun getSelectionForeground(): Color = THEME_TEXT_COLOR
+        override fun getSelectionBackground(): Color = Color(38, 28, 22)
+
+        override fun paintIndeterminate(graphics: Graphics, component: javax.swing.JComponent) {
+            val g2 = graphics.create() as Graphics2D
+            try {
+                val width = progressBar.width
+                val height = progressBar.height
+                g2.color = Color(54, 41, 33)
+                g2.fillRect(0, 0, width, height)
+                val box = getBox(boxRect) ?: Rectangle(0, 0, 0, 0)
+                g2.color = Color(184, 136, 84)
+                g2.fillRect(box.x, 0, box.width, height)
+                g2.color = Color(220, 180, 126)
+                g2.fillRect(box.x, 0, box.width, (height / 2).coerceAtLeast(1))
+                g2.color = Color(120, 86, 54)
+                g2.drawRect(0, 0, width - 1, height - 1)
+                if (progressBar.isStringPainted) {
+                    paintString(graphics, 0, 0, width, height, box.width, Insets(0, 0, 0, 0))
+                }
+            } finally {
+                g2.dispose()
+            }
+        }
+
         override fun paintDeterminate(graphics: Graphics, component: javax.swing.JComponent) {
             val g2 = graphics.create() as Graphics2D
             try {
                 val width = progressBar.width
                 val height = progressBar.height
-                g2.color = Color(54, 41, 33, 220)
+                g2.color = Color(54, 41, 33)
                 g2.fillRect(0, 0, width, height)
                 val amount = getAmountFull(Insets(0, 0, 0, 0), width, height).coerceAtLeast(0)
                 if (amount > 0) {
-                    g2.color = Color(210, 167, 102, 245)
+                    g2.color = Color(184, 136, 84)
                     g2.fillRect(0, 0, amount, height)
-                    g2.color = Color(239, 210, 156, 185)
+                    g2.color = Color(220, 180, 126)
                     g2.fillRect(0, 0, amount, (height / 2).coerceAtLeast(1))
                 }
-                g2.color = Color(120, 86, 54, 255)
+                g2.color = Color(120, 86, 54)
                 g2.drawRect(0, 0, width - 1, height - 1)
                 if (progressBar.isStringPainted) {
                     paintString(graphics, 0, 0, width, height, amount, Insets(0, 0, 0, 0))
@@ -1952,9 +1996,9 @@ object LauncherMain {
             ""
         }
         return "<html><head><style>" +
-            "body{font-family:Serif;font-size:12px;color:#f3e8cc;background:transparent;margin:0;padding:4px;}" +
-            "h2{font-family:Serif;font-size:14px;margin:0 0 4px 0;}" +
-            "p{font-family:Serif;margin:0 0 6px 0;}" +
+            "body{font-family:$THEME_FONT_FAMILY;font-size:12px;color:$THEME_TEXT_HEX;background:transparent;margin:0;padding:4px;}" +
+            "h2{font-family:$THEME_FONT_FAMILY;font-size:14px;margin:0 0 4px 0;}" +
+            "p{font-family:$THEME_FONT_FAMILY;margin:0 0 6px 0;}" +
             "pre{margin:0;white-space:pre-wrap;word-wrap:break-word;}" +
             "</style></head><body>" +
             "<h2>${escapeHtml(path.fileName.toString())}</h2>" +
@@ -2170,14 +2214,14 @@ object LauncherMain {
         val sb = StringBuilder()
         sb.append(
             "<html><head><style>" +
-                "body{font-family:Serif;font-size:13px;color:#f3e8cc;background:transparent;margin:0;padding:4px;}" +
+                "body{font-family:$THEME_FONT_FAMILY;font-size:13px;color:$THEME_TEXT_HEX;background:transparent;margin:0;padding:4px;}" +
                 "h1{font-size:18px;font-weight:700;margin:0 0 6px 0;}" +
                 "h2{font-size:16px;font-weight:600;margin:10px 0 4px 0;}" +
                 "h3{font-size:14px;font-weight:600;margin:8px 0 4px 0;}" +
                 "p{margin:0 0 6px 0;}" +
                 "ul{margin:0 0 6px 18px;padding:0;}" +
                 "li{margin:0 0 4px 0;}" +
-                "code{background:rgba(0,0,0,0.35);padding:1px 3px;border-radius:3px;font-family:Serif;}" +
+                "code{background:rgba(0,0,0,0.35);padding:1px 3px;border-radius:3px;font-family:$THEME_FONT_FAMILY;}" +
                 "</style></head><body>"
         )
         var inList = false

@@ -1,7 +1,6 @@
-- Removed the separate Lobby screen and merged authenticated navigation to `Create` and `Select` tabs only.
-- Centered login/register form fields and controls in the auth card.
-- Removed the `Login to continue` message from autoplay fallback behavior.
-- Made the top-right cog button render as a square themed control.
-- Updated post-login UI surfaces to solid opaque colors to prevent transparent bleed-through and stacked-menu ghosting artifacts.
-- Enforced fixed-height character cards with horizontal-scroll suppression so rows fit the selection list viewport.
-- Updated create/select back-navigation labels and routes to match the new Create/Select-only flow.
+- Unified launcher text styling to one shared theme font/color across buttons, labels, and update menu text.
+- Updated register mode actions to `Register` and `Back` (replacing `Use Login`).
+- Styled update progress bars for both download and apply/check phases with the same brown in-game theme.
+- Added themed update status text rendering directly in the update card for clearer process visibility.
+- Normalized patch-notes/log HTML rendering to the same launcher text font/color token.
+- Fixed top-right cog menu control to render as a true square by constraining it in a non-stretching wrapper.
