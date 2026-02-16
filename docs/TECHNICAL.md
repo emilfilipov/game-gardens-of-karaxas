@@ -86,6 +86,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Scroll containers are standardized through a reusable themed scroll-pane class so list/details/editor panes share consistent opaque/transparent surface behavior, including themed scrollbar track/thumb rendering.
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
+- Cog dropdown menu items use a themed basic menu-item UI delegate so hover/selection highlights stay in-theme (no platform-default blue highlight bleed).
 - Cog dropdown includes a logged-in-only header line with account identity (`Welcome [username].`).
 - Combined auth uses a single centered panel (no large shell frame on auth screen) with login/register toggle, centered fields, and bordered solid input styling.
 - Register mode now uses `Register` + `Back` actions (instead of `Use Login`) for clearer return-to-login flow.

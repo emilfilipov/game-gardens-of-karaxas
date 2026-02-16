@@ -62,6 +62,7 @@ import javax.swing.AbstractAction
 import javax.swing.border.TitledBorder
 import javax.swing.plaf.basic.BasicButtonUI
 import javax.swing.plaf.basic.BasicComboBoxUI
+import javax.swing.plaf.basic.BasicMenuItemUI
 import javax.swing.plaf.basic.BasicScrollBarUI
 import javax.net.ssl.SSLException
 
@@ -213,7 +214,16 @@ object LauncherMain {
             item.foreground = menuFg
             item.background = menuBg
             item.isOpaque = true
+            item.isBorderPainted = false
             item.border = BorderFactory.createEmptyBorder(8, 14, 8, 14)
+            item.setUI(object : BasicMenuItemUI() {
+                override fun installDefaults() {
+                    super.installDefaults()
+                    selectionBackground = menuHover
+                    selectionForeground = menuFg
+                    disabledForeground = Color(149, 125, 96)
+                }
+            })
             item.model.addChangeListener {
                 item.background = if (item.model.isArmed || item.model.isSelected) menuHover else menuBg
             }

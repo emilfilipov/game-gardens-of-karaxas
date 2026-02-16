@@ -1,3 +1,1 @@
-- Wired full character-creation persistence for creation-menu selections: stats, skills, race, background, affiliation, and appearance.
-- Added backend schema + migration support for `characters.race`, `characters.background`, and `characters.affiliation`.
-- Updated launcher backend payload/response handling and character details panel rendering to use persisted profile fields.
+- Fixed cogwheel dropdown highlight rendering by forcing themed menu-item UI colors, removing platform-default blue selection highlights.

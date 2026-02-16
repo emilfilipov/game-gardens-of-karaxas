@@ -40,6 +40,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-033 | ✅ | 3 | Complete pending create/select UI polish: remove duplicate list heading and rename details panel, remove create preview title, split create screen into stat table + rectangular starter-skill choices with tooltips, anchor create action at bottom-right, and make admin level dropdown act as play-time spawn override. |
 | GOK-MMO-034 | ✅ | 4 | Implement follow-up character/lobby UI and editor upgrades: stabilize sex-switch preview scale, add race/background/affiliation create scaffolds, expand stat/skill scaffold capacity, enlarge account shell footprint, and move admin level builder into a dedicated compact scene with virtual `100000x100000` panning grid plus backend schema limit expansion. |
 | GOK-MMO-035 | ✅ | 2 | Persist full character-creation scaffold selections by adding backend character profile fields (`race`, `background`, `affiliation`), migration support, launcher create payload wiring, and response rendering in character details. |
+| GOK-MMO-036 | ✅ | 1 | Remove platform-default blue highlight from cogwheel dropdown by forcing themed menu-item UI selection/hover colors. |
 | GOK-INIT-001 | ✅ | 2 | Create initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configure GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enable launcher-only Velopack packaging and publish first installer/release artifacts. |
