@@ -30,5 +30,6 @@ class SessionResponse(BaseModel):
     user_id: int
     email: EmailStr
     display_name: str
+    is_admin: bool
     expires_at: datetime
     version_status: VersionStatus

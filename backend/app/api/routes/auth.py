@@ -34,6 +34,7 @@ def _session_response(user: User, session: UserSession, version_status) -> Sessi
         user_id=user.id,
         email=user.email,
         display_name=user.display_name,
+        is_admin=user.is_admin,
         expires_at=session.expires_at,
         version_status=VersionStatus(
             client_version=version_status.client_version,
@@ -196,6 +197,7 @@ def me(context: AuthContext = Depends(get_auth_context)):
         "user_id": context.user.id,
         "email": context.user.email,
         "display_name": context.user.display_name,
+        "is_admin": context.user.is_admin,
         "version_status": {
             "client_version": context.version_status.client_version,
             "latest_version": context.version_status.latest_version,

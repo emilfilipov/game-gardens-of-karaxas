@@ -18,6 +18,7 @@ data class AuthSession(
     val userId: Int,
     val email: String,
     val displayName: String,
+    val isAdmin: Boolean,
     val latestVersion: String,
     val minSupportedVersion: String,
     val forceUpdate: Boolean,
@@ -27,6 +28,7 @@ data class AuthSession(
 data class CharacterView(
     val id: Int,
     val name: String,
+    val levelId: Int?,
     val appearanceKey: String,
     val level: Int,
     val experience: Int,
@@ -39,6 +41,30 @@ data class CharacterView(
         return "$name (Lv.$level)"
     }
 }
+
+data class LevelGridCellView(
+    val x: Int,
+    val y: Int
+)
+
+data class LevelSummaryView(
+    val id: Int,
+    val name: String,
+    val width: Int,
+    val height: Int
+) {
+    override fun toString(): String = name
+}
+
+data class LevelDataView(
+    val id: Int,
+    val name: String,
+    val width: Int,
+    val height: Int,
+    val spawnX: Int,
+    val spawnY: Int,
+    val wallCells: List<LevelGridCellView>
+)
 
 data class ChannelView(
     val id: Int,
@@ -172,6 +198,7 @@ class KaraxasBackendClient(
             CharacterView(
                 id = item.path("id").asInt(),
                 name = item.path("name").asText(),
+                levelId = item.path("level_id").takeIf { !it.isMissingNode && !it.isNull }?.asInt(),
                 appearanceKey = item.path("appearance_key").asText("human_male"),
                 level = item.path("level").asInt(1),
                 experience = item.path("experience").asInt(0),
@@ -211,6 +238,7 @@ class KaraxasBackendClient(
         return CharacterView(
             id = item.path("id").asInt(),
             name = item.path("name").asText(),
+            levelId = item.path("level_id").takeIf { !it.isMissingNode && !it.isNull }?.asInt(),
             appearanceKey = item.path("appearance_key").asText("human_male"),
             level = item.path("level").asInt(1),
             experience = item.path("experience").asInt(0),
@@ -239,6 +267,104 @@ class KaraxasBackendClient(
             clientVersion = clientVersion,
         )
         ensureSuccess(response)
+    }
+
+    fun assignCharacterLevel(accessToken: String, clientVersion: String, characterId: Int, levelId: Int?) {
+        val payload = mapOf("level_id" to levelId)
+        val response = request(
+            method = "POST",
+            path = "/characters/$characterId/level",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+            body = mapper.writeValueAsString(payload),
+        )
+        ensureSuccess(response)
+    }
+
+    fun listLevels(accessToken: String, clientVersion: String): List<LevelSummaryView> {
+        val response = request(
+            method = "GET",
+            path = "/levels",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        return mapper.readTree(response.body()).map { item ->
+            LevelSummaryView(
+                id = item.path("id").asInt(),
+                name = item.path("name").asText(),
+                width = item.path("width").asInt(40),
+                height = item.path("height").asInt(24),
+            )
+        }
+    }
+
+    fun getLevel(accessToken: String, clientVersion: String, levelId: Int): LevelDataView {
+        val response = request(
+            method = "GET",
+            path = "/levels/$levelId",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        val item = mapper.readTree(response.body())
+        return LevelDataView(
+            id = item.path("id").asInt(),
+            name = item.path("name").asText(),
+            width = item.path("width").asInt(40),
+            height = item.path("height").asInt(24),
+            spawnX = item.path("spawn_x").asInt(1),
+            spawnY = item.path("spawn_y").asInt(1),
+            wallCells = item.path("wall_cells").map { cell ->
+                LevelGridCellView(
+                    x = cell.path("x").asInt(),
+                    y = cell.path("y").asInt(),
+                )
+            },
+        )
+    }
+
+    fun saveLevel(
+        accessToken: String,
+        clientVersion: String,
+        name: String,
+        width: Int,
+        height: Int,
+        spawnX: Int,
+        spawnY: Int,
+        wallCells: List<LevelGridCellView>,
+    ): LevelDataView {
+        val payload = mapOf(
+            "name" to name,
+            "width" to width,
+            "height" to height,
+            "spawn_x" to spawnX,
+            "spawn_y" to spawnY,
+            "wall_cells" to wallCells.map { mapOf("x" to it.x, "y" to it.y) },
+        )
+        val response = request(
+            method = "POST",
+            path = "/levels",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+            body = mapper.writeValueAsString(payload),
+        )
+        ensureSuccess(response)
+        val item = mapper.readTree(response.body())
+        return LevelDataView(
+            id = item.path("id").asInt(),
+            name = item.path("name").asText(),
+            width = item.path("width").asInt(40),
+            height = item.path("height").asInt(24),
+            spawnX = item.path("spawn_x").asInt(1),
+            spawnY = item.path("spawn_y").asInt(1),
+            wallCells = item.path("wall_cells").map { cell ->
+                LevelGridCellView(
+                    x = cell.path("x").asInt(),
+                    y = cell.path("y").asInt(),
+                )
+            },
+        )
     }
 
     fun listChannels(accessToken: String, clientVersion: String): List<ChannelView> {
@@ -309,6 +435,7 @@ class KaraxasBackendClient(
             userId = root.path("user_id").asInt(),
             email = root.path("email").asText(),
             displayName = root.path("display_name").asText(),
+            isAdmin = root.path("is_admin").asBoolean(false),
             latestVersion = versionNode.path("latest_version").asText("0.0.0"),
             minSupportedVersion = versionNode.path("min_supported_version").asText("0.0.0"),
             forceUpdate = versionNode.path("force_update").asBoolean(false),

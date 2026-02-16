@@ -30,12 +30,15 @@ This is the single source of truth for technical architecture, stack decisions, 
 
 ## Data Model (Initial)
 - `users`: account identity.
+  - Includes `is_admin` boolean for backend-authoritative admin gating.
 - `user_sessions`: refresh/session records and client version tracking.
 - `release_policy`: latest/min-supported version and enforce-after timestamp.
 - `characters`: user-owned character builds (stats/skills point allocations).
   - Includes `appearance_key` for visual preset selection persistence.
   - Includes `level` and `experience` (starts at level 1 / 0 XP).
+  - Includes nullable `level_id` to map a character to a saved world layout.
   - Character names are globally unique (case-insensitive unique index on `lower(name)`).
+- `levels`: named level layouts (grid size, spawn cell, wall-cell list) for world bootstrapping.
 - `friendships`: friend graph.
 - `guilds`, `guild_members`: guild presence and rank scaffolding.
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
@@ -98,13 +101,17 @@ This is the single source of truth for technical architecture, stack decisions, 
   - no characters -> `create_character`
   - one or more characters -> `select_character`
 - Character selection is row-based with per-row `Play` and `Delete` actions (no explicit "Set Active" control in the UI).
+- Character row preview/details selection is driven by card-row clicks only; per-row action buttons do not mutate preview selection.
 - Launcher still syncs backend selected-character state implicitly on `Play` to satisfy character-gated backend features.
 - Character selection uses fixed-size themed character cards with per-row `Play` and `Delete` actions.
 - Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
+- Admin-only launcher controls (level-builder tab and per-character level assignment dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
+- Level-builder tool supports drag/erase wall placement and single spawn-point placement on a fixed grid, with named save/load against backend `/levels` APIs.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
 - Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
 - `play` scene is currently an empty-world prototype with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
+- When a character has an assigned `level_id`, gameplay loads spawn/walls from backend level data and applies tile-based wall collision in addition to world-edge collision.
 - Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` in working dir, install root, payload root, or `GOK_CHARACTER_ART_DIR`.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
 - Skill-points counter label has been removed from UI while keeping allocation budget enforcement.

@@ -5,9 +5,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import AuthContext, get_auth_context, get_db
+from app.api.deps import AuthContext, get_auth_context, get_db, require_admin_context
 from app.models.character import Character
-from app.schemas.character import CharacterCreateRequest, CharacterResponse
+from app.models.level import Level
+from app.schemas.character import CharacterCreateRequest, CharacterLevelAssignRequest, CharacterResponse
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 XP_PER_LEVEL = 100
@@ -18,6 +19,7 @@ def _to_response(character: Character) -> CharacterResponse:
     return CharacterResponse(
         id=character.id,
         name=character.name,
+        level_id=character.level_id,
         appearance_key=character.appearance_key,
         level=character.level,
         experience=character.experience,
@@ -122,3 +124,32 @@ def delete_character(character_id: int, context: AuthContext = Depends(get_auth_
     db.delete(character)
     db.commit()
     return {"ok": True, "character_id": character_id, "selection_cleared": was_selected}
+
+
+@router.post("/{character_id}/level")
+def assign_character_level(
+    character_id: int,
+    payload: CharacterLevelAssignRequest,
+    context: AuthContext = Depends(require_admin_context),
+    db: Session = Depends(get_db),
+):
+    character = db.get(Character, character_id)
+    if character is None or character.user_id != context.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Character not found", "code": "character_not_found"},
+        )
+
+    level_id = payload.level_id
+    if level_id is not None:
+        level = db.get(Level, level_id)
+        if level is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"message": "Level not found", "code": "level_not_found"},
+            )
+
+    character.level_id = level_id
+    db.add(character)
+    db.commit()
+    return {"ok": True, "character_id": character.id, "level_id": character.level_id}

@@ -14,6 +14,7 @@ class CharacterCreateRequest(BaseModel):
 class CharacterResponse(BaseModel):
     id: int
     name: str
+    level_id: int | None = None
     appearance_key: str
     level: int
     experience: int
@@ -25,3 +26,7 @@ class CharacterResponse(BaseModel):
     is_selected: bool
     created_at: datetime
     updated_at: datetime
+
+
+class CharacterLevelAssignRequest(BaseModel):
+    level_id: int | None = Field(default=None, ge=1)

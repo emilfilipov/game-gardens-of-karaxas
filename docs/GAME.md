@@ -19,13 +19,19 @@ create/select characters, and enter gameplay sessions.
    - Register mode actions are `Register` and `Back` (returns to login mode).
 2. Enter account menu with persistent tab navigation (Create/Select).
    - Top-right menu shows `Welcome [username].` and logged-in account actions.
+   - Admin-only menus/features are unlocked by the account's backend `is_admin` flag (not by hardcoded email).
 3. Default post-login routing:
    - No characters: open Character Creation.
    - Has characters: open Character Selection.
 4. On character selection, each row includes direct `Play` and `Delete` actions.
+   - Character preview/details update only when the character card row itself is clicked.
+   - Action buttons do not change the current preview selection.
+   - Admin accounts also get per-character map assignment controls in each row.
 5. Enter gameplay session from the chosen character row (`Play` action on that row only).
    - World/session opens in a dedicated gameplay scene (separate from lobby/select cards).
+   - If the character has a map assignment, the session loads that level layout and spawn.
 6. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
+   - Wall tiles from the loaded level are also collidable.
 
 ## Required Frontend Screens
 - Combined authentication screen (login/register toggle in a single centered block).
@@ -33,6 +39,7 @@ create/select characters, and enter gameplay sessions.
 - Character creation screen.
 - Character selection screen.
 - In-game world screen.
+- Admin-only level builder screen (save/load named levels with spawn + wall layout).
 - Shared menu/form controls use a consistent thin-border panel/button style over the same background key art.
 
 ## Character Direction

@@ -1,6 +1,5 @@
-- Unified launcher text styling to one shared theme font/color across buttons, labels, and update menu text.
-- Updated register mode actions to `Register` and `Back` (replacing `Use Login`).
-- Styled update progress bars for both download and apply/check phases with the same brown in-game theme.
-- Added themed update status text rendering directly in the update card for clearer process visibility.
-- Normalized patch-notes/log HTML rendering to the same launcher text font/color token.
-- Fixed top-right cog menu control to render as a true square by constraining it in a non-stretching wrapper.
+- Added admin-only level builder support end-to-end: new backend `levels` APIs/models/migration plus launcher level-editor UI with spawn and wall placement, save/load by level name, and map list refresh wiring.
+- Added per-character map assignment controls (admin-only dropdown on character cards) and gameplay handoff that loads assigned level layout/spawn into the world scene.
+- Added tile-based wall collision from loaded level data on top of world-edge collision for the empty-world prototype.
+- Replaced hardcoded `admin@admin.com` checks with a database-backed `users.is_admin` flag, a shared backend admin dependency, and auth session propagation (`is_admin`) to the launcher.
+- Character preview/details in Character List now update only when the character card row itself is clicked; row action buttons no longer drive preview selection state.

@@ -107,6 +107,15 @@ def get_current_user(context: AuthContext = Depends(get_auth_context)) -> User:
     return context.user
 
 
+def require_admin_context(context: AuthContext = Depends(get_auth_context)) -> AuthContext:
+    if not context.user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"message": "Admin access required", "code": "admin_required"},
+        )
+    return context
+
+
 def get_release_policy(db: Session) -> ReleasePolicy:
     policy = db.execute(select(ReleasePolicy).where(ReleasePolicy.id == 1)).scalar_one_or_none()
     if policy is None:

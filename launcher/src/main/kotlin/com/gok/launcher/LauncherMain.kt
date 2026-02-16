@@ -384,7 +384,7 @@ object LauncherMain {
             }
         }
 
-        fun themeComboBox(combo: JComboBox<String>) {
+        fun themeComboBox(combo: JComboBox<*>) {
             combo.background = Color(58, 42, 33)
             combo.foreground = textColor
             combo.isOpaque = true
@@ -410,8 +410,11 @@ object LauncherMain {
             label.font = UiScaffold.bodyFont
         }
 
-        val tabCreate = buildMenuButton("Create", rectangularButtonImage, Dimension(150, 38), 13f)
-        val tabSelect = buildMenuButton("Select", rectangularButtonImage, Dimension(150, 38), 13f)
+        val tabCreate = buildMenuButton("Create Character", rectangularButtonImage, Dimension(190, 38), 13f)
+        val tabSelect = buildMenuButton("Character List", rectangularButtonImage, Dimension(190, 38), 13f)
+        val tabLevelTool = buildMenuButton("Levels", rectangularButtonImage, Dimension(150, 38), 13f).apply {
+            isVisible = false
+        }
 
         val authEmail = UiScaffold.ghostTextField("Email")
         val authPassword = UiScaffold.ghostPasswordField("Password")
@@ -426,6 +429,8 @@ object LauncherMain {
         var registerMode = false
 
         var loadedCharacters: List<CharacterView> = emptyList()
+        var availableLevels: List<LevelSummaryView> = emptyList()
+        val levelDetailsById = mutableMapOf<Int, LevelDataView>()
         val characterRowsPanel = JPanel().apply {
             layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
             isOpaque = true
@@ -485,8 +490,11 @@ object LauncherMain {
         val gameStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val playStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val playBackToLobby = buildMenuButton("Back to Select", rectangularButtonImage, Dimension(180, 42), 14f)
+        val levelToolStatus = JLabel(" ").apply { themeStatusLabel(this) }
         var selectedCharacterId: Int? = null
         var selectedCharacterView: CharacterView? = null
+        var activeGameLevelId: Int? = null
+        var activeGameLevelName: String = "Unassigned"
 
         fun loadCharacterArtOptions(): List<CharacterArtOption> {
             val options = mutableListOf<CharacterArtOption>()
@@ -655,6 +663,117 @@ object LauncherMain {
         }
         previewTimer.start()
 
+        val levelEditorCols = 40
+        val levelEditorRows = 24
+        val levelEditorCell = 24
+        var levelEditorSpawn = 1 to 1
+        val levelEditorWalls = mutableSetOf<Pair<Int, Int>>()
+        var levelEditorTool = "wall"
+        val levelEditorName = UiScaffold.ghostTextField("Level Name")
+        val levelLoadCombo = JComboBox<Any>().apply {
+            preferredSize = UiScaffold.fieldSize
+            minimumSize = UiScaffold.fieldSize
+            maximumSize = UiScaffold.fieldSize
+            font = UiScaffold.bodyFont
+        }
+        themeComboBox(levelLoadCombo)
+        val levelToolSpawnButton = buildMenuButton("Spawn", rectangularButtonImage, Dimension(120, 36), 12f)
+        val levelToolWallButton = buildMenuButton("Wall", rectangularButtonImage, Dimension(120, 36), 12f)
+        val levelToolLoadButton = buildMenuButton("Load", rectangularButtonImage, Dimension(120, 36), 12f)
+        val levelToolSaveButton = buildMenuButton("Save Level", rectangularButtonImage, Dimension(140, 36), 12f)
+        val levelToolClearButton = buildMenuButton("Clear Walls", rectangularButtonImage, Dimension(140, 36), 12f)
+
+        fun setLevelToolMode(mode: String) {
+            levelEditorTool = mode
+            val spawnActive = mode == "spawn"
+            levelToolSpawnButton.isEnabled = !spawnActive
+            levelToolWallButton.isEnabled = spawnActive
+        }
+
+        val levelEditorCanvas = object : JPanel() {
+            init {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+                preferredSize = Dimension(levelEditorCols * levelEditorCell, levelEditorRows * levelEditorCell)
+                minimumSize = preferredSize
+                maximumSize = preferredSize
+            }
+
+            override fun paintComponent(graphics: Graphics) {
+                super.paintComponent(graphics)
+                val g2 = graphics.create() as Graphics2D
+                try {
+                    g2.color = Color(39, 31, 25)
+                    g2.fillRect(0, 0, width, height)
+                    g2.color = Color(66, 54, 44)
+                    for (x in 0..levelEditorCols) {
+                        val px = x * levelEditorCell
+                        g2.drawLine(px, 0, px, height)
+                    }
+                    for (y in 0..levelEditorRows) {
+                        val py = y * levelEditorCell
+                        g2.drawLine(0, py, width, py)
+                    }
+                    g2.color = Color(104, 77, 53)
+                    levelEditorWalls.forEach { (cellX, cellY) ->
+                        g2.fillRect(cellX * levelEditorCell + 1, cellY * levelEditorCell + 1, levelEditorCell - 1, levelEditorCell - 1)
+                    }
+                    val (spawnX, spawnY) = levelEditorSpawn
+                    g2.color = Color(201, 170, 114)
+                    g2.fillOval(spawnX * levelEditorCell + 4, spawnY * levelEditorCell + 4, levelEditorCell - 8, levelEditorCell - 8)
+                } finally {
+                    g2.dispose()
+                }
+            }
+        }
+
+        fun levelCellAt(mouseX: Int, mouseY: Int): Pair<Int, Int>? {
+            if (mouseX < 0 || mouseY < 0) return null
+            val cellX = mouseX / levelEditorCell
+            val cellY = mouseY / levelEditorCell
+            if (cellX !in 0 until levelEditorCols || cellY !in 0 until levelEditorRows) return null
+            return cellX to cellY
+        }
+
+        fun applyLevelToolPlacement(mouseX: Int, mouseY: Int, erase: Boolean) {
+            val cell = levelCellAt(mouseX, mouseY) ?: return
+            if (erase) {
+                levelEditorWalls.remove(cell)
+                levelEditorCanvas.repaint()
+                return
+            }
+            if (levelEditorTool == "spawn") {
+                levelEditorSpawn = cell
+                levelEditorWalls.remove(cell)
+            } else {
+                levelEditorWalls.add(cell)
+                if (levelEditorSpawn == cell) {
+                    levelEditorSpawn = (0 to 0)
+                }
+            }
+            levelEditorCanvas.repaint()
+        }
+
+        var levelEditorDragging = false
+        levelEditorCanvas.addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mousePressed(event: java.awt.event.MouseEvent) {
+                levelEditorDragging = true
+                applyLevelToolPlacement(event.x, event.y, erase = javax.swing.SwingUtilities.isRightMouseButton(event))
+            }
+
+            override fun mouseReleased(event: java.awt.event.MouseEvent) {
+                levelEditorDragging = false
+            }
+        })
+        levelEditorCanvas.addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
+            override fun mouseDragged(event: java.awt.event.MouseEvent) {
+                if (!levelEditorDragging) return
+                applyLevelToolPlacement(event.x, event.y, erase = javax.swing.SwingUtilities.isRightMouseButton(event))
+            }
+        })
+        setLevelToolMode("wall")
+
         val buildPointBudget = 10
         var pointsRemaining = buildPointBudget
         val statAllocations = linkedMapOf(
@@ -715,9 +834,15 @@ object LauncherMain {
             }
         }
 
-        val gameWorldWidth = 2400f
-        val gameWorldHeight = 1600f
-        val gameWorldBorder = 96f
+        val gameTileSize = 64f
+        var gameWorldWidth = 2400f
+        var gameWorldHeight = 1600f
+        var gameWorldBorder = 0f
+        var gameLevelWidthCells = 40
+        var gameLevelHeightCells = 24
+        var gameSpawnCellX = 1
+        var gameSpawnCellY = 1
+        var gameWallCells = emptySet<Pair<Int, Int>>()
         val spriteHalf = 16f
         var gamePlayerX = gameWorldWidth / 2f
         var gamePlayerY = gameWorldHeight / 2f
@@ -730,16 +855,36 @@ object LauncherMain {
         val heldKeys = mutableSetOf<Int>()
 
         fun resetPlayerToSpawn() {
-            gamePlayerX = gameWorldWidth / 2f
-            gamePlayerY = gameWorldHeight / 2f
+            gamePlayerX = ((gameSpawnCellX.toFloat() + 0.5f) * gameTileSize).coerceIn(spriteHalf, gameWorldWidth - spriteHalf)
+            gamePlayerY = ((gameSpawnCellY.toFloat() + 0.5f) * gameTileSize).coerceIn(spriteHalf, gameWorldHeight - spriteHalf)
             gameDirection = 0
             gameAnimationFrame = 0
             gameAnimationCarryMs = 0.0
         }
 
         fun clampPlayerToWorld() {
-            gamePlayerX = gamePlayerX.coerceIn(gameWorldBorder + spriteHalf, gameWorldWidth - gameWorldBorder - spriteHalf)
-            gamePlayerY = gamePlayerY.coerceIn(gameWorldBorder + spriteHalf, gameWorldHeight - gameWorldBorder - spriteHalf)
+            gamePlayerX = gamePlayerX.coerceIn(spriteHalf, gameWorldWidth - spriteHalf)
+            gamePlayerY = gamePlayerY.coerceIn(spriteHalf, gameWorldHeight - spriteHalf)
+        }
+
+        fun collidesWithWall(nextX: Float, nextY: Float): Boolean {
+            if (gameWallCells.isEmpty()) return false
+            val left = (nextX - spriteHalf).coerceAtLeast(0f)
+            val right = (nextX + spriteHalf).coerceAtMost(gameWorldWidth - 1f)
+            val top = (nextY - spriteHalf).coerceAtLeast(0f)
+            val bottom = (nextY + spriteHalf).coerceAtMost(gameWorldHeight - 1f)
+            val minX = kotlin.math.floor(left / gameTileSize).toInt()
+            val maxX = kotlin.math.floor(right / gameTileSize).toInt()
+            val minY = kotlin.math.floor(top / gameTileSize).toInt()
+            val maxY = kotlin.math.floor(bottom / gameTileSize).toInt()
+            for (cellY in minY..maxY) {
+                for (cellX in minX..maxX) {
+                    if (gameWallCells.contains(cellX to cellY)) {
+                        return true
+                    }
+                }
+            }
+            return false
         }
 
         val gameWorldPanel = object : JPanel() {
@@ -768,13 +913,11 @@ object LauncherMain {
                     val worldScreenY = (-camY).toInt()
                     val worldW = gameWorldWidth.toInt()
                     val worldH = gameWorldHeight.toInt()
-                    val border = gameWorldBorder.toInt()
-
                     g2.color = Color(63, 78, 65)
                     g2.fillRect(worldScreenX, worldScreenY, worldW, worldH)
 
                     g2.color = Color(74, 90, 76)
-                    val grid = 96
+                    val grid = gameTileSize.toInt().coerceAtLeast(16)
                     var gx = 0
                     while (gx <= worldW) {
                         val sx = worldScreenX + gx
@@ -788,11 +931,16 @@ object LauncherMain {
                         gy += grid
                     }
 
-                    g2.color = Color(34, 29, 24)
-                    g2.fillRect(worldScreenX, worldScreenY, worldW, border)
-                    g2.fillRect(worldScreenX, worldScreenY + worldH - border, worldW, border)
-                    g2.fillRect(worldScreenX, worldScreenY, border, worldH)
-                    g2.fillRect(worldScreenX + worldW - border, worldScreenY, border, worldH)
+                    g2.color = Color(52, 40, 31)
+                    gameWallCells.forEach { (cellX, cellY) ->
+                        val drawX = worldScreenX + (cellX * grid)
+                        val drawY = worldScreenY + (cellY * grid)
+                        g2.fillRect(drawX, drawY, grid, grid)
+                        g2.color = Color(173, 130, 86)
+                        g2.drawRect(drawX, drawY, grid, grid)
+                        g2.color = Color(52, 40, 31)
+                    }
+
                     g2.color = Color(188, 150, 103)
                     g2.drawRect(worldScreenX, worldScreenY, worldW, worldH)
 
@@ -814,7 +962,7 @@ object LauncherMain {
                     g2.font = Font(THEME_FONT_FAMILY, Font.BOLD, 15)
                     g2.drawString(gameCharacterName, playerDrawX - 4, playerDrawY - 8)
                     g2.font = Font(THEME_FONT_FAMILY, Font.PLAIN, 14)
-                    g2.drawString("WASD to move. Border blocks world edge.", 12, 22)
+                    g2.drawString("WASD to move. Level: $activeGameLevelName", 12, 22)
                 } finally {
                     g2.dispose()
                 }
@@ -865,8 +1013,14 @@ object LauncherMain {
                 val speed = 220.0
                 val nx = dx / length
                 val ny = dy / length
-                gamePlayerX += (nx * speed * dt).toFloat()
-                gamePlayerY += (ny * speed * dt).toFloat()
+                val nextX = (gamePlayerX + (nx * speed * dt).toFloat()).coerceIn(spriteHalf, gameWorldWidth - spriteHalf)
+                val nextY = (gamePlayerY + (ny * speed * dt).toFloat()).coerceIn(spriteHalf, gameWorldHeight - spriteHalf)
+                if (!collidesWithWall(nextX, gamePlayerY)) {
+                    gamePlayerX = nextX
+                }
+                if (!collidesWithWall(gamePlayerX, nextY)) {
+                    gamePlayerY = nextY
+                }
                 clampPlayerToWorld()
 
                 gameDirection = if (kotlin.math.abs(nx) >= kotlin.math.abs(ny)) {
@@ -889,15 +1043,41 @@ object LauncherMain {
         }
         gameLoopTimer.start()
 
-        fun enterGameWithCharacter(character: CharacterView) {
-            selectedCharacterId = character.id
-            selectedCharacterView = character
+        fun applyGameLevel(level: LevelDataView?) {
+            if (level == null) {
+                activeGameLevelId = null
+                activeGameLevelName = "Default"
+                gameLevelWidthCells = 40
+                gameLevelHeightCells = 24
+                gameSpawnCellX = 1
+                gameSpawnCellY = 1
+                gameWorldWidth = gameLevelWidthCells * gameTileSize
+                gameWorldHeight = gameLevelHeightCells * gameTileSize
+                gameWallCells = emptySet()
+                return
+            }
+            activeGameLevelId = level.id
+            activeGameLevelName = level.name
+            gameLevelWidthCells = level.width.coerceAtLeast(8)
+            gameLevelHeightCells = level.height.coerceAtLeast(8)
+            gameSpawnCellX = level.spawnX.coerceIn(0, gameLevelWidthCells - 1)
+            gameSpawnCellY = level.spawnY.coerceIn(0, gameLevelHeightCells - 1)
+            gameWorldWidth = gameLevelWidthCells * gameTileSize
+            gameWorldHeight = gameLevelHeightCells * gameTileSize
+            gameWallCells = level.wallCells
+                .map { it.x.coerceIn(0, gameLevelWidthCells - 1) to it.y.coerceIn(0, gameLevelHeightCells - 1) }
+                .filterNot { it.first == gameSpawnCellX && it.second == gameSpawnCellY }
+                .toSet()
+        }
+
+        fun enterGameWithCharacter(character: CharacterView, level: LevelDataView?) {
             gameCharacterName = character.name
             gameCharacterAppearance = appearanceByKey[character.appearanceKey]
+            applyGameLevel(level)
             resetPlayerToSpawn()
             clampPlayerToWorld()
             gameStatus.text = " "
-            playStatus.text = " "
+            playStatus.text = if (level != null) "Loaded level: ${level.name}" else "Loaded default level."
             gameWorldPanel.requestFocusInWindow()
         }
 
@@ -908,6 +1088,10 @@ object LauncherMain {
                 return
             }
             block(session)
+        }
+
+        fun isAdminAccount(): Boolean {
+            return authSession?.isAdmin == true
         }
 
         fun formatServiceError(ex: Exception, fallback: String): String {
@@ -932,9 +1116,16 @@ object LauncherMain {
                 Thread {
                     try {
                         backendClient.selectCharacter(session.accessToken, clientVersion, character.id)
+                        val selectedLevel = character.levelId?.let { levelId ->
+                            levelDetailsById[levelId] ?: backendClient.getLevel(session.accessToken, clientVersion, levelId).also {
+                                levelDetailsById[levelId] = it
+                            }
+                        }
                         javax.swing.SwingUtilities.invokeLater {
-                            selectedCharacterId = character.id
-                            selectedCharacterView = character
+                            if (selectedLevel != null) {
+                                activeGameLevelId = selectedLevel.id
+                            }
+                            enterGameWithCharacter(character, selectedLevel)
                             showCard("play")
                         }
                     } catch (ex: Exception) {
@@ -990,41 +1181,101 @@ object LauncherMain {
                     border = BorderFactory.createEmptyBorder(12, 6, 12, 6)
                 })
             } else {
+                val adminMode = isAdminAccount()
                 characters.forEach { character ->
-                    val playButton = buildMenuButton("Play", rectangularButtonImage, Dimension(110, 32), 12f)
-                    val deleteButton = buildMenuButton("Delete", rectangularButtonImage, Dimension(110, 32), 12f)
+                    val playButton = buildMenuButton("Play", rectangularButtonImage, Dimension(95, 30), 12f)
+                    val deleteButton = buildMenuButton("Delete", rectangularButtonImage, Dimension(95, 30), 12f)
                     val row = object : JPanel(BorderLayout(8, 0)) {
-                        override fun getPreferredSize(): Dimension = Dimension(0, 72)
-                        override fun getMinimumSize(): Dimension = Dimension(0, 72)
-                        override fun getMaximumSize(): Dimension = Dimension(Int.MAX_VALUE, 72)
+                        override fun getPreferredSize(): Dimension = Dimension(0, if (adminMode) 86 else 72)
+                        override fun getMinimumSize(): Dimension = Dimension(0, if (adminMode) 86 else 72)
+                        override fun getMaximumSize(): Dimension = Dimension(Int.MAX_VALUE, if (adminMode) 86 else 72)
                     }.apply {
                         isOpaque = true
-                        background = Color(39, 29, 24)
+                        background = if (selectedCharacterId == character.id) Color(57, 42, 31) else Color(39, 29, 24)
                         border = BorderFactory.createCompoundBorder(
                             BorderFactory.createLineBorder(Color(172, 132, 87), 1),
                             BorderFactory.createEmptyBorder(8, 10, 8, 10)
                         )
                     }
-                    val info = JLabel("${character.name}  |  Level ${character.level}  |  XP ${character.experience} (next ${character.experienceToNextLevel})").apply {
+                    val levelName = availableLevels.firstOrNull { it.id == character.levelId }?.name ?: "Default"
+                    val info = JLabel("${character.name}  |  Level ${character.level}  |  XP ${character.experience} (next ${character.experienceToNextLevel})  |  Map: $levelName").apply {
                         foreground = textColor
                         font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
                     }
-                    val actions = JPanel(GridLayout(1, 2, 6, 0)).apply {
-                        isOpaque = false
-                        add(playButton)
-                        add(deleteButton)
+                    val actions = if (adminMode) {
+                        val levelCombo = JComboBox<Any>().apply {
+                            preferredSize = Dimension(170, 30)
+                            minimumSize = Dimension(170, 30)
+                            maximumSize = Dimension(170, 30)
+                            font = UiScaffold.bodyFont
+                            val values: Array<Any> = if (availableLevels.isEmpty()) {
+                                arrayOf("No levels")
+                            } else {
+                                availableLevels.toTypedArray()
+                            }
+                            model = javax.swing.DefaultComboBoxModel(values)
+                            isEnabled = availableLevels.isNotEmpty()
+                            if (character.levelId != null) {
+                                val selected = availableLevels.firstOrNull { it.id == character.levelId }
+                                if (selected != null) {
+                                    selectedItem = selected
+                                }
+                            }
+                        }
+                        themeComboBox(levelCombo)
+                        var levelSelectionBound = false
+                        levelCombo.addActionListener {
+                            if (!levelSelectionBound) return@addActionListener
+                            val chosen = levelCombo.selectedItem as? LevelSummaryView ?: return@addActionListener
+                            withSession(onMissing = { selectStatus.text = "Please login first." }) { session ->
+                                Thread {
+                                    try {
+                                        backendClient.assignCharacterLevel(session.accessToken, clientVersion, character.id, chosen.id)
+                                        val refreshed = backendClient.listCharacters(session.accessToken, clientVersion)
+                                        javax.swing.SwingUtilities.invokeLater {
+                                            populateCharacterViewsFn(refreshed)
+                                            selectStatus.text = " "
+                                        }
+                                    } catch (ex: Exception) {
+                                        log("Character level assignment failed against ${backendClient.endpoint()}", ex)
+                                        javax.swing.SwingUtilities.invokeLater {
+                                            selectStatus.text = formatServiceError(ex, "Unable to assign map.")
+                                        }
+                                    }
+                                }.start()
+                            }
+                        }
+                        levelSelectionBound = true
+                        JPanel(BorderLayout(0, 4)).apply {
+                            isOpaque = false
+                            add(levelCombo, BorderLayout.NORTH)
+                            add(JPanel(GridLayout(1, 2, 4, 0)).apply {
+                                isOpaque = false
+                                add(playButton)
+                                add(deleteButton)
+                            }, BorderLayout.SOUTH)
+                        }
+                    } else {
+                        JPanel(GridLayout(1, 2, 6, 0)).apply {
+                            isOpaque = false
+                            add(playButton)
+                            add(deleteButton)
+                        }
                     }
                     row.add(info, BorderLayout.CENTER)
                     row.add(actions, BorderLayout.EAST)
-                    row.addMouseListener(object : java.awt.event.MouseAdapter() {
+                    val rowSelectionHandler = object : java.awt.event.MouseAdapter() {
                         override fun mouseClicked(e: java.awt.event.MouseEvent?) {
                             selectedCharacterId = character.id
                             selectedCharacterView = character
                             selectCharacterDetails.text =
-                                "Name: ${character.name}\nLevel: ${character.level}\nExperience: ${character.experience}\nAppearance: ${character.appearanceKey}"
+                                "Name: ${character.name}\nLevel: ${character.level}\nExperience: ${character.experience}\nAppearance: ${character.appearanceKey}\nMap: $levelName"
                             applySelectionPreview(character)
+                            renderCharacterRows(loadedCharacters)
                         }
-                    })
+                    }
+                    row.addMouseListener(rowSelectionHandler)
+                    info.addMouseListener(rowSelectionHandler)
                     playButton.addActionListener { playWithCharacter(character) }
                     deleteButton.addActionListener { deleteCharacter(character) }
                     characterRowsPanel.add(row)
@@ -1037,17 +1288,10 @@ object LauncherMain {
 
         populateCharacterViewsFn = fun(characters: List<CharacterView>) {
             loadedCharacters = characters
-            val primary = characters.firstOrNull()
-            selectedCharacterId = primary?.id
-            selectedCharacterView = primary
-            if (primary != null) {
-                selectCharacterDetails.text =
-                    "Name: ${primary.name}\nLevel: ${primary.level}\nExperience: ${primary.experience}\nAppearance: ${primary.appearanceKey}"
-                applySelectionPreview(primary)
-            } else {
-                selectCharacterDetails.text = "Choose a character row to preview."
-                applySelectionPreview(null)
-            }
+            selectedCharacterId = null
+            selectedCharacterView = null
+            selectCharacterDetails.text = "Choose a character row to preview."
+            applySelectionPreview(null)
             renderCharacterRows(characters)
         }
 
@@ -1075,6 +1319,34 @@ object LauncherMain {
             }
         }
 
+        fun refreshLevels(
+            statusLabel: JLabel,
+            onLoaded: ((List<LevelSummaryView>) -> Unit)? = null
+        ) {
+            withSession(onMissing = { statusLabel.text = "Please login first." }) { session ->
+                Thread {
+                    try {
+                        val levels = backendClient.listLevels(session.accessToken, clientVersion)
+                        javax.swing.SwingUtilities.invokeLater {
+                            availableLevels = levels
+                            val ids = levels.map { it.id }.toSet()
+                            val stale = levelDetailsById.keys.filter { it !in ids }
+                            stale.forEach { levelDetailsById.remove(it) }
+                            if (loadedCharacters.isNotEmpty()) {
+                                renderCharacterRows(loadedCharacters)
+                            }
+                            onLoaded?.invoke(levels)
+                        }
+                    } catch (ex: Exception) {
+                        log("Level list refresh failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            statusLabel.text = formatServiceError(ex, "Unable to load level list.")
+                        }
+                    }
+                }.start()
+            }
+        }
+
         fun resetAuthInputsForMode() {
             if (registerMode) {
                 authEmail.text = ""
@@ -1096,8 +1368,10 @@ object LauncherMain {
             persistLauncherPrefs()
             registerMode = false
             updateSettingsMenuAccess()
+            tabLevelTool.isVisible = isAdminAccount()
             authStatus.text = "Loading account..."
             resetAuthInputsForMode()
+            refreshLevels(selectStatus)
             refreshCharacters(selectStatus) { characters ->
                 authStatus.text = " "
                 if (characters.isEmpty()) {
@@ -1187,20 +1461,23 @@ object LauncherMain {
 
         val accountTabButtons = linkedMapOf(
             "create_character" to tabCreate,
-            "select_character" to tabSelect
+            "select_character" to tabSelect,
+            "level_tool" to tabLevelTool
         )
         fun setActiveAccountTab(card: String) {
             accountTabButtons.forEach { (name, button) ->
                 val isActive = name == card
+                if (!button.isVisible) return@forEach
                 button.isEnabled = !isActive
                 button.foreground = if (isActive) Color(255, 247, 224) else textColor
             }
         }
-        val accountTabsPanel = JPanel(GridLayout(1, 2, 8, 0)).apply {
+        val accountTabsPanel = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0)).apply {
             isOpaque = true
             background = panelBg
             add(tabCreate)
             add(tabSelect)
+            add(tabLevelTool)
         }
         val accountTopBar = JPanel(BorderLayout(10, 0)).apply {
             isOpaque = true
@@ -1220,7 +1497,7 @@ object LauncherMain {
 
         val createCharacterPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(12, 8)
-            add(UiScaffold.sectionLabel("Character Creation"), BorderLayout.NORTH)
+            add(UiScaffold.sectionLabel("Create Character"), BorderLayout.NORTH)
             add(JPanel(BorderLayout(12, 8)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
@@ -1258,7 +1535,7 @@ object LauncherMain {
 
         val selectCharacterPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(10, 8)
-            add(UiScaffold.sectionLabel("Character Selection"), BorderLayout.NORTH)
+            add(UiScaffold.sectionLabel("Character List"), BorderLayout.NORTH)
             add(characterRowsScroll, BorderLayout.CENTER)
             add(JPanel(BorderLayout(0, 8)).apply {
                 isOpaque = true
@@ -1278,6 +1555,67 @@ object LauncherMain {
                 background = Color(24, 18, 15)
                 add(selectStatus, BorderLayout.SOUTH)
             }, BorderLayout.SOUTH)
+        }
+
+        fun refreshLevelLoadCombo() {
+            val options: Array<Any> = if (availableLevels.isEmpty()) {
+                arrayOf("No levels")
+            } else {
+                availableLevels.toTypedArray()
+            }
+            levelLoadCombo.model = javax.swing.DefaultComboBoxModel(options)
+            levelLoadCombo.isEnabled = availableLevels.isNotEmpty()
+        }
+
+        fun loadLevelIntoEditor(level: LevelDataView) {
+            levelEditorName.text = level.name
+            levelEditorSpawn = level.spawnX.coerceIn(0, levelEditorCols - 1) to level.spawnY.coerceIn(0, levelEditorRows - 1)
+            levelEditorWalls.clear()
+            level.wallCells
+                .map { it.x.coerceIn(0, levelEditorCols - 1) to it.y.coerceIn(0, levelEditorRows - 1) }
+                .filterNot { it == levelEditorSpawn }
+                .forEach { levelEditorWalls.add(it) }
+            levelEditorCanvas.repaint()
+        }
+
+        val levelToolPanel = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(10, 8)
+            add(UiScaffold.sectionLabel("Level Builder (Admin)"), BorderLayout.NORTH)
+            add(JPanel(BorderLayout(8, 8)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(8, 8, 8, 8)
+                )
+                add(JPanel(GridBagLayout()).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    add(UiScaffold.titledLabel("Level Name"), UiScaffold.gbc(0))
+                    add(levelEditorName, UiScaffold.gbc(1))
+                    add(UiScaffold.titledLabel("Load Existing"), UiScaffold.gbc(2))
+                    add(levelLoadCombo, UiScaffold.gbc(3))
+                    add(JPanel(GridLayout(2, 2, 6, 6)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(levelToolLoadButton)
+                        add(levelToolSaveButton)
+                        add(levelToolSpawnButton)
+                        add(levelToolWallButton)
+                    }, UiScaffold.gbc(4))
+                    add(levelToolClearButton, UiScaffold.gbc(5))
+                    add(UiScaffold.titledLabel("Drag on the grid to place the active element. Right-drag removes wall blocks."), UiScaffold.gbc(6))
+                    add(levelToolStatus, UiScaffold.gbc(7, 1.0, GridBagConstraints.HORIZONTAL))
+                }, BorderLayout.WEST)
+                add(JScrollPane(levelEditorCanvas).apply {
+                    border = themedTitledBorder("Level Grid 40x24")
+                    preferredSize = Dimension(980, 620)
+                    isOpaque = true
+                    viewport.isOpaque = true
+                    background = Color(24, 18, 15)
+                    viewport.background = Color(24, 18, 15)
+                }, BorderLayout.CENTER)
+            }, BorderLayout.CENTER)
         }
 
         val playPanel = UiScaffold.contentPanel().apply {
@@ -1300,6 +1638,7 @@ object LauncherMain {
 
         menuCards.add(createCharacterPanel, "create_character")
         menuCards.add(selectCharacterPanel, "select_character")
+        menuCards.add(levelToolPanel, "level_tool")
         menuCards.add(updateContent, "update")
         var lastAccountCard = "select_character"
 
@@ -1341,10 +1680,15 @@ object LauncherMain {
         }
 
         showCard = fun(card: String) {
-            val requiresAuth = card == "create_character" || card == "select_character" || card == "play"
+            val requiresAuth = card == "create_character" || card == "select_character" || card == "level_tool" || card == "play"
             if (requiresAuth && authSession == null) {
                 showCard("auth")
                 authStatus.text = " "
+                return
+            }
+            if (card == "level_tool" && !isAdminAccount()) {
+                selectStatus.text = "Admin access required."
+                showCard("select_character")
                 return
             }
             if (card == "auth") {
@@ -1387,11 +1731,21 @@ object LauncherMain {
             if (card == "play") {
                 val active = selectedCharacterView ?: loadedCharacters.firstOrNull()
                 if (active != null) {
-                    enterGameWithCharacter(active)
+                    val level = active.levelId?.let { levelDetailsById[it] }
+                    enterGameWithCharacter(active, level)
                 }
                 gameWorldPanel.requestFocusInWindow()
             } else if (card == "select_character") {
                 refreshCharacters(selectStatus)
+                if (isAdminAccount()) {
+                    refreshLevels(selectStatus) {
+                        refreshLevelLoadCombo()
+                    }
+                }
+            } else if (card == "level_tool") {
+                refreshLevels(levelToolStatus) {
+                    refreshLevelLoadCombo()
+                }
             }
             if (card != "play") {
                 cardsLayout.show(menuCards, card)
@@ -1497,9 +1851,87 @@ object LauncherMain {
 
         tabCreate.addActionListener { showCard("create_character") }
         tabSelect.addActionListener { showCard("select_character") }
+        tabLevelTool.addActionListener { showCard("level_tool") }
         updateBackButton.addActionListener { showCard(lastAccountCard) }
         createBackToSelect.addActionListener { showCard("select_character") }
         playBackToLobby.addActionListener { showCard("select_character") }
+        levelToolSpawnButton.addActionListener { setLevelToolMode("spawn") }
+        levelToolWallButton.addActionListener { setLevelToolMode("wall") }
+        levelToolClearButton.addActionListener {
+            levelEditorWalls.clear()
+            levelEditorCanvas.repaint()
+            levelToolStatus.text = "Walls cleared."
+        }
+        levelToolLoadButton.addActionListener {
+            val selected = levelLoadCombo.selectedItem as? LevelSummaryView
+            if (selected == null) {
+                levelToolStatus.text = "Select a level to load."
+                return@addActionListener
+            }
+            withSession(onMissing = { levelToolStatus.text = "Please login first." }) { session ->
+                levelToolStatus.text = "Loading level..."
+                Thread {
+                    try {
+                        val loadedLevel = backendClient.getLevel(session.accessToken, clientVersion, selected.id)
+                        levelDetailsById[selected.id] = loadedLevel
+                        javax.swing.SwingUtilities.invokeLater {
+                            loadLevelIntoEditor(loadedLevel)
+                            levelToolStatus.text = "Loaded level '${loadedLevel.name}'."
+                        }
+                    } catch (ex: Exception) {
+                        log("Level load failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            levelToolStatus.text = formatServiceError(ex, "Unable to load level.")
+                        }
+                    }
+                }.start()
+            }
+        }
+        levelToolSaveButton.addActionListener {
+            if (!isAdminAccount()) {
+                levelToolStatus.text = "Admin access required."
+                return@addActionListener
+            }
+            val levelName = levelEditorName.text.trim()
+            if (levelName.isBlank()) {
+                levelToolStatus.text = "Level name is required."
+                return@addActionListener
+            }
+            withSession(onMissing = { levelToolStatus.text = "Please login first." }) { session ->
+                levelToolStatus.text = "Saving level..."
+                val walls = levelEditorWalls.map { LevelGridCellView(x = it.first, y = it.second) }
+                Thread {
+                    try {
+                        val saved = backendClient.saveLevel(
+                            accessToken = session.accessToken,
+                            clientVersion = clientVersion,
+                            name = levelName,
+                            width = levelEditorCols,
+                            height = levelEditorRows,
+                            spawnX = levelEditorSpawn.first,
+                            spawnY = levelEditorSpawn.second,
+                            wallCells = walls,
+                        )
+                        val levels = backendClient.listLevels(session.accessToken, clientVersion)
+                        javax.swing.SwingUtilities.invokeLater {
+                            availableLevels = levels
+                            levelDetailsById[saved.id] = saved
+                            refreshLevelLoadCombo()
+                            levelLoadCombo.selectedItem = levels.firstOrNull { it.id == saved.id }
+                            if (loadedCharacters.isNotEmpty()) {
+                                renderCharacterRows(loadedCharacters)
+                            }
+                            levelToolStatus.text = "Saved level '${saved.name}'."
+                        }
+                    } catch (ex: Exception) {
+                        log("Level save failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            levelToolStatus.text = formatServiceError(ex, "Unable to save level.")
+                        }
+                    }
+                }.start()
+            }
+        }
         createAnimationMode.addActionListener {
             previewFrameIndex = 0
             applyCreateAppearancePreview()
@@ -1571,6 +2003,9 @@ object LauncherMain {
                 }.start()
             }
             loadedCharacters = emptyList()
+            availableLevels = emptyList()
+            levelDetailsById.clear()
+            tabLevelTool.isVisible = false
             characterRowsPanel.removeAll()
             characterRowsPanel.revalidate()
             characterRowsPanel.repaint()
