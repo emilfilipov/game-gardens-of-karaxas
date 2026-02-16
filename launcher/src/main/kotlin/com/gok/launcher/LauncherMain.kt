@@ -450,19 +450,28 @@ object LauncherMain {
         fun loadCharacterArtOptions(): List<CharacterArtOption> {
             val options = mutableListOf<CharacterArtOption>()
             val roots = mutableListOf<Path>()
+            val femaleToken = Regex("(^|[_-])female([_-]|$)")
+            val maleToken = Regex("(^|[_-])male([_-]|$)")
+            fun appendCharacterRoots(base: Path) {
+                roots.add(base)
+                roots.add(base.resolve("assets").resolve("characters"))
+                roots.add(base.resolve("game").resolve("assets").resolve("characters"))
+            }
             System.getenv("GOK_CHARACTER_ART_DIR")
                 ?.takeIf { it.isNotBlank() }
-                ?.let { roots.add(Paths.get(it)) }
-            roots.add(payloadRoot().resolve("assets").resolve("characters"))
-            roots.add(payloadRoot().resolve("game").resolve("assets").resolve("characters"))
-            roots.add(installRoot().resolve("assets").resolve("characters"))
-            roots.add(installRoot().resolve("game").resolve("assets").resolve("characters"))
-            roots.add(Paths.get(System.getProperty("user.dir")).resolve("assets").resolve("characters"))
-            roots.add(Paths.get(System.getProperty("user.dir")))
+                ?.let { appendCharacterRoots(Paths.get(it).toAbsolutePath().normalize()) }
+            appendCharacterRoots(payloadRoot().toAbsolutePath().normalize())
+            appendCharacterRoots(installRoot().toAbsolutePath().normalize())
+            var cwdProbe: Path? = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize()
+            repeat(5) {
+                cwdProbe?.let {
+                    appendCharacterRoots(it)
+                    cwdProbe = it.parent
+                }
+            }
 
             val grouped = linkedMapOf<String, MutableMap<String, BufferedImage>>()
             val strictMatcher = Regex("^karaxas_([a-z0-9_]+)_(idle(?:_[0-9]+)?|walk(?:_sheet(?:_4dir_6f)?)?|run(?:_sheet(?:_4dir_6f)?)?)\\.png$")
-            val maleToken = Regex("(^|[_-])male([_-]|$)")
             val skipTokens = setOf("karaxas", "idle", "walk", "run", "sheet", "4dir", "6f", "32")
 
             fun normalizeKind(raw: String): String? {
@@ -492,7 +501,7 @@ object LauncherMain {
                     else -> return null
                 }
                 val key = when {
-                    "female" in base -> if ("human" in base) "human_female" else "female"
+                    femaleToken.containsMatchIn(base) -> if ("human" in base) "human_female" else "female"
                     maleToken.containsMatchIn(base) -> if ("human" in base) "human_male" else "male"
                     else -> {
                         val tokens = base.split('_', '-')
@@ -574,6 +583,7 @@ object LauncherMain {
 
         val appearanceOptions = loadCharacterArtOptions()
         val appearanceByKey = appearanceOptions.associateBy { it.key }
+        val femaleKeyMatcher = Regex("(^|_)female($|_)")
         val maleKeyMatcher = Regex("(^|_)male($|_)")
         fun resolveAppearanceOption(appearanceKey: String?): CharacterArtOption? {
             if (appearanceOptions.isEmpty()) return null
@@ -583,8 +593,8 @@ object LauncherMain {
             appearanceByKey.entries.firstOrNull { (key, _) ->
                 normalized.contains(key) || key.contains(normalized)
             }?.let { return it.value }
-            if ("female" in normalized) {
-                appearanceOptions.firstOrNull { it.key.contains("female") }?.let { return it }
+            if (femaleKeyMatcher.containsMatchIn(normalized)) {
+                appearanceOptions.firstOrNull { femaleKeyMatcher.containsMatchIn(it.key) }?.let { return it }
             } else if (maleKeyMatcher.containsMatchIn(normalized)) {
                 appearanceOptions.firstOrNull { maleKeyMatcher.containsMatchIn(it.key) }?.let { return it }
             }
@@ -592,8 +602,13 @@ object LauncherMain {
         }
         fun appearanceForSex(isFemale: Boolean): String {
             if (appearanceOptions.isEmpty()) return if (isFemale) "human_female" else "human_male"
-            val needle = if (isFemale) "female" else "male"
-            val matched = appearanceOptions.firstOrNull { it.key.contains(needle) }
+            if (isFemale && appearanceByKey.containsKey("human_female")) return "human_female"
+            if (!isFemale && appearanceByKey.containsKey("human_male")) return "human_male"
+            val matched = if (isFemale) {
+                appearanceOptions.firstOrNull { femaleKeyMatcher.containsMatchIn(it.key) }
+            } else {
+                appearanceOptions.firstOrNull { maleKeyMatcher.containsMatchIn(it.key) }
+            }
             return matched?.key ?: appearanceOptions.first().key
         }
         var createAppearanceKey = when {
@@ -641,6 +656,10 @@ object LauncherMain {
             if (image == null) {
                 createAppearancePreview.icon = null
                 createAppearancePreview.text = if (appearanceOptions.isEmpty()) "No art loaded" else "Preview unavailable"
+                if (appearanceOptions.isNotEmpty()) {
+                    val keys = appearanceOptions.joinToString(",") { it.key }
+                    log("Create preview missing for key '$createAppearanceKey'. Loaded keys=$keys")
+                }
                 return
             }
             val scaled = scaleImage(image, createAppearancePreview.width.coerceAtLeast(180), createAppearancePreview.height.coerceAtLeast(220))
@@ -2312,12 +2331,27 @@ object LauncherMain {
     }
 
     private fun scaleImage(source: BufferedImage, width: Int, height: Int): BufferedImage {
-        val scaled = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+        val targetWidth = width.coerceAtLeast(1)
+        val targetHeight = height.coerceAtLeast(1)
+        val scaled = BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB)
+        val safeSourceWidth = source.width.coerceAtLeast(1)
+        val safeSourceHeight = source.height.coerceAtLeast(1)
+        val scale = kotlin.math.min(
+            targetWidth.toDouble() / safeSourceWidth.toDouble(),
+            targetHeight.toDouble() / safeSourceHeight.toDouble()
+        )
+        val drawWidth = (safeSourceWidth * scale).toInt().coerceAtLeast(1)
+        val drawHeight = (safeSourceHeight * scale).toInt().coerceAtLeast(1)
+        val drawX = ((targetWidth - drawWidth) / 2).coerceAtLeast(0)
+        val drawY = ((targetHeight - drawHeight) / 2).coerceAtLeast(0)
         val graphics = scaled.createGraphics()
-        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
-        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
-        graphics.drawImage(source, 0, 0, width, height, null)
-        graphics.dispose()
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR)
+            graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+            graphics.drawImage(source, drawX, drawY, drawWidth, drawHeight, null)
+        } finally {
+            graphics.dispose()
+        }
         return scaled
     }
 

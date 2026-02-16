@@ -1,6 +1,3 @@
-- Updated updater no-update status text to `Game is up to date.`.
-- Hardened shared dropdown theming so default/current values no longer fall back to white system styling.
-- Added themed scrollbar skinning to shared scroll containers, including level-maker scrollbars.
-- Moved level grid size controls to the grid header area above the editor canvas (next to the Level Grid label).
-- Expanded runtime character-art discovery roots and release packaging now copies `assets/characters` into payload for installed builds.
-- Removed obsolete unused launcher UI PNG resources that were left over from pre-refactor image-based panel/button styling.
+- Fixed character art preview discovery when launching from subdirectories (for example `repo/launcher`) by probing ancestor asset roots in addition to payload/install paths.
+- Fixed sex preset switching so selecting `Male` no longer resolves to female art due to substring collisions.
+- Updated character preview rendering to preserve sprite aspect ratio with nearest-neighbor scaling, preventing stretched male/female previews.

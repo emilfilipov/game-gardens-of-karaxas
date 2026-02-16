@@ -124,6 +124,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` in working dir, install root, payload root, or `GOK_CHARACTER_ART_DIR`.
 - Character creation preview now renders a static idle-frame preview (sex/appearance-driven) without a preview-animation mode selector.
 - Character art discovery now supports recursive folder scanning and fallback filename matching (in addition to canonical `karaxas_*` names) to reduce preview failures when art files are renamed or moved.
+- Character art discovery also probes ancestor directories from `user.dir` so previews keep working when launcher is started from `repo/launcher` (not only repo root or installed payload paths).
+- Sex-to-appearance mapping now uses token-safe matching (`female`/`male` boundary checks) to avoid substring collisions like `female` matching `male`.
+- Preview image scaling is aspect-preserving with nearest-neighbor interpolation to keep sprite proportions and pixel art sharpness.
 - Release packaging copies `assets/characters/` into payload (`payload/assets/characters`) so installed launcher builds can resolve preview art without relying on local repo folders.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
 - Skill-points counter label has been removed from UI while keeping allocation budget enforcement.

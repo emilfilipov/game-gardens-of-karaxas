@@ -55,6 +55,8 @@ create/select characters, and enter gameplay sessions.
 - Current level progression scaffold uses 100 XP per level.
 - Character creation includes sex choice (current presets: male/female) with visual preview.
 - Character creation preview is currently static (idle frame) and no longer includes a preview-animation selector.
+- Sex switching must always map to the correct preset in both directions (male->female and female->male) without substring ambiguity.
+- Character preview rendering preserves sprite aspect ratio to avoid stretching between male/female presets.
 - Character art loading accepts both canonical filenames and fallback naming/folder layouts so male/female previews continue working when asset files are reorganized.
 - Initial visual presets currently wired: human male and human female.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.
