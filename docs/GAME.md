@@ -70,6 +70,7 @@ create/select characters, and enter gameplay sessions.
 - Optional automatic login is configured from in-session settings only (not from pre-login auth screen).
 - Updater access is no longer a lobby tab; it is available from the top-right menu entry.
 - Updater progression is shown through status text messages in the update screen (no progress bar widget).
+- When no update is available, updater status reads `Game is up to date.`.
 - Admin level editor now uses a larger, zoomed-out grid and shows a character sprite marker at spawn position.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
 

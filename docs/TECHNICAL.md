@@ -82,7 +82,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Account tab active-state now uses button highlight styling (background/border emphasis) instead of relying on disabled/dimmed tab text.
 - Launcher text styling is normalized to one shared theme font family/color token across labels, buttons, update controls, and rendered patch-note/log text.
 - Dropdowns are standardized through a reusable themed combo-box class (shared renderer + arrow button UI) to avoid per-screen styling drift and remove platform-default white dropdown surfaces.
-- Scroll containers are standardized through a reusable themed scroll-pane class so list/details/editor panes share consistent opaque/transparent surface behavior.
+- Scroll containers are standardized through a reusable themed scroll-pane class so list/details/editor panes share consistent opaque/transparent surface behavior, including themed scrollbar track/thumb rendering.
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Cog dropdown includes a logged-in-only header line with account identity (`Welcome [username].`).
@@ -113,6 +113,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level-builder tool supports drag/erase wall placement and single spawn-point placement on a fixed grid, with named save/load against backend `/levels` APIs.
 - Level-builder grid defaults to a larger map footprint (`80x48`) with a zoomed-out editor cell size to keep more of the map visible while editing.
 - Level-builder grid dimensions are user-editable at runtime (`width`/`height`) with validation and immediate canvas resize/clamping.
+- Level-builder grid size controls are positioned with the grid header (above the editor canvas) for quick on-the-fly sizing while editing.
 - Level-builder canvas renders a spawn-cell character sprite marker (using resolved appearance art) instead of only a basic spawn dot marker.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
 - Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
@@ -123,6 +124,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` in working dir, install root, payload root, or `GOK_CHARACTER_ART_DIR`.
 - Character creation preview now renders a static idle-frame preview (sex/appearance-driven) without a preview-animation mode selector.
 - Character art discovery now supports recursive folder scanning and fallback filename matching (in addition to canonical `karaxas_*` names) to reduce preview failures when art files are renamed or moved.
+- Release packaging copies `assets/characters/` into payload (`payload/assets/characters`) so installed launcher builds can resolve preview art without relying on local repo folders.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
 - Skill-points counter label has been removed from UI while keeping allocation budget enforcement.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
@@ -131,6 +133,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Updater remains accessible through the cog menu (`Update & Restart`) and updater card, but is removed from lobby tab navigation.
 - Update card layout uses explicit inner padding; build/version text and patch notes are inset from the brick frame with hidden scrollbars (wheel scroll remains enabled).
 - Update flow now uses status-text updates only (no visual progress bar), so updater state is communicated without extra bar controls.
+- Updater no-update terminal status is normalized to `Game is up to date.`.
 - Update helper applies Velopack updates in silent mode and is built as a windowless helper executable to reduce updater pop-up windows during apply/restart flow.
 - Version/date is rendered in a centered footer on the launcher shell.
 

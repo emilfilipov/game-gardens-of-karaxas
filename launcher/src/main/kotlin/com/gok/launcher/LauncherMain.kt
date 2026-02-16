@@ -61,6 +61,7 @@ import javax.swing.AbstractAction
 import javax.swing.border.TitledBorder
 import javax.swing.plaf.basic.BasicButtonUI
 import javax.swing.plaf.basic.BasicComboBoxUI
+import javax.swing.plaf.basic.BasicScrollBarUI
 import javax.net.ssl.SSLException
 
 object LauncherMain {
@@ -453,7 +454,9 @@ object LauncherMain {
                 ?.takeIf { it.isNotBlank() }
                 ?.let { roots.add(Paths.get(it)) }
             roots.add(payloadRoot().resolve("assets").resolve("characters"))
+            roots.add(payloadRoot().resolve("game").resolve("assets").resolve("characters"))
             roots.add(installRoot().resolve("assets").resolve("characters"))
+            roots.add(installRoot().resolve("game").resolve("assets").resolve("characters"))
             roots.add(Paths.get(System.getProperty("user.dir")).resolve("assets").resolve("characters"))
             roots.add(Paths.get(System.getProperty("user.dir")))
 
@@ -558,6 +561,13 @@ object LauncherMain {
                         frameHeight = frameHeight,
                     )
                 )
+            }
+            val searched = roots.distinct().joinToString(", ") { it.toAbsolutePath().toString() }
+            if (options.isEmpty()) {
+                log("Character art discovery found no options. Searched roots: $searched")
+            } else {
+                val keys = options.joinToString(", ") { it.key }
+                log("Character art discovery loaded ${options.size} option(s): $keys")
             }
             return options
         }
@@ -1709,16 +1719,8 @@ object LauncherMain {
                     background = Color(24, 18, 15)
                     add(UiScaffold.titledLabel("Level Name"), UiScaffold.gbc(0))
                     add(levelEditorName, UiScaffold.gbc(1))
-                    add(UiScaffold.titledLabel("Grid Size"), UiScaffold.gbc(2))
-                    add(JPanel(GridLayout(1, 3, 6, 0)).apply {
-                        isOpaque = true
-                        background = Color(24, 18, 15)
-                        add(levelGridWidthField)
-                        add(levelGridHeightField)
-                        add(levelToolResizeButton)
-                    }, UiScaffold.gbc(3))
-                    add(UiScaffold.titledLabel("Load Existing"), UiScaffold.gbc(4))
-                    add(levelLoadCombo, UiScaffold.gbc(5))
+                    add(UiScaffold.titledLabel("Load Existing"), UiScaffold.gbc(2))
+                    add(levelLoadCombo, UiScaffold.gbc(3))
                     add(JPanel(GridLayout(2, 2, 6, 6)).apply {
                         isOpaque = true
                         background = Color(24, 18, 15)
@@ -1726,17 +1728,29 @@ object LauncherMain {
                         add(levelToolSaveButton)
                         add(levelToolSpawnButton)
                         add(levelToolWallButton)
-                    }, UiScaffold.gbc(6))
-                    add(levelToolClearButton, UiScaffold.gbc(7))
-                    add(UiScaffold.titledLabel("Drag on the grid to place the active element. Right-drag removes wall blocks."), UiScaffold.gbc(8))
-                    add(levelToolStatus, UiScaffold.gbc(9, 1.0, GridBagConstraints.HORIZONTAL))
+                    }, UiScaffold.gbc(4))
+                    add(levelToolClearButton, UiScaffold.gbc(5))
+                    add(UiScaffold.titledLabel("Drag on the grid to place the active element. Right-drag removes wall blocks."), UiScaffold.gbc(6))
+                    add(levelToolStatus, UiScaffold.gbc(7, 1.0, GridBagConstraints.HORIZONTAL))
                 }, BorderLayout.WEST)
                 val levelScroll = ThemedScrollPane(levelEditorCanvas).apply {
                     border = themedTitledBorder("Level Grid ${levelEditorCols}x${levelEditorRows}")
                     preferredSize = Dimension(980, 620)
                 }
                 levelEditorScroll = levelScroll
-                add(levelScroll, BorderLayout.CENTER)
+                add(JPanel(BorderLayout(0, 8)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(UiScaffold.titledLabel("Level Grid"))
+                        add(levelGridWidthField)
+                        add(levelGridHeightField)
+                        add(levelToolResizeButton)
+                    }, BorderLayout.NORTH)
+                    add(levelScroll, BorderLayout.CENTER)
+                }, BorderLayout.CENTER)
             }, BorderLayout.CENTER)
         }
 
@@ -2332,11 +2346,13 @@ object LauncherMain {
     }
 
     private class ThemedComboBox<E> : JComboBox<E>() {
-        init {
-            val comboBg = Color(58, 42, 33)
-            val comboHover = Color(84, 62, 45)
-            val comboBorder = Color(172, 132, 87)
-            val comboArrowBg = Color(68, 50, 37)
+        private val comboBg = Color(58, 42, 33)
+        private val comboHover = Color(84, 62, 45)
+        private val comboBorder = Color(172, 132, 87)
+        private val comboArrowBg = Color(68, 50, 37)
+
+        private fun applyTheme() {
+            isEditable = false
             isOpaque = true
             background = comboBg
             foreground = THEME_TEXT_COLOR
@@ -2350,7 +2366,8 @@ object LauncherMain {
                     isSelected: Boolean,
                     cellHasFocus: Boolean
                 ): Component {
-                    val rendered = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus)
+                    val rendered = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus) as JLabel
+                    rendered.isOpaque = true
                     rendered.foreground = THEME_TEXT_COLOR
                     rendered.background = if (isSelected) comboHover else comboBg
                     rendered.font = Font(THEME_FONT_FAMILY, Font.PLAIN, 14)
@@ -2378,6 +2395,15 @@ object LauncherMain {
                 }
             })
         }
+
+        override fun updateUI() {
+            super.updateUI()
+            applyTheme()
+        }
+
+        init {
+            applyTheme()
+        }
     }
 
     private class ThemedScrollPane(
@@ -2402,6 +2428,39 @@ object LauncherMain {
                 border = BorderFactory.createLineBorder(borderColor, 1)
                 viewportBorder = BorderFactory.createEmptyBorder()
             }
+            val track = Color(34, 26, 21)
+            val thumb = Color(112, 82, 55)
+            val thumbHover = Color(136, 101, 69)
+            val borderColor = Color(172, 132, 87)
+            fun newScrollBarUi(): BasicScrollBarUI {
+                return object : BasicScrollBarUI() {
+                    override fun createDecreaseButton(orientation: Int): JButton =
+                        JButton().apply {
+                            isOpaque = true
+                            background = track
+                            border = BorderFactory.createLineBorder(borderColor, 1)
+                            preferredSize = Dimension(0, 0)
+                        }
+
+                    override fun createIncreaseButton(orientation: Int): JButton =
+                        JButton().apply {
+                            isOpaque = true
+                            background = track
+                            border = BorderFactory.createLineBorder(borderColor, 1)
+                            preferredSize = Dimension(0, 0)
+                        }
+
+                    override fun configureScrollBarColors() {
+                        trackColor = track
+                        thumbColor = thumb
+                        thumbDarkShadowColor = borderColor
+                        thumbHighlightColor = thumbHover
+                        thumbLightShadowColor = thumbHover
+                    }
+                }
+            }
+            verticalScrollBar.setUI(newScrollBarUi())
+            horizontalScrollBar.setUI(newScrollBarUi())
             verticalScrollBar.unitIncrement = 18
             horizontalScrollBar.unitIncrement = 18
         }
@@ -2512,7 +2571,7 @@ object LauncherMain {
                                 "Update downloaded. Restart to apply."
                             }
                         }
-                        2 -> "No updates available."
+                        2 -> "Game is up to date."
                         else -> buildUpdateFailureMessage(exitCode, root, output)
                     }
                     setUpdatingState(controls, false)

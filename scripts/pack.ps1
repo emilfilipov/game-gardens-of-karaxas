@@ -84,6 +84,13 @@ if (-not $launcherOnlyMode) {
   Copy-Item -Path (Join-Path $gameApp "*") -Destination (Join-Path $payloadDir "game") -Recurse
 }
 
+$characterAssetsDir = Join-Path $root "assets\\characters"
+if (Test-Path $characterAssetsDir) {
+  $payloadCharacterDir = Join-Path $payloadDir "assets\\characters"
+  New-Item -ItemType Directory -Path $payloadCharacterDir -Force | Out-Null
+  Copy-Item -Path (Join-Path $characterAssetsDir "*") -Destination $payloadCharacterDir -Recurse -Force
+}
+
 if (Test-Path $updateHelperProject) {
   dotnet publish $updateHelperProject -c Release -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true -p:PublishReadyToRun=true -o $updateHelperOutDir
   $updateHelperExe = Join-Path $updateHelperOutDir "UpdateHelper.exe"

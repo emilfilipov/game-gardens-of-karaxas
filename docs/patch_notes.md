@@ -1,4 +1,6 @@
-- Added persistent character location storage (`level_id` + `location_x/location_y`) with backend migration and API support, then wired launcher resume so characters continue from last saved coordinates.
-- Character List rows/details now show `Location` (area + coordinates when known) instead of map-only text.
-- Added live-editable level-editor grid size controls (width/height + apply) with validation, immediate canvas resize, and bounds clamping.
-- Kept level-related controls on the shared themed dropdown class and hardened character art discovery/resolution so previews render across create/select/game/editor flows.
+- Updated updater no-update status text to `Game is up to date.`.
+- Hardened shared dropdown theming so default/current values no longer fall back to white system styling.
+- Added themed scrollbar skinning to shared scroll containers, including level-maker scrollbars.
+- Moved level grid size controls to the grid header area above the editor canvas (next to the Level Grid label).
+- Expanded runtime character-art discovery roots and release packaging now copies `assets/characters` into payload for installed builds.
+- Removed obsolete unused launcher UI PNG resources that were left over from pre-refactor image-based panel/button styling.
