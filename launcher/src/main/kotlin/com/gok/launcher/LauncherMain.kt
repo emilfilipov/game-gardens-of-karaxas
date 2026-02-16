@@ -442,6 +442,7 @@ object LauncherMain {
         val levelToolStatus = JLabel(" ").apply { themeStatusLabel(this) }
         var selectedCharacterId: Int? = null
         var selectedCharacterView: CharacterView? = null
+        var activeGameCharacterView: CharacterView? = null
         var activeGameLevelId: Int? = null
         var activeGameLevelName: String = "Unassigned"
 
@@ -457,25 +458,65 @@ object LauncherMain {
             roots.add(Paths.get(System.getProperty("user.dir")))
 
             val grouped = linkedMapOf<String, MutableMap<String, BufferedImage>>()
-            val matcher = Regex("^karaxas_([a-z0-9_]+)_(idle_32|walk_sheet_4dir_6f|run_sheet_4dir_6f)\\.png$")
+            val strictMatcher = Regex("^karaxas_([a-z0-9_]+)_(idle(?:_[0-9]+)?|walk(?:_sheet(?:_4dir_6f)?)?|run(?:_sheet(?:_4dir_6f)?)?)\\.png$")
+            val maleToken = Regex("(^|[_-])male([_-]|$)")
+            val skipTokens = setOf("karaxas", "idle", "walk", "run", "sheet", "4dir", "6f", "32")
+
+            fun normalizeKind(raw: String): String? {
+                val lowered = raw.lowercase()
+                return when {
+                    lowered.startsWith("idle") -> "idle_32"
+                    lowered.startsWith("walk") -> "walk_sheet_4dir_6f"
+                    lowered.startsWith("run") -> "run_sheet_4dir_6f"
+                    else -> null
+                }
+            }
+
+            fun parseArtDescriptor(fileName: String): Pair<String, String>? {
+                val lowered = fileName.lowercase()
+                val strict = strictMatcher.matchEntire(lowered)
+                if (strict != null) {
+                    val key = strict.groupValues[1]
+                    val kind = normalizeKind(strict.groupValues[2]) ?: return null
+                    return key to kind
+                }
+                if (!lowered.endsWith(".png")) return null
+                val base = lowered.removeSuffix(".png")
+                val kind = when {
+                    "idle" in base -> "idle_32"
+                    "walk" in base -> "walk_sheet_4dir_6f"
+                    "run" in base -> "run_sheet_4dir_6f"
+                    else -> return null
+                }
+                val key = when {
+                    "female" in base -> if ("human" in base) "human_female" else "female"
+                    maleToken.containsMatchIn(base) -> if ("human" in base) "human_male" else "male"
+                    else -> {
+                        val tokens = base.split('_', '-')
+                            .filter { it.isNotBlank() && it !in skipTokens }
+                        if (tokens.isEmpty()) return null
+                        tokens.joinToString("_")
+                    }
+                }
+                return key to kind
+            }
+
             for (root in roots.distinct()) {
                 if (!Files.isDirectory(root)) continue
                 try {
-                    Files.list(root).use { stream ->
+                    Files.walk(root, 3).use { stream ->
                         stream
                             .filter { Files.isRegularFile(it) }
                             .sorted()
                             .forEach { path ->
-                                val fileName = path.fileName.toString().lowercase()
-                                val match = matcher.matchEntire(fileName) ?: return@forEach
+                                val descriptor = parseArtDescriptor(path.fileName.toString()) ?: return@forEach
                                 val image = try {
                                     ImageIO.read(path.toFile())
                                 } catch (_: Exception) {
                                     null
                                 }
                                 if (image != null) {
-                                    val key = match.groupValues[1]
-                                    val kind = match.groupValues[2]
+                                    val (key, kind) = descriptor
                                     grouped.getOrPut(key) { mutableMapOf() }[kind] = image
                                 }
                             }
@@ -523,6 +564,22 @@ object LauncherMain {
 
         val appearanceOptions = loadCharacterArtOptions()
         val appearanceByKey = appearanceOptions.associateBy { it.key }
+        val maleKeyMatcher = Regex("(^|_)male($|_)")
+        fun resolveAppearanceOption(appearanceKey: String?): CharacterArtOption? {
+            if (appearanceOptions.isEmpty()) return null
+            val normalized = appearanceKey?.trim()?.lowercase().orEmpty()
+            if (normalized.isBlank()) return appearanceOptions.firstOrNull()
+            appearanceByKey[normalized]?.let { return it }
+            appearanceByKey.entries.firstOrNull { (key, _) ->
+                normalized.contains(key) || key.contains(normalized)
+            }?.let { return it.value }
+            if ("female" in normalized) {
+                appearanceOptions.firstOrNull { it.key.contains("female") }?.let { return it }
+            } else if (maleKeyMatcher.containsMatchIn(normalized)) {
+                appearanceOptions.firstOrNull { maleKeyMatcher.containsMatchIn(it.key) }?.let { return it }
+            }
+            return appearanceOptions.firstOrNull()
+        }
         fun appearanceForSex(isFemale: Boolean): String {
             if (appearanceOptions.isEmpty()) return if (isFemale) "human_female" else "human_male"
             val needle = if (isFemale) "female" else "male"
@@ -569,7 +626,7 @@ object LauncherMain {
         }
 
         fun applyCreateAppearancePreview() {
-            val option = appearanceByKey[createAppearanceKey]
+            val option = resolveAppearanceOption(createAppearanceKey)
             val image = option?.let { renderArtFrame(it, "Idle", 0, 0) }
             if (image == null) {
                 createAppearancePreview.icon = null
@@ -587,7 +644,7 @@ object LauncherMain {
                 selectAppearancePreview.text = "No preview"
                 return
             }
-            val option = appearanceByKey[character.appearanceKey]
+            val option = resolveAppearanceOption(character.appearanceKey)
             val image = if (option != null) renderArtFrame(option, "Idle", 0, 0) else null
             if (image == null) {
                 selectAppearancePreview.icon = null
@@ -599,19 +656,34 @@ object LauncherMain {
             selectAppearancePreview.text = ""
         }
 
-        val levelEditorCols = 40
-        val levelEditorRows = 24
-        val levelEditorCell = 24
+        var levelEditorCols = 80
+        var levelEditorRows = 48
+        val levelEditorCell = 12
         var levelEditorSpawn = 1 to 1
         val levelEditorWalls = mutableSetOf<Pair<Int, Int>>()
         var levelEditorTool = "wall"
         val levelEditorName = UiScaffold.ghostTextField("Level Name")
+        val levelGridWidthField = UiScaffold.ghostTextField("Grid Width").apply {
+            text = levelEditorCols.toString()
+            horizontalAlignment = JTextField.CENTER
+            preferredSize = Dimension(90, UiScaffold.fieldSize.height)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+        }
+        val levelGridHeightField = UiScaffold.ghostTextField("Grid Height").apply {
+            text = levelEditorRows.toString()
+            horizontalAlignment = JTextField.CENTER
+            preferredSize = Dimension(90, UiScaffold.fieldSize.height)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+        }
         val levelLoadCombo = ThemedComboBox<Any>().apply {
             preferredSize = UiScaffold.fieldSize
             minimumSize = UiScaffold.fieldSize
             maximumSize = UiScaffold.fieldSize
             font = UiScaffold.bodyFont
         }
+        val levelToolResizeButton = buildMenuButton("Apply Size", rectangularButtonImage, Dimension(130, 36), 12f)
         val levelToolSpawnButton = buildMenuButton("Spawn", rectangularButtonImage, Dimension(120, 36), 12f)
         val levelToolWallButton = buildMenuButton("Wall", rectangularButtonImage, Dimension(120, 36), 12f)
         val levelToolLoadButton = buildMenuButton("Load", rectangularButtonImage, Dimension(120, 36), 12f)
@@ -624,6 +696,8 @@ object LauncherMain {
             levelToolSpawnButton.isEnabled = !spawnActive
             levelToolWallButton.isEnabled = spawnActive
         }
+
+        var levelEditorScroll: ThemedScrollPane? = null
 
         val levelEditorCanvas = object : JPanel() {
             init {
@@ -655,12 +729,59 @@ object LauncherMain {
                         g2.fillRect(cellX * levelEditorCell + 1, cellY * levelEditorCell + 1, levelEditorCell - 1, levelEditorCell - 1)
                     }
                     val (spawnX, spawnY) = levelEditorSpawn
-                    g2.color = Color(201, 170, 114)
-                    g2.fillOval(spawnX * levelEditorCell + 4, spawnY * levelEditorCell + 4, levelEditorCell - 8, levelEditorCell - 8)
+                    val spawnSprite = resolveAppearanceOption(selectedCharacterView?.appearanceKey ?: createAppearanceKey)
+                        ?.let { renderArtFrame(it, "Idle", 0, 0) }
+                    if (spawnSprite != null) {
+                        val spriteSize = (levelEditorCell - 2).coerceAtLeast(2)
+                        val sprite = scaleImage(spawnSprite, spriteSize, spriteSize)
+                        g2.drawImage(
+                            sprite,
+                            spawnX * levelEditorCell + 1,
+                            spawnY * levelEditorCell + 1,
+                            null
+                        )
+                    } else {
+                        val markerSize = (levelEditorCell - 4).coerceAtLeast(2)
+                        val offset = ((levelEditorCell - markerSize) / 2).coerceAtLeast(1)
+                        g2.color = Color(201, 170, 114)
+                        g2.fillOval(
+                            spawnX * levelEditorCell + offset,
+                            spawnY * levelEditorCell + offset,
+                            markerSize,
+                            markerSize
+                        )
+                    }
                 } finally {
                     g2.dispose()
                 }
             }
+        }
+
+        fun syncLevelGridFields() {
+            val width = levelEditorCols.toString()
+            val height = levelEditorRows.toString()
+            if (levelGridWidthField.text.trim() != width) levelGridWidthField.text = width
+            if (levelGridHeightField.text.trim() != height) levelGridHeightField.text = height
+        }
+
+        fun resizeLevelEditorCanvas() {
+            val size = Dimension(levelEditorCols * levelEditorCell, levelEditorRows * levelEditorCell)
+            levelEditorCanvas.preferredSize = size
+            levelEditorCanvas.minimumSize = size
+            levelEditorCanvas.maximumSize = size
+            levelEditorScroll?.border = themedTitledBorder("Level Grid ${levelEditorCols}x${levelEditorRows}")
+            levelEditorCanvas.revalidate()
+            levelEditorCanvas.repaint()
+            syncLevelGridFields()
+        }
+
+        fun applyLevelGridSize(cols: Int, rows: Int) {
+            levelEditorCols = cols.coerceIn(8, 256)
+            levelEditorRows = rows.coerceIn(8, 256)
+            levelEditorSpawn = levelEditorSpawn.first.coerceIn(0, levelEditorCols - 1) to
+                levelEditorSpawn.second.coerceIn(0, levelEditorRows - 1)
+            levelEditorWalls.removeIf { (x, y) -> x !in 0 until levelEditorCols || y !in 0 until levelEditorRows }
+            resizeLevelEditorCanvas()
         }
 
         fun levelCellAt(mouseX: Int, mouseY: Int): Pair<Int, Int>? {
@@ -708,6 +829,7 @@ object LauncherMain {
             }
         })
         setLevelToolMode("wall")
+        resizeLevelEditorCanvas()
 
         val buildPointBudget = 10
         var pointsRemaining = buildPointBudget
@@ -789,17 +911,9 @@ object LauncherMain {
         var gameCharacterAppearance: CharacterArtOption? = null
         val heldKeys = mutableSetOf<Int>()
 
-        fun resetPlayerToSpawn() {
+        fun setPlayerToSpawn() {
             gamePlayerX = ((gameSpawnCellX.toFloat() + 0.5f) * gameTileSize).coerceIn(spriteHalf, gameWorldWidth - spriteHalf)
             gamePlayerY = ((gameSpawnCellY.toFloat() + 0.5f) * gameTileSize).coerceIn(spriteHalf, gameWorldHeight - spriteHalf)
-            gameDirection = 0
-            gameAnimationFrame = 0
-            gameAnimationCarryMs = 0.0
-        }
-
-        fun clampPlayerToWorld() {
-            gamePlayerX = gamePlayerX.coerceIn(spriteHalf, gameWorldWidth - spriteHalf)
-            gamePlayerY = gamePlayerY.coerceIn(spriteHalf, gameWorldHeight - spriteHalf)
         }
 
         fun collidesWithWall(nextX: Float, nextY: Float): Boolean {
@@ -820,6 +934,26 @@ object LauncherMain {
                 }
             }
             return false
+        }
+
+        fun resetPlayerPosition(savedX: Int?, savedY: Int?) {
+            if (savedX != null && savedY != null) {
+                gamePlayerX = savedX.toFloat().coerceIn(spriteHalf, gameWorldWidth - spriteHalf)
+                gamePlayerY = savedY.toFloat().coerceIn(spriteHalf, gameWorldHeight - spriteHalf)
+                if (collidesWithWall(gamePlayerX, gamePlayerY)) {
+                    setPlayerToSpawn()
+                }
+            } else {
+                setPlayerToSpawn()
+            }
+            gameDirection = 0
+            gameAnimationFrame = 0
+            gameAnimationCarryMs = 0.0
+        }
+
+        fun clampPlayerToWorld() {
+            gamePlayerX = gamePlayerX.coerceIn(spriteHalf, gameWorldWidth - spriteHalf)
+            gamePlayerY = gamePlayerY.coerceIn(spriteHalf, gameWorldHeight - spriteHalf)
         }
 
         val gameWorldPanel = object : JPanel() {
@@ -1006,14 +1140,60 @@ object LauncherMain {
         }
 
         fun enterGameWithCharacter(character: CharacterView, level: LevelDataView?) {
+            activeGameCharacterView = character
             gameCharacterName = character.name
-            gameCharacterAppearance = appearanceByKey[character.appearanceKey]
+            gameCharacterAppearance = resolveAppearanceOption(character.appearanceKey)
             applyGameLevel(level)
-            resetPlayerToSpawn()
+            resetPlayerPosition(character.locationX, character.locationY)
             clampPlayerToWorld()
             gameStatus.text = " "
-            playStatus.text = if (level != null) "Loaded level: ${level.name}" else "Loaded default level."
+            val levelName = level?.name ?: "Default"
+            playStatus.text = if (character.locationX != null && character.locationY != null) {
+                "Loaded $levelName at (${character.locationX}, ${character.locationY})."
+            } else {
+                "Loaded $levelName at spawn."
+            }
             gameWorldPanel.requestFocusInWindow()
+        }
+
+        fun persistCurrentCharacterLocation() {
+            val session = authSession ?: return
+            val character = activeGameCharacterView ?: selectedCharacterView ?: return
+            val locationX = kotlin.math.round(gamePlayerX).toInt().coerceAtLeast(0)
+            val locationY = kotlin.math.round(gamePlayerY).toInt().coerceAtLeast(0)
+            val levelId = activeGameLevelId ?: character.levelId
+            Thread {
+                try {
+                    backendClient.updateCharacterLocation(
+                        accessToken = session.accessToken,
+                        clientVersion = clientVersion,
+                        characterId = character.id,
+                        levelId = levelId,
+                        locationX = locationX,
+                        locationY = locationY,
+                    )
+                } catch (ex: Exception) {
+                    log("Character location save failed against ${backendClient.endpoint()}", ex)
+                }
+            }.start()
+
+            selectedCharacterView = character.copy(
+                levelId = levelId,
+                locationX = locationX,
+                locationY = locationY,
+            )
+            activeGameCharacterView = selectedCharacterView
+            loadedCharacters = loadedCharacters.map { existing ->
+                if (existing.id == character.id) {
+                    existing.copy(
+                        levelId = levelId,
+                        locationX = locationX,
+                        locationY = locationY,
+                    )
+                } else {
+                    existing
+                }
+            }
         }
 
         fun withSession(onMissing: () -> Unit = {}, block: (AuthSession) -> Unit) {
@@ -1108,6 +1288,17 @@ object LauncherMain {
         }
 
         fun renderCharacterRows(characters: List<CharacterView>) {
+            fun characterLocationLabel(character: CharacterView): String {
+                val area = character.levelId?.let { levelId ->
+                    availableLevels.firstOrNull { it.id == levelId }?.name
+                    ?: levelDetailsById[levelId]?.name
+                    ?: "Level #$levelId"
+                } ?: "Default"
+                val x = character.locationX
+                val y = character.locationY
+                return if (x != null && y != null) "$area ($x, $y)" else area
+            }
+
             characterRowsPanel.removeAll()
             if (characters.isEmpty()) {
                 characterRowsPanel.add(JLabel("No characters yet. Create your first character.").apply {
@@ -1132,8 +1323,8 @@ object LauncherMain {
                             BorderFactory.createEmptyBorder(8, 10, 8, 10)
                         )
                     }
-                    val levelName = availableLevels.firstOrNull { it.id == character.levelId }?.name ?: "Default"
-                    val info = JLabel("${character.name}  |  Level ${character.level}  |  XP ${character.experience} (next ${character.experienceToNextLevel})  |  Map: $levelName").apply {
+                    val locationLabel = characterLocationLabel(character)
+                    val info = JLabel("${character.name}  |  Level ${character.level}  |  XP ${character.experience} (next ${character.experienceToNextLevel})  |  Location: $locationLabel").apply {
                         foreground = textColor
                         font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
                     }
@@ -1173,7 +1364,7 @@ object LauncherMain {
                                     } catch (ex: Exception) {
                                         log("Character level assignment failed against ${backendClient.endpoint()}", ex)
                                         javax.swing.SwingUtilities.invokeLater {
-                                            selectStatus.text = formatServiceError(ex, "Unable to assign map.")
+                                            selectStatus.text = formatServiceError(ex, "Unable to assign location.")
                                         }
                                     }
                                 }.start()
@@ -1203,7 +1394,7 @@ object LauncherMain {
                             selectedCharacterId = character.id
                             selectedCharacterView = character
                             selectCharacterDetails.text =
-                                "Name: ${character.name}\nLevel: ${character.level}\nExperience: ${character.experience}\nAppearance: ${character.appearanceKey}\nMap: $levelName"
+                                "Name: ${character.name}\nLevel: ${character.level}\nExperience: ${character.experience}\nAppearance: ${character.appearanceKey}\nLocation: $locationLabel"
                             applySelectionPreview(character)
                             renderCharacterRows(loadedCharacters)
                         }
@@ -1492,6 +1683,7 @@ object LauncherMain {
         }
 
         fun loadLevelIntoEditor(level: LevelDataView) {
+            applyLevelGridSize(level.width, level.height)
             levelEditorName.text = level.name
             levelEditorSpawn = level.spawnX.coerceIn(0, levelEditorCols - 1) to level.spawnY.coerceIn(0, levelEditorRows - 1)
             levelEditorWalls.clear()
@@ -1517,8 +1709,16 @@ object LauncherMain {
                     background = Color(24, 18, 15)
                     add(UiScaffold.titledLabel("Level Name"), UiScaffold.gbc(0))
                     add(levelEditorName, UiScaffold.gbc(1))
-                    add(UiScaffold.titledLabel("Load Existing"), UiScaffold.gbc(2))
-                    add(levelLoadCombo, UiScaffold.gbc(3))
+                    add(UiScaffold.titledLabel("Grid Size"), UiScaffold.gbc(2))
+                    add(JPanel(GridLayout(1, 3, 6, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(levelGridWidthField)
+                        add(levelGridHeightField)
+                        add(levelToolResizeButton)
+                    }, UiScaffold.gbc(3))
+                    add(UiScaffold.titledLabel("Load Existing"), UiScaffold.gbc(4))
+                    add(levelLoadCombo, UiScaffold.gbc(5))
                     add(JPanel(GridLayout(2, 2, 6, 6)).apply {
                         isOpaque = true
                         background = Color(24, 18, 15)
@@ -1526,15 +1726,17 @@ object LauncherMain {
                         add(levelToolSaveButton)
                         add(levelToolSpawnButton)
                         add(levelToolWallButton)
-                    }, UiScaffold.gbc(4))
-                    add(levelToolClearButton, UiScaffold.gbc(5))
-                    add(UiScaffold.titledLabel("Drag on the grid to place the active element. Right-drag removes wall blocks."), UiScaffold.gbc(6))
-                    add(levelToolStatus, UiScaffold.gbc(7, 1.0, GridBagConstraints.HORIZONTAL))
+                    }, UiScaffold.gbc(6))
+                    add(levelToolClearButton, UiScaffold.gbc(7))
+                    add(UiScaffold.titledLabel("Drag on the grid to place the active element. Right-drag removes wall blocks."), UiScaffold.gbc(8))
+                    add(levelToolStatus, UiScaffold.gbc(9, 1.0, GridBagConstraints.HORIZONTAL))
                 }, BorderLayout.WEST)
-                add(ThemedScrollPane(levelEditorCanvas).apply {
-                    border = themedTitledBorder("Level Grid 40x24")
+                val levelScroll = ThemedScrollPane(levelEditorCanvas).apply {
+                    border = themedTitledBorder("Level Grid ${levelEditorCols}x${levelEditorRows}")
                     preferredSize = Dimension(980, 620)
-                }, BorderLayout.CENTER)
+                }
+                levelEditorScroll = levelScroll
+                add(levelScroll, BorderLayout.CENTER)
             }, BorderLayout.CENTER)
         }
 
@@ -1773,7 +1975,28 @@ object LauncherMain {
         tabSelect.addActionListener { showCard("select_character") }
         tabLevelTool.addActionListener { showCard("level_tool") }
         updateBackButton.addActionListener { showCard(lastAccountCard) }
-        playBackToLobby.addActionListener { showCard("select_character") }
+        playBackToLobby.addActionListener {
+            persistCurrentCharacterLocation()
+            showCard("select_character")
+        }
+        fun applyRequestedGridSizeFromInputs(): Boolean {
+            val cols = levelGridWidthField.text.trim().toIntOrNull()
+            val rows = levelGridHeightField.text.trim().toIntOrNull()
+            if (cols == null || rows == null) {
+                levelToolStatus.text = "Grid width/height must be numeric values."
+                return false
+            }
+            if (cols !in 8..256 || rows !in 8..256) {
+                levelToolStatus.text = "Grid size must be between 8 and 256."
+                return false
+            }
+            applyLevelGridSize(cols, rows)
+            levelToolStatus.text = "Grid resized to ${levelEditorCols}x${levelEditorRows}."
+            return true
+        }
+        levelToolResizeButton.addActionListener { applyRequestedGridSizeFromInputs() }
+        levelGridWidthField.addActionListener { applyRequestedGridSizeFromInputs() }
+        levelGridHeightField.addActionListener { applyRequestedGridSizeFromInputs() }
         levelToolSpawnButton.addActionListener { setLevelToolMode("spawn") }
         levelToolWallButton.addActionListener { setLevelToolMode("wall") }
         levelToolClearButton.addActionListener {
@@ -1903,6 +2126,9 @@ object LauncherMain {
         }
 
         fun performLogout() {
+            if (gameSceneContainer.isVisible) {
+                persistCurrentCharacterLocation()
+            }
             val session = authSession
             authSession = null
             autoLoginRefreshToken = ""
@@ -1925,6 +2151,7 @@ object LauncherMain {
             characterRowsPanel.repaint()
             selectedCharacterId = null
             selectedCharacterView = null
+            activeGameCharacterView = null
             heldKeys.clear()
             createStatus.text = " "
             selectStatus.text = " "
@@ -1974,6 +2201,9 @@ object LauncherMain {
 
         frame.addWindowListener(object : WindowAdapter() {
             override fun windowClosing(e: WindowEvent?) {
+                if (gameSceneContainer.isVisible) {
+                    persistCurrentCharacterLocation()
+                }
                 authSession = null
             }
         })

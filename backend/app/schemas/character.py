@@ -15,6 +15,8 @@ class CharacterResponse(BaseModel):
     id: int
     name: str
     level_id: int | None = None
+    location_x: int | None = None
+    location_y: int | None = None
     appearance_key: str
     level: int
     experience: int
@@ -30,3 +32,9 @@ class CharacterResponse(BaseModel):
 
 class CharacterLevelAssignRequest(BaseModel):
     level_id: int | None = Field(default=None, ge=1)
+
+
+class CharacterLocationUpdateRequest(BaseModel):
+    level_id: int | None = Field(default=None, ge=1)
+    location_x: int = Field(ge=0, le=1_000_000)
+    location_y: int = Field(ge=0, le=1_000_000)

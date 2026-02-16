@@ -29,6 +29,8 @@ data class CharacterView(
     val id: Int,
     val name: String,
     val levelId: Int?,
+    val locationX: Int?,
+    val locationY: Int?,
     val appearanceKey: String,
     val level: Int,
     val experience: Int,
@@ -199,6 +201,8 @@ class KaraxasBackendClient(
                 id = item.path("id").asInt(),
                 name = item.path("name").asText(),
                 levelId = item.path("level_id").takeIf { !it.isMissingNode && !it.isNull }?.asInt(),
+                locationX = item.path("location_x").takeIf { !it.isMissingNode && !it.isNull }?.asInt(),
+                locationY = item.path("location_y").takeIf { !it.isMissingNode && !it.isNull }?.asInt(),
                 appearanceKey = item.path("appearance_key").asText("human_male"),
                 level = item.path("level").asInt(1),
                 experience = item.path("experience").asInt(0),
@@ -239,6 +243,8 @@ class KaraxasBackendClient(
             id = item.path("id").asInt(),
             name = item.path("name").asText(),
             levelId = item.path("level_id").takeIf { !it.isMissingNode && !it.isNull }?.asInt(),
+            locationX = item.path("location_x").takeIf { !it.isMissingNode && !it.isNull }?.asInt(),
+            locationY = item.path("location_y").takeIf { !it.isMissingNode && !it.isNull }?.asInt(),
             appearanceKey = item.path("appearance_key").asText("human_male"),
             level = item.path("level").asInt(1),
             experience = item.path("experience").asInt(0),
@@ -274,6 +280,29 @@ class KaraxasBackendClient(
         val response = request(
             method = "POST",
             path = "/characters/$characterId/level",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+            body = mapper.writeValueAsString(payload),
+        )
+        ensureSuccess(response)
+    }
+
+    fun updateCharacterLocation(
+        accessToken: String,
+        clientVersion: String,
+        characterId: Int,
+        levelId: Int?,
+        locationX: Int,
+        locationY: Int,
+    ) {
+        val payload = mapOf(
+            "level_id" to levelId,
+            "location_x" to locationX,
+            "location_y" to locationY,
+        )
+        val response = request(
+            method = "POST",
+            path = "/characters/$characterId/location",
             accessToken = accessToken,
             clientVersion = clientVersion,
             body = mapper.writeValueAsString(payload),

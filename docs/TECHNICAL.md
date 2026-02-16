@@ -37,6 +37,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - Includes `appearance_key` for visual preset selection persistence.
   - Includes `level` and `experience` (starts at level 1 / 0 XP).
   - Includes nullable `level_id` to map a character to a saved world layout.
+  - Includes nullable `location_x`/`location_y` for persisted world coordinates.
   - Character names are globally unique (case-insensitive unique index on `lower(name)`).
 - `levels`: named level layouts (grid size, spawn cell, wall-cell list) for world bootstrapping.
 - `friendships`: friend graph.
@@ -110,13 +111,18 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
 - Admin-only launcher controls (level-builder tab and per-character level assignment dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
 - Level-builder tool supports drag/erase wall placement and single spawn-point placement on a fixed grid, with named save/load against backend `/levels` APIs.
+- Level-builder grid defaults to a larger map footprint (`80x48`) with a zoomed-out editor cell size to keep more of the map visible while editing.
+- Level-builder grid dimensions are user-editable at runtime (`width`/`height`) with validation and immediate canvas resize/clamping.
+- Level-builder canvas renders a spawn-cell character sprite marker (using resolved appearance art) instead of only a basic spawn dot marker.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
 - Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
 - `play` scene is currently an empty-world prototype with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
 - When a character has an assigned `level_id`, gameplay loads spawn/walls from backend level data and applies tile-based wall collision in addition to world-edge collision.
+- Launcher persists character runtime location through `POST /characters/{id}/location` when leaving gameplay (or logout/close while in gameplay) and resumes from saved coordinates on next play session.
 - Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` in working dir, install root, payload root, or `GOK_CHARACTER_ART_DIR`.
 - Character creation preview now renders a static idle-frame preview (sex/appearance-driven) without a preview-animation mode selector.
+- Character art discovery now supports recursive folder scanning and fallback filename matching (in addition to canonical `karaxas_*` names) to reduce preview failures when art files are renamed or moved.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stat/skill scaffolding.
 - Skill-points counter label has been removed from UI while keeping allocation budget enforcement.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.

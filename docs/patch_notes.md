@@ -1,6 +1,4 @@
-- Removed updater progress bars from the launcher update screen and kept status-text-only feedback under patch notes.
-- Updated helper apply flow to request silent Velopack update application and switched the helper build to windowless (`WinExe`) to reduce extra update pop-up windows.
-- Removed preview-animation controls from character creation and kept a static idle preview tied to sex/appearance choice.
-- Reordered authenticated tabs to `Character List` -> `Create Character` -> `Levels`, and changed active-tab visibility to highlighted buttons instead of dim/unreadable text.
-- Removed the redundant create-screen `Back to Select` button (tab navigation remains the path between create/list screens).
-- Standardized launcher dropdowns and scroll containers through reusable themed classes so surfaces no longer fall back to white/default styling.
+- Added persistent character location storage (`level_id` + `location_x/location_y`) with backend migration and API support, then wired launcher resume so characters continue from last saved coordinates.
+- Character List rows/details now show `Location` (area + coordinates when known) instead of map-only text.
+- Added live-editable level-editor grid size controls (width/height + apply) with validation, immediate canvas resize, and bounds clamping.
+- Kept level-related controls on the shared themed dropdown class and hardened character art discovery/resolution so previews render across create/select/game/editor flows.

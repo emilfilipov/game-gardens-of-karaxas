@@ -28,9 +28,11 @@ create/select characters, and enter gameplay sessions.
    - Character preview/details update only when the character card row itself is clicked.
    - Action buttons do not change the current preview selection.
    - Admin accounts also get per-character map assignment controls in each row.
+   - Character rows show current location (area + coordinates when known).
 5. Enter gameplay session from the chosen character row (`Play` action on that row only).
    - World/session opens in a dedicated gameplay scene (separate from lobby/select cards).
    - If the character has a map assignment, the session loads that level layout and spawn.
+   - Character location is persisted (level + coordinates) so the next login resumes from the last saved position.
 6. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
    - Wall tiles from the loaded level are also collidable.
 
@@ -53,6 +55,7 @@ create/select characters, and enter gameplay sessions.
 - Current level progression scaffold uses 100 XP per level.
 - Character creation includes sex choice (current presets: male/female) with visual preview.
 - Character creation preview is currently static (idle frame) and no longer includes a preview-animation selector.
+- Character art loading accepts both canonical filenames and fallback naming/folder layouts so male/female previews continue working when asset files are reorganized.
 - Initial visual presets currently wired: human male and human female.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.
 
@@ -67,6 +70,8 @@ create/select characters, and enter gameplay sessions.
 - Optional automatic login is configured from in-session settings only (not from pre-login auth screen).
 - Updater access is no longer a lobby tab; it is available from the top-right menu entry.
 - Updater progression is shown through status text messages in the update screen (no progress bar widget).
+- Admin level editor now uses a larger, zoomed-out grid and shows a character sprite marker at spawn position.
+- Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
 
 ## Release Intent
 - Launcher-first distribution (Windows first).
