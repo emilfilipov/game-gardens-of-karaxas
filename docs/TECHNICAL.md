@@ -132,12 +132,15 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character art discovery also probes ancestor directories from `user.dir` so previews keep working when launcher is started from `repo/launcher` (not only repo root or installed payload paths).
 - Sex-to-appearance mapping now uses token-safe matching (`female`/`male` boundary checks) to avoid substring collisions like `female` matching `male`.
 - Preview image scaling is aspect-preserving with nearest-neighbor interpolation to keep sprite proportions and pixel art sharpness.
+- Create-character preview rendering now targets a fixed preview surface size so initial render and sex-switch updates keep identical zoom.
 - Release packaging copies `assets/characters/` into payload (`payload/assets/characters`) so installed launcher builds can resolve preview art without relying on local repo folders.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stats and themed rectangular toggle choices for starter skills.
 - Character creation now uses expanded two-column stat allocation rows and includes scaffold dropdowns (race/background/affiliation) above the skills area.
+- Stat allocation rows now use fixed-size cards with square +/- controls and companion fixed-size description cards for each stat entry.
+- Skill selection grid uses fixed-size themed buttons arranged for six slots per row.
 - Character creation now renders Name/Sex/Race/Background/Affiliation in one horizontal identity row, with fixed-size stats/skills tables and fixed-size row controls to prevent layout drift.
+- Character creation action row now includes a live point-budget label (`x/10 points left`) anchored immediately left of the `Create Character` button.
 - Launcher character create API payload now forwards race/background/affiliation and backend persists them in `characters`; list/create responses return those fields for UI/detail rendering.
-- Skill-points counter label has been removed from UI while keeping allocation budget enforcement.
 - Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.
 - Character preview rendering normalizes sprite frames to a fixed preview canvas before scaling, keeping sex-switch preview zoom consistent.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.

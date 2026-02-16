@@ -1,3 +1,4 @@
-- Moved `Race`, `Background`, and `Affiliation` out of the skills box and into the same horizontal identity row as `Name` and `Sex` on the Create Character screen.
-- Locked Create Character stats/skills tables and row controls to fixed sizes to prevent UI stretching and drift.
-- Fixed level-editor scene overflow by reducing grid canvas minimum size and splitting the compact top control strip into two rows so it fits on-screen.
+- Fixed Create Character preview scale consistency so initial male render and post-switch renders use the same zoom.
+- Reworked stats into fixed-size left control cards plus right description cards, with square `- / +` buttons and expanded placeholder stat coverage.
+- Resized skill buttons into a fixed six-slots-per-row layout for cleaner, predictable spacing.
+- Restored a live `x/10 points left` indicator beside the `Create Character` button.

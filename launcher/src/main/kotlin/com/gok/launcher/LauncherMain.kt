@@ -424,10 +424,12 @@ object LauncherMain {
 
         val createName = UiScaffold.ghostTextField("Character Name")
         val createIdentityFieldSize = Dimension(190, UiScaffold.fieldSize.height)
-        val createStatRowSize = Dimension(250, 34)
-        val createSkillButtonSize = Dimension(250, 34)
+        val createStatControlCardSize = Dimension(250, 36)
+        val createStatDescriptionCardSize = Dimension(280, 36)
+        val createSkillButtonSize = Dimension(86, 32)
         val createStatsPanelSize = Dimension(560, 320)
         val createSkillsPanelSize = Dimension(560, 320)
+        val createPreviewRenderSize = Dimension(230, 250)
         val sexChoice = ThemedComboBox<String>().apply {
             addItem("Male")
             addItem("Female")
@@ -472,8 +474,8 @@ object LauncherMain {
         val createStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val createSubmit = buildMenuButton("Create Character", rectangularButtonImage, Dimension(220, 42), 14f)
         val createAppearancePreview = JLabel("No art loaded", SwingConstants.CENTER).apply {
-            preferredSize = Dimension(230, 250)
-            minimumSize = Dimension(230, 250)
+            preferredSize = createPreviewRenderSize
+            minimumSize = createPreviewRenderSize
             isOpaque = true
             background = Color(31, 24, 20)
             border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
@@ -742,7 +744,11 @@ object LauncherMain {
                 return
             }
             val normalized = normalizePreviewSprite(image)
-            val scaled = scaleImage(normalized, createAppearancePreview.width.coerceAtLeast(180), createAppearancePreview.height.coerceAtLeast(220))
+            val scaled = scaleImage(
+                normalized,
+                createAppearancePreview.preferredSize.width.coerceAtLeast(180),
+                createAppearancePreview.preferredSize.height.coerceAtLeast(220)
+            )
             createAppearancePreview.icon = ImageIcon(scaled)
             createAppearancePreview.text = ""
         }
@@ -1021,14 +1027,23 @@ object LauncherMain {
 
         val buildPointBudget = 10
         var pointsRemaining = buildPointBudget
-        val statAllocations = linkedMapOf(
-            "strength" to 0,
-            "agility" to 0,
-            "intellect" to 0,
-            "vitality" to 0,
-            "resolve" to 0,
-            "endurance" to 0,
+        val createPointsRemainingLabel = JLabel("${buildPointBudget}/${buildPointBudget} points left").apply {
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 15)
+        }
+        val statEntries = listOf(
+            "strength" to "Strength",
+            "agility" to "Agility",
+            "intellect" to "Intellect",
+            "vitality" to "Vitality",
+            "resolve" to "Resolve",
+            "endurance" to "Endurance",
+            "dexterity" to "Dexterity",
+            "willpower" to "Willpower",
         )
+        val statAllocations = linkedMapOf<String, Int>().apply {
+            statEntries.forEach { (key, _) -> put(key, 0) }
+        }
         val skillAllocations = linkedMapOf(
             "ember" to 0,
             "cleave" to 0,
@@ -1044,6 +1059,18 @@ object LauncherMain {
             "vitality" to "Placeholder: increases health pool.",
             "resolve" to "Placeholder: increases resistance and focus.",
             "endurance" to "Placeholder: increases stamina and carry capacity.",
+            "dexterity" to "Placeholder: increases precision and handling.",
+            "willpower" to "Placeholder: increases concentration and control.",
+        )
+        val statDescriptions = mapOf(
+            "strength" to "Power for heavy melee attacks.",
+            "agility" to "Speed for movement and recovery.",
+            "intellect" to "Arcane output and spell control.",
+            "vitality" to "Base health and toughness.",
+            "resolve" to "Resistance against control effects.",
+            "endurance" to "Stamina and sustained effort.",
+            "dexterity" to "Precision for weapons and tools.",
+            "willpower" to "Mental focus and channeling.",
         )
         val skillTooltips = mapOf(
             "ember" to "Placeholder: light fire spell.",
@@ -1053,6 +1080,7 @@ object LauncherMain {
         )
 
         fun updatePointUi() {
+            createPointsRemainingLabel.text = "${pointsRemaining}/${buildPointBudget} points left"
             statAllocations.forEach { (key, value) -> statValueLabels[key]?.text = value.toString() }
             skillAllocations.forEach { (key, value) -> skillToggleButtons[key]?.isSelected = value > 0 }
         }
@@ -1067,20 +1095,21 @@ object LauncherMain {
         }
 
         fun statAllocationRow(title: String, key: String): JPanel {
+            val statButtonSize = Dimension(30, 30)
             val minus = JButton("-").apply {
-                preferredSize = Dimension(36, 28)
-                minimumSize = Dimension(36, 28)
-                maximumSize = Dimension(36, 28)
+                preferredSize = statButtonSize
+                minimumSize = statButtonSize
+                maximumSize = statButtonSize
             }
             applyThemedButtonStyle(minus, 15f, compactPadding = true)
             val plus = JButton("+").apply {
-                preferredSize = Dimension(36, 28)
-                minimumSize = Dimension(36, 28)
-                maximumSize = Dimension(36, 28)
+                preferredSize = statButtonSize
+                minimumSize = statButtonSize
+                maximumSize = statButtonSize
             }
             applyThemedButtonStyle(plus, 15f, compactPadding = true)
             val value = JLabel("0", SwingConstants.CENTER).apply {
-                preferredSize = Dimension(42, 28)
+                preferredSize = Dimension(36, statButtonSize.height)
                 foreground = textColor
                 font = Font(THEME_FONT_FAMILY, Font.BOLD, 16)
             }
@@ -1093,17 +1122,41 @@ object LauncherMain {
                 toolTipText = statTooltips[key]
             }
             return JPanel(BorderLayout(8, 0)).apply {
-                isOpaque = false
-                preferredSize = createStatRowSize
-                minimumSize = createStatRowSize
-                maximumSize = createStatRowSize
-                add(label, BorderLayout.WEST)
+                isOpaque = true
+                background = Color(31, 24, 20)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(2, 8, 2, 8)
+                )
+                preferredSize = createStatControlCardSize
+                minimumSize = createStatControlCardSize
+                maximumSize = createStatControlCardSize
+                add(label, BorderLayout.CENTER)
                 add(JPanel(GridLayout(1, 3, 4, 0)).apply {
                     isOpaque = false
                     add(minus)
                     add(value)
                     add(plus)
                 }, BorderLayout.EAST)
+            }
+        }
+
+        fun statDescriptionCard(key: String): JPanel {
+            val description = UiScaffold.titledLabel(statDescriptions[key] ?: "Placeholder stat effect.").apply {
+                horizontalAlignment = SwingConstants.LEFT
+                toolTipText = statTooltips[key]
+            }
+            return JPanel(BorderLayout()).apply {
+                isOpaque = true
+                background = Color(31, 24, 20)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(2, 8, 2, 8)
+                )
+                preferredSize = createStatDescriptionCardSize
+                minimumSize = createStatDescriptionCardSize
+                maximumSize = createStatDescriptionCardSize
+                add(description, BorderLayout.CENTER)
             }
         }
 
@@ -1130,13 +1183,25 @@ object LauncherMain {
                 minimumSize = createSkillButtonSize
                 maximumSize = createSkillButtonSize
                 horizontalAlignment = SwingConstants.CENTER
-                margin = Insets(0, 8, 0, 8)
+                margin = Insets(0, 4, 0, 4)
                 toolTipText = skillTooltips[key]
             }
-            applyThemedToggleStyle(button, 13f)
+            applyThemedToggleStyle(button, 12f)
             button.addActionListener { toggleSkillSelection(key) }
             skillToggleButtons[key] = button
             return button
+        }
+
+        fun disabledSkillPlaceholder(): JToggleButton {
+            return JToggleButton(" ").apply {
+                isEnabled = false
+                preferredSize = createSkillButtonSize
+                minimumSize = createSkillButtonSize
+                maximumSize = createSkillButtonSize
+                margin = Insets(0, 4, 0, 4)
+            }.also {
+                applyThemedToggleStyle(it, 12f)
+            }
         }
 
         val gameTileSize = 64f
@@ -1905,14 +1970,19 @@ object LauncherMain {
                             preferredSize = createStatsPanelSize
                             minimumSize = createStatsPanelSize
                             maximumSize = createStatsPanelSize
-                            add(JPanel(GridLayout(3, 2, 8, 6)).apply {
+                            add(JPanel().apply {
+                                layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
                                 isOpaque = false
-                                add(statAllocationRow("Strength", "strength"))
-                                add(statAllocationRow("Vitality", "vitality"))
-                                add(statAllocationRow("Agility", "agility"))
-                                add(statAllocationRow("Resolve", "resolve"))
-                                add(statAllocationRow("Intellect", "intellect"))
-                                add(statAllocationRow("Endurance", "endurance"))
+                                statEntries.forEachIndexed { index, (key, label) ->
+                                    add(JPanel(BorderLayout(8, 0)).apply {
+                                        isOpaque = false
+                                        add(statAllocationRow(label, key), BorderLayout.WEST)
+                                        add(statDescriptionCard(key), BorderLayout.CENTER)
+                                    })
+                                    if (index < statEntries.lastIndex) {
+                                        add(Box.createVerticalStrut(4))
+                                    }
+                                }
                             }, BorderLayout.CENTER)
                         })
                         add(JPanel(BorderLayout(0, 8)).apply {
@@ -1922,47 +1992,24 @@ object LauncherMain {
                             preferredSize = createSkillsPanelSize
                             minimumSize = createSkillsPanelSize
                             maximumSize = createSkillsPanelSize
-                            add(JPanel(GridLayout(4, 2, 8, 6)).apply {
+                            add(JPanel(GridLayout(2, 6, 6, 6)).apply {
                                 isOpaque = false
                                 add(skillSelectionButton("ember", "Ember"))
                                 add(skillSelectionButton("cleave", "Cleave"))
                                 add(skillSelectionButton("quick_strike", "Quick Strike"))
                                 add(skillSelectionButton("bandage", "Bandage"))
-                                add(JToggleButton(" ").apply {
-                                    isEnabled = false
-                                    preferredSize = createSkillButtonSize
-                                    minimumSize = createSkillButtonSize
-                                    maximumSize = createSkillButtonSize
-                                    applyThemedToggleStyle(this, 12f)
-                                })
-                                add(JToggleButton(" ").apply {
-                                    isEnabled = false
-                                    preferredSize = createSkillButtonSize
-                                    minimumSize = createSkillButtonSize
-                                    maximumSize = createSkillButtonSize
-                                    applyThemedToggleStyle(this, 12f)
-                                })
-                                add(JToggleButton(" ").apply {
-                                    isEnabled = false
-                                    preferredSize = createSkillButtonSize
-                                    minimumSize = createSkillButtonSize
-                                    maximumSize = createSkillButtonSize
-                                    applyThemedToggleStyle(this, 12f)
-                                })
-                                add(JToggleButton(" ").apply {
-                                    isEnabled = false
-                                    preferredSize = createSkillButtonSize
-                                    minimumSize = createSkillButtonSize
-                                    maximumSize = createSkillButtonSize
-                                    applyThemedToggleStyle(this, 12f)
-                                })
+                                repeat(8) { add(disabledSkillPlaceholder()) }
                             }, BorderLayout.CENTER)
                         })
                     }, BorderLayout.CENTER)
                     add(JPanel(BorderLayout(8, 0)).apply {
                         isOpaque = false
                         add(createStatus, BorderLayout.CENTER)
-                        add(createSubmit, BorderLayout.EAST)
+                        add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0)).apply {
+                            isOpaque = false
+                            add(createPointsRemainingLabel)
+                            add(createSubmit)
+                        }, BorderLayout.EAST)
                     }, BorderLayout.SOUTH)
                 }, BorderLayout.CENTER)
             }, BorderLayout.CENTER)

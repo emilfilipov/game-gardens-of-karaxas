@@ -57,9 +57,14 @@ create/select characters, and enter gameplay sessions.
 - Character creation preview is currently static (idle frame) and no longer includes a preview-animation selector.
 - Sex switching must always map to the correct preset in both directions (male->female and female->male) without substring ambiguity.
 - Character preview rendering preserves sprite aspect ratio to avoid stretching between male/female presets.
+- Character creation preview uses a fixed render target so initial load and sex-switch states keep the same zoom level.
 - Character creation layout uses split tables: expanded multi-column stats on the left and skill choices on the right.
+- Stats allocation rows now use fixed-size cards with square `- / +` controls and a right-side short description card per stat.
+- Stats scaffold is expanded to include additional placeholders beyond the base six stats.
 - Level-1 starter skills currently scaffolded: Ember, Cleave, Quick Strike, Bandage.
+- Skill choices use fixed-size themed buttons sized so six slots fit per row.
 - Character creation identity controls are aligned in one horizontal row: Name, Sex, Race, Background, Affiliation.
+- Character creation footer shows a live point budget label (`x/10 points left`) beside the `Create Character` action.
 - Stats/skills have placeholder tooltips for future design descriptions.
 - Character creation selections are persisted on character records (stats, skills, race, background, affiliation, appearance).
 - Character art loading accepts both canonical filenames and fallback naming/folder layouts so male/female previews continue working when asset files are reorganized.
