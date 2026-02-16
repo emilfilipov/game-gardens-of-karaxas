@@ -137,7 +137,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stats and themed rectangular toggle choices for starter skills.
 - Character creation now uses expanded two-column stat allocation rows and includes scaffold dropdowns (race/background/affiliation) above the skills area.
 - Stat allocation rows now use fixed-size cards with square +/- controls and companion fixed-size description cards for each stat entry.
-- Skill selection grid uses fixed-size themed buttons arranged for six slots per row.
+- Skill selection uses fixed-size square themed buttons arranged as two rows with six slots per row.
+- Skill hover details are rendered through a shared HTML tooltip template containing name, costs (mana/energy/life), effects, damage+cooldown, type tag, and description sections.
+- Starter skills currently use placeholder tooltip values to validate themed tooltip layout before gameplay balancing data is finalized.
 - Character creation now renders Name/Sex/Race/Background/Affiliation in one horizontal identity row, with fixed-size stats/skills tables and fixed-size row controls to prevent layout drift.
 - Character creation action row now includes a live point-budget label (`x/10 points left`) anchored immediately left of the `Create Character` button.
 - Launcher character create API payload now forwards race/background/affiliation and backend persists them in `characters`; list/create responses return those fields for UI/detail rendering.

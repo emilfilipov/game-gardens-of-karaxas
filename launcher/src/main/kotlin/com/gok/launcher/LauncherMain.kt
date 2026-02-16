@@ -106,6 +106,18 @@ object LauncherMain {
         override fun toString(): String = label
     }
 
+    private data class SkillTooltipTemplate(
+        val fullName: String,
+        val manaCost: String,
+        val energyCost: String,
+        val lifeCost: String,
+        val effects: String,
+        val damage: String,
+        val cooldown: String,
+        val skillTypeTag: String,
+        val description: String,
+    )
+
     @JvmStatic
     fun main(args: Array<String>) {
         Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
@@ -426,7 +438,7 @@ object LauncherMain {
         val createIdentityFieldSize = Dimension(190, UiScaffold.fieldSize.height)
         val createStatControlCardSize = Dimension(250, 36)
         val createStatDescriptionCardSize = Dimension(280, 36)
-        val createSkillButtonSize = Dimension(86, 32)
+        val createSkillButtonSize = Dimension(74, 74)
         val createStatsPanelSize = Dimension(560, 320)
         val createSkillsPanelSize = Dimension(560, 320)
         val createPreviewRenderSize = Dimension(230, 250)
@@ -1072,12 +1084,77 @@ object LauncherMain {
             "dexterity" to "Precision for weapons and tools.",
             "willpower" to "Mental focus and channeling.",
         )
-        val skillTooltips = mapOf(
-            "ember" to "Placeholder: light fire spell.",
-            "cleave" to "Placeholder: wide melee slash.",
-            "quick_strike" to "Placeholder: fast single-target attack.",
-            "bandage" to "Placeholder: minor self-heal over time.",
+        val skillTooltipTemplates = mapOf(
+            "ember" to SkillTooltipTemplate(
+                fullName = "Ember",
+                manaCost = "12",
+                energyCost = "0",
+                lifeCost = "0",
+                effects = "Applies Burn I for 4s. Placeholder status effect.",
+                damage = "22 fire (placeholder scaling).",
+                cooldown = "4.0s",
+                skillTypeTag = "Spell",
+                description = "Starter fire projectile used to test cast timing and tooltip layout."
+            ),
+            "cleave" to SkillTooltipTemplate(
+                fullName = "Cleave",
+                manaCost = "0",
+                energyCost = "18",
+                lifeCost = "0",
+                effects = "Hits enemies in a short frontal arc. Placeholder stagger chance.",
+                damage = "30 physical (placeholder scaling).",
+                cooldown = "5.0s",
+                skillTypeTag = "Melee",
+                description = "Starter wide swing used to validate area attack UI and future weapon tags."
+            ),
+            "quick_strike" to SkillTooltipTemplate(
+                fullName = "Quick Strike",
+                manaCost = "0",
+                energyCost = "10",
+                lifeCost = "0",
+                effects = "Single-target thrust with placeholder haste window.",
+                damage = "18 physical (placeholder scaling).",
+                cooldown = "2.0s",
+                skillTypeTag = "Melee",
+                description = "Starter fast attack for testing low-cooldown combat flow and responsiveness."
+            ),
+            "bandage" to SkillTooltipTemplate(
+                fullName = "Bandage",
+                manaCost = "0",
+                energyCost = "8",
+                lifeCost = "0",
+                effects = "Applies Regeneration I for 6s. Placeholder cleanse: none.",
+                damage = "Healing: 24 total over duration (placeholder).",
+                cooldown = "8.0s",
+                skillTypeTag = "Support",
+                description = "Starter sustain skill used to test non-damage effects and utility tooltip formatting."
+            ),
         )
+
+        fun renderSkillTooltip(template: SkillTooltipTemplate): String {
+            val title = escapeHtml(template.fullName)
+            val mana = escapeHtml(template.manaCost)
+            val energy = escapeHtml(template.energyCost)
+            val life = escapeHtml(template.lifeCost)
+            val effects = escapeHtml(template.effects)
+            val damage = escapeHtml(template.damage)
+            val cooldown = escapeHtml(template.cooldown)
+            val typeTag = escapeHtml(template.skillTypeTag)
+            val description = escapeHtml(template.description)
+            return (
+                "<html><body style='margin:0;padding:0;font-family:$THEME_FONT_FAMILY;color:$THEME_TEXT_HEX;'>" +
+                    "<div style='width:320px;background:#1f1814;border:1px solid #ac8457;padding:8px;'>" +
+                    "<div style='font-size:14px;font-weight:bold;margin-bottom:6px;'>$title</div>" +
+                    "<div style='font-size:12px;margin-bottom:6px;'><b>Cost</b>: Mana $mana | Energy $energy | Life $life</div>" +
+                    "<div style='font-size:12px;margin-bottom:6px;'><b>Effects</b><br/>$effects</div>" +
+                    "<div style='font-size:12px;margin-bottom:6px;'><b>Damage / Cooldown</b><br/>$damage<br/>Cooldown: $cooldown</div>" +
+                    "<div style='font-size:12px;margin-bottom:6px;'><b>Type</b>: " +
+                    "<span style='border:1px solid #ac8457;padding:1px 6px;background:#2a2019;'>$typeTag</span></div>" +
+                    "<div style='font-size:12px;border:1px solid #6b513b;background:#18120f;padding:6px;'>" +
+                    "<b>Description</b><br/>$description</div>" +
+                    "</div></body></html>"
+                )
+        }
 
         fun updatePointUi() {
             createPointsRemainingLabel.text = "${pointsRemaining}/${buildPointBudget} points left"
@@ -1178,15 +1255,17 @@ object LauncherMain {
         }
 
         fun skillSelectionButton(key: String, title: String): JToggleButton {
+            val tooltipTemplate = skillTooltipTemplates[key]
             val button = JToggleButton(title).apply {
                 preferredSize = createSkillButtonSize
                 minimumSize = createSkillButtonSize
                 maximumSize = createSkillButtonSize
                 horizontalAlignment = SwingConstants.CENTER
                 margin = Insets(0, 4, 0, 4)
-                toolTipText = skillTooltips[key]
+                verticalAlignment = SwingConstants.CENTER
+                toolTipText = tooltipTemplate?.let { renderSkillTooltip(it) }
             }
-            applyThemedToggleStyle(button, 12f)
+            applyThemedToggleStyle(button, 11f)
             button.addActionListener { toggleSkillSelection(key) }
             skillToggleButtons[key] = button
             return button
@@ -1200,7 +1279,7 @@ object LauncherMain {
                 maximumSize = createSkillButtonSize
                 margin = Insets(0, 4, 0, 4)
             }.also {
-                applyThemedToggleStyle(it, 12f)
+                applyThemedToggleStyle(it, 11f)
             }
         }
 
@@ -1992,13 +2071,25 @@ object LauncherMain {
                             preferredSize = createSkillsPanelSize
                             minimumSize = createSkillsPanelSize
                             maximumSize = createSkillsPanelSize
-                            add(JPanel(GridLayout(2, 6, 6, 6)).apply {
+                            add(JPanel(BorderLayout()).apply {
                                 isOpaque = false
-                                add(skillSelectionButton("ember", "Ember"))
-                                add(skillSelectionButton("cleave", "Cleave"))
-                                add(skillSelectionButton("quick_strike", "Quick Strike"))
-                                add(skillSelectionButton("bandage", "Bandage"))
-                                repeat(8) { add(disabledSkillPlaceholder()) }
+                                add(JPanel().apply {
+                                    layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
+                                    isOpaque = false
+                                    add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                                        isOpaque = false
+                                        add(skillSelectionButton("ember", "Ember"))
+                                        add(skillSelectionButton("cleave", "Cleave"))
+                                        add(skillSelectionButton("quick_strike", "Quick Strike"))
+                                        add(skillSelectionButton("bandage", "Bandage"))
+                                        repeat(2) { add(disabledSkillPlaceholder()) }
+                                    })
+                                    add(Box.createVerticalStrut(6))
+                                    add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                                        isOpaque = false
+                                        repeat(6) { add(disabledSkillPlaceholder()) }
+                                    })
+                                }, BorderLayout.NORTH)
                             }, BorderLayout.CENTER)
                         })
                     }, BorderLayout.CENTER)

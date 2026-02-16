@@ -1,4 +1,3 @@
-- Fixed Create Character preview scale consistency so initial male render and post-switch renders use the same zoom.
-- Reworked stats into fixed-size left control cards plus right description cards, with square `- / +` buttons and expanded placeholder stat coverage.
-- Resized skill buttons into a fixed six-slots-per-row layout for cleaner, predictable spacing.
-- Restored a live `x/10 points left` indicator beside the `Create Character` button.
+- Converted Create Character skill slots to fixed square buttons while preserving six slots per row.
+- Added a standardized themed skill tooltip template with sections for full name, mana/energy/life costs, effects, damage/cooldown, type tag, and description.
+- Filled current starter skill tooltips with placeholder values so the tooltip UI can be visually validated in-game.

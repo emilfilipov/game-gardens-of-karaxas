@@ -62,7 +62,15 @@ create/select characters, and enter gameplay sessions.
 - Stats allocation rows now use fixed-size cards with square `- / +` controls and a right-side short description card per stat.
 - Stats scaffold is expanded to include additional placeholders beyond the base six stats.
 - Level-1 starter skills currently scaffolded: Ember, Cleave, Quick Strike, Bandage.
-- Skill choices use fixed-size themed buttons sized so six slots fit per row.
+- Skill choices use fixed-size square themed buttons with six slots per row.
+- Skill hover tooltips use a standardized info template:
+  - full name
+  - mana/energy/life cost
+  - effects
+  - damage and cooldown
+  - skill type tag
+  - description box
+- Current starter skill tooltips are populated with placeholder data for UI validation.
 - Character creation identity controls are aligned in one horizontal row: Name, Sex, Race, Background, Affiliation.
 - Character creation footer shows a live point budget label (`x/10 points left`) beside the `Create Character` action.
 - Stats/skills have placeholder tooltips for future design descriptions.
