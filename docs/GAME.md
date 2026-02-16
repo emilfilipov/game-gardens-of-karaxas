@@ -59,7 +59,7 @@ create/select characters, and enter gameplay sessions.
 - Character preview rendering preserves sprite aspect ratio to avoid stretching between male/female presets.
 - Character creation layout uses split tables: expanded multi-column stats on the left and skill choices on the right.
 - Level-1 starter skills currently scaffolded: Ember, Cleave, Quick Strike, Bandage.
-- Character creation now also includes scaffold dropdowns for race, background, and affiliation above the skills list.
+- Character creation identity controls are aligned in one horizontal row: Name, Sex, Race, Background, Affiliation.
 - Stats/skills have placeholder tooltips for future design descriptions.
 - Character creation selections are persisted on character records (stats, skills, race, background, affiliation, appearance).
 - Character art loading accepts both canonical filenames and fallback naming/folder layouts so male/female previews continue working when asset files are reorganized.

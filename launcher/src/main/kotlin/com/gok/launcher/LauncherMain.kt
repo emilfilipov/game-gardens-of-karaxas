@@ -423,7 +423,11 @@ object LauncherMain {
         }
 
         val createName = UiScaffold.ghostTextField("Character Name")
-        val createIdentityFieldSize = Dimension(280, UiScaffold.fieldSize.height)
+        val createIdentityFieldSize = Dimension(190, UiScaffold.fieldSize.height)
+        val createStatRowSize = Dimension(250, 34)
+        val createSkillButtonSize = Dimension(250, 34)
+        val createStatsPanelSize = Dimension(560, 320)
+        val createSkillsPanelSize = Dimension(560, 320)
         val sexChoice = ThemedComboBox<String>().apply {
             addItem("Male")
             addItem("Female")
@@ -851,8 +855,8 @@ object LauncherMain {
                 isOpaque = true
                 background = Color(24, 18, 15)
                 border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
-                preferredSize = Dimension(1450, 860)
-                minimumSize = preferredSize
+                preferredSize = Dimension(1180, 560)
+                minimumSize = Dimension(640, 320)
             }
 
             override fun paintComponent(graphics: Graphics) {
@@ -1090,6 +1094,9 @@ object LauncherMain {
             }
             return JPanel(BorderLayout(8, 0)).apply {
                 isOpaque = false
+                preferredSize = createStatRowSize
+                minimumSize = createStatRowSize
+                maximumSize = createStatRowSize
                 add(label, BorderLayout.WEST)
                 add(JPanel(GridLayout(1, 3, 4, 0)).apply {
                     isOpaque = false
@@ -1119,9 +1126,9 @@ object LauncherMain {
 
         fun skillSelectionButton(key: String, title: String): JToggleButton {
             val button = JToggleButton(title).apply {
-                preferredSize = Dimension(170, 34)
-                minimumSize = Dimension(170, 34)
-                maximumSize = Dimension(Int.MAX_VALUE, 34)
+                preferredSize = createSkillButtonSize
+                minimumSize = createSkillButtonSize
+                maximumSize = createSkillButtonSize
                 horizontalAlignment = SwingConstants.CENTER
                 margin = Insets(0, 8, 0, 8)
                 toolTipText = skillTooltips[key]
@@ -1861,7 +1868,7 @@ object LauncherMain {
                 add(JPanel(BorderLayout(0, 10)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(JPanel(GridLayout(1, 2, 12, 0)).apply {
+                    add(JPanel(GridLayout(1, 5, 10, 0)).apply {
                         isOpaque = false
                         add(JPanel(GridBagLayout()).apply {
                             isOpaque = false
@@ -1873,6 +1880,21 @@ object LauncherMain {
                             add(UiScaffold.titledLabel("Sex"), UiScaffold.gbc(0))
                             add(sexChoice, UiScaffold.gbc(1))
                         })
+                        add(JPanel(GridBagLayout()).apply {
+                            isOpaque = false
+                            add(UiScaffold.titledLabel("Race"), UiScaffold.gbc(0))
+                            add(raceChoice, UiScaffold.gbc(1))
+                        })
+                        add(JPanel(GridBagLayout()).apply {
+                            isOpaque = false
+                            add(UiScaffold.titledLabel("Background"), UiScaffold.gbc(0))
+                            add(backgroundChoice, UiScaffold.gbc(1))
+                        })
+                        add(JPanel(GridBagLayout()).apply {
+                            isOpaque = false
+                            add(UiScaffold.titledLabel("Affiliation"), UiScaffold.gbc(0))
+                            add(affiliationChoice, UiScaffold.gbc(1))
+                        })
                     }, BorderLayout.NORTH)
                     add(JPanel(GridLayout(1, 2, 10, 0)).apply {
                         isOpaque = false
@@ -1880,6 +1902,9 @@ object LauncherMain {
                             isOpaque = true
                             background = Color(24, 18, 15)
                             border = themedTitledBorder("Stats")
+                            preferredSize = createStatsPanelSize
+                            minimumSize = createStatsPanelSize
+                            maximumSize = createStatsPanelSize
                             add(JPanel(GridLayout(3, 2, 8, 6)).apply {
                                 isOpaque = false
                                 add(statAllocationRow("Strength", "strength"))
@@ -1894,15 +1919,9 @@ object LauncherMain {
                             isOpaque = true
                             background = Color(24, 18, 15)
                             border = themedTitledBorder("Skills")
-                            add(JPanel(GridBagLayout()).apply {
-                                isOpaque = false
-                                add(UiScaffold.titledLabel("Race"), UiScaffold.gbc(0))
-                                add(raceChoice, UiScaffold.gbc(1))
-                                add(UiScaffold.titledLabel("Background"), UiScaffold.gbc(2))
-                                add(backgroundChoice, UiScaffold.gbc(3))
-                                add(UiScaffold.titledLabel("Affiliation"), UiScaffold.gbc(4))
-                                add(affiliationChoice, UiScaffold.gbc(5))
-                            }, BorderLayout.NORTH)
+                            preferredSize = createSkillsPanelSize
+                            minimumSize = createSkillsPanelSize
+                            maximumSize = createSkillsPanelSize
                             add(JPanel(GridLayout(4, 2, 8, 6)).apply {
                                 isOpaque = false
                                 add(skillSelectionButton("ember", "Ember"))
@@ -1911,18 +1930,31 @@ object LauncherMain {
                                 add(skillSelectionButton("bandage", "Bandage"))
                                 add(JToggleButton(" ").apply {
                                     isEnabled = false
+                                    preferredSize = createSkillButtonSize
+                                    minimumSize = createSkillButtonSize
+                                    maximumSize = createSkillButtonSize
                                     applyThemedToggleStyle(this, 12f)
                                 })
                                 add(JToggleButton(" ").apply {
                                     isEnabled = false
+                                    preferredSize = createSkillButtonSize
+                                    minimumSize = createSkillButtonSize
+                                    maximumSize = createSkillButtonSize
                                     applyThemedToggleStyle(this, 12f)
                                 })
                                 add(JToggleButton(" ").apply {
                                     isEnabled = false
+                                    preferredSize = createSkillButtonSize
+                                    minimumSize = createSkillButtonSize
+                                    maximumSize = createSkillButtonSize
                                     applyThemedToggleStyle(this, 12f)
                                 })
-                                add(JLabel(" ").apply {
-                                    foreground = textColor
+                                add(JToggleButton(" ").apply {
+                                    isEnabled = false
+                                    preferredSize = createSkillButtonSize
+                                    minimumSize = createSkillButtonSize
+                                    maximumSize = createSkillButtonSize
+                                    applyThemedToggleStyle(this, 12f)
                                 })
                             }, BorderLayout.CENTER)
                         })
@@ -1992,29 +2024,38 @@ object LauncherMain {
                 add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(UiScaffold.titledLabel("Level"))
-                    add(levelEditorName.apply {
-                        preferredSize = Dimension(150, UiScaffold.fieldSize.height)
-                        minimumSize = preferredSize
-                        maximumSize = preferredSize
+                    add(JPanel(GridLayout(2, 1, 0, 4)).apply {
+                        isOpaque = false
+                        add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                            isOpaque = false
+                            add(UiScaffold.titledLabel("Level"))
+                            add(levelEditorName.apply {
+                                preferredSize = Dimension(150, UiScaffold.fieldSize.height)
+                                minimumSize = preferredSize
+                                maximumSize = preferredSize
+                            })
+                            add(UiScaffold.titledLabel("Load"))
+                            add(levelLoadCombo)
+                            add(levelToolLoadButton)
+                            add(levelToolSaveButton)
+                            add(levelToolBackButton)
+                            add(UiScaffold.titledLabel("Tool"))
+                            add(levelToolSpawnButton)
+                            add(levelToolWallButton)
+                            add(levelToolClearButton)
+                        })
+                        add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                            isOpaque = false
+                            add(UiScaffold.titledLabel("Grid"))
+                            add(levelGridWidthField)
+                            add(levelGridHeightField)
+                            add(levelToolResizeButton)
+                            add(UiScaffold.titledLabel("View"))
+                            add(levelViewXField)
+                            add(levelViewYField)
+                            add(levelToolViewButton)
+                        })
                     })
-                    add(UiScaffold.titledLabel("Load"))
-                    add(levelLoadCombo)
-                    add(levelToolLoadButton)
-                    add(levelToolSaveButton)
-                    add(levelToolBackButton)
-                    add(UiScaffold.titledLabel("Tool"))
-                    add(levelToolSpawnButton)
-                    add(levelToolWallButton)
-                    add(levelToolClearButton)
-                    add(UiScaffold.titledLabel("Grid"))
-                    add(levelGridWidthField)
-                    add(levelGridHeightField)
-                    add(levelToolResizeButton)
-                    add(UiScaffold.titledLabel("View"))
-                    add(levelViewXField)
-                    add(levelViewYField)
-                    add(levelToolViewButton)
                 }, BorderLayout.NORTH)
                 val gridViewport = JPanel(BorderLayout()).apply {
                     isOpaque = true

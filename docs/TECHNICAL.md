@@ -115,6 +115,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level-builder tool supports drag/erase wall placement and single spawn-point placement on a fixed grid, with named save/load against backend `/levels` APIs.
 - Level-builder is rendered in a dedicated scene (outside account card stack) with compact top controls for faster editing workflows.
 - Level-builder grid defaults to a large logical footprint (`100000x100000`) and uses viewport panning for editing.
+- Level-builder top controls are split into two compact rows and grid canvas minimum size is constrained so the scene stays within visible screen bounds on common desktop resolutions.
 - Level-builder grid dimensions are user-editable at runtime (`width`/`height`) with validation and immediate canvas resize/clamping.
 - Level-builder grid size controls are positioned with the grid header (above the editor canvas) for quick on-the-fly sizing while editing.
 - Level-builder grid is now virtualized/pannable and supports up to `100000x100000` logical dimensions without allocating a full pixel canvas of that size.
@@ -134,6 +135,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Release packaging copies `assets/characters/` into payload (`payload/assets/characters`) so installed launcher builds can resolve preview art without relying on local repo folders.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stats and themed rectangular toggle choices for starter skills.
 - Character creation now uses expanded two-column stat allocation rows and includes scaffold dropdowns (race/background/affiliation) above the skills area.
+- Character creation now renders Name/Sex/Race/Background/Affiliation in one horizontal identity row, with fixed-size stats/skills tables and fixed-size row controls to prevent layout drift.
 - Launcher character create API payload now forwards race/background/affiliation and backend persists them in `characters`; list/create responses return those fields for UI/detail rendering.
 - Skill-points counter label has been removed from UI while keeping allocation budget enforcement.
 - Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.

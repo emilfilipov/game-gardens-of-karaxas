@@ -1,1 +1,3 @@
-- Fixed cogwheel dropdown highlight rendering by forcing themed menu-item UI colors, removing platform-default blue selection highlights.
+- Moved `Race`, `Background`, and `Affiliation` out of the skills box and into the same horizontal identity row as `Name` and `Sex` on the Create Character screen.
+- Locked Create Character stats/skills tables and row controls to fixed sizes to prevent UI stretching and drift.
+- Fixed level-editor scene overflow by reducing grid canvas minimum size and splitting the compact top control strip into two rows so it fits on-screen.
