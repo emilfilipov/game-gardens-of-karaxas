@@ -242,9 +242,9 @@ object LauncherMain {
         val centeredContent = JPanel(GridBagLayout()).apply { isOpaque = false }
         val shellPanel = MenuContentBoxPanel().apply {
             layout = BorderLayout()
-            border = BorderFactory.createEmptyBorder(28, 34, 28, 34)
-            preferredSize = Dimension(1040, 660)
-            minimumSize = Dimension(900, 560)
+            border = BorderFactory.createEmptyBorder(24, 28, 24, 28)
+            preferredSize = Dimension(1360, 820)
+            minimumSize = Dimension(1180, 700)
         }
         val gameSceneContainer = JPanel(BorderLayout()).apply {
             isOpaque = true
@@ -252,12 +252,19 @@ object LauncherMain {
             isVisible = false
             border = BorderFactory.createEmptyBorder(20, 20, 20, 20)
         }
+        val levelSceneContainer = JPanel(BorderLayout()).apply {
+            isOpaque = true
+            background = Color(12, 10, 9)
+            isVisible = false
+            border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
+        }
         val authStandaloneContainer = JPanel(GridBagLayout()).apply {
             isOpaque = false
             isVisible = false
         }
         centeredContent.add(shellPanel)
         centeredContent.add(gameSceneContainer)
+        centeredContent.add(levelSceneContainer)
         centeredContent.add(authStandaloneContainer)
         rootPanel.add(centeredContent, BorderLayout.CENTER)
 
@@ -406,13 +413,47 @@ object LauncherMain {
         }
 
         val createName = UiScaffold.ghostTextField("Character Name")
+        val createIdentityFieldSize = Dimension(280, UiScaffold.fieldSize.height)
         val sexChoice = ThemedComboBox<String>().apply {
             addItem("Male")
             addItem("Female")
-            preferredSize = UiScaffold.fieldSize
-            minimumSize = UiScaffold.fieldSize
-            maximumSize = UiScaffold.fieldSize
+            preferredSize = createIdentityFieldSize
+            minimumSize = createIdentityFieldSize
+            maximumSize = createIdentityFieldSize
             font = UiScaffold.bodyFont
+        }
+        createName.preferredSize = createIdentityFieldSize
+        createName.minimumSize = createIdentityFieldSize
+        createName.maximumSize = createIdentityFieldSize
+        val raceChoice = ThemedComboBox<String>().apply {
+            addItem("Human")
+            addItem("Elf")
+            addItem("Dwarf")
+            preferredSize = createIdentityFieldSize
+            minimumSize = createIdentityFieldSize
+            maximumSize = createIdentityFieldSize
+            font = UiScaffold.bodyFont
+            toolTipText = "Placeholder race selector."
+        }
+        val backgroundChoice = ThemedComboBox<String>().apply {
+            addItem("Drifter")
+            addItem("Scholar")
+            addItem("Soldier")
+            preferredSize = createIdentityFieldSize
+            minimumSize = createIdentityFieldSize
+            maximumSize = createIdentityFieldSize
+            font = UiScaffold.bodyFont
+            toolTipText = "Placeholder background selector."
+        }
+        val affiliationChoice = ThemedComboBox<String>().apply {
+            addItem("Unaffiliated")
+            addItem("Order")
+            addItem("Consortium")
+            preferredSize = createIdentityFieldSize
+            minimumSize = createIdentityFieldSize
+            maximumSize = createIdentityFieldSize
+            font = UiScaffold.bodyFont
+            toolTipText = "Placeholder affiliation selector."
         }
         val createStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val createSubmit = buildMenuButton("Create Character", rectangularButtonImage, Dimension(220, 42), 14f)
@@ -653,6 +694,27 @@ object LauncherMain {
             }
         }
 
+        fun normalizePreviewSprite(source: BufferedImage): BufferedImage {
+            val canvasSize = 32
+            val canvas = BufferedImage(canvasSize, canvasSize, BufferedImage.TYPE_INT_ARGB)
+            val graphics = canvas.createGraphics()
+            try {
+                graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR)
+                val scale = kotlin.math.min(
+                    canvasSize.toDouble() / source.width.coerceAtLeast(1),
+                    canvasSize.toDouble() / source.height.coerceAtLeast(1)
+                )
+                val drawW = (source.width * scale).toInt().coerceAtLeast(1)
+                val drawH = (source.height * scale).toInt().coerceAtLeast(1)
+                val drawX = ((canvasSize - drawW) / 2).coerceAtLeast(0)
+                val drawY = ((canvasSize - drawH) / 2).coerceAtLeast(0)
+                graphics.drawImage(source, drawX, drawY, drawW, drawH, null)
+            } finally {
+                graphics.dispose()
+            }
+            return canvas
+        }
+
         fun applyCreateAppearancePreview() {
             val option = resolveAppearanceOption(createAppearanceKey)
             val image = option?.let { renderArtFrame(it, "Idle", 0, 0) }
@@ -665,7 +727,8 @@ object LauncherMain {
                 }
                 return
             }
-            val scaled = scaleImage(image, createAppearancePreview.width.coerceAtLeast(180), createAppearancePreview.height.coerceAtLeast(220))
+            val normalized = normalizePreviewSprite(image)
+            val scaled = scaleImage(normalized, createAppearancePreview.width.coerceAtLeast(180), createAppearancePreview.height.coerceAtLeast(220))
             createAppearancePreview.icon = ImageIcon(scaled)
             createAppearancePreview.text = ""
         }
@@ -683,17 +746,20 @@ object LauncherMain {
                 selectAppearancePreview.text = "No art loaded"
                 return
             }
-            val scaled = scaleImage(image, selectAppearancePreview.width.coerceAtLeast(140), selectAppearancePreview.height.coerceAtLeast(160))
+            val normalized = normalizePreviewSprite(image)
+            val scaled = scaleImage(normalized, selectAppearancePreview.width.coerceAtLeast(140), selectAppearancePreview.height.coerceAtLeast(160))
             selectAppearancePreview.icon = ImageIcon(scaled)
             selectAppearancePreview.text = ""
         }
 
-        var levelEditorCols = 80
-        var levelEditorRows = 48
-        val levelEditorCell = 12
+        var levelEditorCols = 100_000
+        var levelEditorRows = 100_000
+        val levelEditorCell = 20
         var levelEditorSpawn = 1 to 1
         val levelEditorWalls = mutableSetOf<Pair<Int, Int>>()
         var levelEditorTool = "wall"
+        var levelEditorViewX = 0
+        var levelEditorViewY = 0
         val levelEditorName = UiScaffold.ghostTextField("Level Name")
         val levelGridWidthField = UiScaffold.ghostTextField("Grid Width").apply {
             text = levelEditorCols.toString()
@@ -709,18 +775,36 @@ object LauncherMain {
             minimumSize = preferredSize
             maximumSize = preferredSize
         }
+        val levelViewXField = UiScaffold.ghostTextField("View X").apply {
+            text = levelEditorViewX.toString()
+            horizontalAlignment = JTextField.CENTER
+            preferredSize = Dimension(90, UiScaffold.fieldSize.height)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+        }
+        val levelViewYField = UiScaffold.ghostTextField("View Y").apply {
+            text = levelEditorViewY.toString()
+            horizontalAlignment = JTextField.CENTER
+            preferredSize = Dimension(90, UiScaffold.fieldSize.height)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+        }
         val levelLoadCombo = ThemedComboBox<Any>().apply {
-            preferredSize = UiScaffold.fieldSize
-            minimumSize = UiScaffold.fieldSize
-            maximumSize = UiScaffold.fieldSize
+            preferredSize = Dimension(170, 32)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
             font = UiScaffold.bodyFont
         }
-        val levelToolResizeButton = buildMenuButton("Apply Size", rectangularButtonImage, Dimension(130, 36), 12f)
-        val levelToolSpawnButton = buildMenuButton("Spawn", rectangularButtonImage, Dimension(120, 36), 12f)
-        val levelToolWallButton = buildMenuButton("Wall", rectangularButtonImage, Dimension(120, 36), 12f)
-        val levelToolLoadButton = buildMenuButton("Load", rectangularButtonImage, Dimension(120, 36), 12f)
-        val levelToolSaveButton = buildMenuButton("Save Level", rectangularButtonImage, Dimension(140, 36), 12f)
-        val levelToolClearButton = buildMenuButton("Clear Walls", rectangularButtonImage, Dimension(140, 36), 12f)
+        val levelToolResizeButton = buildMenuButton("Resize", rectangularButtonImage, Dimension(88, 30), 12f)
+        val levelToolViewButton = buildMenuButton("Pan", rectangularButtonImage, Dimension(72, 30), 12f)
+        val levelToolSpawnButton = buildMenuButton("Spawn", rectangularButtonImage, Dimension(78, 30), 12f)
+        val levelToolWallButton = buildMenuButton("Wall", rectangularButtonImage, Dimension(72, 30), 12f)
+        val levelToolLoadButton = buildMenuButton("Load", rectangularButtonImage, Dimension(72, 30), 12f)
+        val levelToolSaveButton = buildMenuButton("Save", rectangularButtonImage, Dimension(72, 30), 12f)
+        val levelToolClearButton = buildMenuButton("Clear", rectangularButtonImage, Dimension(72, 30), 12f)
+        val levelToolBackButton = buildMenuButton("Back", rectangularButtonImage, Dimension(86, 30), 12f)
+        var levelGridViewportPanel: JPanel? = null
+        lateinit var levelEditorCanvas: JPanel
 
         fun setLevelToolMode(mode: String) {
             levelEditorTool = mode
@@ -729,38 +813,71 @@ object LauncherMain {
             levelToolWallButton.isEnabled = spawnActive
         }
 
-        var levelEditorScroll: ThemedScrollPane? = null
+        fun visibleLevelEditorCols(): Int = (levelEditorCanvas.width / levelEditorCell).coerceAtLeast(1)
+        fun visibleLevelEditorRows(): Int = (levelEditorCanvas.height / levelEditorCell).coerceAtLeast(1)
+        fun syncLevelGridFields() {
+            val width = levelEditorCols.toString()
+            val height = levelEditorRows.toString()
+            if (levelGridWidthField.text.trim() != width) levelGridWidthField.text = width
+            if (levelGridHeightField.text.trim() != height) levelGridHeightField.text = height
+            val viewX = levelEditorViewX.toString()
+            val viewY = levelEditorViewY.toString()
+            if (levelViewXField.text.trim() != viewX) levelViewXField.text = viewX
+            if (levelViewYField.text.trim() != viewY) levelViewYField.text = viewY
+        }
+        fun clampLevelEditorView() {
+            val maxViewX = (levelEditorCols - visibleLevelEditorCols()).coerceAtLeast(0)
+            val maxViewY = (levelEditorRows - visibleLevelEditorRows()).coerceAtLeast(0)
+            levelEditorViewX = levelEditorViewX.coerceIn(0, maxViewX)
+            levelEditorViewY = levelEditorViewY.coerceIn(0, maxViewY)
+            levelGridViewportPanel?.border = themedTitledBorder(
+                "Level Grid ${levelEditorCols}x${levelEditorRows} | View ${levelEditorViewX},${levelEditorViewY}"
+            )
+            syncLevelGridFields()
+        }
 
-        val levelEditorCanvas = object : JPanel() {
+        levelEditorCanvas = object : JPanel() {
             init {
                 isOpaque = true
                 background = Color(24, 18, 15)
                 border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
-                preferredSize = Dimension(levelEditorCols * levelEditorCell, levelEditorRows * levelEditorCell)
+                preferredSize = Dimension(1450, 860)
                 minimumSize = preferredSize
-                maximumSize = preferredSize
             }
 
             override fun paintComponent(graphics: Graphics) {
                 super.paintComponent(graphics)
                 val g2 = graphics.create() as Graphics2D
                 try {
+                    clampLevelEditorView()
+                    val visCols = visibleLevelEditorCols()
+                    val visRows = visibleLevelEditorRows()
                     g2.color = Color(39, 31, 25)
                     g2.fillRect(0, 0, width, height)
                     g2.color = Color(66, 54, 44)
-                    for (x in 0..levelEditorCols) {
+                    for (x in 0..visCols) {
                         val px = x * levelEditorCell
                         g2.drawLine(px, 0, px, height)
                     }
-                    for (y in 0..levelEditorRows) {
+                    for (y in 0..visRows) {
                         val py = y * levelEditorCell
                         g2.drawLine(0, py, width, py)
                     }
                     g2.color = Color(104, 77, 53)
                     levelEditorWalls.forEach { (cellX, cellY) ->
-                        g2.fillRect(cellX * levelEditorCell + 1, cellY * levelEditorCell + 1, levelEditorCell - 1, levelEditorCell - 1)
+                        if (cellX !in levelEditorViewX until (levelEditorViewX + visCols)) return@forEach
+                        if (cellY !in levelEditorViewY until (levelEditorViewY + visRows)) return@forEach
+                        g2.fillRect(
+                            (cellX - levelEditorViewX) * levelEditorCell + 1,
+                            (cellY - levelEditorViewY) * levelEditorCell + 1,
+                            levelEditorCell - 1,
+                            levelEditorCell - 1
+                        )
                     }
                     val (spawnX, spawnY) = levelEditorSpawn
+                    val drawSpawnX = spawnX - levelEditorViewX
+                    val drawSpawnY = spawnY - levelEditorViewY
+                    if (drawSpawnX !in 0 until visCols || drawSpawnY !in 0 until visRows) return
                     val spawnSprite = resolveAppearanceOption(selectedCharacterView?.appearanceKey ?: createAppearanceKey)
                         ?.let { renderArtFrame(it, "Idle", 0, 0) }
                     if (spawnSprite != null) {
@@ -768,8 +885,8 @@ object LauncherMain {
                         val sprite = scaleImage(spawnSprite, spriteSize, spriteSize)
                         g2.drawImage(
                             sprite,
-                            spawnX * levelEditorCell + 1,
-                            spawnY * levelEditorCell + 1,
+                            drawSpawnX * levelEditorCell + 1,
+                            drawSpawnY * levelEditorCell + 1,
                             null
                         )
                     } else {
@@ -777,8 +894,8 @@ object LauncherMain {
                         val offset = ((levelEditorCell - markerSize) / 2).coerceAtLeast(1)
                         g2.color = Color(201, 170, 114)
                         g2.fillOval(
-                            spawnX * levelEditorCell + offset,
-                            spawnY * levelEditorCell + offset,
+                            drawSpawnX * levelEditorCell + offset,
+                            drawSpawnY * levelEditorCell + offset,
                             markerSize,
                             markerSize
                         )
@@ -789,27 +906,14 @@ object LauncherMain {
             }
         }
 
-        fun syncLevelGridFields() {
-            val width = levelEditorCols.toString()
-            val height = levelEditorRows.toString()
-            if (levelGridWidthField.text.trim() != width) levelGridWidthField.text = width
-            if (levelGridHeightField.text.trim() != height) levelGridHeightField.text = height
-        }
-
         fun resizeLevelEditorCanvas() {
-            val size = Dimension(levelEditorCols * levelEditorCell, levelEditorRows * levelEditorCell)
-            levelEditorCanvas.preferredSize = size
-            levelEditorCanvas.minimumSize = size
-            levelEditorCanvas.maximumSize = size
-            levelEditorScroll?.border = themedTitledBorder("Level Grid ${levelEditorCols}x${levelEditorRows}")
-            levelEditorCanvas.revalidate()
+            clampLevelEditorView()
             levelEditorCanvas.repaint()
-            syncLevelGridFields()
         }
 
         fun applyLevelGridSize(cols: Int, rows: Int) {
-            levelEditorCols = cols.coerceIn(8, 256)
-            levelEditorRows = rows.coerceIn(8, 256)
+            levelEditorCols = cols.coerceIn(8, 100_000)
+            levelEditorRows = rows.coerceIn(8, 100_000)
             levelEditorSpawn = levelEditorSpawn.first.coerceIn(0, levelEditorCols - 1) to
                 levelEditorSpawn.second.coerceIn(0, levelEditorRows - 1)
             levelEditorWalls.removeIf { (x, y) -> x !in 0 until levelEditorCols || y !in 0 until levelEditorRows }
@@ -818,8 +922,10 @@ object LauncherMain {
 
         fun levelCellAt(mouseX: Int, mouseY: Int): Pair<Int, Int>? {
             if (mouseX < 0 || mouseY < 0) return null
-            val cellX = mouseX / levelEditorCell
-            val cellY = mouseY / levelEditorCell
+            val localCellX = mouseX / levelEditorCell
+            val localCellY = mouseY / levelEditorCell
+            val cellX = levelEditorViewX + localCellX
+            val cellY = levelEditorViewY + localCellY
             if (cellX !in 0 until levelEditorCols || cellY !in 0 until levelEditorRows) return null
             return cellX to cellY
         }
@@ -844,20 +950,56 @@ object LauncherMain {
         }
 
         var levelEditorDragging = false
+        var levelEditorPanning = false
+        var levelEditorPanStartViewX = 0
+        var levelEditorPanStartViewY = 0
+        var levelEditorPanStartMouseX = 0
+        var levelEditorPanStartMouseY = 0
         levelEditorCanvas.addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mousePressed(event: java.awt.event.MouseEvent) {
+                if (event.button == java.awt.event.MouseEvent.BUTTON2 || event.isAltDown) {
+                    levelEditorPanning = true
+                    levelEditorPanStartViewX = levelEditorViewX
+                    levelEditorPanStartViewY = levelEditorViewY
+                    levelEditorPanStartMouseX = event.x
+                    levelEditorPanStartMouseY = event.y
+                    return
+                }
                 levelEditorDragging = true
                 applyLevelToolPlacement(event.x, event.y, erase = javax.swing.SwingUtilities.isRightMouseButton(event))
             }
 
             override fun mouseReleased(event: java.awt.event.MouseEvent) {
                 levelEditorDragging = false
+                levelEditorPanning = false
             }
         })
         levelEditorCanvas.addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
             override fun mouseDragged(event: java.awt.event.MouseEvent) {
+                if (levelEditorPanning) {
+                    val deltaCellsX = (levelEditorPanStartMouseX - event.x) / levelEditorCell
+                    val deltaCellsY = (levelEditorPanStartMouseY - event.y) / levelEditorCell
+                    levelEditorViewX = levelEditorPanStartViewX + deltaCellsX
+                    levelEditorViewY = levelEditorPanStartViewY + deltaCellsY
+                    resizeLevelEditorCanvas()
+                    return
+                }
                 if (!levelEditorDragging) return
                 applyLevelToolPlacement(event.x, event.y, erase = javax.swing.SwingUtilities.isRightMouseButton(event))
+            }
+        })
+        levelEditorCanvas.addMouseWheelListener { event ->
+            val step = if (event.isControlDown) 20 else 6
+            if (event.isShiftDown) {
+                levelEditorViewX += event.wheelRotation * step
+            } else {
+                levelEditorViewY += event.wheelRotation * step
+            }
+            resizeLevelEditorCanvas()
+        }
+        levelEditorCanvas.addComponentListener(object : ComponentAdapter() {
+            override fun componentResized(event: ComponentEvent) {
+                resizeLevelEditorCanvas()
             }
         })
         setLevelToolMode("wall")
@@ -869,6 +1011,9 @@ object LauncherMain {
             "strength" to 0,
             "agility" to 0,
             "intellect" to 0,
+            "vitality" to 0,
+            "resolve" to 0,
+            "endurance" to 0,
         )
         val skillAllocations = linkedMapOf(
             "ember" to 0,
@@ -882,6 +1027,9 @@ object LauncherMain {
             "strength" to "Placeholder: increases melee damage.",
             "agility" to "Placeholder: increases movement and attack speed.",
             "intellect" to "Placeholder: increases magic potency.",
+            "vitality" to "Placeholder: increases health pool.",
+            "resolve" to "Placeholder: increases resistance and focus.",
+            "endurance" to "Placeholder: increases stamina and carry capacity.",
         )
         val skillTooltips = mapOf(
             "ember" to "Placeholder: light fire spell.",
@@ -1703,32 +1851,70 @@ object LauncherMain {
                 add(JPanel(BorderLayout(0, 10)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(JPanel(GridBagLayout()).apply {
+                    add(JPanel(GridLayout(1, 2, 12, 0)).apply {
                         isOpaque = false
-                        add(UiScaffold.titledLabel("Name"), UiScaffold.gbc(0))
-                        add(createName, UiScaffold.gbc(1))
-                        add(UiScaffold.titledLabel("Sex"), UiScaffold.gbc(2))
-                        add(sexChoice, UiScaffold.gbc(3))
-                        add(UiScaffold.titledLabel("Scaffold: Start stats/skills"), UiScaffold.gbc(4))
+                        add(JPanel(GridBagLayout()).apply {
+                            isOpaque = false
+                            add(UiScaffold.titledLabel("Name"), UiScaffold.gbc(0))
+                            add(createName, UiScaffold.gbc(1))
+                        })
+                        add(JPanel(GridBagLayout()).apply {
+                            isOpaque = false
+                            add(UiScaffold.titledLabel("Sex"), UiScaffold.gbc(0))
+                            add(sexChoice, UiScaffold.gbc(1))
+                        })
                     }, BorderLayout.NORTH)
                     add(JPanel(GridLayout(1, 2, 10, 0)).apply {
                         isOpaque = false
-                        add(JPanel(GridBagLayout()).apply {
+                        add(JPanel(BorderLayout(0, 8)).apply {
                             isOpaque = true
                             background = Color(24, 18, 15)
                             border = themedTitledBorder("Stats")
-                            add(statAllocationRow("Strength", "strength"), UiScaffold.gbc(0, 1.0, GridBagConstraints.HORIZONTAL))
-                            add(statAllocationRow("Agility", "agility"), UiScaffold.gbc(1, 1.0, GridBagConstraints.HORIZONTAL))
-                            add(statAllocationRow("Intellect", "intellect"), UiScaffold.gbc(2, 1.0, GridBagConstraints.HORIZONTAL))
+                            add(JPanel(GridLayout(3, 2, 8, 6)).apply {
+                                isOpaque = false
+                                add(statAllocationRow("Strength", "strength"))
+                                add(statAllocationRow("Vitality", "vitality"))
+                                add(statAllocationRow("Agility", "agility"))
+                                add(statAllocationRow("Resolve", "resolve"))
+                                add(statAllocationRow("Intellect", "intellect"))
+                                add(statAllocationRow("Endurance", "endurance"))
+                            }, BorderLayout.CENTER)
                         })
-                        add(JPanel(GridBagLayout()).apply {
+                        add(JPanel(BorderLayout(0, 8)).apply {
                             isOpaque = true
                             background = Color(24, 18, 15)
                             border = themedTitledBorder("Skills")
-                            add(skillSelectionButton("ember", "Ember"), UiScaffold.gbc(0, 1.0, GridBagConstraints.HORIZONTAL))
-                            add(skillSelectionButton("cleave", "Cleave"), UiScaffold.gbc(1, 1.0, GridBagConstraints.HORIZONTAL))
-                            add(skillSelectionButton("quick_strike", "Quick Strike"), UiScaffold.gbc(2, 1.0, GridBagConstraints.HORIZONTAL))
-                            add(skillSelectionButton("bandage", "Bandage"), UiScaffold.gbc(3, 1.0, GridBagConstraints.HORIZONTAL))
+                            add(JPanel(GridBagLayout()).apply {
+                                isOpaque = false
+                                add(UiScaffold.titledLabel("Race"), UiScaffold.gbc(0))
+                                add(raceChoice, UiScaffold.gbc(1))
+                                add(UiScaffold.titledLabel("Background"), UiScaffold.gbc(2))
+                                add(backgroundChoice, UiScaffold.gbc(3))
+                                add(UiScaffold.titledLabel("Affiliation"), UiScaffold.gbc(4))
+                                add(affiliationChoice, UiScaffold.gbc(5))
+                            }, BorderLayout.NORTH)
+                            add(JPanel(GridLayout(4, 2, 8, 6)).apply {
+                                isOpaque = false
+                                add(skillSelectionButton("ember", "Ember"))
+                                add(skillSelectionButton("cleave", "Cleave"))
+                                add(skillSelectionButton("quick_strike", "Quick Strike"))
+                                add(skillSelectionButton("bandage", "Bandage"))
+                                add(JToggleButton(" ").apply {
+                                    isEnabled = false
+                                    applyThemedToggleStyle(this, 12f)
+                                })
+                                add(JToggleButton(" ").apply {
+                                    isEnabled = false
+                                    applyThemedToggleStyle(this, 12f)
+                                })
+                                add(JToggleButton(" ").apply {
+                                    isEnabled = false
+                                    applyThemedToggleStyle(this, 12f)
+                                })
+                                add(JLabel(" ").apply {
+                                    foreground = textColor
+                                })
+                            }, BorderLayout.CENTER)
                         })
                     }, BorderLayout.CENTER)
                     add(JPanel(BorderLayout(8, 0)).apply {
@@ -1773,61 +1959,67 @@ object LauncherMain {
             applyLevelGridSize(level.width, level.height)
             levelEditorName.text = level.name
             levelEditorSpawn = level.spawnX.coerceIn(0, levelEditorCols - 1) to level.spawnY.coerceIn(0, levelEditorRows - 1)
+            levelEditorViewX = (levelEditorSpawn.first - 20).coerceAtLeast(0)
+            levelEditorViewY = (levelEditorSpawn.second - 12).coerceAtLeast(0)
             levelEditorWalls.clear()
             level.wallCells
                 .map { it.x.coerceIn(0, levelEditorCols - 1) to it.y.coerceIn(0, levelEditorRows - 1) }
                 .filterNot { it == levelEditorSpawn }
                 .forEach { levelEditorWalls.add(it) }
-            levelEditorCanvas.repaint()
+            resizeLevelEditorCanvas()
         }
 
         val levelToolPanel = UiScaffold.contentPanel().apply {
-            layout = BorderLayout(10, 8)
+            layout = BorderLayout(8, 8)
             add(UiScaffold.sectionLabel("Level Builder (Admin)"), BorderLayout.NORTH)
             add(JPanel(BorderLayout(8, 8)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
                 border = BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(Color(172, 132, 87), 1),
-                    BorderFactory.createEmptyBorder(8, 8, 8, 8)
+                    BorderFactory.createEmptyBorder(6, 6, 6, 6)
                 )
-                add(JPanel(GridBagLayout()).apply {
+                add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(UiScaffold.titledLabel("Level Name"), UiScaffold.gbc(0))
-                    add(levelEditorName, UiScaffold.gbc(1))
-                    add(UiScaffold.titledLabel("Load Existing"), UiScaffold.gbc(2))
-                    add(levelLoadCombo, UiScaffold.gbc(3))
-                    add(JPanel(GridLayout(2, 2, 6, 6)).apply {
-                        isOpaque = true
-                        background = Color(24, 18, 15)
-                        add(levelToolLoadButton)
-                        add(levelToolSaveButton)
-                        add(levelToolSpawnButton)
-                        add(levelToolWallButton)
-                    }, UiScaffold.gbc(4))
-                    add(levelToolClearButton, UiScaffold.gbc(5))
-                    add(UiScaffold.titledLabel("Drag on the grid to place the active element. Right-drag removes wall blocks."), UiScaffold.gbc(6))
-                    add(levelToolStatus, UiScaffold.gbc(7, 1.0, GridBagConstraints.HORIZONTAL))
-                }, BorderLayout.WEST)
-                val levelScroll = ThemedScrollPane(levelEditorCanvas).apply {
-                    border = themedTitledBorder("Level Grid ${levelEditorCols}x${levelEditorRows}")
-                    preferredSize = Dimension(980, 620)
+                    add(UiScaffold.titledLabel("Level"))
+                    add(levelEditorName.apply {
+                        preferredSize = Dimension(150, UiScaffold.fieldSize.height)
+                        minimumSize = preferredSize
+                        maximumSize = preferredSize
+                    })
+                    add(UiScaffold.titledLabel("Load"))
+                    add(levelLoadCombo)
+                    add(levelToolLoadButton)
+                    add(levelToolSaveButton)
+                    add(levelToolBackButton)
+                    add(UiScaffold.titledLabel("Tool"))
+                    add(levelToolSpawnButton)
+                    add(levelToolWallButton)
+                    add(levelToolClearButton)
+                    add(UiScaffold.titledLabel("Grid"))
+                    add(levelGridWidthField)
+                    add(levelGridHeightField)
+                    add(levelToolResizeButton)
+                    add(UiScaffold.titledLabel("View"))
+                    add(levelViewXField)
+                    add(levelViewYField)
+                    add(levelToolViewButton)
+                }, BorderLayout.NORTH)
+                val gridViewport = JPanel(BorderLayout()).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    border = themedTitledBorder("Level Grid ${levelEditorCols}x${levelEditorRows} | View ${levelEditorViewX},${levelEditorViewY}")
+                    add(levelEditorCanvas, BorderLayout.CENTER)
                 }
-                levelEditorScroll = levelScroll
-                add(JPanel(BorderLayout(0, 8)).apply {
+                levelGridViewportPanel = gridViewport
+                add(gridViewport, BorderLayout.CENTER)
+                add(JPanel(BorderLayout(6, 0)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 0)).apply {
-                        isOpaque = true
-                        background = Color(24, 18, 15)
-                        add(UiScaffold.titledLabel("Level Grid"))
-                        add(levelGridWidthField)
-                        add(levelGridHeightField)
-                        add(levelToolResizeButton)
-                    }, BorderLayout.NORTH)
-                    add(levelScroll, BorderLayout.CENTER)
-                }, BorderLayout.CENTER)
+                    add(UiScaffold.titledLabel("Drag to place selected tool. Right-drag erases walls. Alt+drag or mouse-wheel pans the view."), BorderLayout.WEST)
+                    add(levelToolStatus, BorderLayout.EAST)
+                }, BorderLayout.SOUTH)
             }, BorderLayout.CENTER)
         }
 
@@ -1848,10 +2040,10 @@ object LauncherMain {
             }, BorderLayout.SOUTH)
         }
         gameSceneContainer.add(playPanel, BorderLayout.CENTER)
+        levelSceneContainer.add(levelToolPanel, BorderLayout.CENTER)
 
         menuCards.add(createCharacterPanel, "create_character")
         menuCards.add(selectCharacterPanel, "select_character")
-        menuCards.add(levelToolPanel, "level_tool")
         menuCards.add(updateContent, "update")
         var lastAccountCard = "select_character"
 
@@ -1907,6 +2099,7 @@ object LauncherMain {
             if (card == "auth") {
                 shellPanel.isVisible = false
                 gameSceneContainer.isVisible = false
+                levelSceneContainer.isVisible = false
                 authStandaloneContainer.isVisible = true
                 accountTopBar.isVisible = false
                 resetAuthInputsForMode()
@@ -1918,12 +2111,19 @@ object LauncherMain {
             if (card == "play") {
                 shellPanel.isVisible = false
                 gameSceneContainer.isVisible = true
+                levelSceneContainer.isVisible = false
+                accountTopBar.isVisible = false
+            } else if (card == "level_tool") {
+                shellPanel.isVisible = false
+                gameSceneContainer.isVisible = false
+                levelSceneContainer.isVisible = true
                 accountTopBar.isVisible = false
             } else {
                 shellPanel.isVisible = true
                 gameSceneContainer.isVisible = false
+                levelSceneContainer.isVisible = false
             }
-            if (card != "update" && card != "play") {
+            if (card == "select_character" || card == "create_character") {
                 lastAccountCard = card
                 accountTopBar.isVisible = true
                 setActiveAccountTab(card)
@@ -1960,7 +2160,7 @@ object LauncherMain {
                     refreshLevelLoadCombo()
                 }
             }
-            if (card != "play") {
+            if (card == "select_character" || card == "create_character" || card == "update") {
                 cardsLayout.show(menuCards, card)
                 menuCards.revalidate()
                 menuCards.repaint()
@@ -2077,8 +2277,8 @@ object LauncherMain {
                 levelToolStatus.text = "Grid width/height must be numeric values."
                 return false
             }
-            if (cols !in 8..256 || rows !in 8..256) {
-                levelToolStatus.text = "Grid size must be between 8 and 256."
+            if (cols !in 8..100000 || rows !in 8..100000) {
+                levelToolStatus.text = "Grid size must be between 8 and 100000."
                 return false
             }
             applyLevelGridSize(cols, rows)
@@ -2088,6 +2288,22 @@ object LauncherMain {
         levelToolResizeButton.addActionListener { applyRequestedGridSizeFromInputs() }
         levelGridWidthField.addActionListener { applyRequestedGridSizeFromInputs() }
         levelGridHeightField.addActionListener { applyRequestedGridSizeFromInputs() }
+        fun applyRequestedViewportFromInputs() {
+            val requestedX = levelViewXField.text.trim().toIntOrNull()
+            val requestedY = levelViewYField.text.trim().toIntOrNull()
+            if (requestedX == null || requestedY == null) {
+                levelToolStatus.text = "View coordinates must be numeric values."
+                return
+            }
+            levelEditorViewX = requestedX
+            levelEditorViewY = requestedY
+            resizeLevelEditorCanvas()
+            levelToolStatus.text = "Viewport moved to ${levelEditorViewX},${levelEditorViewY}."
+        }
+        levelToolViewButton.addActionListener { applyRequestedViewportFromInputs() }
+        levelViewXField.addActionListener { applyRequestedViewportFromInputs() }
+        levelViewYField.addActionListener { applyRequestedViewportFromInputs() }
+        levelToolBackButton.addActionListener { showCard("select_character") }
         levelToolSpawnButton.addActionListener { setLevelToolMode("spawn") }
         levelToolWallButton.addActionListener { setLevelToolMode("wall") }
         levelToolClearButton.addActionListener {

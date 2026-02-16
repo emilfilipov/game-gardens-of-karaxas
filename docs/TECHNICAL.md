@@ -111,9 +111,11 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
 - Admin-only launcher controls (level-builder tab and per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
 - Level-builder tool supports drag/erase wall placement and single spawn-point placement on a fixed grid, with named save/load against backend `/levels` APIs.
-- Level-builder grid defaults to a larger map footprint (`80x48`) with a zoomed-out editor cell size to keep more of the map visible while editing.
+- Level-builder is rendered in a dedicated scene (outside account card stack) with compact top controls for faster editing workflows.
+- Level-builder grid defaults to a large logical footprint (`100000x100000`) and uses viewport panning for editing.
 - Level-builder grid dimensions are user-editable at runtime (`width`/`height`) with validation and immediate canvas resize/clamping.
 - Level-builder grid size controls are positioned with the grid header (above the editor canvas) for quick on-the-fly sizing while editing.
+- Level-builder grid is now virtualized/pannable and supports up to `100000x100000` logical dimensions without allocating a full pixel canvas of that size.
 - Level-builder canvas renders a spawn-cell character sprite marker (using resolved appearance art) instead of only a basic spawn dot marker.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
 - Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
@@ -129,8 +131,10 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Preview image scaling is aspect-preserving with nearest-neighbor interpolation to keep sprite proportions and pixel art sharpness.
 - Release packaging copies `assets/characters/` into payload (`payload/assets/characters`) so installed launcher builds can resolve preview art without relying on local repo folders.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stats and themed rectangular toggle choices for starter skills.
+- Character creation now uses expanded two-column stat allocation rows and includes scaffold dropdowns (race/background/affiliation) above the skills area.
 - Skill-points counter label has been removed from UI while keeping allocation budget enforcement.
 - Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.
+- Character preview rendering normalizes sprite frames to a fixed preview canvas before scaling, keeping sex-switch preview zoom consistent.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
 - Character creation and deletion both perform immediate character-list reloads and UI refreshes to avoid stale list state.
 - Account cards now render on opaque themed surfaces to prevent visual overlap artifacts when switching tabs.

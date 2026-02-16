@@ -1,5 +1,7 @@
-- Reworked Character List screen structure: removed duplicated top title, moved list heading into the list container, and renamed the details panel to `Character details`.
-- Reworked Create Character layout: removed `Character Art Preview` heading, split stats/skills into side-by-side tables, and anchored `Create Character` to the bottom-right of the creation area.
-- Added stylized rectangular starter-skill choices (`Ember`, `Cleave`, `Quick Strike`, `Bandage`) with placeholder tooltips for stats and skills.
-- Changed admin character-card level dropdown behavior to a play-time override (`Current Location` vs selected level), so choosing a level forces spawn at that level's spawn point on launch.
-- Hardened themed dropdown rendering to suppress platform-default white/blue list styling artifacts.
+- Stabilized create/select character preview sizing by normalizing sprite frames before scaling, so sex switching no longer changes preview zoom unexpectedly.
+- Updated Create Character layout: removed scaffold text, aligned Name/Sex fields in a shared top row, expanded stat allocation into two columns, and added race/background/affiliation dropdown scaffolds above skills.
+- Expanded skills scaffold space with additional themed placeholder slots for future skills.
+- Hardened themed combo rendering for row-level `Current Location` defaults so admin dropdowns stay on-theme instead of using platform white backgrounds.
+- Enlarged the main account shell surface for more working room across authenticated menus.
+- Moved admin level builder to a dedicated scene with compact controls and a virtual panning grid supporting up to `100000x100000` logical size.
+- Increased backend level schema limits to support large editor dimensions and coordinates (up to `100000`).

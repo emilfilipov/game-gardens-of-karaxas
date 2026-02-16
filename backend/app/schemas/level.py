@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field
 
 
 class LevelGridPoint(BaseModel):
-    x: int = Field(ge=0, le=1023)
-    y: int = Field(ge=0, le=1023)
+    x: int = Field(ge=0, le=100_000)
+    y: int = Field(ge=0, le=100_000)
 
 
 class LevelSummaryResponse(BaseModel):
@@ -30,8 +30,8 @@ class LevelResponse(BaseModel):
 
 class LevelSaveRequest(BaseModel):
     name: str = Field(min_length=1, max_length=64)
-    width: int = Field(default=40, ge=8, le=256)
-    height: int = Field(default=24, ge=8, le=256)
-    spawn_x: int = Field(default=1, ge=0, le=1023)
-    spawn_y: int = Field(default=1, ge=0, le=1023)
+    width: int = Field(default=40, ge=8, le=100_000)
+    height: int = Field(default=24, ge=8, le=100_000)
+    spawn_x: int = Field(default=1, ge=0, le=100_000)
+    spawn_y: int = Field(default=1, ge=0, le=100_000)
     wall_cells: list[LevelGridPoint] = Field(default_factory=list)
