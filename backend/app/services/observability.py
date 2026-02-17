@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import RLock
 
 from sqlalchemy import func, select
@@ -13,7 +13,7 @@ from app.models.publish_drain import PublishDrainEvent
 @dataclass
 class _MetricsState:
     forced_logout_events: int = 0
-    snapshot_load_samples_ms: deque[float] = deque(maxlen=256)
+    snapshot_load_samples_ms: deque[float] = field(default_factory=lambda: deque(maxlen=256))
 
 
 _state = _MetricsState()
@@ -60,4 +60,3 @@ def build_publish_drain_metrics(db: Session) -> dict[str, int]:
         "drain_sessions_revoked_total": int(revoked or 0),
         "forced_logout_events_total": int(forced_logout_events),
     }
-

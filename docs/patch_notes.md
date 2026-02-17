@@ -1,7 +1,3 @@
-- Added publish-drain orchestration and audit schema for content/release activation, with non-admin session draining and forced logout cutoffs.
-- Added launcher realtime event-stream handling for publish warnings/forced logout and automatic return to auth after state-save.
-- Added rollout hardening controls and observability APIs (`/ops/release/feature-flags`, `/ops/release/metrics`, `/ops/release/admin-audit`).
-- Added signed content-contract compatibility flow (`content_contract_signature` + `X-Client-Content-Contract`) with backend mismatch enforcement.
-- Added security hardening: request-ID/sanitized errors, secure headers/CORS/body limits, auth/chat rate limiting, and one-time websocket tickets.
-- Added Secret Manager-ready deploy support (`*_SECRET_REF`) and CI vulnerability gates (`pip-audit` + Trivy workflow).
-- Added operational and security runbooks (`docs/OPERATIONS.md`, `docs/SECURITY.md`) plus stress-probe tooling for publish-drain validation.
+- Fixed backend startup stability for Cloud Run by correcting observability metrics-state initialization (`deque` default now uses `default_factory`).
+- Replaced backend JWT implementation dependency from `python-jose` to `PyJWT`, removing the vulnerable `ecdsa` transitive path flagged by `pip-audit`.
+- Hardened backend container runtime to run as a dedicated non-root user, satisfying Trivy Dockerfile security baseline checks.

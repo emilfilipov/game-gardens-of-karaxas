@@ -77,6 +77,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 ## Deployment and Infra Pattern
 - Cloud Run deployment pattern follows `markd-backend` operational approach.
 - `backend/scripts/deploy_cloud_run.sh` builds/pushes container and deploys Cloud Run service with Cloud SQL attachment.
+- Backend container runtime uses a dedicated non-root `app` user to satisfy container hardening baselines.
 - Same GCP project/region/settings pattern as markd is used; only DB name differs (`karaxas`).
 
 ## CI/CD Behavior
@@ -93,7 +94,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - supports either GitHub-to-GCP WIF auth or service-account JSON auth (`GCP_SA_KEY_JSON`).
 - Security workflow (`.github/workflows/security-scan.yml`):
   - scans backend dependencies with `pip-audit`.
-  - runs Trivy fs scan (vuln/misconfig/secret) and fails on high/critical findings.
+  - runs Trivy fs scan (vuln/misconfig/secret) and fails on high/critical findings, including Dockerfile root-user misconfiguration.
 
 ## Launcher UI Structure Strategy
 - UI is organized with reusable screen scaffolds and layout tokens (`UiScaffold`) to keep alignment consistent across screens.
@@ -216,7 +217,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Error responses include `X-Request-ID` so launcher/user reports can be correlated directly with backend logs.
 
 ## Security Baseline
-- Access token: JWT (short-lived).
+- Access token: JWT (short-lived, HS256 via `PyJWT`).
 - Refresh/session token: stored as hash in DB.
 - Passwords: bcrypt hash via passlib.
 - Ops endpoint auth: `x-ops-token` header backed by `OPS_API_TOKEN` secret.

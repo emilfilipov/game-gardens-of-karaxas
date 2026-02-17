@@ -3,8 +3,9 @@ import hashlib
 import secrets
 from uuid import uuid4
 
-from jose import JWTError, jwt
 from passlib.context import CryptContext
+import jwt
+from jwt import InvalidTokenError
 
 from app.core.config import settings
 
@@ -51,7 +52,7 @@ def decode_access_token(token: str) -> dict:
             audience=settings.jwt_audience,
             issuer=settings.jwt_issuer,
         )
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise TokenPayloadError("Invalid token") from exc
     if "sub" not in payload or "sid" not in payload:
         raise TokenPayloadError("Invalid token payload")
