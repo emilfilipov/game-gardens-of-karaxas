@@ -121,12 +121,26 @@ jobs:
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
           New-Item -ItemType Directory -Force -Path "releases/windows" | Out-Null
           $prefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.prefix }}"
           Write-Host "Prefetching historical packages from $prefix"
-          gsutil -m cp "$prefix/*.nupkg" "releases/windows/" 2>$null
-          gsutil cp "$prefix/RELEASES" "releases/windows/RELEASES" 2>$null
-          if ($LASTEXITCODE -ne 0) {
+          $foundAny = $false
+          & gsutil ls "$prefix/*.nupkg" 1>$null 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            & gsutil -m cp "$prefix/*.nupkg" "releases/windows/"
+            if ($LASTEXITCODE -eq 0) {
+              $foundAny = $true
+            }
+          }
+          & gsutil ls "$prefix/RELEASES" 1>$null 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            & gsutil cp "$prefix/RELEASES" "releases/windows/RELEASES"
+            if ($LASTEXITCODE -eq 0) {
+              $foundAny = $true
+            }
+          }
+          if (-not $foundAny) {
             Write-Host "No previous feed objects found. Continuing."
           }
 
