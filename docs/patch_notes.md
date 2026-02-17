@@ -1,10 +1,3 @@
-- Completed Epic A test closure with launcher golden fixtures for layered level payload serialization/deserialization and legacy wall fallback parsing.
-- Implemented Epic B data-driven content baseline:
-  - added backend content version/bundle schema + migration (`0009_content_model`),
-  - added content bootstrap/admin version APIs and snapshot cache/validation pipeline,
-  - moved character creation/progression constraints to content-driven values.
-- Wired launcher to content bootstrap with cache fallback:
-  - startup fetch from backend + local `content_bootstrap_cache.json`,
-  - content-driven create-screen options/tooltips/budget/stat caps and movement tuning,
-  - gameplay/create gating when no valid content snapshot exists.
-- Added deterministic backend content/combat tests and launcher codec tests to protect the new content/layer contracts.
+- Refactored level builder asset selection into a fixed 3-column side palette (Layer 0/1/2), with fixed-size asset cards for easier future expansion.
+- Added visual asset previews and per-asset hover tooltips in the palette so tile/spawn intent is clear during level design.
+- Replaced spawn visuals with a radar-ping marker placeholder in both the palette and the map canvas.

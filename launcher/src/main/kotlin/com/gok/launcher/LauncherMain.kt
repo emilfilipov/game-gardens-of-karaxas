@@ -1021,13 +1021,15 @@ object LauncherMain {
             maximumSize = preferredSize
             font = UiScaffold.bodyFont
         }
+        val levelPaletteColumnWidth = 150
+        val levelPaletteAssetBoxSize = Dimension(128, 96)
         val levelToolResizeButton = buildMenuButton("Resize", rectangularButtonImage, Dimension(88, 30), 12f)
         val levelToolViewButton = buildMenuButton("Pan", rectangularButtonImage, Dimension(72, 30), 12f)
-        val levelToolSpawnButton = buildMenuButton("Spawn", rectangularButtonImage, Dimension(78, 30), 12f)
-        val levelToolGrassButton = buildMenuButton("Grass", rectangularButtonImage, Dimension(72, 30), 12f)
-        val levelToolWallButton = buildMenuButton("Wall", rectangularButtonImage, Dimension(72, 30), 12f)
-        val levelToolTreeButton = buildMenuButton("Tree", rectangularButtonImage, Dimension(72, 30), 12f)
-        val levelToolCloudButton = buildMenuButton("Cloud", rectangularButtonImage, Dimension(78, 30), 12f)
+        val levelToolSpawnButton = buildMenuButton("Spawn", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
+        val levelToolGrassButton = buildMenuButton("Grass", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
+        val levelToolWallButton = buildMenuButton("Wall", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
+        val levelToolTreeButton = buildMenuButton("Tree", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
+        val levelToolCloudButton = buildMenuButton("Cloud", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
         val levelToolLoadButton = buildMenuButton("Load", rectangularButtonImage, Dimension(72, 30), 12f)
         val levelToolSaveButton = buildMenuButton("Save", rectangularButtonImage, Dimension(72, 30), 12f)
         val levelToolClearButton = buildMenuButton("Clear Layer", rectangularButtonImage, Dimension(110, 30), 12f)
@@ -1058,6 +1060,85 @@ object LauncherMain {
             font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
             toolTipText = "Show/hide layer 2 (ambient/weather overlays)."
         }
+
+        fun buildRadarPingMarker(size: Int): BufferedImage {
+            val iconSize = size.coerceAtLeast(16)
+            val image = BufferedImage(iconSize, iconSize, BufferedImage.TYPE_INT_ARGB)
+            val g2 = image.createGraphics()
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+                val center = iconSize / 2
+                val rings = listOf(
+                    iconSize - 8 to Color(228, 197, 137, 120),
+                    iconSize - 16 to Color(228, 197, 137, 170),
+                    iconSize - 24 to Color(228, 197, 137, 220),
+                )
+                rings.forEach { (diameter, color) ->
+                    if (diameter > 4) {
+                        val offset = (iconSize - diameter) / 2
+                        g2.color = color
+                        g2.drawOval(offset, offset, diameter, diameter)
+                    }
+                }
+                g2.color = Color(255, 224, 168)
+                g2.fillOval(center - 4, center - 4, 8, 8)
+            } finally {
+                g2.dispose()
+            }
+            return image
+        }
+
+        fun configureLevelPaletteButton(button: JButton, label: String, iconImage: BufferedImage?, tooltip: String) {
+            button.text = label
+            button.preferredSize = levelPaletteAssetBoxSize
+            button.minimumSize = levelPaletteAssetBoxSize
+            button.maximumSize = levelPaletteAssetBoxSize
+            button.horizontalTextPosition = SwingConstants.CENTER
+            button.verticalTextPosition = SwingConstants.BOTTOM
+            button.iconTextGap = 6
+            button.toolTipText = tooltip
+            button.icon = iconImage?.let { ImageIcon(scaleImage(it, 44, 44)) }
+        }
+
+        val levelSpawnMarkerIcon = buildRadarPingMarker(52)
+        configureLevelPaletteButton(
+            levelToolSpawnButton,
+            "Spawn",
+            levelSpawnMarkerIcon,
+            "Spawn point tool: places where players enter the level.",
+        )
+        configureLevelPaletteButton(
+            levelToolGrassButton,
+            "Grass",
+            levelTileAssets["grass_tile"]?.image,
+            "Ground tile for layer 0 (background and foliage).",
+        )
+        configureLevelPaletteButton(
+            levelToolWallButton,
+            "Wall",
+            levelTileAssets["wall_block"]?.image,
+            "Solid obstacle tile for layer 1 (collision).",
+        )
+        configureLevelPaletteButton(
+            levelToolTreeButton,
+            "Tree",
+            levelTileAssets["tree_oak"]?.image,
+            "Tree obstacle for layer 1 (collision at gameplay layer).",
+        )
+        configureLevelPaletteButton(
+            levelToolCloudButton,
+            "Cloud",
+            levelTileAssets["cloud_soft"]?.image,
+            "Ambient overlay tile for layer 2 (weather/visuals).",
+        )
+
+        val levelPaletteButtons = listOf(
+            levelToolSpawnButton,
+            levelToolGrassButton,
+            levelToolWallButton,
+            levelToolTreeButton,
+            levelToolCloudButton,
+        )
         var levelGridViewportPanel: JPanel? = null
         lateinit var levelEditorCanvas: JPanel
 
@@ -1075,11 +1156,7 @@ object LauncherMain {
             levelToolWallButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "wall_block")
             levelToolTreeButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "tree_oak")
             levelToolCloudButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "cloud_soft")
-            levelToolSpawnButton.repaint()
-            levelToolGrassButton.repaint()
-            levelToolWallButton.repaint()
-            levelToolTreeButton.repaint()
-            levelToolCloudButton.repaint()
+            levelPaletteButtons.forEach { it.repaint() }
         }
 
         fun levelLayerCells(layerId: Int): MutableMap<Pair<Int, Int>, String> {
@@ -1186,28 +1263,14 @@ object LauncherMain {
                     val drawSpawnX = spawnX - levelEditorViewX
                     val drawSpawnY = spawnY - levelEditorViewY
                     if (drawSpawnX !in 0 until visCols || drawSpawnY !in 0 until visRows) return
-                    val spawnSprite = resolveAppearanceOption(selectedCharacterView?.appearanceKey ?: createAppearanceKey)
-                        ?.let { renderArtFrame(it, "Idle", 0, 0) }
-                    if (spawnSprite != null) {
-                        val spriteSize = (levelEditorCell - 2).coerceAtLeast(2)
-                        val sprite = scaleImage(spawnSprite, spriteSize, spriteSize)
-                        g2.drawImage(
-                            sprite,
-                            drawSpawnX * levelEditorCell + 1,
-                            drawSpawnY * levelEditorCell + 1,
-                            null
-                        )
-                    } else {
-                        val markerSize = (levelEditorCell - 4).coerceAtLeast(2)
-                        val offset = ((levelEditorCell - markerSize) / 2).coerceAtLeast(1)
-                        g2.color = Color(201, 170, 114)
-                        g2.fillOval(
-                            drawSpawnX * levelEditorCell + offset,
-                            drawSpawnY * levelEditorCell + offset,
-                            markerSize,
-                            markerSize
-                        )
-                    }
+                    val markerSize = (levelEditorCell - 2).coerceAtLeast(8)
+                    val marker = scaleImage(levelSpawnMarkerIcon, markerSize, markerSize)
+                    g2.drawImage(
+                        marker,
+                        drawSpawnX * levelEditorCell + 1,
+                        drawSpawnY * levelEditorCell + 1,
+                        null
+                    )
                 } finally {
                     g2.dispose()
                 }
@@ -2508,21 +2571,49 @@ object LauncherMain {
                     BorderFactory.createLineBorder(Color(172, 132, 87), 1),
                     BorderFactory.createEmptyBorder(6, 6, 6, 6)
                 )
-                add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                fun buildLayerPaletteColumn(title: String, buttons: List<JButton>): JPanel {
+                    return JPanel(BorderLayout(0, 6)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        preferredSize = Dimension(levelPaletteColumnWidth, 0)
+                        minimumSize = Dimension(levelPaletteColumnWidth, 0)
+                        maximumSize = Dimension(levelPaletteColumnWidth, Int.MAX_VALUE)
+                        border = BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                            BorderFactory.createEmptyBorder(6, 6, 6, 6)
+                        )
+                        add(UiScaffold.titledLabel(title).apply {
+                            horizontalAlignment = SwingConstants.CENTER
+                        }, BorderLayout.NORTH)
+                        add(JPanel().apply {
+                            layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
+                            isOpaque = false
+                            buttons.forEachIndexed { index, button ->
+                                button.alignmentX = Component.CENTER_ALIGNMENT
+                                add(button)
+                                if (index < buttons.lastIndex) {
+                                    add(Box.createVerticalStrut(6))
+                                }
+                            }
+                            add(Box.createVerticalGlue())
+                        }, BorderLayout.CENTER)
+                    }
+                }
+
+                val layerPalettePanel = JPanel(GridLayout(1, 3, 8, 0)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(JPanel(GridLayout(3, 1, 0, 4)).apply {
+                    add(buildLayerPaletteColumn("Layer 0", listOf(levelToolGrassButton)))
+                    add(buildLayerPaletteColumn("Layer 1", listOf(levelToolSpawnButton, levelToolWallButton, levelToolTreeButton)))
+                    add(buildLayerPaletteColumn("Layer 2", listOf(levelToolCloudButton)))
+                }
+                add(layerPalettePanel, BorderLayout.WEST)
+
+                add(JPanel(BorderLayout(8, 8)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    add(JPanel(GridLayout(2, 1, 0, 4)).apply {
                         isOpaque = false
-                        add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
-                            isOpaque = false
-                            add(UiScaffold.titledLabel("Tool"))
-                            add(levelToolSpawnButton)
-                            add(levelToolGrassButton)
-                            add(levelToolWallButton)
-                            add(levelToolTreeButton)
-                            add(levelToolCloudButton)
-                            add(levelToolClearButton)
-                        })
                         add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                             isOpaque = false
                             add(UiScaffold.titledLabel("Active Layer"))
@@ -2531,6 +2622,7 @@ object LauncherMain {
                             add(levelShowLayer0)
                             add(levelShowLayer1)
                             add(levelShowLayer2)
+                            add(levelToolClearButton)
                         })
                         add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                             isOpaque = false
@@ -2543,22 +2635,23 @@ object LauncherMain {
                             add(levelViewYField)
                             add(levelToolViewButton)
                         })
-                    })
-                }, BorderLayout.NORTH)
-                val gridViewport = JPanel(BorderLayout()).apply {
-                    isOpaque = true
-                    background = Color(24, 18, 15)
-                    border = themedTitledBorder("Level Grid ${levelEditorCols}x${levelEditorRows} | View ${levelEditorViewX},${levelEditorViewY}")
-                    add(levelEditorCanvas, BorderLayout.CENTER)
-                }
-                levelGridViewportPanel = gridViewport
-                add(gridViewport, BorderLayout.CENTER)
-                add(JPanel(BorderLayout(6, 0)).apply {
-                    isOpaque = true
-                    background = Color(24, 18, 15)
-                    add(UiScaffold.titledLabel("Drag to paint selected layer/asset. Right-drag erases from active layer. Alt+drag or mouse-wheel pans."), BorderLayout.WEST)
-                    add(levelToolStatus, BorderLayout.EAST)
-                }, BorderLayout.SOUTH)
+                    }, BorderLayout.NORTH)
+
+                    val gridViewport = JPanel(BorderLayout()).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        border = themedTitledBorder("Level Grid ${levelEditorCols}x${levelEditorRows} | View ${levelEditorViewX},${levelEditorViewY}")
+                        add(levelEditorCanvas, BorderLayout.CENTER)
+                    }
+                    levelGridViewportPanel = gridViewport
+                    add(gridViewport, BorderLayout.CENTER)
+                    add(JPanel(BorderLayout(6, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(UiScaffold.titledLabel("Select an asset from the layer palette. Drag paints. Right-drag erases. Alt+drag or mouse-wheel pans."), BorderLayout.WEST)
+                        add(levelToolStatus, BorderLayout.EAST)
+                    }, BorderLayout.SOUTH)
+                }, BorderLayout.CENTER)
             }, BorderLayout.CENTER)
         }
 

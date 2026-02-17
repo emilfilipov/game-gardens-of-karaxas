@@ -91,16 +91,18 @@ create/select characters, and enter gameplay sessions.
 - Updater access is no longer a lobby tab; it is available from the top-right menu entry.
 - Updater progression is shown through status text messages in the update screen (no progress bar widget).
 - When no update is available, updater status reads `Game is up to date.`.
-- Admin level editor now uses a larger, zoomed-out grid and shows a character sprite marker at spawn position.
+- Admin level editor now uses a larger, zoomed-out grid and shows a radar-ping marker at spawn position.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
 - Admin level editor now keeps `Load`, `Save`, and `Back` in the top strip; the top strip also contains the `Load Existing` dropdown and `Save Level` name box next to their respective buttons.
 - The editor body below is focused on build controls and grid interaction only.
 - Saving a level requires a non-empty level name and persists current grid size, spawn, and layered tile/object data to the database.
 - Level builder opens as a separate dedicated scene for admins.
 - Level builder now uses a compact control strip and a virtual panning grid that supports up to 100000x100000 logical dimensions.
+- Level builder includes a fixed-size side palette split into 3 fixed-width columns (Layer 0/1/2), with fixed-size asset boxes for expansion-ready asset catalogs.
+- Asset boxes render visual previews and provide hover tooltips describing each asset and its intended usage.
 - Level builder supports explicit rendering layers with active-layer editing and visibility toggles:
   - Layer 0: ground/foliage (`grass` tile scaffold).
-  - Layer 1: gameplay entities/obstacles (`wall`, `tree` scaffold).
+  - Layer 1: gameplay entities/obstacles and spawn tool (`wall`, `tree`, `spawn` scaffold).
   - Layer 2: weather/ambient overlays (`cloud` scaffold).
 
 ## Release Intent
