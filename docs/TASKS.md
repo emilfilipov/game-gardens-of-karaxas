@@ -13,7 +13,7 @@ This section tracks execution status for:
 - fully data-driven runtime content (non-logic values in DB),
 - admin-published content changes that safely log out non-admin users.
 
-Epic A and Epic B are now implemented. Epic C+ remain planned.
+Epic A, Epic B, and Epic C are now implemented. Epic D+ remain planned.
 
 ### Epic A: Layered Level Model and Level-Builder Layer Editing
 | Task ID | Status | Complexity | Detailed Description |
@@ -45,15 +45,15 @@ Epic A and Epic B are now implemented. Epic C+ remain planned.
 ### Epic C: Admin Publish Flow With Non-Admin Session Drain/Logout
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-120 | ⬜ | 3 | Define publish transaction semantics: activating a new content version creates a `drain_window` event and emits a cluster-wide publish notification with version id and grace period. |
-| GOK-MMO-121 | ⬜ | 4 | Implement backend session-drain orchestrator: on content publish, mark all non-admin sessions as `draining`, keep admin sessions active, and compute forced logout deadline. |
-| GOK-MMO-122 | ⬜ | 4 | Implement world-state flush path for draining users: persist location/character state, detach character from active world presence, and acknowledge despawn completion before token revocation. |
-| GOK-MMO-123 | ⬜ | 3 | Implement websocket broadcast events (`content_publish_started`, `content_publish_warning`, `content_publish_forced_logout`) with version id, deadline, and reason codes. |
-| GOK-MMO-124 | ⬜ | 3 | Implement launcher-side forced logout UX: receive event, save local transient state if needed, close play scene, clear auth/session, and return to login with mandatory refresh message. |
-| GOK-MMO-125 | ⬜ | 3 | Implement backend enforcement on API calls after deadline: non-admin tokens receive deterministic auth failure requiring re-login; admins remain exempt per policy. |
-| GOK-MMO-126 | ⬜ | 3 | Add audit log tables for publish + drain actions: who published, what content version, number of sessions drained, persistence success/failure counts, and final cutoff timestamp. |
-| GOK-MMO-127 | ⬜ | 2 | Add safety controls: max concurrent drains, publish lock to prevent overlapping publishes, and rollback switch to previous content version for emergency recovery. |
-| GOK-MMO-128 | ⬜ | 3 | Add end-to-end tests simulating online non-admin players during content publish, verifying persisted state, despawn, forced login return, and admin-session exemption. |
+| GOK-MMO-120 | ✅ | 3 | Defined publish transaction semantics with persisted `publish_drain_events` records and broadcasted publish-start metadata (`event_id`, `content_version_key`, deadline/grace) before cutoff. |
+| GOK-MMO-121 | ✅ | 4 | Implemented backend session-drain orchestrator (`session_drain.py`) that marks non-admin sessions as `draining`, leaves admin sessions untouched, and assigns per-session cutoff deadlines. |
+| GOK-MMO-122 | ✅ | 4 | Implemented drain flush/despawn path by clearing selected-character world presence (`characters.is_selected=false`) before revocation and recording per-session persistence/despawn outcome in audit rows. |
+| GOK-MMO-123 | ✅ | 3 | Added websocket publish events (`content_publish_started`, `content_publish_warning`, `content_publish_forced_logout`) via realtime hub for both chat/event-stream sockets. |
+| GOK-MMO-124 | ✅ | 3 | Wired launcher realtime event stream (`/events/ws`) to force non-admin logout UX: save location if in play, clear auth/session state, and return to auth with required update message. |
+| GOK-MMO-125 | ✅ | 3 | Enforced drain cutoffs in backend auth/websocket paths: after deadline non-admin sessions are deterministically revoked and receive `publish_drain_logout`/forced-logout errors. |
+| GOK-MMO-126 | ✅ | 3 | Added publish-drain audit schema (`publish_drain_events`, `publish_drain_session_audit`) including actor, version keys, targeted/persist/revoked counters, and cutoff timestamps. |
+| GOK-MMO-127 | ✅ | 2 | Added safety controls: configurable max-concurrent drain lock (`publish_drain_max_concurrent`) and admin rollback endpoint (`POST /content/versions/rollback/previous`). |
+| GOK-MMO-128 | ✅ | 3 | Added publish-drain integration tests (`backend/tests/test_publish_drain.py`) covering non-admin drain tagging, admin exemption, despawn persistence, cutoff revocation, and overlapping-drain lock behavior. |
 
 ### Epic D: Rollout Sequence, Observability, and Hardening
 | Task ID | Status | Complexity | Detailed Description |

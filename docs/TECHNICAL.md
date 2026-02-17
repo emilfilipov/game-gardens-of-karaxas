@@ -32,6 +32,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `users`: account identity.
   - Includes `is_admin` boolean for backend-authoritative admin gating.
 - `user_sessions`: refresh/session records and client build/content version tracking.
+  - Includes publish-drain state fields (`drain_state`, `drain_event_id`, `drain_deadline_at`, `drain_reason_code`) for non-admin forced relog orchestration.
 - `release_policy`: active build/content release policy (`latest/min-supported` build, `latest/min-supported` content keys, `update_feed_url`, `enforce_after`).
 - `release_records`: append-only release activation history (build/content versions, feed URL, build notes, user-facing notes, actor, activation timestamp).
 - `characters`: user-owned character builds (stats/skills point allocations).
@@ -44,6 +45,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `levels`: named level layouts with schema-versioned layered tile payloads (`layer_cells`) plus legacy-compatible derived `wall_cells` for collision fallback.
 - `content_versions`: immutable content snapshot headers with lifecycle state (`draft`, `validated`, `active`, `retired`).
 - `content_bundles`: per-domain JSON payloads keyed by `content_version_id` + `domain`.
+- `publish_drain_events`: publish-triggered drain windows (actor, reason, deadline, targeted/persist/revoked counters, cutoff timestamp).
+- `publish_drain_session_audit`: per-session audit rows for drain persistence/despawn/revocation outcomes.
 - `friendships`: friend graph.
 - `guilds`, `guild_members`: guild presence and rank scaffolding.
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
@@ -67,6 +70,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Backend writes release activation to `release_records` and updates active `release_policy`.
 - Backend broadcasts `force_update` to connected websocket clients with build/content minimums and feed URL.
 - Content version activation also updates release-policy content keys and triggers the same grace-window force-update broadcast.
+- Content/release activation also creates a publish-drain event and begins non-admin session draining with realtime warning/forced-logout events.
 
 ## Deployment and Infra Pattern
 - Cloud Run deployment pattern follows `markd-backend` operational approach.
@@ -197,6 +201,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Updater no-update terminal status is normalized to `Game is up to date.`.
 - Update helper applies Velopack updates in silent mode and is built as a windowless helper executable to reduce updater pop-up windows during apply/restart flow.
 - Launcher/update-helper no longer inject or resolve GitHub/Velopack repository tokens in client runtime update flow; update source is the backend-provided GCS feed URL.
+- Launcher now keeps a dedicated realtime event websocket (`/events/ws`) active while authenticated and responds to publish-drain events by returning non-admin users to auth after state-save.
 - Version/date is rendered in a centered footer on the launcher shell.
 
 ## Logging Strategy
@@ -238,17 +243,17 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher persists last known good content cache and blocks gameplay/create when no valid snapshot exists.
 - Deterministic tests validate sample skill execution against content snapshot values.
 
-### 3) Content Publish Session-Drain Flow (Planned)
-- Planned admin publish action triggers non-admin session drain (admins exempt by policy).
-- Planned drain sequence:
-  1. mark non-admin sessions as draining with deadline,
-  2. broadcast publish/drain warnings to connected clients,
-  3. persist character state (location and other relevant runtime state),
-  4. despawn world presence,
-  5. revoke or invalidate non-admin sessions at cutoff,
-  6. force client return to login/re-auth.
-- Backend audit logs are planned for publish actor, version id, drained session count, persistence outcomes, and cutoff timestamps.
-- Rollback path is planned to allow reactivation of previous content snapshot if a publish causes regressions.
+### 3) Content Publish Session-Drain Flow (Implemented)
+- Admin publish/release activation now triggers a persisted drain window (`publish_drain_events`) for non-admin sessions (admins remain exempt).
+- Implemented drain sequence:
+  1. lock publish drain capacity (prevents overlapping drains),
+  2. mark non-admin sessions as `draining` with deadline + reason,
+  3. flush/despawn selected-character world presence before cutoff,
+  4. broadcast `content_publish_started` and warning events over websocket,
+  5. revoke draining non-admin sessions at cutoff (`content_publish_forced_logout`),
+  6. enforce deterministic API/auth denial (`publish_drain_logout`) after deadline.
+- Audit tables capture publisher, reason/version keys, targeted sessions, persistence/despawn success counts, revocations, and cutoff time.
+- Emergency rollback is available via `POST /content/versions/rollback/previous`.
 
 ### 4) Rollout/Hardening Approach (In Progress)
 - Completed phases:

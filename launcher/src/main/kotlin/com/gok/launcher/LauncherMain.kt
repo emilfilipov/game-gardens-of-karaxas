@@ -1,5 +1,6 @@
 package com.gok.launcher
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.awt.BorderLayout
 import java.awt.CardLayout
@@ -478,6 +479,7 @@ object LauncherMain {
 
         val clientVersion = defaultClientVersion().ifBlank { "0.0.0" }
         var authSession: AuthSession? = null
+        var realtimeEventClient: RealtimeEventClient? = null
         var releaseFeedUrlOverride: String? = null
         var remoteAuthReleaseNotesMarkdown: String? = null
         fun persistLauncherPrefs() {
@@ -3096,7 +3098,87 @@ object LauncherMain {
             }
         }
 
+        fun clearSessionToAuth(message: String? = null) {
+            realtimeEventClient?.stop()
+            realtimeEventClient = null
+            loadedCharacters = emptyList()
+            availableLevels = emptyList()
+            levelDetailsById.clear()
+            characterRowsPanel.removeAll()
+            characterRowsPanel.revalidate()
+            characterRowsPanel.repaint()
+            selectedCharacterId = null
+            selectedCharacterView = null
+            activeGameCharacterView = null
+            heldKeys.clear()
+            createStatus.text = " "
+            selectStatus.text = " "
+            gameStatus.text = " "
+            playStatus.text = " "
+            registerMode = false
+            updateSettingsMenuAccess()
+            showCard("auth")
+            if (!message.isNullOrBlank()) {
+                authStatus.text = message
+            }
+        }
+
+        fun handleRealtimeEvent(node: JsonNode) {
+            val eventType = node.path("type").asText("").trim()
+            if (eventType.isBlank()) return
+            if (authSession?.isAdmin == true) return
+            when (eventType) {
+                "content_publish_started" -> {
+                    val remaining = node.path("seconds_remaining").asInt(-1)
+                    val message = if (remaining > 0) {
+                        "Update publishing in progress. Auto-logout in ${remaining}s."
+                    } else {
+                        "Update publishing in progress. Please prepare to relog."
+                    }
+                    javax.swing.SwingUtilities.invokeLater {
+                        selectStatus.text = message
+                        playStatus.text = message
+                    }
+                }
+                "content_publish_warning" -> {
+                    val remaining = node.path("seconds_remaining").asInt(-1)
+                    val message = if (remaining > 0) {
+                        "Update cutoff in ${remaining}s. You will be returned to login."
+                    } else {
+                        "Update cutoff is approaching. You will be returned to login."
+                    }
+                    javax.swing.SwingUtilities.invokeLater {
+                        selectStatus.text = message
+                        playStatus.text = message
+                    }
+                }
+                "content_publish_forced_logout", "force_update" -> {
+                    javax.swing.SwingUtilities.invokeLater {
+                        if (gameSceneContainer.isVisible) {
+                            persistCurrentCharacterLocation()
+                        }
+                        authSession = null
+                        autoLoginRefreshToken = ""
+                        persistLauncherPrefs()
+                        clearSessionToAuth("A new version is available. Click Update & Restart when ready.")
+                    }
+                }
+            }
+        }
+
         fun applyAuthenticatedSession(session: AuthSession) {
+            realtimeEventClient?.stop()
+            realtimeEventClient = RealtimeEventClient(
+                uriProvider = {
+                    backendClient.eventsWebSocketUri(
+                        accessToken = session.accessToken,
+                        clientVersion = clientVersion,
+                        clientContentVersionKey = session.clientContentVersionKey,
+                    )
+                },
+                onEvent = { event -> handleRealtimeEvent(event) },
+                onDisconnect = { reason -> log("Realtime events stream disconnected: $reason") },
+            ).also { it.start() }
             authSession = session
             releaseFeedUrlOverride = session.updateFeedUrl ?: releaseFeedUrlOverride
             lastEmail = session.email
@@ -4989,23 +5071,7 @@ object LauncherMain {
                     }
                 }.start()
             }
-            loadedCharacters = emptyList()
-            availableLevels = emptyList()
-            levelDetailsById.clear()
-            characterRowsPanel.removeAll()
-            characterRowsPanel.revalidate()
-            characterRowsPanel.repaint()
-            selectedCharacterId = null
-            selectedCharacterView = null
-            activeGameCharacterView = null
-            heldKeys.clear()
-            createStatus.text = " "
-            selectStatus.text = " "
-            gameStatus.text = " "
-            playStatus.text = " "
-            registerMode = false
-            updateSettingsMenuAccess()
-            showCard("auth")
+            clearSessionToAuth()
         }
         logoutMenuItem.addActionListener { performLogout() }
 
@@ -5059,6 +5125,8 @@ object LauncherMain {
                 if (gameSceneContainer.isVisible) {
                     persistCurrentCharacterLocation()
                 }
+                realtimeEventClient?.stop()
+                realtimeEventClient = null
                 authSession = null
             }
         })

@@ -3,6 +3,7 @@ from app.models.chat import ChatChannel, ChatMember, ChatMessage
 from app.models.content import ContentBundle, ContentVersion
 from app.models.guild import Guild, GuildMember
 from app.models.level import Level
+from app.models.publish_drain import PublishDrainEvent, PublishDrainSessionAudit
 from app.models.release_record import ReleaseRecord
 from app.models.release_policy import ReleasePolicy
 from app.models.session import UserSession
@@ -19,6 +20,8 @@ __all__ = [
     "Guild",
     "GuildMember",
     "Level",
+    "PublishDrainEvent",
+    "PublishDrainSessionAudit",
     "ReleaseRecord",
     "ReleasePolicy",
     "User",

@@ -98,6 +98,7 @@ create/select characters, and enter gameplay sessions.
 - Release metadata and release notes are sourced from backend database records (not launcher-bundled static notes only).
 - Login is blocked for non-admin users until client build and client content version are aligned with currently published release policy.
 - On publish, non-admin players are forced out after grace window and returned to login, where they can choose when to click `Update & Restart`.
+- Publish-triggered drain warnings are delivered live during active sessions and end in forced return to login for non-admin users at cutoff.
 - Update feed source is GCS-backed Velopack hosting.
 - Admin level editor now uses a larger, zoomed-out grid and shows a radar-ping marker at spawn position.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
@@ -130,13 +131,13 @@ create/select characters, and enter gameplay sessions.
 - Launcher fetches active content at startup and uses cached snapshot fallback if network fetch fails.
 - If no valid content snapshot is available, character creation/gameplay is blocked until content sync succeeds.
 
-## Planned Content Publish Drain
-- Content publishes are planned to trigger a controlled non-admin session drain:
-  - persist active player state,
-  - despawn from world,
-  - force return to login,
-  - keep admin sessions online for verification/ops.
-- Full implementation remains tracked in `docs/TASKS.md` (Epic C).
+## Content Publish Drain (Implemented)
+- Content publishes now trigger a controlled non-admin session drain:
+  - active sessions are tagged as draining with a cutoff deadline,
+  - selected character world presence is detached before cutoff,
+  - live warning/forced-logout events are delivered over realtime channel,
+  - non-admin users are returned to login at cutoff and must update/relog,
+  - admin sessions remain online for verification/ops.
 
 ## Open Design Decisions
 - Final stats/skills taxonomy and balancing model.

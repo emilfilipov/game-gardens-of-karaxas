@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext, get_db, require_admin_context
 from app.core.config import settings
+from app.models.content import ContentVersion
 from app.schemas.content import (
     ContentBootstrapResponse,
     ContentBundleUpsertRequest,
+    ContentPublishDrainSummaryResponse,
     ContentValidationIssueResponse,
     ContentValidationResponse,
     ContentVersionCreateRequest,
@@ -31,6 +35,13 @@ from app.services.content import (
 )
 from app.services.realtime import realtime_hub
 from app.services.release_policy import ensure_release_policy
+from app.services.session_drain import (
+    PublishDrainConflictError,
+    ensure_publish_drain_capacity,
+    list_recent_publish_drains,
+    run_publish_drain_countdown,
+    start_publish_drain,
+)
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -54,6 +65,71 @@ def _to_detail(version, domains: dict[str, dict]) -> ContentVersionDetailRespons
     return ContentVersionDetailResponse(**summary.model_dump(), domains=domains)
 
 
+def _to_publish_drain_summary(row) -> ContentPublishDrainSummaryResponse:
+    return ContentPublishDrainSummaryResponse(
+        id=row.id,
+        trigger_type=row.trigger_type,
+        reason_code=row.reason_code,
+        initiated_by=row.initiated_by,
+        content_version_id=row.content_version_id,
+        content_version_key=row.content_version_key,
+        build_version=row.build_version,
+        grace_seconds=row.grace_seconds,
+        started_at=row.started_at,
+        deadline_at=row.deadline_at,
+        cutoff_at=row.cutoff_at,
+        status=row.status,
+        sessions_targeted=row.sessions_targeted,
+        sessions_persisted=row.sessions_persisted,
+        sessions_persist_failed=row.sessions_persist_failed,
+        sessions_revoked=row.sessions_revoked,
+    )
+
+
+async def _apply_publish_policy_and_drain(
+    *,
+    db: Session,
+    user_id: int,
+    content_version_id: int,
+    content_version_key: str,
+    content_note: str,
+    reason_code: str,
+) -> None:
+    policy = ensure_release_policy(db)
+    policy.latest_content_version_key = content_version_key
+    policy.min_supported_content_version_key = content_version_key
+    policy.enforce_after = datetime.now(UTC) + timedelta(minutes=settings.version_grace_minutes_default)
+    policy.updated_by = f"user:{user_id}"
+    db.add(policy)
+
+    try:
+        drain_event = start_publish_drain(
+            db,
+            trigger_type=reason_code,
+            reason_code=reason_code,
+            initiated_by=f"user:{user_id}",
+            content_version_id=content_version_id,
+            content_version_key=content_version_key,
+            build_version=policy.latest_version,
+            grace_minutes=settings.version_grace_minutes_default,
+            notes=content_note or "",
+        )
+    except PublishDrainConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(exc), "code": "publish_drain_locked"},
+        ) from exc
+    if drain_event is not None:
+        asyncio.create_task(run_publish_drain_countdown(drain_event.id))
+
+    await realtime_hub.notify_force_update(
+        min_supported_version=policy.min_supported_version,
+        min_supported_content_version_key=policy.min_supported_content_version_key,
+        enforce_after_iso=policy.enforce_after.isoformat() if policy.enforce_after else None,
+        update_feed_url=policy.update_feed_url,
+    )
+
+
 @router.get("/bootstrap", response_model=ContentBootstrapResponse)
 def bootstrap_content(db: Session = Depends(get_db)):
     snapshot = get_active_snapshot(db)
@@ -70,6 +146,15 @@ def bootstrap_content(db: Session = Depends(get_db)):
 def admin_list_content_versions(context: AuthContext = Depends(require_admin_context), db: Session = Depends(get_db)):
     rows = list_content_versions(db)
     return [_to_summary(row) for row in rows]
+
+
+@router.get("/publish-drains", response_model=list[ContentPublishDrainSummaryResponse])
+def admin_list_publish_drains(
+    context: AuthContext = Depends(require_admin_context),
+    db: Session = Depends(get_db),
+):
+    rows = list_recent_publish_drains(db)
+    return [_to_publish_drain_summary(row) for row in rows]
 
 
 @router.get("/versions/{version_id}", response_model=ContentVersionDetailResponse)
@@ -164,6 +249,13 @@ async def admin_activate_content_version(
     context: AuthContext = Depends(require_admin_context),
     db: Session = Depends(get_db),
 ):
+    try:
+        ensure_publish_drain_capacity(db)
+    except PublishDrainConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(exc), "code": "publish_drain_locked"},
+        ) from exc
     version = get_content_version_or_none(db, version_id)
     if version is None:
         raise HTTPException(
@@ -173,18 +265,64 @@ async def admin_activate_content_version(
     issues = activate_version(db, version)
     refreshed = get_content_version_or_none(db, version_id) or version
     if not issues and refreshed.state == CONTENT_STATE_ACTIVE:
-        policy = ensure_release_policy(db)
-        policy.latest_content_version_key = refreshed.version_key
-        policy.min_supported_content_version_key = refreshed.version_key
-        policy.enforce_after = datetime.now(UTC) + timedelta(minutes=settings.version_grace_minutes_default)
-        policy.updated_by = f"user:{context.user.id}"
-        db.add(policy)
-        db.commit()
-        await realtime_hub.notify_force_update(
-            min_supported_version=policy.min_supported_version,
-            min_supported_content_version_key=policy.min_supported_content_version_key,
-            enforce_after_iso=policy.enforce_after.isoformat() if policy.enforce_after else None,
-            update_feed_url=policy.update_feed_url,
+        await _apply_publish_policy_and_drain(
+            db=db,
+            user_id=context.user.id,
+            content_version_id=refreshed.id,
+            content_version_key=refreshed.version_key,
+            content_note=refreshed.note or "",
+            reason_code="content_publish",
+        )
+    return ContentValidationResponse(
+        ok=len(issues) == 0,
+        issues=[ContentValidationIssueResponse(domain=issue.domain, message=issue.message) for issue in issues],
+        state=refreshed.state,
+    )
+
+
+@router.post("/versions/rollback/previous", response_model=ContentValidationResponse)
+async def admin_rollback_previous_version(
+    context: AuthContext = Depends(require_admin_context),
+    db: Session = Depends(get_db),
+):
+    try:
+        ensure_publish_drain_capacity(db)
+    except PublishDrainConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(exc), "code": "publish_drain_locked"},
+        ) from exc
+    active = db.execute(
+        select(ContentVersion)
+        .where(ContentVersion.state == CONTENT_STATE_ACTIVE)
+        .order_by(ContentVersion.activated_at.desc().nullslast(), ContentVersion.id.desc())
+    ).scalars().first()
+    if active is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "No active content version found", "code": "content_active_not_found"},
+        )
+    previous = db.execute(
+        select(ContentVersion)
+        .where(ContentVersion.id != active.id)
+        .order_by(ContentVersion.activated_at.desc().nullslast(), ContentVersion.id.desc())
+    ).scalars().first()
+    if previous is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "No previous content version found", "code": "content_previous_not_found"},
+        )
+
+    issues = activate_version(db, previous)
+    refreshed = get_content_version_or_none(db, previous.id) or previous
+    if not issues and refreshed.state == CONTENT_STATE_ACTIVE:
+        await _apply_publish_policy_and_drain(
+            db=db,
+            user_id=context.user.id,
+            content_version_id=refreshed.id,
+            content_version_key=refreshed.version_key,
+            content_note=f"Rollback to {refreshed.version_key}",
+            reason_code="content_rollback",
         )
     return ContentValidationResponse(
         ok=len(issues) == 0,

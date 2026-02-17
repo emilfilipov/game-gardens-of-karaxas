@@ -21,6 +21,7 @@ from app.models.user import User
 from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, SessionResponse
 from app.schemas.common import VersionStatus
 from app.services.release_policy import ensure_release_policy, evaluate_version
+from app.services.session_drain import enforce_session_drain
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -174,6 +175,19 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"message": "User not found", "code": "invalid_session"},
+        )
+
+    drain = enforce_session_drain(db, session, user)
+    if drain and drain.force_logout:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "message": "Session invalidated by content publish. Please log in again.",
+                "code": "publish_drain_logout",
+                "event_id": drain.event_id,
+                "reason_code": drain.reason_code,
+                "deadline": drain.deadline_at.isoformat() if drain.deadline_at else None,
+            },
         )
 
     release_policy = ensure_release_policy(db)

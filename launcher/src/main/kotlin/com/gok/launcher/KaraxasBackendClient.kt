@@ -300,6 +300,19 @@ class KaraxasBackendClient(
 
     fun endpoint(): String = baseUrl
 
+    fun eventsWebSocketUri(accessToken: String, clientVersion: String, clientContentVersionKey: String): URI {
+        val wsBase = when {
+            baseUrl.startsWith("https://", ignoreCase = true) -> "wss://${baseUrl.removePrefix("https://")}"
+            baseUrl.startsWith("http://", ignoreCase = true) -> "ws://${baseUrl.removePrefix("http://")}"
+            else -> baseUrl
+        }
+        val encodedToken = URLEncoder.encode(accessToken, StandardCharsets.UTF_8)
+        val encodedVersion = URLEncoder.encode(clientVersion, StandardCharsets.UTF_8)
+        val encodedContent = URLEncoder.encode(clientContentVersionKey, StandardCharsets.UTF_8)
+        val path = "/events/ws?token=$encodedToken&client_version=$encodedVersion&client_content_version_key=$encodedContent"
+        return URI.create("$wsBase$path")
+    }
+
     private fun parseContentOptions(node: JsonNode): List<ContentOptionEntryView> {
         if (!node.isArray) return emptyList()
         return node.mapNotNull { item ->

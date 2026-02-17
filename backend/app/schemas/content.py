@@ -44,3 +44,22 @@ class ContentValidationResponse(BaseModel):
     ok: bool
     issues: list[ContentValidationIssueResponse] = Field(default_factory=list)
     state: str
+
+
+class ContentPublishDrainSummaryResponse(BaseModel):
+    id: int
+    trigger_type: str
+    reason_code: str
+    initiated_by: str
+    content_version_id: int | None
+    content_version_key: str
+    build_version: str | None
+    grace_seconds: int
+    started_at: datetime
+    deadline_at: datetime
+    cutoff_at: datetime | None
+    status: str
+    sessions_targeted: int
+    sessions_persisted: int
+    sessions_persist_failed: int
+    sessions_revoked: int

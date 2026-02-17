@@ -14,6 +14,7 @@ from app.models.release_policy import ReleasePolicy
 from app.models.session import UserSession
 from app.models.user import User
 from app.services.release_policy import ensure_release_policy, evaluate_version
+from app.services.session_drain import enforce_session_drain
 
 security = HTTPBearer(auto_error=False)
 
@@ -76,6 +77,19 @@ def get_auth_context(
     user = db.get(User, user_id)
     if user is None:
         raise _unauthorized("User not found")
+
+    drain = enforce_session_drain(db, session, user)
+    if drain and drain.force_logout:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "message": "Session invalidated by content publish. Please log in again.",
+                "code": "publish_drain_logout",
+                "event_id": drain.event_id,
+                "reason_code": drain.reason_code,
+                "deadline": drain.deadline_at.isoformat() if drain.deadline_at else None,
+            },
+        )
 
     policy = ensure_release_policy(db)
     evaluated = evaluate_version(

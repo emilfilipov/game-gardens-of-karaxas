@@ -1,4 +1,5 @@
-- Removed GitHub-release transition logic from release automation; publishing is now GCS-only.
-- Removed GitHub release-note rendering/publish templates and scripts from the repository.
-- Removed updater token plumbing from launcher client and update-helper so client update flow no longer carries GitHub token/repository hooks.
-- Updated release-activation audit actor label from `github-actions` to generic `release-pipeline`.
+- Added publish-drain orchestration for content/release activation with persisted drain windows, non-admin session draining, and cutoff revocation.
+- Added publish-drain audit schema (`publish_drain_events`, `publish_drain_session_audit`) plus admin audit API (`GET /content/publish-drains`).
+- Added realtime publish lifecycle events (`content_publish_started`, `content_publish_warning`, `content_publish_forced_logout`) and launcher-side event stream handling.
+- Added emergency rollback endpoint (`POST /content/versions/rollback/previous`) and max-concurrent drain lock protection.
+- Added publish-drain backend tests for non-admin draining, admin exemption, despawn persistence, cutoff enforcement, and overlap lock behavior.

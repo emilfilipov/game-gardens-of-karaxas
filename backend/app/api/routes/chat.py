@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.chat import ChannelResponse, ChatMessageCreateRequest, ChatMessageResponse, DirectChannelRequest
 from app.services.realtime import ConnectionMeta, realtime_hub
 from app.services.release_policy import ensure_release_policy, evaluate_version
+from app.services.session_drain import enforce_session_drain
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -218,6 +219,22 @@ async def chat_ws(websocket: WebSocket):
             return
         if not _can_access_channel(db, user_id, channel):
             await websocket.close(code=4403, reason="Channel access denied")
+            return
+
+        drain = enforce_session_drain(db, session, user)
+        if drain and drain.force_logout:
+            await websocket.accept()
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "content_publish_forced_logout",
+                        "event_id": drain.event_id,
+                        "reason_code": drain.reason_code,
+                        "deadline": drain.deadline_at.isoformat() if drain.deadline_at else None,
+                    }
+                )
+            )
+            await websocket.close(code=4401, reason="Publish drain cutoff reached")
             return
 
         policy = ensure_release_policy(db)
