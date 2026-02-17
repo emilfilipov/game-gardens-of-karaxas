@@ -143,6 +143,7 @@ jobs:
           if (-not $foundAny) {
             Write-Host "No previous feed objects found. Continuing."
           }
+          exit 0
 
       - name: Build and Pack
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
