@@ -86,7 +86,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher text styling is normalized to one shared theme font family/color token across labels, buttons, update controls, and rendered patch-note/log text.
 - Dropdowns are standardized through a reusable themed combo-box class (shared renderer + arrow button UI) to avoid per-screen styling drift and remove platform-default white dropdown surfaces.
 - Scroll containers are standardized through a reusable themed scroll-pane class so list/details/editor panes share consistent opaque/transparent surface behavior, including themed scrollbar track/thumb rendering.
-- Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
+- Auth screen now includes a compact built-in updater panel (`Update & Restart`, status text, release-notes preview, build label).
+- Cog menu is hidden on the auth screen and remains available only after login.
+- Cog dropdown still includes updater entry for authenticated flows.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Cog dropdown menu items use a themed basic menu-item UI delegate so hover/selection highlights stay in-theme (no platform-default blue highlight bleed).
 - Cog dropdown includes a logged-in-only header line with account identity (`Welcome username.`).
@@ -173,7 +175,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
 - Character creation and deletion both perform immediate character-list reloads and UI refreshes to avoid stale list state.
 - Account cards now render on opaque themed surfaces to prevent visual overlap artifacts when switching tabs.
-- Updater remains accessible through the cog menu (`Update & Restart`) and updater card, but is removed from lobby tab navigation.
+- Updater is accessible directly on auth (embedded panel) and through cog menu / updater card for authenticated flows; it remains removed from lobby tab navigation.
 - Update card layout uses explicit inner padding; build/version text and patch notes are inset from the brick frame with hidden scrollbars (wheel scroll remains enabled).
 - Update flow now uses status-text updates only (no visual progress bar), so updater state is communicated without extra bar controls.
 - Updater no-update terminal status is normalized to `Game is up to date.`.

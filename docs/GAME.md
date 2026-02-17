@@ -38,7 +38,7 @@ create/select characters, and enter gameplay sessions.
    - Collision currently comes from layer-1 collidable tiles (for example walls/trees) from the loaded level.
 
 ## Required Frontend Screens
-- Combined authentication screen (login/register toggle in a single centered block).
+- Combined authentication screen (login/register toggle in a single centered block) with integrated updater/release-notes panel.
 - Account menu shell screen (Create/Select tabs).
 - Character creation screen.
 - Character selection screen.
@@ -91,7 +91,8 @@ create/select characters, and enter gameplay sessions.
 - Backend enforces version policy with a grace window.
 - Current grace window target: 5 minutes before forced update lockout.
 - Optional automatic login is configured from in-session settings only (not from pre-login auth screen).
-- Updater access is no longer a lobby tab; it is available from the top-right menu entry.
+- Pre-login updater access is embedded directly in the authentication screen (`Update & Restart` + compact release notes).
+- Updater access is no longer a lobby tab; authenticated users can still access updater from the top-right menu.
 - Updater progression is shown through status text messages in the update screen (no progress bar widget).
 - When no update is available, updater status reads `Game is up to date.`.
 - Admin level editor now uses a larger, zoomed-out grid and shows a radar-ping marker at spawn position.

@@ -1,6 +1,4 @@
-- Added admin `Content Versions` screen in the cog menu with searchable version-history cards, active-version highlighting, `Publish` and `Revert To` actions.
-- Added side-by-side version comparison mode with two searchable selectors and item-level state output for both versions, including changed-item markers.
-- Refactored `Asset Editor` to use staged edits: `Save Local` stores changes in a persistent local queue and `Publish Changes` pushes staged domains to backend draft content versions.
-- Added right-side pending-changes panel in `Asset Editor` so admins can batch multiple edits before publish.
-- Added backend content `assets` domain validation/defaults to support data-driven asset metadata in the content model.
-- Updated admin workflow text/menu polish, including `Welcome username.` formatting in the cog dropdown.
+- Expanded the pre-login auth screen into a split layout with authentication form on the left and compact updater/release-notes panel on the right.
+- Added direct `Update & Restart` action to the auth screen, including status text and embedded release-notes preview.
+- Hid the cogwheel menu on the auth screen while keeping it available for logged-in flows.
+- Kept updater behavior status-text-based (`Game is up to date` when no update is found) with automatic restart on successful auth-screen updates.

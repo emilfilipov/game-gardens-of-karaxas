@@ -126,6 +126,7 @@ Epic A and Epic B are now implemented. Epic C+ remain planned.
 | GOK-MMO-044 | ✅ | 4 | Implement Epic B content model end-to-end: content version/bundle schema + APIs, backend snapshot cache/validation, content-driven character rules, launcher content bootstrap caching/fallback, and content-driven create-screen/tooltips with gameplay gating when no valid snapshot exists. |
 | GOK-MMO-045 | ✅ | 2 | Refactor level-builder asset UX to a fixed 3-column layer palette (Layer 0/1/2) with fixed-size asset cards, visual asset previews + tooltips, and radar-ping spawn marker replacement in both palette and map canvas. |
 | GOK-MMO-046 | ✅ | 4 | Implement admin content-authoring workflow v1: asset-editor `Save Local` staging queue persisted across restarts, batch `Publish Changes` to backend draft versions, new admin `Content Versions` screen (version history cards, active badge, publish/revert actions), and side-by-side item-state compare with changed-item highlighting. |
+| GOK-MMO-047 | ✅ | 2 | Rework pre-login updater UX by expanding auth screen into split auth/update layout, embedding compact release-notes + `Update & Restart` controls, and hiding the cog menu on auth while keeping it post-login. |
 | GOK-INIT-001 | ✅ | 2 | Create initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configure GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enable launcher-only Velopack packaging and publish first installer/release artifacts. |

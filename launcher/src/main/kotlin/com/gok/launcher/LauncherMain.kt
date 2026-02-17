@@ -2891,6 +2891,9 @@ object LauncherMain {
 
         val authInnerPanel = UiScaffold.contentPanel().apply {
             layout = GridBagLayout()
+            preferredSize = Dimension(360, 0)
+            minimumSize = Dimension(340, 0)
+            border = BorderFactory.createEmptyBorder(12, 10, 12, 10)
             add(authDisplayName, UiScaffold.gbc(0).apply { anchor = GridBagConstraints.CENTER })
             add(authEmail, UiScaffold.gbc(1).apply { anchor = GridBagConstraints.CENTER })
             add(authPassword, UiScaffold.gbc(2).apply { anchor = GridBagConstraints.CENTER })
@@ -2902,17 +2905,64 @@ object LauncherMain {
             }, UiScaffold.gbc(3).apply { anchor = GridBagConstraints.CENTER })
             add(authStatus, UiScaffold.gbc(4, weightX = 1.0, fill = GridBagConstraints.HORIZONTAL))
         }
+        val authBuildVersionLabel = JLabel("", SwingConstants.CENTER).apply {
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 15)
+            border = BorderFactory.createEmptyBorder(4, 0, 4, 0)
+        }
+        val authPatchNotesPane = JEditorPane().apply {
+            contentType = "text/html"
+            isEditable = false
+            putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true)
+            isOpaque = false
+            background = Color(0, 0, 0, 0)
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+            border = BorderFactory.createEmptyBorder(6, 8, 6, 8)
+        }
+        val authPatchNotes = ThemedScrollPane(authPatchNotesPane, transparent = true).apply {
+            border = themedTitledBorder("Release Notes")
+            preferredSize = Dimension(560, 280)
+            minimumSize = Dimension(420, 220)
+            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        }
+        val authUpdateStatus = JLabel(" ", SwingConstants.LEFT).apply {
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
+            border = BorderFactory.createEmptyBorder(0, 0, 0, 8)
+        }
+        val authUpdateButton = buildMenuButton("Update & Restart", rectangularButtonImage, Dimension(220, 40), 13f)
+        val authUpdatePanel = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(0, 8)
+            isOpaque = true
+            background = Color(24, 18, 15)
+            border = BorderFactory.createEmptyBorder(10, 12, 10, 12)
+            add(authBuildVersionLabel, BorderLayout.NORTH)
+            add(authPatchNotes, BorderLayout.CENTER)
+            add(JPanel(BorderLayout(8, 0)).apply {
+                isOpaque = false
+                add(authUpdateStatus, BorderLayout.CENTER)
+                add(authUpdateButton, BorderLayout.EAST)
+            }, BorderLayout.SOUTH)
+        }
         val authCard = JPanel(GridBagLayout()).apply {
             isOpaque = false
             add(MenuContentBoxPanel().apply {
                 layout = BorderLayout()
-                preferredSize = Dimension(470, 300)
-                minimumSize = Dimension(420, 270)
-                border = BorderFactory.createEmptyBorder(20, 24, 18, 24)
-                add(authInnerPanel, BorderLayout.CENTER)
+                preferredSize = Dimension(1050, 520)
+                minimumSize = Dimension(920, 460)
+                border = BorderFactory.createEmptyBorder(18, 20, 16, 20)
+                add(JPanel(BorderLayout(12, 0)).apply {
+                    isOpaque = false
+                    add(authInnerPanel, BorderLayout.WEST)
+                    add(authUpdatePanel, BorderLayout.CENTER)
+                }, BorderLayout.CENTER)
             })
         }
         authStandaloneContainer.add(authCard)
+        authBuildVersionLabel.text = "Build Version: v${defaultClientVersion()} (${Instant.now().atZone(ZoneId.systemDefault()).toLocalDate()})"
+        applyPatchNotesView(authPatchNotesPane, authPatchNotes)
+        authUpdateStatus.text = "Ready."
         applyAuthMode()
         fun openSettingsDialog() {
             val session = authSession ?: run {
@@ -3987,10 +4037,14 @@ object LauncherMain {
         var lastAccountCard = "select_character"
 
         var activeLog: Path? = null
-        val controls = listOf(checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton)
+        val controls = listOf(checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton, authUpdateButton)
         checkUpdates.addActionListener {
             updateStatus.text = "Checking for updates..."
             runUpdate(updateStatus, patchNotesPane, patchNotes, controls)
+        }
+        authUpdateButton.addActionListener {
+            authUpdateStatus.text = "Checking for updates..."
+            runUpdate(authUpdateStatus, authPatchNotesPane, authPatchNotes, controls, autoRestartOnSuccess = true)
         }
         launcherLogButton.addActionListener {
             val target = logsRoot().resolve("launcher.log")
@@ -4041,16 +4095,23 @@ object LauncherMain {
                 return
             }
             if (card == "auth") {
+                settingsButton.isVisible = false
                 shellPanel.isVisible = false
                 gameSceneContainer.isVisible = false
                 levelSceneContainer.isVisible = false
                 authStandaloneContainer.isVisible = true
                 accountTopBar.isVisible = false
+                authBuildVersionLabel.text = "Build Version: v${defaultClientVersion()} (${Instant.now().atZone(ZoneId.systemDefault()).toLocalDate()})"
+                if (authUpdateStatus.text.isBlank()) {
+                    authUpdateStatus.text = "Ready."
+                }
+                applyPatchNotesView(authPatchNotesPane, authPatchNotes)
                 resetAuthInputsForMode()
                 centeredContent.revalidate()
                 centeredContent.repaint()
                 return
             }
+            settingsButton.isVisible = true
             authStandaloneContainer.isVisible = false
             if (card == "play") {
                 shellPanel.isVisible = false
