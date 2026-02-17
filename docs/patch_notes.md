@@ -1,3 +1,3 @@
-- Added a super-detailed, review-gated strategic plan in `docs/TASKS.md` for layered level rendering, data-driven content snapshots, and admin publish-driven non-admin session drain/logout behavior.
-- Updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`) with draft architecture direction for layered worlds and DB-driven non-logic gameplay/UI content.
-- Cleaned `docs/TASKS.md` Finished Tasks ordering for improved readability and consistency.
+- Consolidated security planning by moving `GOK-MMO-009` out of generic backlog into a dedicated `Epic E: Security Hardening and Trust Model` table in `docs/TASKS.md`.
+- Added detailed follow-on security hardening tasks (`GOK-MMO-140` to `GOK-MMO-151`) so trust/security work is tracked in one place.
+- Marked standalone backlog as empty and clarified that planned work is tracked under strategic epics.

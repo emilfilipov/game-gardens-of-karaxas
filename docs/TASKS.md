@@ -5,7 +5,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-009 | ⬜ | 2 | Add backend integration test suite for auth/session/version policy edge cases. |
+| - | - | - | Standalone backlog is currently empty. Planned work is tracked under Strategic Plan epics below. |
 
 ## Strategic Plan Draft (Review Before Implementation)
 This section defines the proposed plan for:
@@ -64,6 +64,23 @@ No items in this section are implemented yet.
 | GOK-MMO-133 | ⬜ | 3 | Perform load/stress tests for publish events under concurrent gameplay sessions and verify no data loss on state persistence path. |
 | GOK-MMO-134 | ⬜ | 2 | Freeze and sign content contract (`content schema version`) for launcher/backend compatibility checks during startup/login. |
 | GOK-MMO-135 | ⬜ | 2 | Final acceptance pass and production readiness review with explicit go/no-go criteria for enabling publish-triggered forced logout globally. |
+
+### Epic E: Security Hardening and Trust Model
+| Task ID | Status | Complexity | Detailed Description |
+| --- | --- | --- | --- |
+| GOK-MMO-009 | ⬜ | 2 | Expand backend integration test suite for auth/session/version-policy security edges (token tamper/replay/expiry/revocation, force-update lockouts, and publish-drain auth transitions). |
+| GOK-MMO-140 | ⬜ | 3 | Remove sensitive internal error leakage from API responses; standardize sanitized error envelopes and correlate with server-side request IDs/logs. |
+| GOK-MMO-141 | ⬜ | 3 | Add rate limiting and brute-force protections for auth and chat write endpoints (per-IP and per-account thresholds with lockout/backoff policy). |
+| GOK-MMO-142 | ⬜ | 3 | Harden websocket auth transport by replacing query-string bearer token with safer handshake/session pattern and short-lived connection credentials. |
+| GOK-MMO-143 | ⬜ | 2 | Enforce secure database transport configuration (`sslmode` handling in DSN, environment validation, and non-dev defaults) and document deployment expectations. |
+| GOK-MMO-144 | ⬜ | 3 | Move runtime secrets to managed secret storage with rotation policy (`JWT_SECRET`, `OPS_API_TOKEN`, DB credentials) and least-privilege service-account access. |
+| GOK-MMO-145 | ⬜ | 3 | Add perimeter protections (WAF/Cloud Armor, abuse throttles, and request-size/body limits) and document safe defaults for internet-exposed services. |
+| GOK-MMO-146 | ⬜ | 2 | Add security-focused observability dashboards and alerts (auth failure spikes, token-invalid bursts, forced logout anomalies, suspicious IP behavior). |
+| GOK-MMO-147 | ⬜ | 2 | Add formal incident response runbooks for account compromise, token leakage, abuse waves, and emergency secret rotation. |
+| GOK-MMO-148 | ⬜ | 2 | Introduce dependency and image vulnerability scanning gates in CI/CD with fail thresholds and triage workflow. |
+| GOK-MMO-149 | ⬜ | 2 | Add audit logging requirements for privileged actions (ops release/content publish/admin changes) with immutable retention policy. |
+| GOK-MMO-150 | ⬜ | 2 | Define and enforce secure HTTP response headers/CORS policy for backend endpoints and launcher-client origins. |
+| GOK-MMO-151 | ⬜ | 2 | Conduct a security readiness review and penetration-test checklist before enabling large-scale public onboarding. |
 
 ## Finished Tasks
 | Task ID | Status | Complexity | Detailed Description |
