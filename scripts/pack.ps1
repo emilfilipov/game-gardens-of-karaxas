@@ -91,6 +91,13 @@ if (Test-Path $characterAssetsDir) {
   Copy-Item -Path (Join-Path $characterAssetsDir "*") -Destination $payloadCharacterDir -Recurse -Force
 }
 
+$tileAssetsDir = Join-Path $root "assets\\tiles"
+if (Test-Path $tileAssetsDir) {
+  $payloadTileDir = Join-Path $payloadDir "assets\\tiles"
+  New-Item -ItemType Directory -Path $payloadTileDir -Force | Out-Null
+  Copy-Item -Path (Join-Path $tileAssetsDir "*") -Destination $payloadTileDir -Recurse -Force
+}
+
 if (Test-Path $updateHelperProject) {
   dotnet publish $updateHelperProject -c Release -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true -p:PublishReadyToRun=true -o $updateHelperOutDir
   $updateHelperExe = Join-Path $updateHelperOutDir "UpdateHelper.exe"

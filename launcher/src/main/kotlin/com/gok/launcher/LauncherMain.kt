@@ -5,6 +5,7 @@ import java.awt.CardLayout
 import java.awt.Color
 import java.awt.Component
 import java.awt.Dimension
+import java.awt.AlphaComposite
 import java.awt.EventQueue
 import java.awt.Font
 import java.awt.Graphics
@@ -106,6 +107,14 @@ object LauncherMain {
     ) {
         override fun toString(): String = label
     }
+
+    private data class LevelTileAsset(
+        val key: String,
+        val label: String,
+        val defaultLayer: Int,
+        val collidable: Boolean,
+        val image: BufferedImage?,
+    )
 
     private data class SkillTooltipTemplate(
         val fullName: String,
@@ -697,6 +706,123 @@ object LauncherMain {
             else -> "human_male"
         }
 
+        fun loadLevelTileAssets(): Map<String, LevelTileAsset> {
+            data class TileSpec(
+                val key: String,
+                val label: String,
+                val defaultLayer: Int,
+                val collidable: Boolean,
+                val fileNames: List<String>,
+            )
+
+            val specs = listOf(
+                TileSpec(
+                    key = "grass_tile",
+                    label = "Grass",
+                    defaultLayer = 0,
+                    collidable = false,
+                    fileNames = listOf("karaxas_grass_tile_32.png", "grass_tile.png"),
+                ),
+                TileSpec(
+                    key = "wall_block",
+                    label = "Wall",
+                    defaultLayer = 1,
+                    collidable = true,
+                    fileNames = listOf("karaxas_wall_block_32.png", "wall_block.png"),
+                ),
+                TileSpec(
+                    key = "tree_oak",
+                    label = "Tree",
+                    defaultLayer = 1,
+                    collidable = true,
+                    fileNames = listOf("karaxas_tree_oak_32.png", "tree_oak.png"),
+                ),
+                TileSpec(
+                    key = "cloud_soft",
+                    label = "Cloud",
+                    defaultLayer = 2,
+                    collidable = false,
+                    fileNames = listOf("karaxas_cloud_soft_32.png", "cloud_soft.png"),
+                ),
+            )
+
+            val roots = mutableListOf<Path>()
+            fun appendTileRoots(base: Path) {
+                roots.add(base)
+                roots.add(base.resolve("assets").resolve("tiles"))
+                roots.add(base.resolve("game").resolve("assets").resolve("tiles"))
+            }
+
+            System.getenv("GOK_LEVEL_ART_DIR")
+                ?.takeIf { it.isNotBlank() }
+                ?.let { appendTileRoots(Paths.get(it).toAbsolutePath().normalize()) }
+            appendTileRoots(payloadRoot().toAbsolutePath().normalize())
+            appendTileRoots(installRoot().toAbsolutePath().normalize())
+            var cwdProbe: Path? = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize()
+            repeat(5) {
+                cwdProbe?.let {
+                    appendTileRoots(it)
+                    cwdProbe = it.parent
+                }
+            }
+
+            val normalizedRoots = roots.distinct()
+            fun findTileImage(fileNames: List<String>): BufferedImage? {
+                for (root in normalizedRoots) {
+                    if (!Files.exists(root)) continue
+                    for (fileName in fileNames) {
+                        val candidate = root.resolve(fileName)
+                        if (!Files.isRegularFile(candidate)) continue
+                        val image = try {
+                            ImageIO.read(candidate.toFile())
+                        } catch (_: Exception) {
+                            null
+                        }
+                        if (image != null) {
+                            return image
+                        }
+                    }
+                }
+                return null
+            }
+
+            val assets = linkedMapOf<String, LevelTileAsset>()
+            specs.forEach { spec ->
+                assets[spec.key] = LevelTileAsset(
+                    key = spec.key,
+                    label = spec.label,
+                    defaultLayer = spec.defaultLayer,
+                    collidable = spec.collidable,
+                    image = findTileImage(spec.fileNames),
+                )
+            }
+            val loaded = assets.values.filter { it.image != null }.joinToString(", ") { it.key }
+            if (loaded.isBlank()) {
+                log("Level tile discovery found no themed tile art. Falling back to painted tiles.")
+            } else {
+                log("Level tile discovery loaded: $loaded")
+            }
+            return assets
+        }
+
+        val levelTileAssets = loadLevelTileAssets()
+        val levelTileImageCache = mutableMapOf<Pair<String, Int>, BufferedImage>()
+        val collidableTileKeys = levelTileAssets.values.filter { it.collidable }.map { it.key }.toSet()
+        val defaultLayerForTile = levelTileAssets.values.associate { it.key to it.defaultLayer }
+        val reservedLayerIds = listOf(0, 1, 2)
+        fun resolveLevelTileAsset(assetKey: String?): LevelTileAsset? {
+            val normalized = assetKey?.trim()?.lowercase().orEmpty()
+            return levelTileAssets[normalized]
+        }
+        fun resolveLevelTileImage(assetKey: String, drawSize: Int): BufferedImage? {
+            val cacheKey = assetKey to drawSize
+            levelTileImageCache[cacheKey]?.let { return it }
+            val source = resolveLevelTileAsset(assetKey)?.image ?: return null
+            val scaled = scaleImage(source, drawSize, drawSize)
+            levelTileImageCache[cacheKey] = scaled
+            return scaled
+        }
+
         val selectAppearancePreview = JLabel("No preview", SwingConstants.CENTER).apply {
             preferredSize = Dimension(180, 190)
             minimumSize = Dimension(180, 190)
@@ -796,8 +922,16 @@ object LauncherMain {
         var levelEditorRows = 100_000
         val levelEditorCell = 20
         var levelEditorSpawn = 1 to 1
-        val levelEditorWalls = mutableSetOf<Pair<Int, Int>>()
-        var levelEditorTool = "wall"
+        val levelEditorLayerCells = mutableMapOf<Int, MutableMap<Pair<Int, Int>, String>>()
+        reservedLayerIds.forEach { layerId ->
+            levelEditorLayerCells[layerId] = mutableMapOf()
+        }
+        val levelEditorLayerVisibility = mutableMapOf<Int, Boolean>().apply {
+            reservedLayerIds.forEach { put(it, true) }
+        }
+        var levelEditorTool = "paint"
+        var levelEditorBrushKey = "wall_block"
+        var levelEditorActiveLayer = defaultLayerForTile[levelEditorBrushKey] ?: 1
         var levelEditorViewX = 0
         var levelEditorViewY = 0
         val levelEditorName = UiScaffold.ghostTextField("Level Name")
@@ -838,19 +972,97 @@ object LauncherMain {
         val levelToolResizeButton = buildMenuButton("Resize", rectangularButtonImage, Dimension(88, 30), 12f)
         val levelToolViewButton = buildMenuButton("Pan", rectangularButtonImage, Dimension(72, 30), 12f)
         val levelToolSpawnButton = buildMenuButton("Spawn", rectangularButtonImage, Dimension(78, 30), 12f)
+        val levelToolGrassButton = buildMenuButton("Grass", rectangularButtonImage, Dimension(72, 30), 12f)
         val levelToolWallButton = buildMenuButton("Wall", rectangularButtonImage, Dimension(72, 30), 12f)
+        val levelToolTreeButton = buildMenuButton("Tree", rectangularButtonImage, Dimension(72, 30), 12f)
+        val levelToolCloudButton = buildMenuButton("Cloud", rectangularButtonImage, Dimension(78, 30), 12f)
         val levelToolLoadButton = buildMenuButton("Load", rectangularButtonImage, Dimension(72, 30), 12f)
         val levelToolSaveButton = buildMenuButton("Save", rectangularButtonImage, Dimension(72, 30), 12f)
-        val levelToolClearButton = buildMenuButton("Clear", rectangularButtonImage, Dimension(72, 30), 12f)
+        val levelToolClearButton = buildMenuButton("Clear Layer", rectangularButtonImage, Dimension(110, 30), 12f)
         val levelToolBackButton = buildMenuButton("Back", rectangularButtonImage, Dimension(86, 30), 12f)
+        val levelActiveLayerCombo = ThemedComboBox<Any>().apply {
+            preferredSize = Dimension(120, 32)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+            font = UiScaffold.bodyFont
+            model = javax.swing.DefaultComboBoxModel(arrayOf("Layer 0", "Layer 1", "Layer 2"))
+            selectedIndex = levelEditorActiveLayer
+        }
+        val levelShowLayer0 = JCheckBox("L0", true).apply {
+            isOpaque = false
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
+            toolTipText = "Show/hide layer 0 (ground/foliage)."
+        }
+        val levelShowLayer1 = JCheckBox("L1", true).apply {
+            isOpaque = false
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
+            toolTipText = "Show/hide layer 1 (gameplay entities/obstacles)."
+        }
+        val levelShowLayer2 = JCheckBox("L2", true).apply {
+            isOpaque = false
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
+            toolTipText = "Show/hide layer 2 (ambient/weather overlays)."
+        }
         var levelGridViewportPanel: JPanel? = null
         lateinit var levelEditorCanvas: JPanel
 
-        fun setLevelToolMode(mode: String) {
+        fun setLevelToolMode(mode: String, brushKey: String? = null) {
             levelEditorTool = mode
+            if (brushKey != null) {
+                levelEditorBrushKey = brushKey
+                val defaultLayer = defaultLayerForTile[brushKey] ?: levelEditorActiveLayer
+                levelEditorActiveLayer = defaultLayer.coerceIn(0, 2)
+                levelActiveLayerCombo.selectedIndex = levelEditorActiveLayer
+            }
             val spawnActive = mode == "spawn"
-            levelToolSpawnButton.isEnabled = !spawnActive
-            levelToolWallButton.isEnabled = spawnActive
+            levelToolSpawnButton.putClientProperty("gokActiveTab", spawnActive)
+            levelToolGrassButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "grass_tile")
+            levelToolWallButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "wall_block")
+            levelToolTreeButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "tree_oak")
+            levelToolCloudButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "cloud_soft")
+            levelToolSpawnButton.repaint()
+            levelToolGrassButton.repaint()
+            levelToolWallButton.repaint()
+            levelToolTreeButton.repaint()
+            levelToolCloudButton.repaint()
+        }
+
+        fun levelLayerCells(layerId: Int): MutableMap<Pair<Int, Int>, String> {
+            return levelEditorLayerCells.getOrPut(layerId) { mutableMapOf() }
+        }
+
+        fun removeCollidableCellAtSpawn(spawnCell: Pair<Int, Int>) {
+            for ((_, layerCells) in levelEditorLayerCells) {
+                val key = layerCells[spawnCell] ?: continue
+                if (collidableTileKeys.contains(key)) {
+                    layerCells.remove(spawnCell)
+                }
+            }
+        }
+
+        fun drawEditorTileCell(g2: Graphics2D, drawX: Int, drawY: Int, drawSize: Int, layerId: Int, assetKey: String) {
+            val image = resolveLevelTileImage(assetKey, drawSize)
+            if (image != null) {
+                g2.drawImage(image, drawX, drawY, null)
+                return
+            }
+            val fallback = when (assetKey) {
+                "grass_tile" -> Color(72, 104, 63)
+                "tree_oak" -> Color(46, 92, 54)
+                "cloud_soft" -> Color(176, 178, 181, 200)
+                else -> Color(104, 77, 53)
+            }
+            g2.color = fallback
+            g2.fillRect(drawX, drawY, drawSize, drawSize)
+            g2.color = when (layerId) {
+                0 -> Color(89, 124, 70)
+                1 -> Color(172, 132, 87)
+                else -> Color(194, 194, 194)
+            }
+            g2.drawRect(drawX, drawY, drawSize, drawSize)
         }
 
         fun visibleLevelEditorCols(): Int = (levelEditorCanvas.width / levelEditorCell).coerceAtLeast(1)
@@ -903,16 +1115,20 @@ object LauncherMain {
                         val py = y * levelEditorCell
                         g2.drawLine(0, py, width, py)
                     }
-                    g2.color = Color(104, 77, 53)
-                    levelEditorWalls.forEach { (cellX, cellY) ->
-                        if (cellX !in levelEditorViewX until (levelEditorViewX + visCols)) return@forEach
-                        if (cellY !in levelEditorViewY until (levelEditorViewY + visRows)) return@forEach
-                        g2.fillRect(
-                            (cellX - levelEditorViewX) * levelEditorCell + 1,
-                            (cellY - levelEditorViewY) * levelEditorCell + 1,
-                            levelEditorCell - 1,
-                            levelEditorCell - 1
-                        )
+                    reservedLayerIds.forEach layerLoop@{ layerId ->
+                        if (levelEditorLayerVisibility[layerId] != true) {
+                            return@layerLoop
+                        }
+                        levelLayerCells(layerId).forEach cellLoop@{ (cell, assetKey) ->
+                            val cellX = cell.first
+                            val cellY = cell.second
+                            if (cellX !in levelEditorViewX until (levelEditorViewX + visCols)) return@cellLoop
+                            if (cellY !in levelEditorViewY until (levelEditorViewY + visRows)) return@cellLoop
+                            val drawX = (cellX - levelEditorViewX) * levelEditorCell + 1
+                            val drawY = (cellY - levelEditorViewY) * levelEditorCell + 1
+                            val drawSize = (levelEditorCell - 2).coerceAtLeast(2)
+                            drawEditorTileCell(g2, drawX, drawY, drawSize, layerId, assetKey)
+                        }
                     }
                     val (spawnX, spawnY) = levelEditorSpawn
                     val drawSpawnX = spawnX - levelEditorViewX
@@ -956,7 +1172,9 @@ object LauncherMain {
             levelEditorRows = rows.coerceIn(8, 100_000)
             levelEditorSpawn = levelEditorSpawn.first.coerceIn(0, levelEditorCols - 1) to
                 levelEditorSpawn.second.coerceIn(0, levelEditorRows - 1)
-            levelEditorWalls.removeIf { (x, y) -> x !in 0 until levelEditorCols || y !in 0 until levelEditorRows }
+            levelEditorLayerCells.values.forEach { layerMap ->
+                layerMap.keys.removeIf { (x, y) -> x !in 0 until levelEditorCols || y !in 0 until levelEditorRows }
+            }
             resizeLevelEditorCanvas()
         }
 
@@ -972,19 +1190,21 @@ object LauncherMain {
 
         fun applyLevelToolPlacement(mouseX: Int, mouseY: Int, erase: Boolean) {
             val cell = levelCellAt(mouseX, mouseY) ?: return
+            val layerMap = levelLayerCells(levelEditorActiveLayer)
             if (erase) {
-                levelEditorWalls.remove(cell)
+                layerMap.remove(cell)
                 levelEditorCanvas.repaint()
                 return
             }
             if (levelEditorTool == "spawn") {
                 levelEditorSpawn = cell
-                levelEditorWalls.remove(cell)
+                removeCollidableCellAtSpawn(cell)
             } else {
-                levelEditorWalls.add(cell)
-                if (levelEditorSpawn == cell) {
-                    levelEditorSpawn = (0 to 0)
+                if (cell == levelEditorSpawn && collidableTileKeys.contains(levelEditorBrushKey)) {
+                    levelToolStatus.text = "Spawn cell cannot contain collidable tiles."
+                    return
                 }
+                layerMap[cell] = levelEditorBrushKey
             }
             levelEditorCanvas.repaint()
         }
@@ -1042,7 +1262,7 @@ object LauncherMain {
                 resizeLevelEditorCanvas()
             }
         })
-        setLevelToolMode("wall")
+        setLevelToolMode("paint", levelEditorBrushKey)
         resizeLevelEditorCanvas()
 
         val buildPointBudget = 10
@@ -1295,12 +1515,12 @@ object LauncherMain {
         val gameTileSize = 64f
         var gameWorldWidth = 2400f
         var gameWorldHeight = 1600f
-        var gameWorldBorder = 0f
         var gameLevelWidthCells = 40
         var gameLevelHeightCells = 24
         var gameSpawnCellX = 1
         var gameSpawnCellY = 1
         var gameWallCells = emptySet<Pair<Int, Int>>()
+        var gameLayerCells = emptyMap<Int, List<LevelLayerCellView>>()
         val spriteHalf = 16f
         var gamePlayerX = gameWorldWidth / 2f
         var gamePlayerY = gameWorldHeight / 2f
@@ -1400,16 +1620,37 @@ object LauncherMain {
                         g2.drawLine(worldScreenX, sy, worldScreenX + worldW, sy)
                         gy += grid
                     }
-
-                    g2.color = Color(52, 40, 31)
-                    gameWallCells.forEach { (cellX, cellY) ->
-                        val drawX = worldScreenX + (cellX * grid)
-                        val drawY = worldScreenY + (cellY * grid)
-                        g2.fillRect(drawX, drawY, grid, grid)
-                        g2.color = Color(173, 130, 86)
-                        g2.drawRect(drawX, drawY, grid, grid)
-                        g2.color = Color(52, 40, 31)
+                    fun drawLayerTile(layerId: Int, cell: LevelLayerCellView) {
+                        val drawX = worldScreenX + (cell.x * grid)
+                        val drawY = worldScreenY + (cell.y * grid)
+                        if (drawX + grid < 0 || drawY + grid < 0 || drawX > width || drawY > height) {
+                            return
+                        }
+                        val image = resolveLevelTileImage(cell.assetKey, grid)
+                        val previousComposite = g2.composite
+                        if (layerId == 2) {
+                            g2.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.78f)
+                        }
+                        if (image != null) {
+                            g2.drawImage(image, drawX, drawY, null)
+                        } else {
+                            g2.color = when (cell.assetKey) {
+                                "grass_tile" -> Color(73, 105, 63)
+                                "tree_oak" -> Color(44, 92, 53)
+                                "cloud_soft" -> Color(178, 182, 187)
+                                else -> Color(52, 40, 31)
+                            }
+                            g2.fillRect(drawX, drawY, grid, grid)
+                        }
+                        g2.composite = previousComposite
+                        if (layerId == 1 && collidableTileKeys.contains(cell.assetKey)) {
+                            g2.color = Color(173, 130, 86)
+                            g2.drawRect(drawX, drawY, grid, grid)
+                        }
                     }
+
+                    gameLayerCells[0].orEmpty().forEach { drawLayerTile(0, it) }
+                    gameLayerCells[1].orEmpty().forEach { drawLayerTile(1, it) }
 
                     g2.color = Color(188, 150, 103)
                     g2.drawRect(worldScreenX, worldScreenY, worldW, worldH)
@@ -1431,6 +1672,7 @@ object LauncherMain {
                     g2.color = textColor
                     g2.font = Font(THEME_FONT_FAMILY, Font.BOLD, 15)
                     g2.drawString(gameCharacterName, playerDrawX - 4, playerDrawY - 8)
+                    gameLayerCells[2].orEmpty().forEach { drawLayerTile(2, it) }
                     g2.font = Font(THEME_FONT_FAMILY, Font.PLAIN, 14)
                     g2.drawString("WASD to move. Level: $activeGameLevelName", 12, 22)
                 } finally {
@@ -1524,6 +1766,7 @@ object LauncherMain {
                 gameWorldWidth = gameLevelWidthCells * gameTileSize
                 gameWorldHeight = gameLevelHeightCells * gameTileSize
                 gameWallCells = emptySet()
+                gameLayerCells = emptyMap()
                 return
             }
             activeGameLevelId = level.id
@@ -1534,9 +1777,35 @@ object LauncherMain {
             gameSpawnCellY = level.spawnY.coerceIn(0, gameLevelHeightCells - 1)
             gameWorldWidth = gameLevelWidthCells * gameTileSize
             gameWorldHeight = gameLevelHeightCells * gameTileSize
-            gameWallCells = level.wallCells
-                .map { it.x.coerceIn(0, gameLevelWidthCells - 1) to it.y.coerceIn(0, gameLevelHeightCells - 1) }
-                .filterNot { it.first == gameSpawnCellX && it.second == gameSpawnCellY }
+            val rawLayers = if (level.layers.isNotEmpty()) {
+                level.layers
+            } else {
+                mapOf(
+                    1 to level.wallCells.map { wall ->
+                        LevelLayerCellView(layer = 1, x = wall.x, y = wall.y, assetKey = "wall_block")
+                    }
+                )
+            }
+            val normalizedLayers = linkedMapOf<Int, MutableList<LevelLayerCellView>>()
+            rawLayers.keys.sorted().forEach { layerId ->
+                val cells = rawLayers[layerId].orEmpty()
+                val normalized = cells.mapNotNull { cell ->
+                    val cellX = cell.x.coerceIn(0, gameLevelWidthCells - 1)
+                    val cellY = cell.y.coerceIn(0, gameLevelHeightCells - 1)
+                    val key = cell.assetKey.trim().lowercase().ifBlank { "decor" }
+                    if (cellX == gameSpawnCellX && cellY == gameSpawnCellY && collidableTileKeys.contains(key)) {
+                        null
+                    } else {
+                        LevelLayerCellView(layer = layerId, x = cellX, y = cellY, assetKey = key)
+                    }
+                }
+                normalizedLayers[layerId] = normalized.toMutableList()
+            }
+            gameLayerCells = normalizedLayers
+            gameWallCells = normalizedLayers[1]
+                .orEmpty()
+                .filter { collidableTileKeys.contains(it.assetKey) }
+                .map { it.x to it.y }
                 .toSet()
         }
 
@@ -2154,11 +2423,32 @@ object LauncherMain {
             levelEditorSpawn = level.spawnX.coerceIn(0, levelEditorCols - 1) to level.spawnY.coerceIn(0, levelEditorRows - 1)
             levelEditorViewX = (levelEditorSpawn.first - 20).coerceAtLeast(0)
             levelEditorViewY = (levelEditorSpawn.second - 12).coerceAtLeast(0)
-            levelEditorWalls.clear()
-            level.wallCells
-                .map { it.x.coerceIn(0, levelEditorCols - 1) to it.y.coerceIn(0, levelEditorRows - 1) }
-                .filterNot { it == levelEditorSpawn }
-                .forEach { levelEditorWalls.add(it) }
+            levelEditorLayerCells.values.forEach { it.clear() }
+            val sourceLayers = if (level.layers.isNotEmpty()) {
+                level.layers
+            } else {
+                mapOf(
+                    1 to level.wallCells.map { wall ->
+                        LevelLayerCellView(layer = 1, x = wall.x, y = wall.y, assetKey = "wall_block")
+                    }
+                )
+            }
+            sourceLayers.forEach layerLoop@{ (layerId, cells) ->
+                val clampedLayer = layerId.coerceIn(0, 2)
+                val layerMap = levelLayerCells(clampedLayer)
+                cells.forEach cellLoop@{ cell ->
+                    val x = cell.x.coerceIn(0, levelEditorCols - 1)
+                    val y = cell.y.coerceIn(0, levelEditorRows - 1)
+                    val assetKey = cell.assetKey.trim().lowercase().ifBlank { "decor" }
+                    if (collidableTileKeys.contains(assetKey) && levelEditorSpawn == (x to y)) {
+                        return@cellLoop
+                    }
+                    layerMap[x to y] = assetKey
+                }
+            }
+            levelEditorActiveLayer = 1
+            levelActiveLayerCombo.selectedIndex = levelEditorActiveLayer
+            setLevelToolMode("paint", levelEditorBrushKey)
             resizeLevelEditorCanvas()
         }
 
@@ -2199,14 +2489,26 @@ object LauncherMain {
                 add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(JPanel(GridLayout(2, 1, 0, 4)).apply {
+                    add(JPanel(GridLayout(3, 1, 0, 4)).apply {
                         isOpaque = false
                         add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                             isOpaque = false
                             add(UiScaffold.titledLabel("Tool"))
                             add(levelToolSpawnButton)
+                            add(levelToolGrassButton)
                             add(levelToolWallButton)
+                            add(levelToolTreeButton)
+                            add(levelToolCloudButton)
                             add(levelToolClearButton)
+                        })
+                        add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                            isOpaque = false
+                            add(UiScaffold.titledLabel("Active Layer"))
+                            add(levelActiveLayerCombo)
+                            add(UiScaffold.titledLabel("Show"))
+                            add(levelShowLayer0)
+                            add(levelShowLayer1)
+                            add(levelShowLayer2)
                         })
                         add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                             isOpaque = false
@@ -2232,7 +2534,7 @@ object LauncherMain {
                 add(JPanel(BorderLayout(6, 0)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(UiScaffold.titledLabel("Drag to place selected tool. Right-drag erases walls. Alt+drag or mouse-wheel pans the view."), BorderLayout.WEST)
+                    add(UiScaffold.titledLabel("Drag to paint selected layer/asset. Right-drag erases from active layer. Alt+drag or mouse-wheel pans."), BorderLayout.WEST)
                     add(levelToolStatus, BorderLayout.EAST)
                 }, BorderLayout.SOUTH)
             }, BorderLayout.CENTER)
@@ -2518,13 +2820,32 @@ object LauncherMain {
         levelToolViewButton.addActionListener { applyRequestedViewportFromInputs() }
         levelViewXField.addActionListener { applyRequestedViewportFromInputs() }
         levelViewYField.addActionListener { applyRequestedViewportFromInputs() }
+        levelActiveLayerCombo.addActionListener {
+            levelEditorActiveLayer = levelActiveLayerCombo.selectedIndex.coerceIn(0, 2)
+            resizeLevelEditorCanvas()
+        }
+        levelShowLayer0.addActionListener {
+            levelEditorLayerVisibility[0] = levelShowLayer0.isSelected
+            resizeLevelEditorCanvas()
+        }
+        levelShowLayer1.addActionListener {
+            levelEditorLayerVisibility[1] = levelShowLayer1.isSelected
+            resizeLevelEditorCanvas()
+        }
+        levelShowLayer2.addActionListener {
+            levelEditorLayerVisibility[2] = levelShowLayer2.isSelected
+            resizeLevelEditorCanvas()
+        }
         levelToolBackButton.addActionListener { showCard("select_character") }
         levelToolSpawnButton.addActionListener { setLevelToolMode("spawn") }
-        levelToolWallButton.addActionListener { setLevelToolMode("wall") }
+        levelToolGrassButton.addActionListener { setLevelToolMode("paint", "grass_tile") }
+        levelToolWallButton.addActionListener { setLevelToolMode("paint", "wall_block") }
+        levelToolTreeButton.addActionListener { setLevelToolMode("paint", "tree_oak") }
+        levelToolCloudButton.addActionListener { setLevelToolMode("paint", "cloud_soft") }
         levelToolClearButton.addActionListener {
-            levelEditorWalls.clear()
+            levelLayerCells(levelEditorActiveLayer).clear()
             levelEditorCanvas.repaint()
-            levelToolStatus.text = "Walls cleared."
+            levelToolStatus.text = "Cleared layer $levelEditorActiveLayer."
         }
         levelToolLoadButton.addActionListener {
             val selected = levelLoadCombo.selectedItem as? LevelSummaryView
@@ -2566,7 +2887,23 @@ object LauncherMain {
             }
             withSession(onMissing = { levelToolStatus.text = "Please login first." }) { session ->
                 levelToolStatus.text = "Saving level..."
-                val walls = levelEditorWalls.map { LevelGridCellView(x = it.first, y = it.second) }
+                val layers = linkedMapOf<Int, List<LevelLayerCellView>>()
+                reservedLayerIds.forEach { layerId ->
+                    val cells = levelLayerCells(layerId)
+                        .entries
+                        .sortedWith(compareBy({ it.key.second }, { it.key.first }, { it.value }))
+                        .map { entry ->
+                            LevelLayerCellView(
+                                layer = layerId,
+                                x = entry.key.first,
+                                y = entry.key.second,
+                                assetKey = entry.value,
+                            )
+                        }
+                    if (cells.isNotEmpty()) {
+                        layers[layerId] = cells
+                    }
+                }
                 Thread {
                     try {
                         val saved = backendClient.saveLevel(
@@ -2577,7 +2914,7 @@ object LauncherMain {
                             height = levelEditorRows,
                             spawnX = levelEditorSpawn.first,
                             spawnY = levelEditorSpawn.second,
-                            wallCells = walls,
+                            layers = layers,
                         )
                         val levels = backendClient.listLevels(session.accessToken, clientVersion)
                         javax.swing.SwingUtilities.invokeLater {

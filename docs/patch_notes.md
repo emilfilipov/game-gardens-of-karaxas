@@ -1,3 +1,7 @@
-- Consolidated security planning by moving `GOK-MMO-009` out of generic backlog into a dedicated `Epic E: Security Hardening and Trust Model` table in `docs/TASKS.md`.
-- Added detailed follow-on security hardening tasks (`GOK-MMO-140` to `GOK-MMO-151`) so trust/security work is tracked in one place.
-- Marked standalone backlog as empty and clarified that planned work is tracked under strategic epics.
+- Implemented Epic A layered-level baseline across backend and launcher:
+  - schema-versioned layered level payloads with legacy wall-format adapters,
+  - layer-aware validation/API responses,
+  - layer-editing tools (active layer, visibility toggles, layer-scoped paint/erase),
+  - deterministic layered world rendering and collision from layer-1 collidable assets.
+- Added backend migration `0008_level_layers` and layered backend tests covering legacy upgrade, collision-layer validation, and collision derivation rules.
+- Added generated tile art assets for layer testing (`grass`, `wall`, `tree`, `cloud`) under `assets/tiles/` and included tile assets in launcher release payload packaging.

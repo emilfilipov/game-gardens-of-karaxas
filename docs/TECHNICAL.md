@@ -40,7 +40,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - Includes nullable `level_id` to map a character to a saved world layout.
   - Includes nullable `location_x`/`location_y` for persisted world coordinates.
   - Character names are globally unique (case-insensitive unique index on `lower(name)`).
-- `levels`: named level layouts (grid size, spawn cell, wall-cell list) for world bootstrapping.
+- `levels`: named level layouts with schema-versioned layered tile payloads (`layer_cells`) plus legacy-compatible derived `wall_cells` for collision fallback.
 - `friendships`: friend graph.
 - `guilds`, `guild_members`: guild presence and rank scaffolding.
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
@@ -112,7 +112,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character selection uses fixed-size themed character cards with per-row `Play` and `Delete` actions.
 - Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
 - Admin-only launcher controls (level-builder tab and per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
-- Level-builder tool supports drag/erase wall placement and single spawn-point placement on a fixed grid, with named save/load against backend `/levels` APIs.
+- Level-builder tool now supports layered tile editing with an active-layer selector, per-layer visibility toggles, tile brush palette (`grass`, `wall`, `tree`, `cloud`), and spawn placement on a fixed grid.
 - Level-builder is rendered in a dedicated scene (outside account card stack) with compact top controls for faster editing workflows.
 - Level-builder scene header strip now contains `Load`, `Save`, and `Back`, plus the load-dropdown and level-name input placed adjacent to their respective actions.
 - Lower editor rows are reserved for level-editing controls and viewport/grid inputs.
@@ -122,11 +122,13 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level-builder grid size controls are positioned with the grid header (above the editor canvas) for quick on-the-fly sizing while editing.
 - Level-builder grid is now virtualized/pannable and supports up to `100000x100000` logical dimensions without allocating a full pixel canvas of that size.
 - Level-builder canvas renders a spawn-cell character sprite marker (using resolved appearance art) instead of only a basic spawn dot marker.
+- Level-builder save/load payload uses explicit layered schema (`schema_version=2`) and keeps backward compatibility with legacy wall-only payloads.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
 - Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
 - `play` scene is currently an empty-world prototype with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
-- When a character has an assigned `level_id`, gameplay loads spawn/walls from backend level data and applies tile-based wall collision in addition to world-edge collision.
+- When a character has an assigned `level_id`, gameplay loads layered level data and renders deterministic layer order (`0 -> 1 -> player -> 2`).
+- Runtime collision map is derived only from configured collision-layer assets on layer `1` (currently `wall_block`, `tree_oak`) plus world-edge collision.
 - Launcher persists character runtime location through `POST /characters/{id}/location` when leaving gameplay (or logout/close while in gameplay) and resumes from saved coordinates on next play session.
 - Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` in working dir, install root, payload root, or `GOK_CHARACTER_ART_DIR`.
 - Character creation preview now renders a static idle-frame preview (sex/appearance-driven) without a preview-animation mode selector.
@@ -135,7 +137,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Sex-to-appearance mapping now uses token-safe matching (`female`/`male` boundary checks) to avoid substring collisions like `female` matching `male`.
 - Preview image scaling is aspect-preserving with nearest-neighbor interpolation to keep sprite proportions and pixel art sharpness.
 - Create-character preview rendering now targets a fixed preview surface size so initial render and sex-switch updates keep identical zoom.
+- Level tile discovery now scans `assets/tiles/` roots (repo, install, payload, ancestor cwd roots, and optional `GOK_LEVEL_ART_DIR`) for layered map sprites.
 - Release packaging copies `assets/characters/` into payload (`payload/assets/characters`) so installed launcher builds can resolve preview art without relying on local repo folders.
+- Release packaging also copies `assets/tiles/` into payload (`payload/assets/tiles`) so layered level art is available in installed builds.
 - Character creation point allocation uses a fixed 10-point budget with +/− controls for stats and themed rectangular toggle choices for starter skills.
 - Character creation now uses expanded two-column stat allocation rows and includes scaffold dropdowns (race/background/affiliation) above the skills area.
 - Stat allocation rows now use fixed-size cards with square +/- controls and companion fixed-size description cards for each stat entry.
@@ -170,15 +174,15 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Passwords: bcrypt hash via passlib.
 - Ops endpoint auth: `x-ops-token` header backed by `OPS_API_TOKEN` secret.
 
-## Planned Architecture Draft (Review Pending, Not Implemented)
-### 1) Layered World/Level Data
-- Planned level content model adds explicit render/edit layers with deterministic ordering.
-- Initial reserved semantics:
+## Planned Architecture Draft (Review Pending, Partially Implemented)
+### 1) Layered World/Level Data (Baseline Implemented)
+- Level content model now supports explicit render/edit layers with deterministic ordering.
+- Current reserved semantics:
   - `layer 0`: ground/foliage/background tiles.
   - `layer 1`: gameplay entities/obstacles (collision-relevant).
   - `layer 2`: ambient/weather/overlays (non-collision by default).
-- Runtime collision extraction will be layer-filtered rather than derived from all rendered elements.
-- Legacy single-layer level payloads are planned to be auto-adapted to layered schema during migration/read path.
+- Runtime collision extraction is now layer-filtered and asset-filtered.
+- Legacy single-layer level payloads are auto-adapted to layered format on read/save paths.
 
 ### 2) Data-Driven Content Snapshot System
 - Planned database-driven content domains include:

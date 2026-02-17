@@ -13,20 +13,20 @@ This section defines the proposed plan for:
 - fully data-driven runtime content (non-logic values in DB),
 - admin-published content changes that safely log out non-admin users.
 
-No items in this section are implemented yet.
+Epic A baseline implementation is now in progress; remaining epics are still unimplemented.
 
 ### Epic A: Layered Level Model and Level-Builder Layer Editing
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-100 | ⬜ | 2 | Define level-layer schema and constraints: reserve layer `0` (ground/foliage), layer `1` (gameplay entities/obstacles), layer `2` (weather/ambient FX), and support extension to additional layers. |
-| GOK-MMO-101 | ⬜ | 3 | Add backend migration for layered level storage: evolve level payload from single wall-cell list to per-layer tile/object placements while preserving backward compatibility for existing levels. |
-| GOK-MMO-102 | ⬜ | 3 | Introduce backend level validation rules by layer type: collision-affecting elements must belong to configured collision layers; decorative layers must not produce collision data. |
-| GOK-MMO-103 | ⬜ | 3 | Extend level APIs (`create`, `save`, `load`, `list`) to return layer metadata and per-layer content payloads with explicit schema versioning. |
-| GOK-MMO-104 | ⬜ | 2 | Add launcher level-builder active-layer selector and rendering toggles (show/hide layers) to support editing/inspection without changing runtime gameplay state. |
-| GOK-MMO-105 | ⬜ | 3 | Update level-builder placement logic so all placements/wipes are scoped to currently selected layer; maintain spawn placement policy separately from generic layer objects. |
-| GOK-MMO-106 | ⬜ | 3 | Update gameplay scene renderer to draw layers in deterministic order and derive collision map only from designated collision layers. |
-| GOK-MMO-107 | ⬜ | 2 | Build migration adapter for legacy levels: transform old wall/spawn format to layered format on read/save path; persist as layered format when re-saved. |
-| GOK-MMO-108 | ⬜ | 2 | Add layered level tests (backend validation + launcher serialization/deserialization paths) and golden fixtures for legacy + new formats. |
+| GOK-MMO-100 | ✅ | 2 | Level-layer schema and constraints are now defined in backend/launcher with reserved layers `0` (ground/foliage), `1` (gameplay/collision), and `2` (ambient/weather), while preserving extensible numeric layer IDs. |
+| GOK-MMO-101 | ✅ | 3 | Added Alembic migration `0008_level_layers` introducing schema-versioned layered level storage and backfilling legacy wall-cell payloads into layer `1` objects. |
+| GOK-MMO-102 | ✅ | 3 | Backend save validation now enforces collision asset placement on collision layers only and derives collision data from configured collision assets/layers. |
+| GOK-MMO-103 | ✅ | 3 | Level APIs now return `schema_version` and layered payloads (`layers`), while still exposing derived `wall_cells` for backward compatibility. |
+| GOK-MMO-104 | ✅ | 2 | Launcher level-builder now includes an active-layer selector and per-layer visibility toggles for edit/inspection workflows. |
+| GOK-MMO-105 | ✅ | 3 | Level-builder placement/erase logic is now scoped to active layer; spawn placement remains a separate tool and collision tiles are prevented on spawn cells. |
+| GOK-MMO-106 | ✅ | 3 | Gameplay renderer now draws deterministic layer order (`0 -> 1 -> player -> 2`) and collision is derived only from configured collision assets on layer `1`. |
+| GOK-MMO-107 | ✅ | 2 | Legacy level adapter is implemented on backend read/save and launcher load paths so old wall/spawn data is auto-translated to layered format. |
+| GOK-MMO-108 | ⏳ | 2 | Backend layered validation tests were added; launcher serialization/deserialization golden fixtures are still pending in a follow-up cycle. |
 
 ### Epic B: Data-Driven Content and Runtime Tuning Model
 | Task ID | Status | Complexity | Detailed Description |
@@ -121,6 +121,7 @@ No items in this section are implemented yet.
 | GOK-MMO-039 | ✅ | 2 | Convert create-screen skill slots to fixed square buttons (6 per row) and add standardized hover tooltip templates (name, costs, effects, damage/cooldown, type tag, description) with placeholder content for starter skills. |
 | GOK-MMO-040 | ✅ | 2 | Fix themed skill tooltip behavior (remove white border artifacts and stabilize hover timing), move level-builder `Load/Save/Back` into the top header strip, improve invalid-token messaging, and enforce grid-input sync + named-level validation during level save. |
 | GOK-MMO-041 | ✅ | 1 | Move level-builder `Load Existing` dropdown and `Save Level` name input into the top header strip next to `Load`/`Save`, leaving editor-body rows focused on tool/grid editing controls. |
+| GOK-MMO-042 | ✅ | 4 | Implement Epic A baseline: layered level schema + migration/backward adapter, layer-aware API payloads/validation, launcher layer-edit tools (active layer + visibility + tile palette), deterministic layered world rendering, and collision extraction from layer-1 collidable assets. |
 | GOK-INIT-001 | ✅ | 2 | Create initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configure GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enable launcher-only Velopack packaging and publish first installer/release artifacts. |

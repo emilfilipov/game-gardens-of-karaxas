@@ -52,9 +52,17 @@ data class LevelGridCellView(
     val y: Int
 )
 
+data class LevelLayerCellView(
+    val layer: Int,
+    val x: Int,
+    val y: Int,
+    val assetKey: String,
+)
+
 data class LevelSummaryView(
     val id: Int,
     val name: String,
+    val schemaVersion: Int,
     val width: Int,
     val height: Int
 ) {
@@ -64,10 +72,12 @@ data class LevelSummaryView(
 data class LevelDataView(
     val id: Int,
     val name: String,
+    val schemaVersion: Int,
     val width: Int,
     val height: Int,
     val spawnX: Int,
     val spawnY: Int,
+    val layers: Map<Int, List<LevelLayerCellView>>,
     val wallCells: List<LevelGridCellView>
 )
 
@@ -337,10 +347,55 @@ class KaraxasBackendClient(
             LevelSummaryView(
                 id = item.path("id").asInt(),
                 name = item.path("name").asText(),
+                schemaVersion = item.path("schema_version").asInt(2),
                 width = item.path("width").asInt(40),
                 height = item.path("height").asInt(24),
             )
         }
+    }
+
+    private fun parseLevelLayers(item: JsonNode): Map<Int, List<LevelLayerCellView>> {
+        val layersNode = item.path("layers")
+        val parsed = linkedMapOf<Int, MutableList<LevelLayerCellView>>()
+        if (layersNode.isObject) {
+            val fields = layersNode.fields()
+            while (fields.hasNext()) {
+                val (key, value) = fields.next()
+                val layerId = key.toIntOrNull() ?: continue
+                if (!value.isArray) continue
+                val list = parsed.getOrPut(layerId) { mutableListOf() }
+                value.forEach { cell ->
+                    list.add(
+                        LevelLayerCellView(
+                            layer = layerId,
+                            x = cell.path("x").asInt(),
+                            y = cell.path("y").asInt(),
+                            assetKey = cell.path("asset_key").asText("decor"),
+                        )
+                    )
+                }
+            }
+        }
+        if (parsed.isNotEmpty()) {
+            return parsed
+        }
+
+        val legacy = item.path("wall_cells")
+        if (!legacy.isArray) {
+            return emptyMap()
+        }
+        val legacyWalls = mutableListOf<LevelLayerCellView>()
+        legacy.forEach { cell ->
+            legacyWalls.add(
+                LevelLayerCellView(
+                    layer = 1,
+                    x = cell.path("x").asInt(),
+                    y = cell.path("y").asInt(),
+                    assetKey = "wall_block",
+                )
+            )
+        }
+        return if (legacyWalls.isEmpty()) emptyMap() else mapOf(1 to legacyWalls)
     }
 
     fun getLevel(accessToken: String, clientVersion: String, levelId: Int): LevelDataView {
@@ -352,19 +407,21 @@ class KaraxasBackendClient(
         )
         ensureSuccess(response)
         val item = mapper.readTree(response.body())
+        val layers = parseLevelLayers(item)
+        val wallCells = layers
+            .getOrDefault(1, emptyList())
+            .filter { it.assetKey == "wall_block" || it.assetKey == "tree_oak" }
+            .map { LevelGridCellView(x = it.x, y = it.y) }
         return LevelDataView(
             id = item.path("id").asInt(),
             name = item.path("name").asText(),
+            schemaVersion = item.path("schema_version").asInt(2),
             width = item.path("width").asInt(40),
             height = item.path("height").asInt(24),
             spawnX = item.path("spawn_x").asInt(1),
             spawnY = item.path("spawn_y").asInt(1),
-            wallCells = item.path("wall_cells").map { cell ->
-                LevelGridCellView(
-                    x = cell.path("x").asInt(),
-                    y = cell.path("y").asInt(),
-                )
-            },
+            layers = layers,
+            wallCells = wallCells,
         )
     }
 
@@ -376,15 +433,33 @@ class KaraxasBackendClient(
         height: Int,
         spawnX: Int,
         spawnY: Int,
-        wallCells: List<LevelGridCellView>,
+        layers: Map<Int, List<LevelLayerCellView>>,
     ): LevelDataView {
+        val collisionWalls = layers
+            .getOrDefault(1, emptyList())
+            .filter { it.assetKey == "wall_block" || it.assetKey == "tree_oak" }
+            .map { mapOf("x" to it.x, "y" to it.y) }
+
+        val layerPayload = linkedMapOf<String, List<Map<String, Any>>>()
+        layers.keys.sorted().forEach { layer ->
+            val cells = layers[layer].orEmpty()
+            layerPayload[layer.toString()] = cells.map { cell ->
+                mapOf(
+                    "x" to cell.x,
+                    "y" to cell.y,
+                    "asset_key" to cell.assetKey,
+                )
+            }
+        }
         val payload = mapOf(
             "name" to name,
+            "schema_version" to 2,
             "width" to width,
             "height" to height,
             "spawn_x" to spawnX,
             "spawn_y" to spawnY,
-            "wall_cells" to wallCells.map { mapOf("x" to it.x, "y" to it.y) },
+            "layers" to layerPayload,
+            "wall_cells" to collisionWalls,
         )
         val response = request(
             method = "POST",
@@ -395,19 +470,21 @@ class KaraxasBackendClient(
         )
         ensureSuccess(response)
         val item = mapper.readTree(response.body())
+        val parsedLayers = parseLevelLayers(item)
+        val parsedWalls = parsedLayers
+            .getOrDefault(1, emptyList())
+            .filter { it.assetKey == "wall_block" || it.assetKey == "tree_oak" }
+            .map { LevelGridCellView(x = it.x, y = it.y) }
         return LevelDataView(
             id = item.path("id").asInt(),
             name = item.path("name").asText(),
+            schemaVersion = item.path("schema_version").asInt(2),
             width = item.path("width").asInt(40),
             height = item.path("height").asInt(24),
             spawnX = item.path("spawn_x").asInt(1),
             spawnY = item.path("spawn_y").asInt(1),
-            wallCells = item.path("wall_cells").map { cell ->
-                LevelGridCellView(
-                    x = cell.path("x").asInt(),
-                    y = cell.path("y").asInt(),
-                )
-            },
+            layers = parsedLayers,
+            wallCells = parsedWalls,
         )
     }
 

@@ -1,6 +1,8 @@
 Assets live here and should be organized as the project grows.
 
 Suggested structure:
+- `characters/` - player appearance sprites (idle + walk/run sheets).
+- `tiles/` - world/level-builder tile sprites (ground, obstacles, ambient overlays).
 - `sprites/` - gameplay and environment sprites
 - `fonts/` - bitmap or TTF fonts
 - `shaders/` - GLSL shaders

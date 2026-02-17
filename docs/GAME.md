@@ -34,7 +34,7 @@ create/select characters, and enter gameplay sessions.
    - If the character has a map assignment, the session loads that level layout and spawn.
    - Character location is persisted (level + coordinates) so the next login resumes from the last saved position.
 6. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
-   - Wall tiles from the loaded level are also collidable.
+   - Collision currently comes from layer-1 collidable tiles (for example walls/trees) from the loaded level.
 
 ## Required Frontend Screens
 - Combined authentication screen (login/register toggle in a single centered block).
@@ -42,7 +42,7 @@ create/select characters, and enter gameplay sessions.
 - Character creation screen.
 - Character selection screen.
 - In-game world screen.
-- Admin-only level builder screen (save/load named levels with spawn + wall layout).
+- Admin-only level builder screen (save/load named layered levels with spawn + tile/object layout).
 - Shared menu/form controls use a consistent thin-border panel/button style over the same background key art.
 
 ## Character Direction
@@ -96,9 +96,13 @@ create/select characters, and enter gameplay sessions.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
 - Admin level editor now keeps `Load`, `Save`, and `Back` in the top strip; the top strip also contains the `Load Existing` dropdown and `Save Level` name box next to their respective buttons.
 - The editor body below is focused on build controls and grid interaction only.
-- Saving a level requires a non-empty level name and persists the current grid size, spawn, and wall layout data to the database.
+- Saving a level requires a non-empty level name and persists current grid size, spawn, and layered tile/object data to the database.
 - Level builder opens as a separate dedicated scene for admins.
 - Level builder now uses a compact control strip and a virtual panning grid that supports up to 100000x100000 logical dimensions.
+- Level builder supports explicit rendering layers with active-layer editing and visibility toggles:
+  - Layer 0: ground/foliage (`grass` tile scaffold).
+  - Layer 1: gameplay entities/obstacles (`wall`, `tree` scaffold).
+  - Layer 2: weather/ambient overlays (`cloud` scaffold).
 
 ## Release Intent
 - Launcher-first distribution (Windows first).
@@ -116,10 +120,6 @@ create/select characters, and enter gameplay sessions.
   - despawn from world,
   - force return to login,
   - keep admin sessions online for verification/ops.
-- Level-builder is planned to support explicit rendering layers:
-  - Layer 0: ground/foliage,
-  - Layer 1: gameplay entities/obstacles,
-  - Layer 2: weather/ambient effects.
 - Full implementation is pending review of the strategic plan in `docs/TASKS.md`.
 
 ## Open Design Decisions
