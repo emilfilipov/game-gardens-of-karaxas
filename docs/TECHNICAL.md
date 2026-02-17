@@ -133,6 +133,10 @@ This is the single source of truth for technical architecture, stack decisions, 
   - `Save Local` records item edits in a persistent local draft queue (`asset_editor_local_draft.json`) that survives launcher restarts.
   - Right-side pending-changes panel tracks staged items before publish.
   - `Publish Changes` writes staged domains to the current backend content draft and clears local staged changes on success.
+- Level Editor now uses a staged workflow parallel to Asset Editor:
+  - `Save Local` records level payload edits in a persistent local draft queue (`level_editor_local_draft.json`) that survives launcher restarts.
+  - Right-side pending-changes panel tracks staged level drafts before publish.
+  - `Publish Changes` writes all staged levels to backend `/levels` and clears local staged changes on success.
 - Content Versions screen provides:
   - searchable version-history cards,
   - clear active-version badge/highlight,
@@ -141,7 +145,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level-builder tool now supports layered tile editing with an active-layer selector, per-layer visibility toggles, and a fixed-size side asset palette split into 3 layer columns (Layer 0/1/2) with expansion-ready fixed-size asset boxes.
 - Asset palette entries render visual previews/icons and themed hover tooltips so asset semantics are discoverable in-editor.
 - Level-builder is rendered in a dedicated scene (outside account card stack) with compact top controls for faster editing workflows.
-- Level-builder scene header strip now contains `Load`, `Save`, and `Back`, plus the load-dropdown and level-name input placed adjacent to their respective actions.
+- Level-builder scene header strip now contains `Reload`, `Load`, `Save Local`, `Publish Changes`, and `Back`, plus the load-dropdown and level-name input placed adjacent to their respective actions.
 - Lower editor rows are reserved for level-editing controls and viewport/grid inputs.
 - Level-builder grid defaults to a large logical footprint (`100000x100000`) and uses viewport panning for editing.
 - Level-builder top controls are split into two compact rows and grid canvas minimum size is constrained so the scene stays within visible screen bounds on common desktop resolutions.
@@ -150,6 +154,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level-builder grid is now virtualized/pannable and supports up to `100000x100000` logical dimensions without allocating a full pixel canvas of that size.
 - Level-builder canvas now renders a radar-ping spawn marker placeholder rather than character art for clearer spawn-point editing.
 - Level-builder save/load payload uses explicit layered schema (`schema_version=2`) and keeps backward compatibility with legacy wall-only payloads.
+- Admin `Level Editor` and `Asset Editor` panels now use larger near-full-height content layouts to maximize vertical workspace within the launcher shell.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
 - Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
 - `play` scene is currently an empty-world prototype with in-launcher gameplay handoff and WASD movement.

@@ -163,6 +163,26 @@ object LauncherMain {
         val pendingChanges: List<PendingAssetChange>,
     )
 
+    private data class LevelDraftPayload(
+        val name: String,
+        val width: Int,
+        val height: Int,
+        val spawnX: Int,
+        val spawnY: Int,
+        val layers: Map<Int, List<LevelLayerCellView>>,
+    )
+
+    private data class PendingLevelChange(
+        val levelName: String,
+        val cellCount: Int,
+        val changedAtEpochMillis: Long,
+    )
+
+    private data class LevelEditorLocalDraftState(
+        val drafts: LinkedHashMap<String, LevelDraftPayload>,
+        val pendingChanges: List<PendingLevelChange>,
+    )
+
     @JvmStatic
     fun main(args: Array<String>) {
         Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
@@ -365,6 +385,8 @@ object LauncherMain {
             background = Color(12, 10, 9)
             isVisible = false
             border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
+            preferredSize = Dimension(1360, 820)
+            minimumSize = Dimension(1180, 700)
         }
         UIManager.put("ToolTip.background", Color(31, 24, 20))
         UIManager.put("ToolTip.foreground", THEME_TEXT_COLOR)
@@ -1065,8 +1087,15 @@ object LauncherMain {
             maximumSize = preferredSize
             font = UiScaffold.bodyFont
         }
+        val levelEditorPendingDrafts = linkedMapOf<String, LevelDraftPayload>()
+        val levelEditorPendingChanges = linkedMapOf<String, PendingLevelChange>()
         val levelPaletteColumnWidth = 150
         val levelPaletteAssetBoxSize = Dimension(128, 96)
+        val levelToolVersionLabel = JLabel("Local Drafts: 0").apply {
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 13)
+        }
+        val levelToolReloadButton = buildMenuButton("Reload", rectangularButtonImage, Dimension(90, 30), 12f)
         val levelToolResizeButton = buildMenuButton("Resize", rectangularButtonImage, Dimension(88, 30), 12f)
         val levelToolViewButton = buildMenuButton("Pan", rectangularButtonImage, Dimension(72, 30), 12f)
         val levelToolSpawnButton = buildMenuButton("Spawn", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
@@ -1075,9 +1104,20 @@ object LauncherMain {
         val levelToolTreeButton = buildMenuButton("Tree", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
         val levelToolCloudButton = buildMenuButton("Cloud", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
         val levelToolLoadButton = buildMenuButton("Load", rectangularButtonImage, Dimension(72, 30), 12f)
-        val levelToolSaveButton = buildMenuButton("Save", rectangularButtonImage, Dimension(72, 30), 12f)
+        val levelToolSaveLocalButton = buildMenuButton("Save Local", rectangularButtonImage, Dimension(120, 30), 12f)
+        val levelToolPublishButton = buildMenuButton("Publish Changes", rectangularButtonImage, Dimension(150, 30), 12f)
         val levelToolClearButton = buildMenuButton("Clear Layer", rectangularButtonImage, Dimension(110, 30), 12f)
         val levelToolBackButton = buildMenuButton("Back", rectangularButtonImage, Dimension(86, 30), 12f)
+        val levelToolPendingPanel = JPanel().apply {
+            layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
+            isOpaque = true
+            background = Color(24, 18, 15)
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        }
+        val levelToolPendingScroll = ThemedScrollPane(levelToolPendingPanel).apply {
+            border = themedTitledBorder("Pending Local Changes")
+            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        }
         val levelActiveLayerCombo = ThemedComboBox<Any>().apply {
             preferredSize = Dimension(120, 32)
             minimumSize = preferredSize
@@ -1170,7 +1210,7 @@ object LauncherMain {
         }
         val assetEditorJsonScroll = ThemedScrollPane(assetEditorJsonEditor).apply {
             border = themedTitledBorder("Editable JSON")
-            preferredSize = Dimension(640, 400)
+            preferredSize = Dimension(640, 520)
         }
         val assetEditorReloadButton = buildMenuButton("Reload", rectangularButtonImage, Dimension(90, 30), 12f)
         val assetEditorSaveLocalButton = buildMenuButton("Save Local", rectangularButtonImage, Dimension(120, 30), 12f)
@@ -1492,6 +1532,206 @@ object LauncherMain {
             } catch (ex: Exception) {
                 log("Failed to delete local asset editor draft file ${path.toAbsolutePath()}", ex)
             }
+        }
+
+        fun buildLevelLayerSnapshot(): Map<Int, List<LevelLayerCellView>> {
+            val layers = linkedMapOf<Int, List<LevelLayerCellView>>()
+            reservedLayerIds.forEach { layerId ->
+                val layerCells = levelEditorLayerCells.getOrPut(layerId) { mutableMapOf() }
+                val cells = layerCells
+                    .entries
+                    .sortedWith(compareBy({ it.key.second }, { it.key.first }, { it.value }))
+                    .map { entry ->
+                        LevelLayerCellView(
+                            layer = layerId,
+                            x = entry.key.first,
+                            y = entry.key.second,
+                            assetKey = entry.value,
+                        )
+                    }
+                if (cells.isNotEmpty()) {
+                    layers[layerId] = cells
+                }
+            }
+            return layers
+        }
+
+        fun buildCurrentLevelDraftPayload(levelName: String): LevelDraftPayload {
+            return LevelDraftPayload(
+                name = levelName,
+                width = levelEditorCols,
+                height = levelEditorRows,
+                spawnX = levelEditorSpawn.first,
+                spawnY = levelEditorSpawn.second,
+                layers = buildLevelLayerSnapshot(),
+            )
+        }
+
+        fun levelEditorLocalDraftPath(): Path = installRoot(payloadRoot()).resolve("level_editor_local_draft.json")
+
+        fun loadLevelEditorLocalDraftState(): LevelEditorLocalDraftState? {
+            val path = levelEditorLocalDraftPath()
+            if (!Files.exists(path)) return null
+            return try {
+                val root = jsonMapper.readTree(Files.readString(path))
+                val drafts = linkedMapOf<String, LevelDraftPayload>()
+                val draftsNode = root.path("drafts")
+                if (draftsNode.isObject) {
+                    val fields = draftsNode.fields()
+                    while (fields.hasNext()) {
+                        val (rawName, node) = fields.next()
+                        val levelName = rawName.trim()
+                        if (levelName.isBlank()) continue
+                        val width = node.path("width").asInt(levelEditorCols).coerceIn(8, 100_000)
+                        val height = node.path("height").asInt(levelEditorRows).coerceIn(8, 100_000)
+                        val spawnX = node.path("spawn_x").asInt(1).coerceIn(0, width - 1)
+                        val spawnY = node.path("spawn_y").asInt(1).coerceIn(0, height - 1)
+                        val layers = LevelLayerPayloadCodec.fromResponse(node)
+                        drafts[levelName] = LevelDraftPayload(
+                            name = node.path("name").asText(levelName).trim().ifBlank { levelName },
+                            width = width,
+                            height = height,
+                            spawnX = spawnX,
+                            spawnY = spawnY,
+                            layers = layers,
+                        )
+                    }
+                }
+                val pending = root.path("pending_changes")
+                    .takeIf { it.isArray }
+                    ?.mapNotNull { node ->
+                        val levelName = node.path("level_name").asText("").trim()
+                        if (levelName.isBlank()) return@mapNotNull null
+                        PendingLevelChange(
+                            levelName = levelName,
+                            cellCount = node.path("cell_count").asInt(0),
+                            changedAtEpochMillis = node.path("changed_at_epoch_millis").asLong(System.currentTimeMillis()),
+                        )
+                    }
+                    .orEmpty()
+                LevelEditorLocalDraftState(
+                    drafts = drafts,
+                    pendingChanges = pending,
+                )
+            } catch (ex: Exception) {
+                log("Failed to load local level editor draft from ${path.toAbsolutePath()}", ex)
+                null
+            }
+        }
+
+        fun persistLevelEditorLocalDraftState() {
+            val path = levelEditorLocalDraftPath()
+            try {
+                if (levelEditorPendingChanges.isEmpty()) {
+                    Files.deleteIfExists(path)
+                    return
+                }
+                Files.createDirectories(path.parent)
+                val drafts = linkedMapOf<String, Any?>()
+                levelEditorPendingDrafts.forEach { (levelName, draft) ->
+                    drafts[levelName] = linkedMapOf(
+                        "name" to draft.name,
+                        "width" to draft.width,
+                        "height" to draft.height,
+                        "spawn_x" to draft.spawnX,
+                        "spawn_y" to draft.spawnY,
+                        "layers" to LevelLayerPayloadCodec.toRequestLayers(draft.layers),
+                    )
+                }
+                val pending = levelEditorPendingChanges.values.map { entry ->
+                    mapOf(
+                        "level_name" to entry.levelName,
+                        "cell_count" to entry.cellCount,
+                        "changed_at_epoch_millis" to entry.changedAtEpochMillis,
+                    )
+                }
+                val payload = linkedMapOf<String, Any?>(
+                    "drafts" to drafts,
+                    "pending_changes" to pending,
+                )
+                val json = jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload)
+                Files.writeString(
+                    path,
+                    json,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE,
+                )
+            } catch (ex: Exception) {
+                log("Failed to persist local level editor draft to ${path.toAbsolutePath()}", ex)
+            }
+        }
+
+        fun clearLevelEditorLocalDraftState() {
+            levelEditorPendingDrafts.clear()
+            levelEditorPendingChanges.clear()
+            val path = levelEditorLocalDraftPath()
+            try {
+                Files.deleteIfExists(path)
+            } catch (ex: Exception) {
+                log("Failed to delete level editor draft file ${path.toAbsolutePath()}", ex)
+            }
+        }
+
+        fun refreshLevelEditorDraftSummary() {
+            levelToolVersionLabel.text = "Local Drafts: ${levelEditorPendingChanges.size}"
+        }
+
+        fun renderLevelEditorPendingChanges() {
+            val entries = levelEditorPendingChanges.values.sortedByDescending { it.changedAtEpochMillis }
+            levelToolPendingPanel.removeAll()
+            if (entries.isEmpty()) {
+                levelToolPendingPanel.add(UiScaffold.titledLabel("No local level changes staged.").apply {
+                    border = BorderFactory.createEmptyBorder(8, 4, 8, 4)
+                })
+            } else {
+                entries.forEachIndexed { index, entry ->
+                    val row = JPanel(GridLayout(3, 1, 0, 2)).apply {
+                        isOpaque = true
+                        background = Color(39, 29, 24)
+                        border = BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                            BorderFactory.createEmptyBorder(6, 8, 6, 8)
+                        )
+                        preferredSize = Dimension(0, 78)
+                        minimumSize = Dimension(0, 78)
+                        maximumSize = Dimension(Int.MAX_VALUE, 78)
+                        cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+                    }
+                    val changedAt = Instant.ofEpochMilli(entry.changedAtEpochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime()
+                    row.add(UiScaffold.titledLabel(entry.levelName).apply { horizontalAlignment = SwingConstants.LEFT })
+                    row.add(UiScaffold.titledLabel("Cells: ${entry.cellCount}").apply {
+                        horizontalAlignment = SwingConstants.LEFT
+                        font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                    })
+                    row.add(UiScaffold.titledLabel("Changed: $changedAt").apply {
+                        horizontalAlignment = SwingConstants.LEFT
+                        font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                    })
+                    levelToolPendingPanel.add(row)
+                    if (index < entries.lastIndex) {
+                        levelToolPendingPanel.add(Box.createVerticalStrut(6))
+                    }
+                }
+            }
+            refreshLevelEditorDraftSummary()
+            levelToolPendingPanel.revalidate()
+            levelToolPendingPanel.repaint()
+        }
+
+        fun loadLevelEditorDraftState() {
+            val localDraft = loadLevelEditorLocalDraftState()
+            levelEditorPendingDrafts.clear()
+            levelEditorPendingChanges.clear()
+            localDraft?.drafts?.forEach { (name, payload) ->
+                levelEditorPendingDrafts[name] = payload
+            }
+            localDraft?.pendingChanges?.forEach { pending ->
+                if (pending.levelName.isNotBlank()) {
+                    levelEditorPendingChanges[pending.levelName] = pending
+                }
+            }
+            renderLevelEditorPendingChanges()
         }
 
         fun resolveAssetEditorCardValue(domains: Map<String, MutableMap<String, Any?>>, card: AssetEditorCard): Any? {
@@ -1861,8 +2101,8 @@ object LauncherMain {
                 isOpaque = true
                 background = Color(24, 18, 15)
                 border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
-                preferredSize = Dimension(1180, 560)
-                minimumSize = Dimension(640, 320)
+                preferredSize = Dimension(1180, 680)
+                minimumSize = Dimension(640, 440)
             }
 
             override fun paintComponent(graphics: Graphics) {
@@ -2018,6 +2258,7 @@ object LauncherMain {
         })
         setLevelToolMode("paint", levelEditorBrushKey)
         resizeLevelEditorCanvas()
+        renderLevelEditorPendingChanges()
 
         val buildPointBudget = runtimeContent.pointBudget.coerceAtLeast(1)
         val maxPerStat = runtimeContent.maxPerStat.coerceAtLeast(0)
@@ -3271,23 +3512,21 @@ object LauncherMain {
             levelLoadCombo.isEnabled = availableLevels.isNotEmpty()
         }
 
-        fun loadLevelIntoEditor(level: LevelDataView) {
-            applyLevelGridSize(level.width, level.height)
-            levelEditorName.text = level.name
-            levelEditorSpawn = level.spawnX.coerceIn(0, levelEditorCols - 1) to level.spawnY.coerceIn(0, levelEditorRows - 1)
+        fun applyLevelPayloadToEditor(
+            levelName: String,
+            width: Int,
+            height: Int,
+            spawnX: Int,
+            spawnY: Int,
+            layers: Map<Int, List<LevelLayerCellView>>,
+        ) {
+            applyLevelGridSize(width, height)
+            levelEditorName.text = levelName
+            levelEditorSpawn = spawnX.coerceIn(0, levelEditorCols - 1) to spawnY.coerceIn(0, levelEditorRows - 1)
             levelEditorViewX = (levelEditorSpawn.first - 20).coerceAtLeast(0)
             levelEditorViewY = (levelEditorSpawn.second - 12).coerceAtLeast(0)
             levelEditorLayerCells.values.forEach { it.clear() }
-            val sourceLayers = if (level.layers.isNotEmpty()) {
-                level.layers
-            } else {
-                mapOf(
-                    1 to level.wallCells.map { wall ->
-                        LevelLayerCellView(layer = 1, x = wall.x, y = wall.y, assetKey = "wall_block")
-                    }
-                )
-            }
-            sourceLayers.forEach layerLoop@{ (layerId, cells) ->
+            layers.forEach layerLoop@{ (layerId, cells) ->
                 val clampedLayer = layerId.coerceIn(0, 2)
                 val layerMap = levelLayerCells(clampedLayer)
                 cells.forEach cellLoop@{ cell ->
@@ -3304,6 +3543,26 @@ object LauncherMain {
             levelActiveLayerCombo.selectedIndex = levelEditorActiveLayer
             setLevelToolMode("paint", levelEditorBrushKey)
             resizeLevelEditorCanvas()
+        }
+
+        fun loadLevelIntoEditor(level: LevelDataView) {
+            val sourceLayers = if (level.layers.isNotEmpty()) {
+                level.layers
+            } else {
+                mapOf(
+                    1 to level.wallCells.map { wall ->
+                        LevelLayerCellView(layer = 1, x = wall.x, y = wall.y, assetKey = "wall_block")
+                    }
+                )
+            }
+            applyLevelPayloadToEditor(
+                levelName = level.name,
+                width = level.width,
+                height = level.height,
+                spawnX = level.spawnX,
+                spawnY = level.spawnY,
+                layers = sourceLayers,
+            )
         }
 
         fun loadAssetEditorDraft() {
@@ -3484,6 +3743,104 @@ object LauncherMain {
                         log("Asset editor publish failed against ${backendClient.endpoint()}", ex)
                         javax.swing.SwingUtilities.invokeLater {
                             assetEditorStatus.text = formatServiceError(ex, "Unable to publish local changes.")
+                        }
+                    }
+                }.start()
+            }
+        }
+
+        fun saveCurrentLevelLocally() {
+            if (!isAdminAccount()) {
+                levelToolStatus.text = "Admin access required."
+                return
+            }
+            val cols = levelGridWidthField.text.trim().toIntOrNull()
+            val rows = levelGridHeightField.text.trim().toIntOrNull()
+            if (cols == null || rows == null) {
+                levelToolStatus.text = "Grid width/height must be numeric values."
+                return
+            }
+            if (cols !in 8..100000 || rows !in 8..100000) {
+                levelToolStatus.text = "Grid size must be between 8 and 100000."
+                return
+            }
+            applyLevelGridSize(cols, rows)
+            val levelName = levelEditorName.text.trim()
+            if (levelName.isBlank()) {
+                levelToolStatus.text = "Level name is required."
+                return
+            }
+            val draft = buildCurrentLevelDraftPayload(levelName)
+            val cellCount = draft.layers.values.sumOf { it.size }
+            levelEditorPendingDrafts[levelName] = draft
+            levelEditorPendingChanges[levelName] = PendingLevelChange(
+                levelName = levelName,
+                cellCount = cellCount,
+                changedAtEpochMillis = System.currentTimeMillis(),
+            )
+            persistLevelEditorLocalDraftState()
+            renderLevelEditorPendingChanges()
+            levelToolStatus.text = "Saved level '$levelName' locally. Publish when ready."
+        }
+
+        fun publishLevelEditorLocalChanges() {
+            if (levelEditorPendingChanges.isEmpty()) {
+                levelToolStatus.text = "No local level changes to publish."
+                return
+            }
+            withSession(onMissing = { levelToolStatus.text = "Please login first." }) { session ->
+                if (!isAdminAccount()) {
+                    levelToolStatus.text = "Admin access required."
+                    return@withSession
+                }
+                val pendingDrafts = levelEditorPendingChanges.values
+                    .sortedBy { it.changedAtEpochMillis }
+                    .mapNotNull { pending -> levelEditorPendingDrafts[pending.levelName] }
+                if (pendingDrafts.isEmpty()) {
+                    levelToolStatus.text = "No local level changes to publish."
+                    clearLevelEditorLocalDraftState()
+                    renderLevelEditorPendingChanges()
+                    return@withSession
+                }
+                levelToolStatus.text = "Publishing ${pendingDrafts.size} local level change(s)..."
+                Thread {
+                    try {
+                        val savedLevels = mutableListOf<LevelDataView>()
+                        pendingDrafts.forEach { draft ->
+                            val saved = backendClient.saveLevel(
+                                accessToken = session.accessToken,
+                                clientVersion = clientVersion,
+                                name = draft.name,
+                                width = draft.width,
+                                height = draft.height,
+                                spawnX = draft.spawnX,
+                                spawnY = draft.spawnY,
+                                layers = draft.layers,
+                            )
+                            savedLevels.add(saved)
+                        }
+                        val levels = backendClient.listLevels(session.accessToken, clientVersion)
+                        javax.swing.SwingUtilities.invokeLater {
+                            availableLevels = levels
+                            savedLevels.forEach { saved ->
+                                levelDetailsById[saved.id] = saved
+                            }
+                            refreshLevelLoadCombo()
+                            savedLevels.lastOrNull()?.let { lastSaved ->
+                                levelLoadCombo.selectedItem = levels.firstOrNull { it.id == lastSaved.id }
+                            }
+                            if (loadedCharacters.isNotEmpty()) {
+                                renderCharacterRows(loadedCharacters)
+                            }
+                            clearLevelEditorLocalDraftState()
+                            renderLevelEditorPendingChanges()
+                            val publishedNames = savedLevels.joinToString(", ") { it.name }
+                            levelToolStatus.text = "Published levels: $publishedNames."
+                        }
+                    } catch (ex: Exception) {
+                        log("Level publish failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            levelToolStatus.text = formatServiceError(ex, "Unable to publish local level changes.")
                         }
                     }
                 }.start()
@@ -3816,6 +4173,8 @@ object LauncherMain {
 
         val levelToolPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(8, 8)
+            preferredSize = Dimension(1360, 820)
+            minimumSize = Dimension(1180, 700)
             add(JPanel(BorderLayout(8, 0)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
@@ -3825,6 +4184,8 @@ object LauncherMain {
                 )
                 add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
                     isOpaque = false
+                    add(levelToolVersionLabel)
+                    add(levelToolReloadButton)
                     add(UiScaffold.titledLabel("Load Existing"))
                     add(levelLoadCombo)
                     add(levelToolLoadButton)
@@ -3834,7 +4195,8 @@ object LauncherMain {
                         minimumSize = preferredSize
                         maximumSize = preferredSize
                     })
-                    add(levelToolSaveButton)
+                    add(levelToolSaveLocalButton)
+                    add(levelToolPublishButton)
                     add(levelToolBackButton)
                 }, BorderLayout.WEST)
                 add(UiScaffold.sectionLabel("Level Builder (Admin)").apply {
@@ -3929,11 +4291,20 @@ object LauncherMain {
                         add(levelToolStatus, BorderLayout.EAST)
                     }, BorderLayout.SOUTH)
                 }, BorderLayout.CENTER)
+                add(JPanel(BorderLayout(0, 6)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    preferredSize = Dimension(320, 0)
+                    minimumSize = Dimension(260, 0)
+                    add(levelToolPendingScroll, BorderLayout.CENTER)
+                }, BorderLayout.EAST)
             }, BorderLayout.CENTER)
         }
 
         val assetEditorPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(8, 8)
+            preferredSize = Dimension(1360, 820)
+            minimumSize = Dimension(1180, 700)
             add(JPanel(BorderLayout(8, 0)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
@@ -4263,6 +4634,7 @@ object LauncherMain {
                     }
                 }
             } else if (card == "level_tool") {
+                loadLevelEditorDraftState()
                 refreshLevels(levelToolStatus) {
                     refreshLevelLoadCombo()
                 }
@@ -4493,6 +4865,17 @@ object LauncherMain {
             override fun removeUpdate(e: DocumentEvent?) = refreshCompareCombos()
             override fun changedUpdate(e: DocumentEvent?) = refreshCompareCombos()
         })
+        levelToolReloadButton.addActionListener {
+            loadLevelEditorDraftState()
+            refreshLevels(levelToolStatus) {
+                refreshLevelLoadCombo()
+                levelToolStatus.text = if (levelEditorPendingChanges.isEmpty()) {
+                    "Level list reloaded."
+                } else {
+                    "Level list reloaded. ${levelEditorPendingChanges.size} local draft(s) staged."
+                }
+            }
+        }
         levelToolClearButton.addActionListener {
             levelLayerCells(levelEditorActiveLayer).clear()
             levelEditorCanvas.repaint()
@@ -4523,70 +4906,8 @@ object LauncherMain {
                 }.start()
             }
         }
-        levelToolSaveButton.addActionListener {
-            if (!isAdminAccount()) {
-                levelToolStatus.text = "Admin access required."
-                return@addActionListener
-            }
-            if (!applyRequestedGridSizeFromInputs()) {
-                return@addActionListener
-            }
-            val levelName = levelEditorName.text.trim()
-            if (levelName.isBlank()) {
-                levelToolStatus.text = "Level name is required."
-                return@addActionListener
-            }
-            withSession(onMissing = { levelToolStatus.text = "Please login first." }) { session ->
-                levelToolStatus.text = "Saving level..."
-                val layers = linkedMapOf<Int, List<LevelLayerCellView>>()
-                reservedLayerIds.forEach { layerId ->
-                    val cells = levelLayerCells(layerId)
-                        .entries
-                        .sortedWith(compareBy({ it.key.second }, { it.key.first }, { it.value }))
-                        .map { entry ->
-                            LevelLayerCellView(
-                                layer = layerId,
-                                x = entry.key.first,
-                                y = entry.key.second,
-                                assetKey = entry.value,
-                            )
-                        }
-                    if (cells.isNotEmpty()) {
-                        layers[layerId] = cells
-                    }
-                }
-                Thread {
-                    try {
-                        val saved = backendClient.saveLevel(
-                            accessToken = session.accessToken,
-                            clientVersion = clientVersion,
-                            name = levelName,
-                            width = levelEditorCols,
-                            height = levelEditorRows,
-                            spawnX = levelEditorSpawn.first,
-                            spawnY = levelEditorSpawn.second,
-                            layers = layers,
-                        )
-                        val levels = backendClient.listLevels(session.accessToken, clientVersion)
-                        javax.swing.SwingUtilities.invokeLater {
-                            availableLevels = levels
-                            levelDetailsById[saved.id] = saved
-                            refreshLevelLoadCombo()
-                            levelLoadCombo.selectedItem = levels.firstOrNull { it.id == saved.id }
-                            if (loadedCharacters.isNotEmpty()) {
-                                renderCharacterRows(loadedCharacters)
-                            }
-                            levelToolStatus.text = "Saved level '${saved.name}'."
-                        }
-                    } catch (ex: Exception) {
-                        log("Level save failed against ${backendClient.endpoint()}", ex)
-                        javax.swing.SwingUtilities.invokeLater {
-                            levelToolStatus.text = formatServiceError(ex, "Unable to save level.")
-                        }
-                    }
-                }.start()
-            }
-        }
+        levelToolSaveLocalButton.addActionListener { saveCurrentLevelLocally() }
+        levelToolPublishButton.addActionListener { publishLevelEditorLocalChanges() }
         sexChoice.addActionListener {
             createAppearanceKey = appearanceForSex(isFemale = sexChoice.selectedIndex == 1)
             applyCreateAppearancePreview()

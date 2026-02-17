@@ -43,7 +43,7 @@ create/select characters, and enter gameplay sessions.
 - Character creation screen.
 - Character selection screen.
 - In-game world screen.
-- Admin-only level builder screen (save/load named layered levels with spawn + tile/object layout).
+- Admin-only level builder screen (load named layered levels, stage local drafts, and publish queued level changes with spawn + tile/object layout).
 - Admin-only asset editor screen (searchable editable-content cards + large item editor panel + right-side staged-change queue with `Save Local` and `Publish Changes`).
 - Admin-only content versions screen (version history cards, active-version highlight, publish/revert controls, and side-by-side compare).
 - Shared menu/form controls use a consistent thin-border panel/button style over the same background key art.
@@ -101,13 +101,16 @@ create/select characters, and enter gameplay sessions.
 - Update feed source is moving to GCS-backed Velopack hosting; a transition release can still publish to GitHub Releases once so existing clients can move forward without manual GCS download.
 - Admin level editor now uses a larger, zoomed-out grid and shows a radar-ping marker at spawn position.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
-- Admin level editor now keeps `Load`, `Save`, and `Back` in the top strip; the top strip also contains the `Load Existing` dropdown and `Save Level` name box next to their respective buttons.
+- Admin level editor now keeps `Reload`, `Load`, `Save Local`, `Publish Changes`, and `Back` in the top strip; the strip also contains the `Load Existing` dropdown and `Save Level` name box.
 - The editor body below is focused on build controls and grid interaction only.
-- Saving a level requires a non-empty level name and persists current grid size, spawn, and layered tile/object data to the database.
+- `Save Local` requires a non-empty level name and stages current grid size, spawn, and layered tile/object data in a persistent local draft queue.
+- `Publish Changes` writes all staged local level drafts to the backend and clears the local queue on success.
 - Level builder opens as a separate dedicated scene for admins.
 - Level builder now uses a compact control strip and a virtual panning grid that supports up to 100000x100000 logical dimensions.
 - Level builder includes a fixed-size side palette split into 3 fixed-width columns (Layer 0/1/2), with fixed-size asset boxes for expansion-ready asset catalogs.
 - Asset boxes render visual previews and provide hover tooltips describing each asset and its intended usage.
+- Level builder includes a right-side pending-drafts panel so admins can review staged changes before publishing.
+- Staged level drafts persist across launcher restarts until published.
 - Level builder supports explicit rendering layers with active-layer editing and visibility toggles:
   - Layer 0: ground/foliage (`grass` tile scaffold).
   - Layer 1: gameplay entities/obstacles and spawn tool (`wall`, `tree`, `spawn` scaffold).

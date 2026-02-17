@@ -1,6 +1,3 @@
-- Added build+content release gating on backend auth/session paths, including non-admin `426` lockout after grace and admin exemption.
-- Added DB-backed release history (`release_records`) and public `GET /release/summary` endpoint for launcher-consumable feed metadata and release notes.
-- Extended release activation payloads to include GCS feed URL and both technical/user-facing release notes, and broadcasted content-aware force-update events.
-- Added content-version tracking to user sessions and launcher auth requests via `X-Client-Content-Version` plus login/refresh payload fields.
-- Switched launcher updater helper integration to generic Velopack feed URLs and wired auth-screen release notes/feed hydration from backend release summary.
-- Migrated release workflow to publish Velopack artifacts to GCS feed/archive paths, notify backend with release metadata, and keep optional one-transition GitHub release publishing.
+- Expanded admin `Level Editor` and `Asset Editor` panels to use larger near-full-height layouts for more vertical workspace.
+- Refactored `Level Editor` to staged-change workflow with `Save Local` and `Publish Changes`, plus persistent local queue (`level_editor_local_draft.json`) and right-side pending-drafts panel.
+- Added `Level Editor` reload flow that restores staged drafts on entry/reload and keeps level list refresh synced with local pending state.
