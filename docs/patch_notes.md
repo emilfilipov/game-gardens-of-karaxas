@@ -1,7 +1,10 @@
-- Implemented Epic A layered-level baseline across backend and launcher:
-  - schema-versioned layered level payloads with legacy wall-format adapters,
-  - layer-aware validation/API responses,
-  - layer-editing tools (active layer, visibility toggles, layer-scoped paint/erase),
-  - deterministic layered world rendering and collision from layer-1 collidable assets.
-- Added backend migration `0008_level_layers` and layered backend tests covering legacy upgrade, collision-layer validation, and collision derivation rules.
-- Added generated tile art assets for layer testing (`grass`, `wall`, `tree`, `cloud`) under `assets/tiles/` and included tile assets in launcher release payload packaging.
+- Completed Epic A test closure with launcher golden fixtures for layered level payload serialization/deserialization and legacy wall fallback parsing.
+- Implemented Epic B data-driven content baseline:
+  - added backend content version/bundle schema + migration (`0009_content_model`),
+  - added content bootstrap/admin version APIs and snapshot cache/validation pipeline,
+  - moved character creation/progression constraints to content-driven values.
+- Wired launcher to content bootstrap with cache fallback:
+  - startup fetch from backend + local `content_bootstrap_cache.json`,
+  - content-driven create-screen options/tooltips/budget/stat caps and movement tuning,
+  - gameplay/create gating when no valid content snapshot exists.
+- Added deterministic backend content/combat tests and launcher codec tests to protect the new content/layer contracts.

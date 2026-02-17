@@ -1,5 +1,6 @@
 package com.gok.launcher
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -92,6 +93,12 @@ object LauncherMain {
         val lastEmail: String = "",
         val autoLoginEnabled: Boolean = false,
         val autoLoginRefreshToken: String = ""
+    )
+
+    private data class RuntimeContentState(
+        val bootstrap: ContentBootstrapView,
+        val validSnapshot: Boolean,
+        val source: String,
     )
 
     private data class CharacterArtOption(
@@ -203,6 +210,37 @@ object LauncherMain {
             val source = loadPatchNotesSource()
             val meta = loadPatchNotesMeta(source.path, source.markdown)
             return meta.version ?: "0.0.0"
+        }
+
+        val embeddedBootstrap = embeddedContentBootstrap()
+        val cachedBootstrap = loadCachedContentBootstrap()
+        var runtimeContentState = RuntimeContentState(
+            bootstrap = cachedBootstrap ?: embeddedBootstrap,
+            validSnapshot = cachedBootstrap != null,
+            source = if (cachedBootstrap != null) "cache" else "embedded",
+        )
+        try {
+            val fetched = backendClient.fetchContentBootstrap(defaultClientVersion())
+            if (isUsableContentBootstrap(fetched)) {
+                runtimeContentState = RuntimeContentState(
+                    bootstrap = fetched,
+                    validSnapshot = true,
+                    source = "network",
+                )
+                saveCachedContentBootstrap(fetched)
+                log("Loaded content bootstrap from backend version=${fetched.contentVersionKey}")
+            } else {
+                log("Fetched content bootstrap was invalid; keeping ${runtimeContentState.source} snapshot.")
+            }
+        } catch (ex: Exception) {
+            log("Content bootstrap fetch failed; using ${runtimeContentState.source} snapshot.", ex)
+        }
+        var runtimeContent = runtimeContentState.bootstrap
+        var hasValidContentSnapshot = runtimeContentState.validSnapshot
+        var contentSnapshotSource = runtimeContentState.source
+        fun contentText(textKey: String, fallback: String): String {
+            val value = runtimeContent.uiText[textKey]?.trim().orEmpty()
+            return if (value.isNotBlank()) value else fallback
         }
 
         fun footerVersionText(): String {
@@ -459,6 +497,26 @@ object LauncherMain {
         val createStatsPanelSize = Dimension(560, 320)
         val createSkillsPanelSize = Dimension(560, 320)
         val createPreviewRenderSize = Dimension(230, 250)
+        val runtimeRaceOptions = runtimeContent.races
+            .ifEmpty { embeddedBootstrap.races }
+            .filter { it.label.isNotBlank() }
+            .distinctBy { it.value.lowercase() }
+        val runtimeBackgroundOptions = runtimeContent.backgrounds
+            .ifEmpty { embeddedBootstrap.backgrounds }
+            .filter { it.label.isNotBlank() }
+            .distinctBy { it.value.lowercase() }
+        val runtimeAffiliationOptions = runtimeContent.affiliations
+            .ifEmpty { embeddedBootstrap.affiliations }
+            .filter { it.label.isNotBlank() }
+            .distinctBy { it.value.lowercase() }
+        val runtimeStatEntries = runtimeContent.stats
+            .ifEmpty { embeddedBootstrap.stats }
+            .filter { it.key.isNotBlank() && it.label.isNotBlank() }
+            .distinctBy { it.key.lowercase() }
+        val runtimeSkillEntries = runtimeContent.skills
+            .ifEmpty { embeddedBootstrap.skills }
+            .filter { it.key.isNotBlank() && it.label.isNotBlank() }
+            .distinctBy { it.key.lowercase() }
         val sexChoice = ThemedComboBox<String>().apply {
             addItem("Male")
             addItem("Female")
@@ -471,34 +529,28 @@ object LauncherMain {
         createName.minimumSize = createIdentityFieldSize
         createName.maximumSize = createIdentityFieldSize
         val raceChoice = ThemedComboBox<String>().apply {
-            addItem("Human")
-            addItem("Elf")
-            addItem("Dwarf")
+            runtimeRaceOptions.forEach { addItem(it.label) }
             preferredSize = createIdentityFieldSize
             minimumSize = createIdentityFieldSize
             maximumSize = createIdentityFieldSize
             font = UiScaffold.bodyFont
-            toolTipText = "Placeholder race selector."
+            toolTipText = "Race options are loaded from active content."
         }
         val backgroundChoice = ThemedComboBox<String>().apply {
-            addItem("Drifter")
-            addItem("Scholar")
-            addItem("Soldier")
+            runtimeBackgroundOptions.forEach { addItem(it.label) }
             preferredSize = createIdentityFieldSize
             minimumSize = createIdentityFieldSize
             maximumSize = createIdentityFieldSize
             font = UiScaffold.bodyFont
-            toolTipText = "Placeholder background selector."
+            toolTipText = "Background options are loaded from active content."
         }
         val affiliationChoice = ThemedComboBox<String>().apply {
-            addItem("Unaffiliated")
-            addItem("Order")
-            addItem("Consortium")
+            runtimeAffiliationOptions.forEach { addItem(it.label) }
             preferredSize = createIdentityFieldSize
             minimumSize = createIdentityFieldSize
             maximumSize = createIdentityFieldSize
             font = UiScaffold.bodyFont
-            toolTipText = "Placeholder affiliation selector."
+            toolTipText = "Affiliation options are loaded from active content."
         }
         val createStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val createSubmit = buildMenuButton("Create Character", rectangularButtonImage, Dimension(220, 42), 14f)
@@ -1265,99 +1317,47 @@ object LauncherMain {
         setLevelToolMode("paint", levelEditorBrushKey)
         resizeLevelEditorCanvas()
 
-        val buildPointBudget = 10
+        val buildPointBudget = runtimeContent.pointBudget.coerceAtLeast(1)
+        val maxPerStat = runtimeContent.maxPerStat.coerceAtLeast(0)
         var pointsRemaining = buildPointBudget
         val createPointsRemainingLabel = JLabel("${buildPointBudget}/${buildPointBudget} points left").apply {
             foreground = textColor
             font = Font(THEME_FONT_FAMILY, Font.BOLD, 15)
         }
-        val statEntries = listOf(
-            "strength" to "Strength",
-            "agility" to "Agility",
-            "intellect" to "Intellect",
-            "vitality" to "Vitality",
-            "resolve" to "Resolve",
-            "endurance" to "Endurance",
-            "dexterity" to "Dexterity",
-            "willpower" to "Willpower",
-        )
+        val statEntries = runtimeStatEntries
         val statAllocations = linkedMapOf<String, Int>().apply {
-            statEntries.forEach { (key, _) -> put(key, 0) }
+            statEntries.forEach { entry -> put(entry.key, 0) }
         }
-        val skillAllocations = linkedMapOf(
-            "ember" to 0,
-            "cleave" to 0,
-            "quick_strike" to 0,
-            "bandage" to 0,
-        )
+        val skillEntries = runtimeSkillEntries
+        val skillAllocations = linkedMapOf<String, Int>().apply {
+            skillEntries.forEach { entry -> put(entry.key, 0) }
+        }
         val statValueLabels = mutableMapOf<String, JLabel>()
         val skillToggleButtons = mutableMapOf<String, JToggleButton>()
-        val statTooltips = mapOf(
-            "strength" to "Placeholder: increases melee damage.",
-            "agility" to "Placeholder: increases movement and attack speed.",
-            "intellect" to "Placeholder: increases magic potency.",
-            "vitality" to "Placeholder: increases health pool.",
-            "resolve" to "Placeholder: increases resistance and focus.",
-            "endurance" to "Placeholder: increases stamina and carry capacity.",
-            "dexterity" to "Placeholder: increases precision and handling.",
-            "willpower" to "Placeholder: increases concentration and control.",
-        )
-        val statDescriptions = mapOf(
-            "strength" to "Power for heavy melee attacks.",
-            "agility" to "Speed for movement and recovery.",
-            "intellect" to "Arcane output and spell control.",
-            "vitality" to "Base health and toughness.",
-            "resolve" to "Resistance against control effects.",
-            "endurance" to "Stamina and sustained effort.",
-            "dexterity" to "Precision for weapons and tools.",
-            "willpower" to "Mental focus and channeling.",
-        )
-        val skillTooltipTemplates = mapOf(
-            "ember" to SkillTooltipTemplate(
-                fullName = "Ember",
-                manaCost = "12",
-                energyCost = "0",
-                lifeCost = "0",
-                effects = "Applies Burn I for 4s. Placeholder status effect.",
-                damage = "22 fire (placeholder scaling).",
-                cooldown = "4.0s",
-                skillTypeTag = "Spell",
-                description = "Starter fire projectile used to test cast timing and tooltip layout."
-            ),
-            "cleave" to SkillTooltipTemplate(
-                fullName = "Cleave",
-                manaCost = "0",
-                energyCost = "18",
-                lifeCost = "0",
-                effects = "Hits enemies in a short frontal arc. Placeholder stagger chance.",
-                damage = "30 physical (placeholder scaling).",
-                cooldown = "5.0s",
-                skillTypeTag = "Melee",
-                description = "Starter wide swing used to validate area attack UI and future weapon tags."
-            ),
-            "quick_strike" to SkillTooltipTemplate(
-                fullName = "Quick Strike",
-                manaCost = "0",
-                energyCost = "10",
-                lifeCost = "0",
-                effects = "Single-target thrust with placeholder haste window.",
-                damage = "18 physical (placeholder scaling).",
-                cooldown = "2.0s",
-                skillTypeTag = "Melee",
-                description = "Starter fast attack for testing low-cooldown combat flow and responsiveness."
-            ),
-            "bandage" to SkillTooltipTemplate(
-                fullName = "Bandage",
-                manaCost = "0",
-                energyCost = "8",
-                lifeCost = "0",
-                effects = "Applies Regeneration I for 6s. Placeholder cleanse: none.",
-                damage = "Healing: 24 total over duration (placeholder).",
-                cooldown = "8.0s",
-                skillTypeTag = "Support",
-                description = "Starter sustain skill used to test non-damage effects and utility tooltip formatting."
-            ),
-        )
+        val statTooltips = statEntries.associate { entry ->
+            entry.key to entry.tooltip.ifBlank { "No tooltip text configured." }
+        }
+        val statDescriptions = statEntries.associate { entry ->
+            entry.key to entry.description.ifBlank { "No description configured." }
+        }
+        fun formatContentNumber(value: Double): String {
+            return if (value % 1.0 == 0.0) value.toInt().toString() else String.format("%.1f", value)
+        }
+        val skillTooltipTemplates = skillEntries.associate { entry ->
+            entry.key to SkillTooltipTemplate(
+                fullName = entry.label,
+                manaCost = formatContentNumber(entry.manaCost),
+                energyCost = formatContentNumber(entry.energyCost),
+                lifeCost = formatContentNumber(entry.lifeCost),
+                effects = entry.effects.ifBlank { "No effects configured." },
+                damage = entry.damageText.ifBlank {
+                    "${formatContentNumber(entry.damageBase)} base, INT x${formatContentNumber(entry.intelligenceScale)}"
+                },
+                cooldown = "${formatContentNumber(entry.cooldownSeconds)}s",
+                skillTypeTag = entry.skillType.ifBlank { "Skill" },
+                description = entry.description.ifBlank { "No description configured." },
+            )
+        }
 
         fun renderSkillTooltip(template: SkillTooltipTemplate): String {
             val title = escapeHtml(template.fullName)
@@ -1394,12 +1394,14 @@ object LauncherMain {
             val current = statAllocations[key] ?: 0
             if (delta > 0 && pointsRemaining <= 0) return
             if (delta < 0 && current <= 0) return
+            if (delta > 0 && current >= maxPerStat) return
             statAllocations[key] = current + delta
             pointsRemaining -= delta
             updatePointUi()
         }
 
-        fun statAllocationRow(title: String, key: String): JPanel {
+        fun statAllocationRow(entry: ContentStatEntryView): JPanel {
+            val key = entry.key
             val statButtonSize = Dimension(30, 30)
             val minus = JButton("-").apply {
                 preferredSize = statButtonSize
@@ -1423,7 +1425,7 @@ object LauncherMain {
             plus.toolTipText = statTooltips[key]
             minus.addActionListener { adjustStatAllocation(key, -1) }
             plus.addActionListener { adjustStatAllocation(key, 1) }
-            val label = UiScaffold.titledLabel(title).apply {
+            val label = UiScaffold.titledLabel(entry.label).apply {
                 toolTipText = statTooltips[key]
             }
             return JPanel(BorderLayout(8, 0)).apply {
@@ -1446,7 +1448,8 @@ object LauncherMain {
             }
         }
 
-        fun statDescriptionCard(key: String): JPanel {
+        fun statDescriptionCard(entry: ContentStatEntryView): JPanel {
+            val key = entry.key
             val description = UiScaffold.titledLabel(statDescriptions[key] ?: "Placeholder stat effect.").apply {
                 horizontalAlignment = SwingConstants.LEFT
                 toolTipText = statTooltips[key]
@@ -1513,6 +1516,7 @@ object LauncherMain {
         }
 
         val gameTileSize = 64f
+        val gameMovementSpeed = runtimeContent.movementSpeed.coerceAtLeast(1.0)
         var gameWorldWidth = 2400f
         var gameWorldHeight = 1600f
         var gameLevelWidthCells = 40
@@ -1722,7 +1726,7 @@ object LauncherMain {
             gameMoving = dx != 0.0 || dy != 0.0
             if (gameMoving) {
                 val length = kotlin.math.sqrt((dx * dx) + (dy * dy))
-                val speed = 220.0
+                val speed = gameMovementSpeed
                 val nx = dx / length
                 val ny = dy / length
                 val nextX = (gamePlayerX + (nx * speed * dt).toFloat()).coerceIn(spriteHalf, gameWorldWidth - spriteHalf)
@@ -1904,6 +1908,13 @@ object LauncherMain {
         lateinit var populateCharacterViewsFn: (List<CharacterView>) -> Unit
 
         fun playWithCharacter(character: CharacterView, overrideLevelId: Int? = null) {
+            if (!hasValidContentSnapshot) {
+                selectStatus.text = contentText(
+                    "ui.content.blocked_play",
+                    "Content unavailable. Reconnect to sync gameplay data.",
+                )
+                return
+            }
             withSession(onMissing = { authStatus.text = "Please login first." }) { session ->
                 Thread {
                     try {
@@ -2334,11 +2345,11 @@ object LauncherMain {
                             add(JPanel().apply {
                                 layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
                                 isOpaque = false
-                                statEntries.forEachIndexed { index, (key, label) ->
+                                statEntries.forEachIndexed { index, entry ->
                                     add(JPanel(BorderLayout(8, 0)).apply {
                                         isOpaque = false
-                                        add(statAllocationRow(label, key), BorderLayout.WEST)
-                                        add(statDescriptionCard(key), BorderLayout.CENTER)
+                                        add(statAllocationRow(entry), BorderLayout.WEST)
+                                        add(statDescriptionCard(entry), BorderLayout.CENTER)
                                     })
                                     if (index < statEntries.lastIndex) {
                                         add(Box.createVerticalStrut(4))
@@ -2358,19 +2369,30 @@ object LauncherMain {
                                 add(JPanel().apply {
                                     layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
                                     isOpaque = false
-                                    add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
-                                        isOpaque = false
-                                        add(skillSelectionButton("ember", "Ember"))
-                                        add(skillSelectionButton("cleave", "Cleave"))
-                                        add(skillSelectionButton("quick_strike", "Quick Strike"))
-                                        add(skillSelectionButton("bandage", "Bandage"))
-                                        repeat(2) { add(disabledSkillPlaceholder()) }
-                                    })
-                                    add(Box.createVerticalStrut(6))
-                                    add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
-                                        isOpaque = false
-                                        repeat(6) { add(disabledSkillPlaceholder()) }
-                                    })
+                                    val visibleSkills = skillEntries.take(12)
+                                    val rows = if (visibleSkills.isEmpty()) {
+                                        listOf(emptyList(), emptyList())
+                                    } else {
+                                        val chunked = visibleSkills.chunked(6).toMutableList()
+                                        while (chunked.size < 2) {
+                                            chunked.add(emptyList())
+                                        }
+                                        chunked.take(2)
+                                    }
+                                    rows.forEachIndexed { rowIndex, rowSkills ->
+                                        add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                                            isOpaque = false
+                                            rowSkills.forEach { entry ->
+                                                add(skillSelectionButton(entry.key, entry.label))
+                                            }
+                                            repeat((6 - rowSkills.size).coerceAtLeast(0)) {
+                                                add(disabledSkillPlaceholder())
+                                            }
+                                        })
+                                        if (rowIndex == 0) {
+                                            add(Box.createVerticalStrut(6))
+                                        }
+                                    }
                                 }, BorderLayout.NORTH)
                             }, BorderLayout.CENTER)
                         })
@@ -2649,6 +2671,14 @@ object LauncherMain {
             }
             if (card == "play" && selectedCharacterId == null) {
                 JOptionPane.showMessageDialog(frame, "Select a character before entering game features.", "Character Required", JOptionPane.WARNING_MESSAGE)
+                showCard("select_character")
+                return
+            }
+            if (card == "play" && !hasValidContentSnapshot) {
+                selectStatus.text = contentText(
+                    "ui.content.blocked_play",
+                    "Content unavailable. Reconnect to sync gameplay data.",
+                )
                 showCard("select_character")
                 return
             }
@@ -2944,6 +2974,13 @@ object LauncherMain {
         updatePointUi()
 
         createSubmit.addActionListener {
+            if (!hasValidContentSnapshot) {
+                createStatus.text = contentText(
+                    "ui.content.blocked_play",
+                    "Content unavailable. Reconnect to sync gameplay data.",
+                )
+                return@addActionListener
+            }
             withSession(onMissing = { createStatus.text = "Please login first." }) { session ->
                 val name = createName.text.trim()
                 if (name.isBlank()) {
@@ -2974,9 +3011,9 @@ object LauncherMain {
                             skillAllocations.keys.forEach { skillAllocations[it] = 0 }
                             updatePointUi()
                             createName.text = ""
-                            raceChoice.selectedIndex = 0
-                            backgroundChoice.selectedIndex = 0
-                            affiliationChoice.selectedIndex = 0
+                            if (raceChoice.itemCount > 0) raceChoice.selectedIndex = 0
+                            if (backgroundChoice.itemCount > 0) backgroundChoice.selectedIndex = 0
+                            if (affiliationChoice.itemCount > 0) affiliationChoice.selectedIndex = 0
                             populateCharacterViewsFn(refreshed)
                             createStatus.text = " "
                             if (refreshed.isNotEmpty()) {
@@ -3042,6 +3079,14 @@ object LauncherMain {
         frame.extendedState = frame.extendedState or JFrame.MAXIMIZED_BOTH
         frame.isVisible = true
         showCard("auth")
+        if (!hasValidContentSnapshot) {
+            authStatus.text = contentText(
+                "ui.content.blocked_play",
+                "Content unavailable. Reconnect to sync gameplay data.",
+            )
+        } else if (contentSnapshotSource == "cache") {
+            authStatus.text = contentText("ui.content.cached", "Using cached content snapshot.")
+        }
         if (autoLoginEnabled && autoLoginRefreshToken.isNotBlank()) {
             authStatus.text = "Attempting automatic login..."
             Thread {
@@ -4109,6 +4154,164 @@ object LauncherMain {
     private fun findUpdateHelper(payloadRoot: Path): Path? {
         val helper = payloadRoot.resolve("UpdateHelper.exe")
         return helper.takeIf { Files.exists(it) }
+    }
+
+    private fun embeddedContentBootstrap(): ContentBootstrapView {
+        return ContentBootstrapView(
+            contentSchemaVersion = 1,
+            contentVersionId = 0,
+            contentVersionKey = "embedded_v1",
+            fetchedAt = Instant.now().toString(),
+            pointBudget = 10,
+            xpPerLevel = 100,
+            maxPerStat = 10,
+            races = listOf(
+                ContentOptionEntryView("human", "Human", "Balanced origin.", "option.race.human"),
+                ContentOptionEntryView("elf", "Elf", "Arcane-leaning origin.", "option.race.elf"),
+                ContentOptionEntryView("dwarf", "Dwarf", "Sturdy martial origin.", "option.race.dwarf"),
+            ),
+            backgrounds = listOf(
+                ContentOptionEntryView("drifter", "Drifter", "Survivalist path.", "option.background.drifter"),
+                ContentOptionEntryView("scholar", "Scholar", "Knowledge path.", "option.background.scholar"),
+                ContentOptionEntryView("soldier", "Soldier", "Military path.", "option.background.soldier"),
+            ),
+            affiliations = listOf(
+                ContentOptionEntryView("unaffiliated", "Unaffiliated", "Independent.", "option.affiliation.unaffiliated"),
+                ContentOptionEntryView("order", "Order", "Disciplined faction.", "option.affiliation.order"),
+                ContentOptionEntryView("consortium", "Consortium", "Trade faction.", "option.affiliation.consortium"),
+            ),
+            stats = listOf(
+                ContentStatEntryView("strength", "Strength", "Power for heavy melee attacks.", "Increases melee power and carrying force.", "stat.strength"),
+                ContentStatEntryView("agility", "Agility", "Speed for movement and recovery.", "Improves movement and action speed.", "stat.agility"),
+                ContentStatEntryView("intellect", "Intellect", "Arcane output and spell control.", "Increases spell power and scaling.", "stat.intellect"),
+                ContentStatEntryView("vitality", "Vitality", "Base health and toughness.", "Raises health and resilience.", "stat.vitality"),
+                ContentStatEntryView("resolve", "Resolve", "Resistance against control effects.", "Improves control resistance.", "stat.resolve"),
+                ContentStatEntryView("endurance", "Endurance", "Stamina and sustained effort.", "Improves sustained activity.", "stat.endurance"),
+                ContentStatEntryView("dexterity", "Dexterity", "Precision for weapons and tools.", "Improves precision and handling.", "stat.dexterity"),
+                ContentStatEntryView("willpower", "Willpower", "Mental focus and channeling.", "Improves focus and control.", "stat.willpower"),
+            ),
+            skills = listOf(
+                ContentSkillEntryView(
+                    key = "ember",
+                    label = "Ember",
+                    textKey = "skill.ember",
+                    skillType = "Spell",
+                    manaCost = 12.0,
+                    energyCost = 0.0,
+                    lifeCost = 0.0,
+                    effects = "Applies Burn I for 4s.",
+                    damageText = "20 fire + INT scaling.",
+                    cooldownSeconds = 4.0,
+                    damageBase = 20.0,
+                    intelligenceScale = 0.6,
+                    description = "Starter fire projectile.",
+                ),
+                ContentSkillEntryView(
+                    key = "cleave",
+                    label = "Cleave",
+                    textKey = "skill.cleave",
+                    skillType = "Melee",
+                    manaCost = 0.0,
+                    energyCost = 18.0,
+                    lifeCost = 0.0,
+                    effects = "Short frontal arc strike.",
+                    damageText = "30 physical.",
+                    cooldownSeconds = 5.0,
+                    damageBase = 30.0,
+                    intelligenceScale = 0.0,
+                    description = "Starter wide melee swing.",
+                ),
+                ContentSkillEntryView(
+                    key = "quick_strike",
+                    label = "Quick Strike",
+                    textKey = "skill.quick_strike",
+                    skillType = "Melee",
+                    manaCost = 0.0,
+                    energyCost = 10.0,
+                    lifeCost = 0.0,
+                    effects = "Single-target thrust.",
+                    damageText = "18 physical.",
+                    cooldownSeconds = 2.0,
+                    damageBase = 18.0,
+                    intelligenceScale = 0.0,
+                    description = "Starter fast attack.",
+                ),
+                ContentSkillEntryView(
+                    key = "bandage",
+                    label = "Bandage",
+                    textKey = "skill.bandage",
+                    skillType = "Support",
+                    manaCost = 0.0,
+                    energyCost = 8.0,
+                    lifeCost = 0.0,
+                    effects = "Applies Regeneration I for 6s.",
+                    damageText = "24 healing over time.",
+                    cooldownSeconds = 8.0,
+                    damageBase = 0.0,
+                    intelligenceScale = 0.0,
+                    description = "Starter sustain skill.",
+                ),
+            ),
+            movementSpeed = 220.0,
+            attackSpeedBase = 1.0,
+            uiText = mapOf(
+                "ui.content.blocked_play" to "Content unavailable. Reconnect to sync gameplay data.",
+                "ui.content.cached" to "Using cached content snapshot.",
+            ),
+        )
+    }
+
+    private fun contentBootstrapCachePath(): Path {
+        return installRoot(payloadRoot()).resolve("content_bootstrap_cache.json")
+    }
+
+    private fun isUsableContentBootstrap(bootstrap: ContentBootstrapView): Boolean {
+        if (bootstrap.pointBudget <= 0) return false
+        if (bootstrap.xpPerLevel <= 0) return false
+        if (bootstrap.maxPerStat < 0) return false
+        if (bootstrap.races.isEmpty() || bootstrap.backgrounds.isEmpty() || bootstrap.affiliations.isEmpty()) return false
+        if (bootstrap.stats.isEmpty() || bootstrap.skills.isEmpty()) return false
+        return true
+    }
+
+    private fun loadCachedContentBootstrap(): ContentBootstrapView? {
+        val path = contentBootstrapCachePath()
+        if (!Files.exists(path)) return null
+        return try {
+            val mapper = jacksonObjectMapper()
+            val parsed = mapper.readValue(Files.readString(path), ContentBootstrapView::class.java)
+            if (isUsableContentBootstrap(parsed)) {
+                parsed
+            } else {
+                log("Ignoring invalid cached content snapshot at ${path.toAbsolutePath()}")
+                null
+            }
+        } catch (ex: Exception) {
+            log("Failed to read cached content snapshot from ${path.toAbsolutePath()}", ex)
+            null
+        }
+    }
+
+    private fun saveCachedContentBootstrap(bootstrap: ContentBootstrapView) {
+        if (!isUsableContentBootstrap(bootstrap)) {
+            log("Skipping cache write for unusable content snapshot ${bootstrap.contentVersionKey}")
+            return
+        }
+        val path = contentBootstrapCachePath()
+        try {
+            Files.createDirectories(path.parent)
+            val mapper = jacksonObjectMapper()
+            val json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(bootstrap)
+            Files.writeString(
+                path,
+                json,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE,
+            )
+        } catch (ex: Exception) {
+            log("Failed to persist cached content snapshot to ${path.toAbsolutePath()}", ex)
+        }
     }
 
     private fun launcherPrefsPath(): Path {

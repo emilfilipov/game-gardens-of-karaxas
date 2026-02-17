@@ -11,6 +11,7 @@ from app.api.router import api_router
 from app.core.logging import configure_logging
 from app.db.session import SessionLocal
 from app.models.chat import ChatChannel
+from app.services.content import ensure_content_seed
 from app.services.release_policy import ensure_release_policy
 
 app = FastAPI(title="karaxas-backend", version="0.1.0")
@@ -23,6 +24,7 @@ def startup_seed() -> None:
     db = SessionLocal()
     try:
         ensure_release_policy(db)
+        ensure_content_seed(db)
         global_channel = db.execute(
             select(ChatChannel).where(ChatChannel.kind == "GLOBAL", ChatChannel.name == "Global")
         ).scalar_one_or_none()

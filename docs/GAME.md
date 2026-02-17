@@ -47,12 +47,12 @@ create/select characters, and enter gameplay sessions.
 
 ## Character Direction
 - No predefined classes.
-- Character creation uses a fixed point budget of 10.
+- Character creation uses a content-driven point budget (current default: 10).
 - Players distribute points into stats and skills.
 - Each stat/skill increase costs 1 point.
 - Character names are globally unique (case-insensitive).
 - Characters start at level 1 with 0 XP.
-- Current level progression scaffold uses 100 XP per level.
+- Level progression uses content-driven XP requirements (current default: 100 XP per level).
 - Character creation includes sex choice (current presets: male/female) with visual preview.
 - Character creation preview is currently static (idle frame) and no longer includes a preview-animation selector.
 - Sex switching must always map to the correct preset in both directions (male->female and female->male) without substring ambiguity.
@@ -70,11 +70,10 @@ create/select characters, and enter gameplay sessions.
   - damage and cooldown
   - skill type tag
   - description box
-- Current starter skill tooltips are populated with placeholder data for UI validation.
+- Current starter skill tooltips are loaded from active content data.
 - Skill tooltips are themed to the game palette and stay visible longer for reliable hover inspection.
 - Character creation identity controls are aligned in one horizontal row: Name, Sex, Race, Background, Affiliation.
-- Character creation footer shows a live point budget label (`x/10 points left`) beside the `Create Character` action.
-- Stats/skills have placeholder tooltips for future design descriptions.
+- Character creation footer shows a live point budget label (`x/N points left`) beside the `Create Character` action.
 - Character creation selections are persisted on character records (stats, skills, race, background, affiliation, appearance).
 - Character art loading accepts both canonical filenames and fallback naming/folder layouts so male/female previews continue working when asset files are reorganized.
 - Initial visual presets currently wired: human male and human female.
@@ -108,19 +107,23 @@ create/select characters, and enter gameplay sessions.
 - Launcher-first distribution (Windows first).
 - Keep architecture portable for Linux/Steam/Android later, but Steam-specific distribution is not a current dependency.
 
-## Planned Live Content Model (Draft, Not Implemented)
-- Move non-logic gameplay content to database-managed configuration snapshots:
+## Live Content Model (Implemented Baseline)
+- Non-logic gameplay content is now delivered through database-managed configuration snapshots:
   - level-up requirements and rewards,
   - skill numerical values and tooltip/presentation text,
   - stat metadata and stat-to-skill scaling constants,
   - dropdown/radio option catalogs used by account/character menus.
 - Keep formulas and authoritative execution logic in backend code; only tunable values and presentation data move to DB.
+- Launcher fetches active content at startup and uses cached snapshot fallback if network fetch fails.
+- If no valid content snapshot is available, character creation/gameplay is blocked until content sync succeeds.
+
+## Planned Content Publish Drain
 - Content publishes are planned to trigger a controlled non-admin session drain:
   - persist active player state,
   - despawn from world,
   - force return to login,
   - keep admin sessions online for verification/ops.
-- Full implementation is pending review of the strategic plan in `docs/TASKS.md`.
+- Full implementation remains tracked in `docs/TASKS.md` (Epic C).
 
 ## Open Design Decisions
 - Final stats/skills taxonomy and balancing model.

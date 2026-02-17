@@ -23,12 +23,12 @@ This is the single source of truth for technical architecture, stack decisions, 
 
 ## Backend Service Shape (Current)
 - Single FastAPI service (modular monolith) with:
-  - REST APIs for auth, lobby, characters, chat, and ops.
+  - REST APIs for auth, lobby, characters, levels, chat, content, and ops.
   - WebSocket endpoint for realtime chat/events.
 - Chat endpoints are now character-gated: users must have an active selected character before chat access.
 - This keeps operational complexity low while preserving future split path (`api` + `realtime`) if scale requires it.
 
-## Data Model (Initial)
+## Data Model (Current)
 - `users`: account identity.
   - Includes `is_admin` boolean for backend-authoritative admin gating.
 - `user_sessions`: refresh/session records and client version tracking.
@@ -41,6 +41,8 @@ This is the single source of truth for technical architecture, stack decisions, 
   - Includes nullable `location_x`/`location_y` for persisted world coordinates.
   - Character names are globally unique (case-insensitive unique index on `lower(name)`).
 - `levels`: named level layouts with schema-versioned layered tile payloads (`layer_cells`) plus legacy-compatible derived `wall_cells` for collision fallback.
+- `content_versions`: immutable content snapshot headers with lifecycle state (`draft`, `validated`, `active`, `retired`).
+- `content_bundles`: per-domain JSON payloads keyed by `content_version_id` + `domain`.
 - `friendships`: friend graph.
 - `guilds`, `guild_members`: guild presence and rank scaffolding.
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
@@ -140,16 +142,20 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level tile discovery now scans `assets/tiles/` roots (repo, install, payload, ancestor cwd roots, and optional `GOK_LEVEL_ART_DIR`) for layered map sprites.
 - Release packaging copies `assets/characters/` into payload (`payload/assets/characters`) so installed launcher builds can resolve preview art without relying on local repo folders.
 - Release packaging also copies `assets/tiles/` into payload (`payload/assets/tiles`) so layered level art is available in installed builds.
-- Character creation point allocation uses a fixed 10-point budget with +/− controls for stats and themed rectangular toggle choices for starter skills.
+- Launcher fetches `/content/bootstrap` on startup and caches the last known good snapshot as `content_bootstrap_cache.json`.
+- Launcher falls back to cached content when network fetch fails.
+- Launcher blocks character creation/gameplay when no valid content snapshot exists.
+- Character creation point allocation now uses content-driven point budget/stat caps with +/− controls for stats and themed rectangular toggle choices for skills.
 - Character creation now uses expanded two-column stat allocation rows and includes scaffold dropdowns (race/background/affiliation) above the skills area.
 - Stat allocation rows now use fixed-size cards with square +/- controls and companion fixed-size description cards for each stat entry.
 - Skill selection uses fixed-size square themed buttons arranged as two rows with six slots per row.
 - Skill hover details are rendered through a shared HTML tooltip template containing name, costs (mana/energy/life), effects, damage+cooldown, type tag, and description sections.
-- Starter skills currently use placeholder tooltip values to validate themed tooltip layout before gameplay balancing data is finalized.
+- Skill/stat labels, descriptions, and tooltips are sourced from active content payloads (with embedded defaults only as fallback).
 - Tooltip rendering is now explicitly themed via UI defaults (background/foreground/border/font) and tuned ToolTipManager timings (short initial delay, long dismiss delay, zero reshow delay) for more stable hover behavior.
 - Character creation now renders Name/Sex/Race/Background/Affiliation in one horizontal identity row, with fixed-size stats/skills tables and fixed-size row controls to prevent layout drift.
-- Character creation action row now includes a live point-budget label (`x/10 points left`) anchored immediately left of the `Create Character` button.
+- Character creation action row now includes a live point-budget label (`x/N points left`) anchored immediately left of the `Create Character` button.
 - Launcher character create API payload now forwards race/background/affiliation and backend persists them in `characters`; list/create responses return those fields for UI/detail rendering.
+- Gameplay movement speed baseline now reads from content tuning (`tuning.movement_speed`) instead of hardcoded launcher constants.
 - Service error formatting now maps `401/403` and `invalid token` responses to a clear session-expiry message (`Session expired or invalid token. Please log in again.`), including level-builder operations.
 - Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.
 - Character preview rendering normalizes sprite frames to a fixed preview canvas before scaling, keeping sex-switch preview zoom consistent.
@@ -174,8 +180,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Passwords: bcrypt hash via passlib.
 - Ops endpoint auth: `x-ops-token` header backed by `OPS_API_TOKEN` secret.
 
-## Planned Architecture Draft (Review Pending, Partially Implemented)
-### 1) Layered World/Level Data (Baseline Implemented)
+## Strategic Architecture Status
+### 1) Layered World/Level Data (Implemented)
 - Level content model now supports explicit render/edit layers with deterministic ordering.
 - Current reserved semantics:
   - `layer 0`: ground/foliage/background tiles.
@@ -183,22 +189,26 @@ This is the single source of truth for technical architecture, stack decisions, 
   - `layer 2`: ambient/weather/overlays (non-collision by default).
 - Runtime collision extraction is now layer-filtered and asset-filtered.
 - Legacy single-layer level payloads are auto-adapted to layered format on read/save paths.
+- Launcher golden tests now cover layered payload serialization/deserialization plus legacy wall fallback.
 
-### 2) Data-Driven Content Snapshot System
-- Planned database-driven content domains include:
+### 2) Data-Driven Content Snapshot System (Implemented Baseline)
+- Content domains currently active:
   - progression curves and level-up rewards,
   - skill/stat numeric tuning and coefficients,
   - tooltip/description text payloads,
   - UI option catalogs (dropdown/radio/menu choices),
   - shared constants (movement speed, attack speed, cooldown families, etc.).
 - Backend remains formula-authoritative; content values are inputs to formulas, not replacements for logic code.
-- Planned content versioning model:
+- Content versioning model uses:
   - immutable `content_version` snapshots,
   - publish state transitions (`draft` -> `validated` -> `active`),
   - atomic active-version swap in backend cache.
-- Launcher/client runtime will consume published content snapshots for menu/options/presentation data to minimize hardcoded UI catalogs.
+- Backend startup seeds/repairs required domains and keeps an in-memory active snapshot cache.
+- Launcher consumes content snapshots for character-create options/tooltips and local tuning constants.
+- Launcher persists last known good content cache and blocks gameplay/create when no valid snapshot exists.
+- Deterministic tests validate sample skill execution against content snapshot values.
 
-### 3) Content Publish Session-Drain Flow
+### 3) Content Publish Session-Drain Flow (Planned)
 - Planned admin publish action triggers non-admin session drain (admins exempt by policy).
 - Planned drain sequence:
   1. mark non-admin sessions as draining with deadline,
@@ -210,16 +220,17 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Backend audit logs are planned for publish actor, version id, drained session count, persistence outcomes, and cutoff timestamps.
 - Rollback path is planned to allow reactivation of previous content snapshot if a publish causes regressions.
 
-### 4) Rollout/Hardening Approach
-- Planned phased rollout:
+### 4) Rollout/Hardening Approach (In Progress)
+- Completed phases:
   - schema + read-only snapshot endpoints,
-  - gameplay/progression migration to snapshots,
-  - publish-drain enforcement.
-- Planned guardrails:
+  - character/progression/create-menu migration to snapshots.
+- Remaining phases:
+  - publish-drain enforcement and operational controls.
+- Guardrails:
   - strict data validators and bounded ranges,
   - feature flags for staged enablement,
   - observability for content load latency, drain success rates, and forced logout counts.
-- Detailed implementation tasks and sequencing are tracked in `docs/TASKS.md` under `Strategic Plan Draft (Review Before Implementation)`.
+- Detailed implementation tasks and sequencing are tracked in `docs/TASKS.md` under `Strategic Plan (Execution Tracking)`.
 
 ## Documentation Rule
 This file is the single source of truth for technical information.

@@ -1,5 +1,6 @@
 from app.models.character import Character
 from app.models.chat import ChatChannel, ChatMember, ChatMessage
+from app.models.content import ContentBundle, ContentVersion
 from app.models.guild import Guild, GuildMember
 from app.models.level import Level
 from app.models.release_policy import ReleasePolicy
@@ -11,6 +12,8 @@ __all__ = [
     "ChatChannel",
     "ChatMember",
     "ChatMessage",
+    "ContentBundle",
+    "ContentVersion",
     "Friendship",
     "Guild",
     "GuildMember",

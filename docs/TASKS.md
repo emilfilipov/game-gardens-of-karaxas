@@ -7,13 +7,13 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | --- | --- | --- | --- |
 | - | - | - | Standalone backlog is currently empty. Planned work is tracked under Strategic Plan epics below. |
 
-## Strategic Plan Draft (Review Before Implementation)
-This section defines the proposed plan for:
+## Strategic Plan (Execution Tracking)
+This section tracks execution status for:
 - layered level rendering/editing,
 - fully data-driven runtime content (non-logic values in DB),
 - admin-published content changes that safely log out non-admin users.
 
-Epic A baseline implementation is now in progress; remaining epics are still unimplemented.
+Epic A and Epic B are now implemented. Epic C+ remain planned.
 
 ### Epic A: Layered Level Model and Level-Builder Layer Editing
 | Task ID | Status | Complexity | Detailed Description |
@@ -26,21 +26,21 @@ Epic A baseline implementation is now in progress; remaining epics are still uni
 | GOK-MMO-105 | ✅ | 3 | Level-builder placement/erase logic is now scoped to active layer; spawn placement remains a separate tool and collision tiles are prevented on spawn cells. |
 | GOK-MMO-106 | ✅ | 3 | Gameplay renderer now draws deterministic layer order (`0 -> 1 -> player -> 2`) and collision is derived only from configured collision assets on layer `1`. |
 | GOK-MMO-107 | ✅ | 2 | Legacy level adapter is implemented on backend read/save and launcher load paths so old wall/spawn data is auto-translated to layered format. |
-| GOK-MMO-108 | ⏳ | 2 | Backend layered validation tests were added; launcher serialization/deserialization golden fixtures are still pending in a follow-up cycle. |
+| GOK-MMO-108 | ✅ | 2 | Added launcher serialization/deserialization golden fixtures for layered level payload codecs, including legacy wall payload fallback coverage. |
 
 ### Epic B: Data-Driven Content and Runtime Tuning Model
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-110 | ⬜ | 3 | Define canonical content domains for DB-driven values: progression curves, skill stat blocks, tooltip/text payloads, dropdown/radio option catalogs, item modifiers, status effect definitions, and movement/attack tuning constants. |
-| GOK-MMO-111 | ⬜ | 4 | Create content-versioned schema: `content_versions`, `content_bundles`, and domain tables keyed by `content_version_id`, including publish state (`draft`, `validated`, `active`, `retired`). |
-| GOK-MMO-112 | ⬜ | 3 | Implement backend content snapshot loader with in-memory cache keyed by active content version and hot-reload safe swap (atomic pointer switch). |
-| GOK-MMO-113 | ⬜ | 4 | Replace hardcoded runtime constants in backend combat/progression services with content snapshot reads (while preserving formulas in code). |
-| GOK-MMO-114 | ⬜ | 3 | Add content validation pipeline: schema checks, referential integrity, bounds checks (cooldown >= 0, coefficients in safe ranges), and semantic checks for missing tooltip text/options. |
-| GOK-MMO-115 | ⬜ | 2 | Add launcher bootstrap content fetch endpoint and client-side cache stamp (`content_version`) to keep UI options/tooltips synchronized with backend active content. |
-| GOK-MMO-116 | ⬜ | 3 | Refactor launcher create/select option sources (race/background/affiliation and future radio/dropdown sources) to use content payloads rather than hardcoded lists. |
-| GOK-MMO-117 | ⬜ | 2 | Externalize player-facing texts/tooltips into content domain records and wire locale-ready text key structure for future localization. |
-| GOK-MMO-118 | ⬜ | 3 | Add fallback behavior when content fetch fails: use last known good snapshot, block gameplay if no valid snapshot exists, and show actionable status to user. |
-| GOK-MMO-119 | ⬜ | 3 | Add integration tests proving deterministic results for skill execution against content snapshots (including Ember sample with INT scaling + modifiers). |
+| GOK-MMO-110 | ✅ | 3 | Implemented canonical content domains for DB-driven values (`progression`, `character_options`, `stats`, `skills`, `tuning`, `ui_text`) with bootstrap defaults and domain contracts. |
+| GOK-MMO-111 | ✅ | 4 | Added content-versioned schema via Alembic migration `0009_content_model` (`content_versions`, `content_bundles`) with publish states (`draft`, `validated`, `active`, `retired`). |
+| GOK-MMO-112 | ✅ | 3 | Implemented backend active content snapshot loader/cache with atomic in-memory swap and startup seeding/repair (`ensure_content_seed`, `get_active_snapshot`). |
+| GOK-MMO-113 | ✅ | 4 | Replaced backend progression/creation constants with content snapshot reads and added combat formula service (`compute_skill_damage`) that sources tunable skill coefficients from snapshot data. |
+| GOK-MMO-114 | ✅ | 3 | Added content validation pipeline with structural, uniqueness, numeric-bound, and required-text checks, plus admin validate/activate API flow. |
+| GOK-MMO-115 | ✅ | 2 | Added launcher bootstrap fetch (`GET /content/bootstrap`) and client-side cache stamp file (`content_bootstrap_cache.json`) for active content snapshots. |
+| GOK-MMO-116 | ✅ | 3 | Refactored launcher character-create option sources (race/background/affiliation, stats, skills, point budget) to load from content payloads rather than hardcoded lists. |
+| GOK-MMO-117 | ✅ | 2 | Externalized player-facing stat/skill tooltip/description content to content domains and wired launcher rendering from those payload values. |
+| GOK-MMO-118 | ✅ | 3 | Added launcher fallback behavior: use cached snapshot when fetch fails, block gameplay/create when no valid snapshot exists, and surface actionable status text. |
+| GOK-MMO-119 | ✅ | 3 | Added deterministic content-driven combat tests (`backend/tests/test_combat_content.py`) and domain validation tests (`backend/tests/test_content_service.py`). |
 
 ### Epic C: Admin Publish Flow With Non-Admin Session Drain/Logout
 | Task ID | Status | Complexity | Detailed Description |
@@ -122,6 +122,8 @@ Epic A baseline implementation is now in progress; remaining epics are still uni
 | GOK-MMO-040 | ✅ | 2 | Fix themed skill tooltip behavior (remove white border artifacts and stabilize hover timing), move level-builder `Load/Save/Back` into the top header strip, improve invalid-token messaging, and enforce grid-input sync + named-level validation during level save. |
 | GOK-MMO-041 | ✅ | 1 | Move level-builder `Load Existing` dropdown and `Save Level` name input into the top header strip next to `Load`/`Save`, leaving editor-body rows focused on tool/grid editing controls. |
 | GOK-MMO-042 | ✅ | 4 | Implement Epic A baseline: layered level schema + migration/backward adapter, layer-aware API payloads/validation, launcher layer-edit tools (active layer + visibility + tile palette), deterministic layered world rendering, and collision extraction from layer-1 collidable assets. |
+| GOK-MMO-043 | ✅ | 2 | Close Epic A test gap by adding launcher layer payload codec fixtures (layered parse/serialize + legacy wall fallback) under `launcher/src/test/kotlin/com/gok/launcher/LevelLayerPayloadCodecTest.kt`. |
+| GOK-MMO-044 | ✅ | 4 | Implement Epic B content model end-to-end: content version/bundle schema + APIs, backend snapshot cache/validation, content-driven character rules, launcher content bootstrap caching/fallback, and content-driven create-screen/tooltips with gameplay gating when no valid snapshot exists. |
 | GOK-INIT-001 | ✅ | 2 | Create initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configure GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enable launcher-only Velopack packaging and publish first installer/release artifacts. |

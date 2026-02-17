@@ -14,13 +14,94 @@ from app.schemas.character import (
     CharacterLocationUpdateRequest,
     CharacterResponse,
 )
+from app.services.content import (
+    CONTENT_DOMAIN_CHARACTER_OPTIONS,
+    CONTENT_DOMAIN_PROGRESSION,
+    CONTENT_DOMAIN_SKILLS,
+    CONTENT_DOMAIN_STATS,
+    get_active_snapshot,
+)
 
 router = APIRouter(prefix="/characters", tags=["characters"])
-XP_PER_LEVEL = 100
 
 
-def _to_response(character: Character) -> CharacterResponse:
-    current_band_progress = character.experience % XP_PER_LEVEL
+def _xp_per_level(db: Session) -> int:
+    snapshot = get_active_snapshot(db)
+    progression = snapshot.domain(CONTENT_DOMAIN_PROGRESSION)
+    value = progression.get("xp_per_level")
+    if isinstance(value, int) and value > 0:
+        return value
+    return 100
+
+
+def _point_budget(db: Session) -> int:
+    snapshot = get_active_snapshot(db)
+    options = snapshot.domain(CONTENT_DOMAIN_CHARACTER_OPTIONS)
+    value = options.get("point_budget")
+    if isinstance(value, int) and value > 0:
+        return value
+    return 10
+
+
+def _allowed_stat_keys(db: Session) -> set[str]:
+    snapshot = get_active_snapshot(db)
+    stats = snapshot.domain(CONTENT_DOMAIN_STATS)
+    entries = stats.get("entries")
+    if not isinstance(entries, list):
+        return set()
+    return {
+        str(entry.get("key", "")).strip().lower()
+        for entry in entries
+        if isinstance(entry, dict) and str(entry.get("key", "")).strip()
+    }
+
+
+def _allowed_skill_keys(db: Session) -> set[str]:
+    snapshot = get_active_snapshot(db)
+    skills = snapshot.domain(CONTENT_DOMAIN_SKILLS)
+    entries = skills.get("entries")
+    if not isinstance(entries, list):
+        return set()
+    return {
+        str(entry.get("key", "")).strip().lower()
+        for entry in entries
+        if isinstance(entry, dict) and str(entry.get("key", "")).strip()
+    }
+
+
+def _stat_max_value(db: Session) -> int:
+    snapshot = get_active_snapshot(db)
+    stats = snapshot.domain(CONTENT_DOMAIN_STATS)
+    value = stats.get("max_per_stat")
+    if isinstance(value, int) and value >= 0:
+        return value
+    return 10
+
+
+def _normalize_catalog_choice(db: Session, catalog_key: str, raw_value: str, fallback: str) -> str:
+    snapshot = get_active_snapshot(db)
+    options = snapshot.domain(CONTENT_DOMAIN_CHARACTER_OPTIONS).get(catalog_key)
+    if not isinstance(options, list):
+        return fallback
+    normalized = raw_value.strip()
+    if not normalized:
+        normalized = fallback
+    for entry in options:
+        if not isinstance(entry, dict):
+            continue
+        value = str(entry.get("value", "")).strip()
+        label = str(entry.get("label", "")).strip()
+        if normalized.lower() in {value.lower(), label.lower()}:
+            return label or value or fallback
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail={"message": f"Invalid {catalog_key} option '{raw_value}'", "code": "invalid_option_choice"},
+    )
+
+
+def _to_response(character: Character, xp_per_level: int) -> CharacterResponse:
+    band = xp_per_level if xp_per_level > 0 else 100
+    current_band_progress = character.experience % band
     return CharacterResponse(
         id=character.id,
         name=character.name,
@@ -33,7 +114,7 @@ def _to_response(character: Character) -> CharacterResponse:
         affiliation=character.affiliation,
         level=character.level,
         experience=character.experience,
-        experience_to_next_level=XP_PER_LEVEL - current_band_progress if current_band_progress > 0 else XP_PER_LEVEL,
+        experience_to_next_level=band - current_band_progress if current_band_progress > 0 else band,
         stat_points_total=character.stat_points_total,
         stat_points_used=character.stat_points_used,
         stats=character.stats,
@@ -46,10 +127,11 @@ def _to_response(character: Character) -> CharacterResponse:
 
 @router.get("", response_model=list[CharacterResponse])
 def list_characters(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+    xp_per_level = _xp_per_level(db)
     rows = db.execute(
         select(Character).where(Character.user_id == context.user.id).order_by(Character.created_at.asc())
     ).scalars()
-    return [_to_response(row) for row in rows]
+    return [_to_response(row, xp_per_level=xp_per_level) for row in rows]
 
 
 @router.post("", response_model=CharacterResponse)
@@ -58,10 +140,6 @@ def create_character(
     context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
-    def normalize_profile_value(value: str, fallback: str) -> str:
-        normalized = value.strip()
-        return normalized if normalized else fallback
-
     normalized_name = payload.name.strip()
     if not normalized_name:
         raise HTTPException(
@@ -75,10 +153,43 @@ def create_character(
             detail={"message": "Character name already exists", "code": "character_name_taken"},
         )
 
-    stat_points_used = sum(v for v in payload.stats.values() if isinstance(v, int) and v > 0) + sum(
-        v for v in payload.skills.values() if isinstance(v, int) and v > 0
-    )
-    if stat_points_used > payload.stat_points_total:
+    configured_budget = _point_budget(db)
+    allowed_stats = _allowed_stat_keys(db)
+    allowed_skills = _allowed_skill_keys(db)
+    max_per_stat = _stat_max_value(db)
+
+    normalized_stats: dict[str, int] = {}
+    for key, value in payload.stats.items():
+        normalized_key = key.strip().lower()
+        if normalized_key not in allowed_stats:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"message": f"Unknown stat key '{key}'", "code": "invalid_stat_key"},
+            )
+        if not isinstance(value, int) or value < 0 or value > max_per_stat:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"message": f"Stat '{key}' must be between 0 and {max_per_stat}", "code": "invalid_stat_value"},
+            )
+        normalized_stats[normalized_key] = value
+
+    normalized_skills: dict[str, int] = {}
+    for key, value in payload.skills.items():
+        normalized_key = key.strip().lower()
+        if normalized_key not in allowed_skills:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"message": f"Unknown skill key '{key}'", "code": "invalid_skill_key"},
+            )
+        if not isinstance(value, int) or value < 0 or value > 1:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"message": f"Skill '{key}' must be 0 or 1", "code": "invalid_skill_value"},
+            )
+        normalized_skills[normalized_key] = value
+
+    stat_points_used = sum(v for v in normalized_stats.values() if v > 0) + sum(v for v in normalized_skills.values() if v > 0)
+    if stat_points_used > configured_budget:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"message": "Allocated points exceed total", "code": "invalid_point_budget"},
@@ -88,15 +199,15 @@ def create_character(
         user_id=context.user.id,
         name=normalized_name,
         appearance_key=payload.appearance_key.strip(),
-        race=normalize_profile_value(payload.race, "Human"),
-        background=normalize_profile_value(payload.background, "Drifter"),
-        affiliation=normalize_profile_value(payload.affiliation, "Unaffiliated"),
-        stat_points_total=payload.stat_points_total,
+        race=_normalize_catalog_choice(db, "race", payload.race, "Human"),
+        background=_normalize_catalog_choice(db, "background", payload.background, "Drifter"),
+        affiliation=_normalize_catalog_choice(db, "affiliation", payload.affiliation, "Unaffiliated"),
+        stat_points_total=configured_budget,
         stat_points_used=stat_points_used,
         level=1,
         experience=0,
-        stats=payload.stats,
-        skills=payload.skills,
+        stats=normalized_stats,
+        skills=normalized_skills,
         is_selected=False,
     )
     db.add(character)
@@ -109,7 +220,7 @@ def create_character(
             detail={"message": "Character name already exists", "code": "character_name_taken"},
         ) from None
     db.refresh(character)
-    return _to_response(character)
+    return _to_response(character, xp_per_level=_xp_per_level(db))
 
 
 @router.post("/{character_id}/select")

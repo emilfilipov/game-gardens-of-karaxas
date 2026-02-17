@@ -81,6 +81,115 @@ data class LevelDataView(
     val wallCells: List<LevelGridCellView>
 )
 
+data class ContentOptionEntryView(
+    val value: String,
+    val label: String,
+    val description: String,
+    val textKey: String,
+)
+
+data class ContentStatEntryView(
+    val key: String,
+    val label: String,
+    val description: String,
+    val tooltip: String,
+    val textKey: String,
+)
+
+data class ContentSkillEntryView(
+    val key: String,
+    val label: String,
+    val textKey: String,
+    val skillType: String,
+    val manaCost: Double,
+    val energyCost: Double,
+    val lifeCost: Double,
+    val effects: String,
+    val damageText: String,
+    val cooldownSeconds: Double,
+    val damageBase: Double,
+    val intelligenceScale: Double,
+    val description: String,
+)
+
+data class ContentBootstrapView(
+    val contentSchemaVersion: Int,
+    val contentVersionId: Int,
+    val contentVersionKey: String,
+    val fetchedAt: String,
+    val pointBudget: Int,
+    val xpPerLevel: Int,
+    val maxPerStat: Int,
+    val races: List<ContentOptionEntryView>,
+    val backgrounds: List<ContentOptionEntryView>,
+    val affiliations: List<ContentOptionEntryView>,
+    val stats: List<ContentStatEntryView>,
+    val skills: List<ContentSkillEntryView>,
+    val movementSpeed: Double,
+    val attackSpeedBase: Double,
+    val uiText: Map<String, String>,
+)
+
+object LevelLayerPayloadCodec {
+    fun toRequestLayers(layers: Map<Int, List<LevelLayerCellView>>): Map<String, List<Map<String, Any>>> {
+        val payload = linkedMapOf<String, List<Map<String, Any>>>()
+        layers.keys.sorted().forEach { layer ->
+            val cells = layers[layer].orEmpty()
+            payload[layer.toString()] = cells.map { cell ->
+                mapOf(
+                    "x" to cell.x,
+                    "y" to cell.y,
+                    "asset_key" to cell.assetKey,
+                )
+            }
+        }
+        return payload
+    }
+
+    fun fromResponse(item: JsonNode): Map<Int, List<LevelLayerCellView>> {
+        val layersNode = item.path("layers")
+        val parsed = linkedMapOf<Int, MutableList<LevelLayerCellView>>()
+        if (layersNode.isObject) {
+            val fields = layersNode.fields()
+            while (fields.hasNext()) {
+                val (key, value) = fields.next()
+                val layerId = key.toIntOrNull() ?: continue
+                if (!value.isArray) continue
+                val list = parsed.getOrPut(layerId) { mutableListOf() }
+                value.forEach { cell ->
+                    list.add(
+                        LevelLayerCellView(
+                            layer = layerId,
+                            x = cell.path("x").asInt(),
+                            y = cell.path("y").asInt(),
+                            assetKey = cell.path("asset_key").asText("decor"),
+                        )
+                    )
+                }
+            }
+        }
+        if (parsed.isNotEmpty()) {
+            return parsed
+        }
+        val legacy = item.path("wall_cells")
+        if (!legacy.isArray) {
+            return emptyMap()
+        }
+        val legacyWalls = mutableListOf<LevelLayerCellView>()
+        legacy.forEach { cell ->
+            legacyWalls.add(
+                LevelLayerCellView(
+                    layer = 1,
+                    x = cell.path("x").asInt(),
+                    y = cell.path("y").asInt(),
+                    assetKey = "wall_block",
+                )
+            )
+        }
+        return if (legacyWalls.isEmpty()) emptyMap() else mapOf(1 to legacyWalls)
+    }
+}
+
 data class ChannelView(
     val id: Int,
     val name: String,
@@ -121,6 +230,114 @@ class KaraxasBackendClient(
     }
 
     fun endpoint(): String = baseUrl
+
+    private fun parseContentOptions(node: JsonNode): List<ContentOptionEntryView> {
+        if (!node.isArray) return emptyList()
+        return node.mapNotNull { item ->
+            val value = item.path("value").asText("").trim()
+            val label = item.path("label").asText("").trim()
+            if (value.isBlank() || label.isBlank()) return@mapNotNull null
+            ContentOptionEntryView(
+                value = value,
+                label = label,
+                description = item.path("description").asText("").trim(),
+                textKey = item.path("text_key").asText("").trim(),
+            )
+        }
+    }
+
+    private fun parseContentStats(node: JsonNode): List<ContentStatEntryView> {
+        if (!node.isArray) return emptyList()
+        return node.mapNotNull { item ->
+            val key = item.path("key").asText("").trim()
+            val label = item.path("label").asText("").trim()
+            if (key.isBlank() || label.isBlank()) return@mapNotNull null
+            ContentStatEntryView(
+                key = key,
+                label = label,
+                description = item.path("description").asText("").trim(),
+                tooltip = item.path("tooltip").asText("").trim(),
+                textKey = item.path("text_key").asText("").trim(),
+            )
+        }
+    }
+
+    private fun parseContentSkills(node: JsonNode): List<ContentSkillEntryView> {
+        if (!node.isArray) return emptyList()
+        return node.mapNotNull { item ->
+            val key = item.path("key").asText("").trim()
+            val label = item.path("label").asText("").trim()
+            if (key.isBlank() || label.isBlank()) return@mapNotNull null
+            ContentSkillEntryView(
+                key = key,
+                label = label,
+                textKey = item.path("text_key").asText("").trim(),
+                skillType = item.path("skill_type").asText("Skill").trim(),
+                manaCost = item.path("mana_cost").asDouble(0.0),
+                energyCost = item.path("energy_cost").asDouble(0.0),
+                lifeCost = item.path("life_cost").asDouble(0.0),
+                effects = item.path("effects").asText("").trim(),
+                damageText = item.path("damage_text").asText("").trim(),
+                cooldownSeconds = item.path("cooldown_seconds").asDouble(0.0),
+                damageBase = item.path("damage_base").asDouble(0.0),
+                intelligenceScale = item.path("intelligence_scale").asDouble(0.0),
+                description = item.path("description").asText("").trim(),
+            )
+        }
+    }
+
+    fun fetchContentBootstrap(clientVersion: String? = null): ContentBootstrapView {
+        val response = request(
+            method = "GET",
+            path = "/content/bootstrap",
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        val root = mapper.readTree(response.body())
+        val domains = root.path("domains")
+        val progression = domains.path("progression")
+        val options = domains.path("character_options")
+        val stats = domains.path("stats")
+        val skills = domains.path("skills")
+        val tuning = domains.path("tuning")
+        val uiText = domains.path("ui_text").path("strings")
+
+        val races = parseContentOptions(options.path("race"))
+        val backgrounds = parseContentOptions(options.path("background"))
+        val affiliations = parseContentOptions(options.path("affiliation"))
+        val statEntries = parseContentStats(stats.path("entries"))
+        val skillEntries = parseContentSkills(skills.path("entries"))
+
+        val uiTextMap = linkedMapOf<String, String>()
+        if (uiText.isObject) {
+            val fields = uiText.fields()
+            while (fields.hasNext()) {
+                val (key, value) = fields.next()
+                val text = value.asText("").trim()
+                if (key.isNotBlank() && text.isNotBlank()) {
+                    uiTextMap[key] = text
+                }
+            }
+        }
+
+        return ContentBootstrapView(
+            contentSchemaVersion = root.path("content_schema_version").asInt(1),
+            contentVersionId = root.path("content_version_id").asInt(0),
+            contentVersionKey = root.path("content_version_key").asText("unknown"),
+            fetchedAt = root.path("fetched_at").asText(""),
+            pointBudget = options.path("point_budget").asInt(10),
+            xpPerLevel = progression.path("xp_per_level").asInt(100),
+            maxPerStat = stats.path("max_per_stat").asInt(10),
+            races = races,
+            backgrounds = backgrounds,
+            affiliations = affiliations,
+            stats = statEntries,
+            skills = skillEntries,
+            movementSpeed = tuning.path("movement_speed").asDouble(220.0),
+            attackSpeedBase = tuning.path("attack_speed_base").asDouble(1.0),
+            uiText = uiTextMap,
+        )
+    }
 
     fun register(email: String, password: String, displayName: String, clientVersion: String): AuthSession {
         val payload = mapOf(
@@ -354,50 +571,6 @@ class KaraxasBackendClient(
         }
     }
 
-    private fun parseLevelLayers(item: JsonNode): Map<Int, List<LevelLayerCellView>> {
-        val layersNode = item.path("layers")
-        val parsed = linkedMapOf<Int, MutableList<LevelLayerCellView>>()
-        if (layersNode.isObject) {
-            val fields = layersNode.fields()
-            while (fields.hasNext()) {
-                val (key, value) = fields.next()
-                val layerId = key.toIntOrNull() ?: continue
-                if (!value.isArray) continue
-                val list = parsed.getOrPut(layerId) { mutableListOf() }
-                value.forEach { cell ->
-                    list.add(
-                        LevelLayerCellView(
-                            layer = layerId,
-                            x = cell.path("x").asInt(),
-                            y = cell.path("y").asInt(),
-                            assetKey = cell.path("asset_key").asText("decor"),
-                        )
-                    )
-                }
-            }
-        }
-        if (parsed.isNotEmpty()) {
-            return parsed
-        }
-
-        val legacy = item.path("wall_cells")
-        if (!legacy.isArray) {
-            return emptyMap()
-        }
-        val legacyWalls = mutableListOf<LevelLayerCellView>()
-        legacy.forEach { cell ->
-            legacyWalls.add(
-                LevelLayerCellView(
-                    layer = 1,
-                    x = cell.path("x").asInt(),
-                    y = cell.path("y").asInt(),
-                    assetKey = "wall_block",
-                )
-            )
-        }
-        return if (legacyWalls.isEmpty()) emptyMap() else mapOf(1 to legacyWalls)
-    }
-
     fun getLevel(accessToken: String, clientVersion: String, levelId: Int): LevelDataView {
         val response = request(
             method = "GET",
@@ -407,7 +580,7 @@ class KaraxasBackendClient(
         )
         ensureSuccess(response)
         val item = mapper.readTree(response.body())
-        val layers = parseLevelLayers(item)
+        val layers = LevelLayerPayloadCodec.fromResponse(item)
         val wallCells = layers
             .getOrDefault(1, emptyList())
             .filter { it.assetKey == "wall_block" || it.assetKey == "tree_oak" }
@@ -440,17 +613,7 @@ class KaraxasBackendClient(
             .filter { it.assetKey == "wall_block" || it.assetKey == "tree_oak" }
             .map { mapOf("x" to it.x, "y" to it.y) }
 
-        val layerPayload = linkedMapOf<String, List<Map<String, Any>>>()
-        layers.keys.sorted().forEach { layer ->
-            val cells = layers[layer].orEmpty()
-            layerPayload[layer.toString()] = cells.map { cell ->
-                mapOf(
-                    "x" to cell.x,
-                    "y" to cell.y,
-                    "asset_key" to cell.assetKey,
-                )
-            }
-        }
+        val layerPayload = LevelLayerPayloadCodec.toRequestLayers(layers)
         val payload = mapOf(
             "name" to name,
             "schema_version" to 2,
@@ -470,7 +633,7 @@ class KaraxasBackendClient(
         )
         ensureSuccess(response)
         val item = mapper.readTree(response.body())
-        val parsedLayers = parseLevelLayers(item)
+        val parsedLayers = LevelLayerPayloadCodec.fromResponse(item)
         val parsedWalls = parsedLayers
             .getOrDefault(1, emptyList())
             .filter { it.assetKey == "wall_block" || it.assetKey == "tree_oak" }
