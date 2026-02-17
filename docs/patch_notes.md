@@ -1,4 +1,6 @@
-- Expanded the pre-login auth screen into a split layout with authentication form on the left and compact updater/release-notes panel on the right.
-- Added direct `Update & Restart` action to the auth screen, including status text and embedded release-notes preview.
-- Hid the cogwheel menu on the auth screen while keeping it available for logged-in flows.
-- Kept updater behavior status-text-based (`Game is up to date` when no update is found) with automatic restart on successful auth-screen updates.
+- Added build+content release gating on backend auth/session paths, including non-admin `426` lockout after grace and admin exemption.
+- Added DB-backed release history (`release_records`) and public `GET /release/summary` endpoint for launcher-consumable feed metadata and release notes.
+- Extended release activation payloads to include GCS feed URL and both technical/user-facing release notes, and broadcasted content-aware force-update events.
+- Added content-version tracking to user sessions and launcher auth requests via `X-Client-Content-Version` plus login/refresh payload fields.
+- Switched launcher updater helper integration to generic Velopack feed URLs and wired auth-screen release notes/feed hydration from backend release summary.
+- Migrated release workflow to publish Velopack artifacts to GCS feed/archive paths, notify backend with release metadata, and keep optional one-transition GitHub release publishing.

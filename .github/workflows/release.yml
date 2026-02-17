@@ -6,145 +6,136 @@ on:
       - main
       - master
     paths-ignore:
-      - '**/*.md'
-      - '**/*.MD'
-      - 'backend/**'
-      - '.github/workflows/deploy-backend.yml'
+      - "**/*.md"
+      - "**/*.MD"
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      GCS_RELEASE_BUCKET: ${{ vars.KARAXAS_GCS_RELEASE_BUCKET }}
+      GCS_RELEASE_PREFIX: ${{ vars.KARAXAS_GCS_RELEASE_PREFIX }}
+      GH_TRANSITION_RELEASE: ${{ vars.KARAXAS_GITHUB_TRANSITION_RELEASE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Preflight Release Inputs
+        id: preflight
+        shell: pwsh
+        run: |
+          $prefix = "${{ env.GCS_RELEASE_PREFIX }}"
+          if ([string]::IsNullOrWhiteSpace($prefix)) {
+            $prefix = "win"
+          }
+          $hasBucket = -not [string]::IsNullOrWhiteSpace("${{ env.GCS_RELEASE_BUCKET }}")
+          if ($hasBucket) {
+            "enabled=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "prefix=$prefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "feed_url=https://storage.googleapis.com/${{ env.GCS_RELEASE_BUCKET }}/$prefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            Write-Host "Missing KARAXAS_GCS_RELEASE_BUCKET variable. Release workflow will skip publishing."
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "prefix=$prefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "feed_url=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+
+      - name: Resolve Auth Mode
+        id: auth-mode
+        if: steps.preflight.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          HAS_SA_KEY: ${{ secrets.GCP_SA_KEY_JSON != '' }}
+          HAS_WIF: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+        run: |
+          if ("$env:HAS_SA_KEY" -eq "true") {
+            "mode=sa_key" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } elseif ("$env:HAS_WIF" -eq "true") {
+            "mode=wif" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            "mode=none" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+
+      - name: Authenticate to Google Cloud (SA Key)
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode == 'sa_key'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
+
+      - name: Authenticate to Google Cloud (WIF)
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode == 'wif'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        uses: google-github-actions/setup-gcloud@v2
+
       - name: Compute Version
         id: get-version
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         run: |
           $version = "1.0.$env:GITHUB_RUN_NUMBER"
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Setup JDK
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
       - name: Setup .NET
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
       - name: Determine Release Mode
         id: release-mode
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         run: |
           $runtimeReady = Test-Path "desktop/build.gradle.kts"
           "runtime_ready=$($runtimeReady.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          if ($runtimeReady) {
-            Write-Host "Runtime modules detected. Running full packaging flow."
-          } else {
-            Write-Host "Runtime modules not detected. Running launcher-only scaffold checks."
-          }
 
       - name: Build Launcher (Scaffold Mode)
-        if: steps.release-mode.outputs.runtime_ready != 'true'
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && steps.release-mode.outputs.runtime_ready != 'true'
         run: ./gradlew :launcher:build
 
       - name: Install Velopack CLI
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         run: dotnet tool install -g vpk --version 0.0.1298
 
-      - name: Download Previous Velopack Packages
+      - name: Prefetch Previous Velopack Packages From GCS
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
-        env:
-          GH_API_TOKEN: ${{ secrets.VELOPACK_TOKEN || secrets.velopack_token || github.token }}
         run: |
           New-Item -ItemType Directory -Force -Path "releases/windows" | Out-Null
-          if (-not $env:GH_API_TOKEN) {
-            Write-Host "No token available for release prefetch; continuing without cache."
-            exit 0
-          }
-          $headers = @{
-            Authorization = "Bearer $env:GH_API_TOKEN"
-            Accept = "application/vnd.github+json"
-            "X-GitHub-Api-Version" = "2022-11-28"
-            "User-Agent" = "gok-release-prefetch"
-          }
-          $assetHeaders = @{
-            Authorization = "Bearer $env:GH_API_TOKEN"
-            Accept = "application/octet-stream"
-            "X-GitHub-Api-Version" = "2022-11-28"
-            "User-Agent" = "gok-release-prefetch"
-          }
-          $releasesUrl = "https://api.github.com/repos/${{ github.repository }}/releases?per_page=12"
-          try {
-            $releases = Invoke-RestMethod -Headers $headers -Uri $releasesUrl -Method Get
-          } catch {
-            Write-Host "No previous release metadata available; continuing without cache."
-            exit 0
-          }
-          if (-not $releases -or $releases.Count -eq 0) {
-            Write-Host "No previous release found; continuing without cache."
-            exit 0
-          }
-          $assets = @()
-          $latestTag = $releases[0].tag_name
-          foreach ($release in $releases) {
-            foreach ($asset in $release.assets) {
-              # Keep all recent deltas so clients can patch across skipped versions.
-              if ($asset.name -like "*-delta.nupkg") {
-                $assets += $asset
-                continue
-              }
-              # Keep only latest full package as fallback and as delta base for next build.
-              if ($release.tag_name -eq $latestTag -and $asset.name -like "*-full.nupkg") {
-                $assets += $asset
-              }
-            }
-          }
-          $assets = $assets | Sort-Object name -Unique
-          if (-not $assets -or $assets.Count -eq 0) {
-            Write-Host "No Velopack assets found in previous release; continuing without cache."
-            exit 0
-          }
-          $downloaded = 0
-          foreach ($asset in $assets) {
-            $destination = Join-Path "releases/windows" $asset.name
-            Write-Host "Downloading previous asset: $($asset.name)"
-            $ok = $false
-            try {
-              Invoke-WebRequest -Headers $assetHeaders -Uri $asset.url -OutFile $destination
-              $ok = $true
-            } catch {
-              Write-Host "Asset API download failed for $($asset.name); trying browser URL."
-            }
-            if (-not $ok) {
-              try {
-                Invoke-WebRequest -Headers $assetHeaders -Uri $asset.browser_download_url -OutFile $destination
-                $ok = $true
-              } catch {
-                Write-Host "Skipping previous asset $($asset.name): $($_.Exception.Message)"
-              }
-            }
-            if ($ok) {
-              $downloaded++
-            } elseif (Test-Path $destination) {
-              Remove-Item -Force $destination
-            }
-          }
-          if ($downloaded -eq 0) {
-            Write-Host "No previous Velopack assets downloaded; continuing without cache."
+          $prefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.prefix }}"
+          Write-Host "Prefetching historical packages from $prefix"
+          gsutil -m cp "$prefix/*.nupkg" "releases/windows/" 2>$null
+          gsutil cp "$prefix/RELEASES" "releases/windows/RELEASES" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "No previous feed objects found. Continuing."
           }
 
       - name: Build and Pack
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         env:
-          VELOPACK_TOKEN: ${{ secrets.VELOPACK_TOKEN || secrets.velopack_token }}
+          GOK_GCS_RELEASE_FEED_URL: ${{ steps.preflight.outputs.feed_url }}
+          GOK_UPDATE_REPO: ${{ steps.preflight.outputs.feed_url }}
         run: |
           $args = @("-Version", "${{ steps.get-version.outputs.version }}")
           if ("${{ steps.release-mode.outputs.runtime_ready }}" -ne "true") {
@@ -153,6 +144,7 @@ jobs:
           powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 @args
 
       - name: Verify Release Artifacts
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         run: |
           $releases = "releases/windows/RELEASES"
@@ -162,20 +154,31 @@ jobs:
           $nupkg = Get-ChildItem "releases/windows" -Filter "*.nupkg" -ErrorAction SilentlyContinue
           if (-not $nupkg -or $nupkg.Count -eq 0) { throw "Missing .nupkg in releases/windows" }
 
+      - name: Upload Velopack Feed To GCS
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          $feedPrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.prefix }}"
+          $archivePrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/${{ steps.get-version.outputs.version }}"
+          gsutil -m cp "releases/windows/*" "$feedPrefix/"
+          gsutil -m cp "releases/windows/*" "$archivePrefix/"
+          gsutil setmeta -h "Cache-Control:no-cache, max-age=0" "$feedPrefix/RELEASES"
+
       - name: Render Release Body
-        id: render-body
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && env.GH_TRANSITION_RELEASE != 'false'
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File scripts/render-release-body.ps1 -Version ${{ steps.get-version.outputs.version }}
 
-      - name: Upload Release (Velopack)
+      - name: Upload Release (GitHub Transition)
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && env.GH_TRANSITION_RELEASE != 'false'
         shell: pwsh
         env:
           VELOPACK_TOKEN: ${{ secrets.VELOPACK_TOKEN || secrets.velopack_token || github.token }}
         run: |
-          if (-not $env:VELOPACK_TOKEN) { throw "Missing VELOPACK_TOKEN secret (expected secrets.VELOPACK_TOKEN or secrets.velopack_token)"; }
+          if (-not $env:VELOPACK_TOKEN) { throw "Missing VELOPACK_TOKEN (or github.token) for transition GitHub publish."; }
           $maxAttempts = 5
           for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            Write-Host "Uploading release (attempt $attempt of $maxAttempts)..."
+            Write-Host "Uploading transition GitHub release (attempt $attempt of $maxAttempts)..."
             vpk upload github --repoUrl https://github.com/${{ github.repository }} --token $env:VELOPACK_TOKEN --channel win --publish --releaseName "Gardens of Karaxas ${{ steps.get-version.outputs.version }}" --tag v${{ steps.get-version.outputs.version }} --outputDir "releases/windows"
             if ($LASTEXITCODE -eq 0) { break }
             if ($attempt -eq $maxAttempts) { throw "vpk upload failed after $maxAttempts attempts." }
@@ -184,57 +187,8 @@ jobs:
             Start-Sleep -Seconds $delay
           }
 
-      - name: Notify Backend Release Activation
-        shell: pwsh
-        env:
-          KARAXAS_BACKEND_OPS_URL: ${{ secrets.KARAXAS_BACKEND_OPS_URL || vars.KARAXAS_BACKEND_OPS_URL }}
-          KARAXAS_OPS_TOKEN: ${{ secrets.KARAXAS_OPS_TOKEN }}
-        run: |
-          if (-not $env:KARAXAS_BACKEND_OPS_URL) {
-            Write-Host "KARAXAS_BACKEND_OPS_URL not configured. Skipping backend notification."
-            exit 0
-          }
-          if (-not $env:KARAXAS_OPS_TOKEN) {
-            Write-Host "KARAXAS_OPS_TOKEN not configured. Skipping backend notification."
-            exit 0
-          }
-
-          $url = "$($env:KARAXAS_BACKEND_OPS_URL.TrimEnd('/'))/ops/release/activate"
-          $payload = @{
-            latest_version = "${{ steps.get-version.outputs.version }}"
-            min_supported_version = "${{ steps.get-version.outputs.version }}"
-            grace_minutes = 5
-          } | ConvertTo-Json
-
-          $maxAttempts = 3
-          $notified = $false
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            try {
-              Invoke-RestMethod `
-                -Uri $url `
-                -Method Post `
-                -Headers @{ "x-ops-token" = $env:KARAXAS_OPS_TOKEN } `
-                -ContentType "application/json" `
-                -Body $payload | Out-Null
-              Write-Host "Backend release activation notified."
-              $notified = $true
-              break
-            } catch {
-              $message = $_.Exception.Message
-              if ($attempt -lt $maxAttempts) {
-                $delay = 10 * $attempt
-                Write-Host "Backend notification failed (attempt $attempt/$maxAttempts): $message. Retrying in $delay seconds..."
-                Start-Sleep -Seconds $delay
-              } else {
-                Write-Warning "Backend notification failed after $maxAttempts attempts: $message. Continuing release workflow."
-              }
-            }
-          }
-          if (-not $notified) {
-            exit 0
-          }
-
-      - name: Update GitHub Release Notes
+      - name: Update GitHub Release Notes (Transition)
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && env.GH_TRANSITION_RELEASE != 'false'
         uses: actions/github-script@v7
         with:
           script: |
@@ -249,3 +203,44 @@ jobs:
               release_id: release.data.id,
               body
             });
+
+      - name: Notify Backend Release Activation
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        env:
+          KARAXAS_BACKEND_OPS_URL: ${{ secrets.KARAXAS_BACKEND_OPS_URL || vars.KARAXAS_BACKEND_OPS_URL }}
+          KARAXAS_OPS_TOKEN: ${{ secrets.KARAXAS_OPS_TOKEN }}
+          FEED_URL: ${{ steps.preflight.outputs.feed_url }}
+        run: |
+          if (-not $env:KARAXAS_BACKEND_OPS_URL) {
+            Write-Host "KARAXAS_BACKEND_OPS_URL not configured. Skipping backend notification."
+            exit 0
+          }
+          if (-not $env:KARAXAS_OPS_TOKEN) {
+            Write-Host "KARAXAS_OPS_TOKEN not configured. Skipping backend notification."
+            exit 0
+          }
+
+          $notesPath = "docs/patch_notes.md"
+          $notes = if (Test-Path $notesPath) { (Get-Content $notesPath -Raw) } else { "" }
+          $payload = @{
+            latest_version = "${{ steps.get-version.outputs.version }}"
+            min_supported_version = "${{ steps.get-version.outputs.version }}"
+            grace_minutes = 5
+            update_feed_url = $env:FEED_URL
+            build_release_notes = $notes
+            user_facing_notes = $notes
+          } | ConvertTo-Json -Depth 10
+
+          $url = "$($env:KARAXAS_BACKEND_OPS_URL.TrimEnd('/'))/ops/release/activate"
+          Invoke-RestMethod `
+            -Uri $url `
+            -Method Post `
+            -Headers @{ "x-ops-token" = $env:KARAXAS_OPS_TOKEN } `
+            -ContentType "application/json" `
+            -Body $payload | Out-Null
+          Write-Host "Backend release activation notified."
+
+      - name: Skip Release (Missing Inputs/Auth)
+        if: steps.preflight.outputs.enabled != 'true' || steps.auth-mode.outputs.mode == 'none'
+        run: echo "Release workflow skipped because GCS bucket or cloud auth is not configured."

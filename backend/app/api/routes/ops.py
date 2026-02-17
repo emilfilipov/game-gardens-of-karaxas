@@ -17,6 +17,9 @@ def status(db: Session = Depends(get_db)):
     return ReleasePolicyResponse(
         latest_version=policy.latest_version,
         min_supported_version=policy.min_supported_version,
+        latest_content_version_key=policy.latest_content_version_key,
+        min_supported_content_version_key=policy.min_supported_content_version_key,
+        update_feed_url=policy.update_feed_url,
         enforce_after=policy.enforce_after,
         updated_by=policy.updated_by,
         updated_at=policy.updated_at,
@@ -29,16 +32,26 @@ async def activate(payload: ActivateReleaseRequest, db: Session = Depends(get_db
         db=db,
         latest_version=payload.latest_version,
         min_supported_version=payload.min_supported_version,
+        latest_content_version_key=payload.latest_content_version_key,
+        min_supported_content_version_key=payload.min_supported_content_version_key,
+        update_feed_url=payload.update_feed_url,
+        build_release_notes=payload.build_release_notes,
+        user_facing_notes=payload.user_facing_notes,
         grace_minutes=payload.grace_minutes,
         updated_by="github-actions",
     )
     await realtime_hub.notify_force_update(
         min_supported_version=policy.min_supported_version,
+        min_supported_content_version_key=policy.min_supported_content_version_key,
         enforce_after_iso=policy.enforce_after.isoformat() if policy.enforce_after else None,
+        update_feed_url=policy.update_feed_url,
     )
     return ReleasePolicyResponse(
         latest_version=policy.latest_version,
         min_supported_version=policy.min_supported_version,
+        latest_content_version_key=policy.latest_content_version_key,
+        min_supported_content_version_key=policy.min_supported_content_version_key,
+        update_feed_url=policy.update_feed_url,
         enforce_after=policy.enforce_after,
         updated_by=policy.updated_by,
         updated_at=policy.updated_at,

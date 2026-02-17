@@ -23,8 +23,8 @@ app.include_router(api_router)
 def startup_seed() -> None:
     db = SessionLocal()
     try:
-        ensure_release_policy(db)
         ensure_content_seed(db)
+        ensure_release_policy(db)
         global_channel = db.execute(
             select(ChatChannel).where(ChatChannel.kind == "GLOBAL", ChatChannel.name == "Global")
         ).scalar_one_or_none()

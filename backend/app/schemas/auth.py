@@ -15,11 +15,13 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     client_version: str = Field(min_length=1, max_length=64)
+    client_content_version_key: str = Field(default="unknown", min_length=1, max_length=64)
 
 
 class RefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=16, max_length=255)
     client_version: str = Field(min_length=1, max_length=64)
+    client_content_version_key: str = Field(default="unknown", min_length=1, max_length=64)
 
 
 class SessionResponse(BaseModel):

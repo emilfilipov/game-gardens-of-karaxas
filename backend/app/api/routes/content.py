@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext, get_db, require_admin_context
+from app.core.config import settings
 from app.schemas.content import (
     ContentBootstrapResponse,
     ContentBundleUpsertRequest,
@@ -26,6 +29,8 @@ from app.services.content import (
     upsert_version_bundle,
     validate_version,
 )
+from app.services.realtime import realtime_hub
+from app.services.release_policy import ensure_release_policy
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -154,7 +159,7 @@ def admin_validate_content_version(
 
 
 @router.post("/versions/{version_id}/activate", response_model=ContentValidationResponse)
-def admin_activate_content_version(
+async def admin_activate_content_version(
     version_id: int,
     context: AuthContext = Depends(require_admin_context),
     db: Session = Depends(get_db),
@@ -167,6 +172,20 @@ def admin_activate_content_version(
         )
     issues = activate_version(db, version)
     refreshed = get_content_version_or_none(db, version_id) or version
+    if not issues and refreshed.state == CONTENT_STATE_ACTIVE:
+        policy = ensure_release_policy(db)
+        policy.latest_content_version_key = refreshed.version_key
+        policy.min_supported_content_version_key = refreshed.version_key
+        policy.enforce_after = datetime.now(UTC) + timedelta(minutes=settings.version_grace_minutes_default)
+        policy.updated_by = f"user:{context.user.id}"
+        db.add(policy)
+        db.commit()
+        await realtime_hub.notify_force_update(
+            min_supported_version=policy.min_supported_version,
+            min_supported_content_version_key=policy.min_supported_content_version_key,
+            enforce_after_iso=policy.enforce_after.isoformat() if policy.enforce_after else None,
+            update_feed_url=policy.update_feed_url,
+        )
     return ContentValidationResponse(
         ok=len(issues) == 0,
         issues=[ContentValidationIssueResponse(domain=issue.domain, message=issue.message) for issue in issues],

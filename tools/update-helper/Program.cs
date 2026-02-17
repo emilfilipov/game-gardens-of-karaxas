@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Velopack;
 using Velopack.Locators;
-using Velopack.Sources;
 
 internal static class Program
 {
@@ -26,16 +25,14 @@ internal static class Program
                 return 1;
             }
 
-            var token = ResolveToken(options);
             var prerelease = options.Prerelease;
 
             Log(logFile, $"Repo={repoUrl}");
             Log(logFile, $"Prerelease={prerelease}");
-            Log(logFile, $"TokenPresent={!string.IsNullOrWhiteSpace(token)}");
+            Log(logFile, $"TokenPresent={ResolveToken(options).Length > 0}");
 
-            var source = new GithubSource(repoUrl, token, prerelease, null);
             var locator = VelopackLocator.CreateDefaultForPlatform(null);
-            var mgr = new UpdateManager(source, options: null, locator: locator);
+            var mgr = new UpdateManager(repoUrl, options: null, locator: locator);
 
             Emit(logFile, "STATUS:CHECKING");
             var updateInfo = await mgr.CheckForUpdatesAsync();

@@ -184,6 +184,7 @@ async def chat_ws(websocket: WebSocket):
     token = websocket.query_params.get("token")
     channel_id_raw = websocket.query_params.get("channel_id", "1")
     client_version = websocket.query_params.get("client_version") or "0.0.0"
+    client_content_version_key = websocket.query_params.get("client_content_version_key")
 
     if token is None:
         await websocket.close(code=4401, reason="Missing token")
@@ -220,16 +221,20 @@ async def chat_ws(websocket: WebSocket):
             return
 
         policy = ensure_release_policy(db)
-        version_status = evaluate_version(policy, client_version)
-        if version_status.force_update:
+        effective_content_version_key = client_content_version_key or session.client_content_version_key
+        version_status = evaluate_version(policy, client_version, effective_content_version_key)
+        if version_status.force_update and not user.is_admin:
             await websocket.accept()
             await websocket.send_text(
                 json.dumps(
                     {
                         "type": "force_update",
                         "min_supported_version": version_status.min_supported_version,
+                        "min_supported_content_version_key": version_status.min_supported_content_version_key,
                         "latest_version": version_status.latest_version,
+                        "latest_content_version_key": version_status.latest_content_version_key,
                         "enforce_after": version_status.enforce_after.isoformat() if version_status.enforce_after else None,
+                        "update_feed_url": version_status.update_feed_url,
                     }
                 )
             )

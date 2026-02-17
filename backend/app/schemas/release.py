@@ -3,12 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class ErrorResponse(BaseModel):
-    message: str
-    code: str
-
-
-class VersionStatus(BaseModel):
+class ReleaseSummaryResponse(BaseModel):
     client_version: str
     latest_version: str
     min_supported_version: str
@@ -19,4 +14,10 @@ class VersionStatus(BaseModel):
     update_available: bool
     content_update_available: bool
     force_update: bool
-    update_feed_url: str | None = None
+    update_feed_url: str | None
+    latest_build_release_notes: str
+    latest_user_facing_notes: str
+    client_build_release_notes: str
+    latest_content_note: str
+    client_content_note: str
+    latest_published_at: datetime | None

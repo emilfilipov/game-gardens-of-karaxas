@@ -31,8 +31,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 ## Data Model (Current)
 - `users`: account identity.
   - Includes `is_admin` boolean for backend-authoritative admin gating.
-- `user_sessions`: refresh/session records and client version tracking.
-- `release_policy`: latest/min-supported version and enforce-after timestamp.
+- `user_sessions`: refresh/session records and client build/content version tracking.
+- `release_policy`: active build/content release policy (`latest/min-supported` build, `latest/min-supported` content keys, `update_feed_url`, `enforce_after`).
+- `release_records`: append-only release activation history (build/content versions, feed URL, build notes, user-facing notes, actor, activation timestamp).
 - `characters`: user-owned character builds (stats/skills point allocations).
   - Includes `appearance_key` for visual preset selection persistence.
   - Includes `race`, `background`, and `affiliation` for character identity scaffolds selected in creation UI.
@@ -48,17 +49,24 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
 
 ## Version Gating and Forced Update Flow
-- Backend stores release policy (`latest_version`, `min_supported_version`, `enforce_after`).
-- Clients send `X-Client-Version` on API calls.
-- If client is older than minimum after `enforce_after`, backend rejects with `426 Upgrade Required` and session revocation.
+- Backend stores release policy for both build and content compatibility.
+- Clients send:
+  - `X-Client-Version`
+  - `X-Client-Content-Version`
+- Non-admin sessions are rejected with `426 Upgrade Required` (and revoked when already authenticated) after grace if either:
+  - build is below minimum supported build, or
+  - content version key is below minimum supported content key.
+- Admin sessions are exempt from forced-update lockout for operational validation.
 - Grace window is currently 5 minutes.
+- Public `GET /release/summary` exposes launcher-facing release state (`update_feed_url`, latest build/content keys, update flags, and DB-backed release notes).
 
 ## Release Notification Integration
 - Launcher release workflow posts to backend ops endpoint:
   - `POST /ops/release/activate`
-  - Payload includes new version + `grace_minutes=5`.
-- Backend broadcasts `force_update` to connected websocket clients and enforces lockout after grace expires.
-- Backend release activation notification now retries and is non-blocking for release publishing; transient backend 5xx responses log warnings but do not fail launcher release artifacts.
+  - Payload includes build version, GCS update feed URL, build notes/user-facing notes, and `grace_minutes=5`.
+- Backend writes release activation to `release_records` and updates active `release_policy`.
+- Backend broadcasts `force_update` to connected websocket clients with build/content minimums and feed URL.
+- Content version activation also updates release-policy content keys and triggers the same grace-window force-update broadcast.
 
 ## Deployment and Infra Pattern
 - Cloud Run deployment pattern follows `markd-backend` operational approach.
@@ -70,7 +78,10 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher release workflow (`.github/workflows/release.yml`):
   - ignores markdown-only commits.
   - ignores backend path changes so backend-only commits do not ship a launcher release.
-  - prefetches rolling historical delta packages (plus latest full fallback) before `vpk pack`, so update feeds support delta patching across skipped versions.
+  - prefetches prior Velopack packages from GCS feed path before `vpk pack` so delta generation remains available across skipped versions.
+  - uploads feed artifacts (`RELEASES`, `.nupkg`, setup exe) to GCS feed path and versioned archive path.
+  - notifies backend release activation endpoint with new build/feed/notes metadata.
+  - supports temporary transition dual-publish to GitHub Releases (`KARAXAS_GITHUB_TRANSITION_RELEASE != false`) so legacy clients can receive one migration update.
 - Backend deploy workflow (`.github/workflows/deploy-backend.yml`):
   - triggers on backend non-markdown changes.
   - deploys backend to Cloud Run.
@@ -87,6 +98,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Dropdowns are standardized through a reusable themed combo-box class (shared renderer + arrow button UI) to avoid per-screen styling drift and remove platform-default white dropdown surfaces.
 - Scroll containers are standardized through a reusable themed scroll-pane class so list/details/editor panes share consistent opaque/transparent surface behavior, including themed scrollbar track/thumb rendering.
 - Auth screen now includes a compact built-in updater panel (`Update & Restart`, status text, release-notes preview, build label).
+- Auth updater panel now hydrates release notes/feed metadata from backend DB-backed release summary when reachable, with local patch-note fallback.
 - Cog menu is hidden on the auth screen and remains available only after login.
 - Cog dropdown still includes updater entry for authenticated flows.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).

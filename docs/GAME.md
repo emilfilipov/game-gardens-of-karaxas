@@ -88,13 +88,17 @@ create/select characters, and enter gameplay sessions.
 
 ## Update Policy
 - Launcher/updater remains the distribution and update authority.
-- Backend enforces version policy with a grace window.
+- Backend enforces release policy for both build version and content version with a grace window.
 - Current grace window target: 5 minutes before forced update lockout.
 - Optional automatic login is configured from in-session settings only (not from pre-login auth screen).
 - Pre-login updater access is embedded directly in the authentication screen (`Update & Restart` + compact release notes).
 - Updater access is no longer a lobby tab; authenticated users can still access updater from the top-right menu.
 - Updater progression is shown through status text messages in the update screen (no progress bar widget).
 - When no update is available, updater status reads `Game is up to date.`.
+- Release metadata and release notes are sourced from backend database records (not launcher-bundled static notes only).
+- Login is blocked for non-admin users until client build and client content version are aligned with currently published release policy.
+- On publish, non-admin players are forced out after grace window and returned to login, where they can choose when to click `Update & Restart`.
+- Update feed source is moving to GCS-backed Velopack hosting; a transition release can still publish to GitHub Releases once so existing clients can move forward without manual GCS download.
 - Admin level editor now uses a larger, zoomed-out grid and shows a radar-ping marker at spawn position.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
 - Admin level editor now keeps `Load`, `Save`, and `Back` in the top strip; the top strip also contains the `Load Existing` dropdown and `Save Level` name box next to their respective buttons.

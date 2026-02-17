@@ -456,6 +456,8 @@ object LauncherMain {
 
         val clientVersion = defaultClientVersion().ifBlank { "0.0.0" }
         var authSession: AuthSession? = null
+        var releaseFeedUrlOverride: String? = null
+        var remoteAuthReleaseNotesMarkdown: String? = null
         fun persistLauncherPrefs() {
             if (!autoLoginEnabled) {
                 autoLoginRefreshToken = ""
@@ -2855,6 +2857,7 @@ object LauncherMain {
 
         fun applyAuthenticatedSession(session: AuthSession) {
             authSession = session
+            releaseFeedUrlOverride = session.updateFeedUrl ?: releaseFeedUrlOverride
             lastEmail = session.email
             if (autoLoginEnabled) {
                 autoLoginRefreshToken = session.refreshToken
@@ -2945,6 +2948,87 @@ object LauncherMain {
                 add(authUpdateButton, BorderLayout.EAST)
             }, BorderLayout.SOUTH)
         }
+        fun renderAuthReleaseNotes() {
+            val remote = remoteAuthReleaseNotesMarkdown?.trim().orEmpty()
+            if (remote.isNotBlank()) {
+                authPatchNotesPane.text = markdownToHtml(extractBulletOnlyPatchNotes(remote))
+                scrollToTop(authPatchNotesPane, authPatchNotes)
+                return
+            }
+            applyPatchNotesView(authPatchNotesPane, authPatchNotes)
+        }
+
+        fun composeAuthReleaseNotes(summary: ReleaseSummaryView): String {
+            val userNotes = summary.latestUserFacingNotes.trim()
+            val buildNotes = summary.latestBuildReleaseNotes.trim()
+            val contentNote = summary.latestContentNote.trim()
+            val clientBuildNotes = summary.clientBuildReleaseNotes.trim()
+            return buildString {
+                appendLine("- Build ${summary.latestVersion}")
+                if (summary.latestContentVersionKey.isNotBlank()) {
+                    appendLine("- Content ${summary.latestContentVersionKey}")
+                }
+                if (userNotes.isNotBlank()) {
+                    userNotes.lineSequence()
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .forEach { line ->
+                            if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
+                        }
+                }
+                if (contentNote.isNotBlank()) {
+                    appendLine("- Content Notes: $contentNote")
+                }
+                if (summary.clientVersion != summary.latestVersion && clientBuildNotes.isNotBlank()) {
+                    appendLine("- Your Build (${summary.clientVersion}):")
+                    clientBuildNotes.lineSequence()
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .forEach { line ->
+                            if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
+                        }
+                }
+                if (buildNotes.isNotBlank()) {
+                    appendLine("- Build Notes:")
+                    buildNotes.lineSequence()
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .forEach { line ->
+                            if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
+                        }
+                }
+            }
+        }
+
+        fun refreshReleaseSummaryForAuth() {
+            Thread {
+                try {
+                    val summary = backendClient.fetchReleaseSummary(clientVersion, runtimeContent.contentVersionKey)
+                    releaseFeedUrlOverride = summary.updateFeedUrl
+                    val feed = summary.updateFeedUrl?.trim().orEmpty()
+                    if (feed.isNotBlank()) {
+                        try {
+                            val repoFile = payloadRoot().resolve("update_repo.txt")
+                            Files.writeString(
+                                repoFile,
+                                feed,
+                                StandardOpenOption.CREATE,
+                                StandardOpenOption.TRUNCATE_EXISTING,
+                                StandardOpenOption.WRITE,
+                            )
+                        } catch (persistEx: Exception) {
+                            log("Failed to persist update feed URL to payload.", persistEx)
+                        }
+                    }
+                    remoteAuthReleaseNotesMarkdown = composeAuthReleaseNotes(summary)
+                    javax.swing.SwingUtilities.invokeLater {
+                        renderAuthReleaseNotes()
+                    }
+                } catch (ex: Exception) {
+                    log("Release summary fetch failed against ${backendClient.endpoint()}", ex)
+                }
+            }.start()
+        }
         val authCard = JPanel(GridBagLayout()).apply {
             isOpaque = false
             add(MenuContentBoxPanel().apply {
@@ -2961,8 +3045,9 @@ object LauncherMain {
         }
         authStandaloneContainer.add(authCard)
         authBuildVersionLabel.text = "Build Version: v${defaultClientVersion()} (${Instant.now().atZone(ZoneId.systemDefault()).toLocalDate()})"
-        applyPatchNotesView(authPatchNotesPane, authPatchNotes)
+        renderAuthReleaseNotes()
         authUpdateStatus.text = "Ready."
+        refreshReleaseSummaryForAuth()
         applyAuthMode()
         fun openSettingsDialog() {
             val session = authSession ?: run {
@@ -4040,11 +4125,18 @@ object LauncherMain {
         val controls = listOf(checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton, authUpdateButton)
         checkUpdates.addActionListener {
             updateStatus.text = "Checking for updates..."
-            runUpdate(updateStatus, patchNotesPane, patchNotes, controls)
+            runUpdate(updateStatus, patchNotesPane, patchNotes, controls, releaseFeedUrl = releaseFeedUrlOverride)
         }
         authUpdateButton.addActionListener {
             authUpdateStatus.text = "Checking for updates..."
-            runUpdate(authUpdateStatus, authPatchNotesPane, authPatchNotes, controls, autoRestartOnSuccess = true)
+            runUpdate(
+                authUpdateStatus,
+                authPatchNotesPane,
+                authPatchNotes,
+                controls,
+                autoRestartOnSuccess = true,
+                releaseFeedUrl = releaseFeedUrlOverride,
+            )
         }
         launcherLogButton.addActionListener {
             val target = logsRoot().resolve("launcher.log")
@@ -4105,7 +4197,8 @@ object LauncherMain {
                 if (authUpdateStatus.text.isBlank()) {
                     authUpdateStatus.text = "Ready."
                 }
-                applyPatchNotesView(authPatchNotesPane, authPatchNotes)
+                renderAuthReleaseNotes()
+                refreshReleaseSummaryForAuth()
                 resetAuthInputsForMode()
                 centeredContent.revalidate()
                 centeredContent.repaint()
@@ -4193,7 +4286,14 @@ object LauncherMain {
         quickUpdateItem.addActionListener {
             showCard("update")
             updateStatus.text = "Checking for updates..."
-            runUpdate(updateStatus, patchNotesPane, patchNotes, controls, autoRestartOnSuccess = true)
+            runUpdate(
+                updateStatus,
+                patchNotesPane,
+                patchNotes,
+                controls,
+                autoRestartOnSuccess = true,
+                releaseFeedUrl = releaseFeedUrlOverride,
+            )
         }
         levelEditorMenuItem.addActionListener { showCard("level_tool") }
         assetEditorMenuItem.addActionListener { showCard("asset_editor") }
@@ -4215,6 +4315,7 @@ object LauncherMain {
             val code = Regex("^(\\d{3}):").find(message)?.groupValues?.getOrNull(1)?.toIntOrNull()
             if (code == 401) return "This account doesn't exist."
             if (registering && code == 409) return "This account already exists."
+            if (code == 426) return "A new version is required. Click Update & Restart when ready."
             if (code == 422 && message.contains(":")) return message.substringAfter(":").trim()
             if (code != null && message.contains(":")) return message.substringAfter(":").trim()
             return if (message.isNotBlank()) message else "Unable to contact authentication service."
@@ -4225,6 +4326,7 @@ object LauncherMain {
             val message = ex.message?.trim().orEmpty()
             val code = Regex("^(\\d{3}):").find(message)?.groupValues?.getOrNull(1)?.toIntOrNull()
             if (code == 401 || code == 403) return "Automatic login expired. Please login."
+            if (code == 426) return "A new version is required. Click Update & Restart when ready."
             return "Automatic login failed. Please login."
         }
 
@@ -4262,9 +4364,9 @@ object LauncherMain {
             Thread {
                 try {
                     val session = if (registering) {
-                        backendClient.register(email, password, displayName, clientVersion)
+                        backendClient.register(email, password, displayName, clientVersion, runtimeContent.contentVersionKey)
                     } else {
-                        backendClient.login(email, password, clientVersion)
+                        backendClient.login(email, password, clientVersion, runtimeContent.contentVersionKey)
                     }
                     javax.swing.SwingUtilities.invokeLater {
                         applyAuthenticatedSession(session)
@@ -4273,6 +4375,7 @@ object LauncherMain {
                     log("Authentication request failed against ${backendClient.endpoint()}", ex)
                     javax.swing.SwingUtilities.invokeLater {
                         authStatus.text = formatAuthError(ex, registering)
+                        refreshReleaseSummaryForAuth()
                     }
                 }
             }.start()
@@ -4608,7 +4711,7 @@ object LauncherMain {
             authStatus.text = "Attempting automatic login..."
             Thread {
                 try {
-                    val session = backendClient.refresh(autoLoginRefreshToken, clientVersion)
+                    val session = backendClient.refresh(autoLoginRefreshToken, clientVersion, runtimeContent.contentVersionKey)
                     javax.swing.SwingUtilities.invokeLater {
                         applyAuthenticatedSession(session)
                     }
@@ -4624,6 +4727,7 @@ object LauncherMain {
                     }
                     javax.swing.SwingUtilities.invokeLater {
                         authStatus.text = formatAutoLoginError(ex)
+                        refreshReleaseSummaryForAuth()
                     }
                 }
             }.start()
@@ -4969,7 +5073,8 @@ object LauncherMain {
         patchNotesPane: JEditorPane,
         patchNotesPaneScroll: JScrollPane,
         controls: List<JButton>,
-        autoRestartOnSuccess: Boolean = false
+        autoRestartOnSuccess: Boolean = false,
+        releaseFeedUrl: String? = null,
     ) {
         setUpdatingState(controls, true)
         val payloadRoot = payloadRoot()
@@ -4985,28 +5090,54 @@ object LauncherMain {
             try {
                 val logPath = logsRoot().resolve("velopack.log")
                 val repoFile = payloadRoot.resolve("update_repo.txt")
-                val tokenFile = payloadRoot.resolve("update_token.txt")
+                val persistedRepo = if (Files.exists(repoFile)) {
+                    try {
+                        Files.readString(repoFile).trim()
+                    } catch (_: Exception) {
+                        ""
+                    }
+                } else {
+                    ""
+                }
+                val effectiveRepo = releaseFeedUrl
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                    ?: persistedRepo.ifBlank {
+                        System.getenv("GOK_UPDATE_REPO")
+                            ?.trim()
+                            ?.takeIf { it.isNotBlank() }
+                            ?: System.getenv("GOK_GCS_RELEASE_FEED_URL")
+                                ?.trim()
+                                ?.takeIf { it.isNotBlank() }
+                    }
+                if (effectiveRepo.isNullOrBlank()) {
+                    javax.swing.SwingUtilities.invokeLater {
+                        status.text = "Update feed is not configured."
+                        setUpdatingState(controls, false)
+                    }
+                    log("Update aborted: no feed URL available.")
+                    return@Thread
+                }
                 val waitPid = ProcessHandle.current().pid().toString()
                 log("Starting update helper using ${helperExe.toAbsolutePath()}")
-                val builder = ProcessBuilder(
+                val builderArgs = mutableListOf(
                     helperExe.toString(),
-                    "--repo-file",
-                    repoFile.toString(),
-                    "--token-file",
-                    tokenFile.toString(),
+                    "--repo",
+                    effectiveRepo,
                     "--log-file",
                     logPath.toString(),
                     "--waitpid",
                     waitPid,
                     "--restart-args",
-                    "--autoplay"
+                    "--autoplay",
                 )
+                val builder = ProcessBuilder(builderArgs)
                     .directory(root.toFile())
                     .redirectErrorStream(true)
                 val token = resolveUpdateToken(payloadRoot, root)
                 if (!token.isNullOrBlank()) {
-                    builder.environment()["VELOPACK_GITHUB_TOKEN"] = token
                     builder.environment()["VELOPACK_TOKEN"] = token
+                    builder.environment()["VELOPACK_GITHUB_TOKEN"] = token
                     log("Update token loaded.")
                 } else {
                     log("No update token found.")
@@ -5521,11 +5652,11 @@ object LauncherMain {
             combined.contains("401") || combined.contains("403") ||
                 combined.contains("Unauthorized", ignoreCase = true) ||
                 combined.contains("Forbidden", ignoreCase = true) ->
-                "Authentication failed. Check VELOPACK_TOKEN."
+                "Authentication failed. Check update feed credentials."
             combined.contains("404") || combined.contains("Not Found", ignoreCase = true) ->
                 "Release feed not found."
             combined.contains("429") || combined.contains("rate limit", ignoreCase = true) ->
-                "Rate limited by GitHub."
+                "Rate limited by update feed."
             combined.contains("timeout", ignoreCase = true) ||
                 combined.contains("timed out", ignoreCase = true) ->
                 "Network timeout."

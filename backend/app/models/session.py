@@ -13,6 +13,7 @@ class UserSession(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     refresh_token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     client_version: Mapped[str] = mapped_column(String(64), nullable=False, default="0.0.0")
+    client_content_version_key: Mapped[str] = mapped_column(String(64), nullable=False, default="unknown")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

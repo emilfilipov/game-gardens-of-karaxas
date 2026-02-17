@@ -21,8 +21,31 @@ data class AuthSession(
     val isAdmin: Boolean,
     val latestVersion: String,
     val minSupportedVersion: String,
+    val latestContentVersionKey: String,
+    val minSupportedContentVersionKey: String,
+    val clientContentVersionKey: String,
     val forceUpdate: Boolean,
-    val updateAvailable: Boolean
+    val updateAvailable: Boolean,
+    val contentUpdateAvailable: Boolean,
+    val updateFeedUrl: String?,
+)
+
+data class ReleaseSummaryView(
+    val clientVersion: String,
+    val latestVersion: String,
+    val minSupportedVersion: String,
+    val clientContentVersionKey: String,
+    val latestContentVersionKey: String,
+    val minSupportedContentVersionKey: String,
+    val updateAvailable: Boolean,
+    val contentUpdateAvailable: Boolean,
+    val forceUpdate: Boolean,
+    val updateFeedUrl: String?,
+    val latestBuildReleaseNotes: String,
+    val latestUserFacingNotes: String,
+    val clientBuildReleaseNotes: String,
+    val latestContentNote: String,
+    val clientContentNote: String,
 )
 
 data class CharacterView(
@@ -533,7 +556,13 @@ class KaraxasBackendClient(
         return parseContentValidationResult(mapper.readTree(response.body()))
     }
 
-    fun register(email: String, password: String, displayName: String, clientVersion: String): AuthSession {
+    fun register(
+        email: String,
+        password: String,
+        displayName: String,
+        clientVersion: String,
+        clientContentVersionKey: String,
+    ): AuthSession {
         val payload = mapOf(
             "email" to email,
             "password" to password,
@@ -544,40 +573,73 @@ class KaraxasBackendClient(
             path = "/auth/register",
             body = mapper.writeValueAsString(payload),
             clientVersion = clientVersion,
+            clientContentVersionKey = clientContentVersionKey,
         )
         ensureSuccess(response)
         return parseSession(response.body())
     }
 
-    fun login(email: String, password: String, clientVersion: String): AuthSession {
+    fun login(email: String, password: String, clientVersion: String, clientContentVersionKey: String): AuthSession {
         val payload = mapOf(
             "email" to email,
             "password" to password,
             "client_version" to clientVersion,
+            "client_content_version_key" to clientContentVersionKey,
         )
         val response = request(
             method = "POST",
             path = "/auth/login",
             body = mapper.writeValueAsString(payload),
             clientVersion = clientVersion,
+            clientContentVersionKey = clientContentVersionKey,
         )
         ensureSuccess(response)
         return parseSession(response.body())
     }
 
-    fun refresh(refreshToken: String, clientVersion: String): AuthSession {
+    fun refresh(refreshToken: String, clientVersion: String, clientContentVersionKey: String): AuthSession {
         val payload = mapOf(
             "refresh_token" to refreshToken,
             "client_version" to clientVersion,
+            "client_content_version_key" to clientContentVersionKey,
         )
         val response = request(
             method = "POST",
             path = "/auth/refresh",
             body = mapper.writeValueAsString(payload),
             clientVersion = clientVersion,
+            clientContentVersionKey = clientContentVersionKey,
         )
         ensureSuccess(response)
         return parseSession(response.body())
+    }
+
+    fun fetchReleaseSummary(clientVersion: String, clientContentVersionKey: String): ReleaseSummaryView {
+        val response = request(
+            method = "GET",
+            path = "/release/summary",
+            clientVersion = clientVersion,
+            clientContentVersionKey = clientContentVersionKey,
+        )
+        ensureSuccess(response)
+        val node = mapper.readTree(response.body())
+        return ReleaseSummaryView(
+            clientVersion = node.path("client_version").asText(clientVersion),
+            latestVersion = node.path("latest_version").asText("0.0.0"),
+            minSupportedVersion = node.path("min_supported_version").asText("0.0.0"),
+            clientContentVersionKey = node.path("client_content_version_key").asText("unknown"),
+            latestContentVersionKey = node.path("latest_content_version_key").asText("unknown"),
+            minSupportedContentVersionKey = node.path("min_supported_content_version_key").asText("unknown"),
+            updateAvailable = node.path("update_available").asBoolean(false),
+            contentUpdateAvailable = node.path("content_update_available").asBoolean(false),
+            forceUpdate = node.path("force_update").asBoolean(false),
+            updateFeedUrl = node.path("update_feed_url").asText("").ifBlank { null },
+            latestBuildReleaseNotes = node.path("latest_build_release_notes").asText(""),
+            latestUserFacingNotes = node.path("latest_user_facing_notes").asText(""),
+            clientBuildReleaseNotes = node.path("client_build_release_notes").asText(""),
+            latestContentNote = node.path("latest_content_note").asText(""),
+            clientContentNote = node.path("client_content_note").asText(""),
+        )
     }
 
     fun logout(accessToken: String, clientVersion: String) {
@@ -916,8 +978,13 @@ class KaraxasBackendClient(
             isAdmin = root.path("is_admin").asBoolean(false),
             latestVersion = versionNode.path("latest_version").asText("0.0.0"),
             minSupportedVersion = versionNode.path("min_supported_version").asText("0.0.0"),
+            latestContentVersionKey = versionNode.path("latest_content_version_key").asText("unknown"),
+            minSupportedContentVersionKey = versionNode.path("min_supported_content_version_key").asText("unknown"),
+            clientContentVersionKey = versionNode.path("client_content_version_key").asText("unknown"),
             forceUpdate = versionNode.path("force_update").asBoolean(false),
             updateAvailable = versionNode.path("update_available").asBoolean(false),
+            contentUpdateAvailable = versionNode.path("content_update_available").asBoolean(false),
+            updateFeedUrl = versionNode.path("update_feed_url").asText("").ifBlank { null },
         )
     }
 
@@ -981,6 +1048,7 @@ class KaraxasBackendClient(
         body: String? = null,
         accessToken: String? = null,
         clientVersion: String? = null,
+        clientContentVersionKey: String? = null,
     ): HttpResponse<String> {
         val builder = HttpRequest.newBuilder()
             .uri(URI.create("$baseUrl$path"))
@@ -989,6 +1057,9 @@ class KaraxasBackendClient(
 
         if (clientVersion != null) {
             builder.header("X-Client-Version", clientVersion)
+        }
+        if (clientContentVersionKey != null) {
+            builder.header("X-Client-Content-Version", clientContentVersionKey)
         }
         if (accessToken != null) {
             builder.header("Authorization", "Bearer $accessToken")

@@ -52,12 +52,16 @@ class RealtimeHub:
     async def notify_force_update(
         self,
         min_supported_version: str,
+        min_supported_content_version_key: str,
         enforce_after_iso: str | None,
+        update_feed_url: str | None = None,
     ) -> None:
         payload = {
             "type": "force_update",
             "min_supported_version": min_supported_version,
+            "min_supported_content_version_key": min_supported_content_version_key,
             "enforce_after": enforce_after_iso,
+            "update_feed_url": update_feed_url,
             "timestamp": datetime.now(UTC).isoformat(),
         }
         async with self._lock:

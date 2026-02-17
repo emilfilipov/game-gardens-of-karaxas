@@ -150,20 +150,12 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 Copy-Item -Path $renderedNotes -Destination (Join-Path $payloadDir "patch_notes.md")
 Copy-Item -Path $renderedMeta -Destination (Join-Path $payloadDir "patch_notes_meta.txt")
 
-$updateToken = $env:VELOPACK_TOKEN
-if (-not $updateToken -or $updateToken.Trim().Length -eq 0) {
-  $updateToken = $env:VELOPACK_GITHUB_TOKEN
-}
-if ($updateToken -and $updateToken.Trim().Length -gt 0) {
-  $tokenPath = Join-Path $payloadDir "update_token.txt"
-  Set-Content -Path $tokenPath -Value $updateToken.Trim() -Encoding ascii
-}
-
 $repoUrl = $env:GOK_UPDATE_REPO
 if (-not $repoUrl -or $repoUrl.Trim().Length -eq 0) {
-  if ($env:GITHUB_REPOSITORY) {
-    $repoUrl = "https://github.com/$env:GITHUB_REPOSITORY"
-  }
+  $repoUrl = $env:GOK_GCS_RELEASE_FEED_URL
+}
+if (-not $repoUrl -or $repoUrl.Trim().Length -eq 0) {
+  Write-Host "No update feed URL provided (GOK_UPDATE_REPO / GOK_GCS_RELEASE_FEED_URL). update_repo.txt will not be emitted."
 }
 if ($repoUrl -and $repoUrl.Trim().Length -gt 0) {
   $repoPath = Join-Path $payloadDir "update_repo.txt"

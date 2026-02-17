@@ -37,6 +37,10 @@ def get_client_version(x_client_version: str | None = Header(default=None)) -> s
     return x_client_version
 
 
+def get_client_content_version(x_client_content_version: str | None = Header(default=None)) -> str | None:
+    return x_client_content_version
+
+
 def _unauthorized(message: str = "Authentication required") -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,6 +52,7 @@ def get_auth_context(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     client_version: str | None = Depends(get_client_version),
+    client_content_version: str | None = Depends(get_client_content_version),
 ) -> AuthContext:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise _unauthorized()
@@ -73,8 +78,12 @@ def get_auth_context(
         raise _unauthorized("User not found")
 
     policy = ensure_release_policy(db)
-    evaluated = evaluate_version(policy, client_version or session.client_version)
-    if evaluated.force_update:
+    evaluated = evaluate_version(
+        policy,
+        client_version or session.client_version,
+        client_content_version or session.client_content_version_key,
+    )
+    if evaluated.force_update and not user.is_admin:
         session.revoked_at = datetime.now(UTC)
         db.add(session)
         db.commit()
@@ -87,9 +96,14 @@ def get_auth_context(
                     "client_version": evaluated.client_version,
                     "latest_version": evaluated.latest_version,
                     "min_supported_version": evaluated.min_supported_version,
+                    "client_content_version_key": evaluated.client_content_version_key,
+                    "latest_content_version_key": evaluated.latest_content_version_key,
+                    "min_supported_content_version_key": evaluated.min_supported_content_version_key,
                     "enforce_after": evaluated.enforce_after.isoformat() if evaluated.enforce_after else None,
                     "update_available": evaluated.update_available,
+                    "content_update_available": evaluated.content_update_available,
                     "force_update": True,
+                    "update_feed_url": evaluated.update_feed_url,
                 },
             },
         )
@@ -97,6 +111,8 @@ def get_auth_context(
     session.last_seen_at = datetime.now(UTC)
     if client_version:
         session.client_version = client_version
+    if client_content_version:
+        session.client_content_version_key = client_content_version
     db.add(session)
     db.commit()
 
