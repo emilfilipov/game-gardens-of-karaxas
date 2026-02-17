@@ -104,6 +104,24 @@ create/select characters, and enter gameplay sessions.
 - Launcher-first distribution (Windows first).
 - Keep architecture portable for Linux/Steam/Android later, but Steam-specific distribution is not a current dependency.
 
+## Planned Live Content Model (Draft, Not Implemented)
+- Move non-logic gameplay content to database-managed configuration snapshots:
+  - level-up requirements and rewards,
+  - skill numerical values and tooltip/presentation text,
+  - stat metadata and stat-to-skill scaling constants,
+  - dropdown/radio option catalogs used by account/character menus.
+- Keep formulas and authoritative execution logic in backend code; only tunable values and presentation data move to DB.
+- Content publishes are planned to trigger a controlled non-admin session drain:
+  - persist active player state,
+  - despawn from world,
+  - force return to login,
+  - keep admin sessions online for verification/ops.
+- Level-builder is planned to support explicit rendering layers:
+  - Layer 0: ground/foliage,
+  - Layer 1: gameplay entities/obstacles,
+  - Layer 2: weather/ambient effects.
+- Full implementation is pending review of the strategic plan in `docs/TASKS.md`.
+
 ## Open Design Decisions
 - Final stats/skills taxonomy and balancing model.
 - World content population and spawn/zone architecture beyond current empty-world prototype.

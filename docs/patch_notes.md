@@ -1,2 +1,3 @@
-- Moved level-builder `Load Existing` dropdown and `Save Level` name input into the top header strip next to their respective `Load` and `Save` buttons.
-- Kept level-editor body rows focused on build tools and grid/viewport controls by removing duplicate load/name fields from the editor controls area.
+- Added a super-detailed, review-gated strategic plan in `docs/TASKS.md` for layered level rendering, data-driven content snapshots, and admin publish-driven non-admin session drain/logout behavior.
+- Updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`) with draft architecture direction for layered worlds and DB-driven non-logic gameplay/UI content.
+- Cleaned `docs/TASKS.md` Finished Tasks ordering for improved readability and consistency.

@@ -7,6 +7,64 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | --- | --- | --- | --- |
 | GOK-MMO-009 | ⬜ | 2 | Add backend integration test suite for auth/session/version policy edge cases. |
 
+## Strategic Plan Draft (Review Before Implementation)
+This section defines the proposed plan for:
+- layered level rendering/editing,
+- fully data-driven runtime content (non-logic values in DB),
+- admin-published content changes that safely log out non-admin users.
+
+No items in this section are implemented yet.
+
+### Epic A: Layered Level Model and Level-Builder Layer Editing
+| Task ID | Status | Complexity | Detailed Description |
+| --- | --- | --- | --- |
+| GOK-MMO-100 | ⬜ | 2 | Define level-layer schema and constraints: reserve layer `0` (ground/foliage), layer `1` (gameplay entities/obstacles), layer `2` (weather/ambient FX), and support extension to additional layers. |
+| GOK-MMO-101 | ⬜ | 3 | Add backend migration for layered level storage: evolve level payload from single wall-cell list to per-layer tile/object placements while preserving backward compatibility for existing levels. |
+| GOK-MMO-102 | ⬜ | 3 | Introduce backend level validation rules by layer type: collision-affecting elements must belong to configured collision layers; decorative layers must not produce collision data. |
+| GOK-MMO-103 | ⬜ | 3 | Extend level APIs (`create`, `save`, `load`, `list`) to return layer metadata and per-layer content payloads with explicit schema versioning. |
+| GOK-MMO-104 | ⬜ | 2 | Add launcher level-builder active-layer selector and rendering toggles (show/hide layers) to support editing/inspection without changing runtime gameplay state. |
+| GOK-MMO-105 | ⬜ | 3 | Update level-builder placement logic so all placements/wipes are scoped to currently selected layer; maintain spawn placement policy separately from generic layer objects. |
+| GOK-MMO-106 | ⬜ | 3 | Update gameplay scene renderer to draw layers in deterministic order and derive collision map only from designated collision layers. |
+| GOK-MMO-107 | ⬜ | 2 | Build migration adapter for legacy levels: transform old wall/spawn format to layered format on read/save path; persist as layered format when re-saved. |
+| GOK-MMO-108 | ⬜ | 2 | Add layered level tests (backend validation + launcher serialization/deserialization paths) and golden fixtures for legacy + new formats. |
+
+### Epic B: Data-Driven Content and Runtime Tuning Model
+| Task ID | Status | Complexity | Detailed Description |
+| --- | --- | --- | --- |
+| GOK-MMO-110 | ⬜ | 3 | Define canonical content domains for DB-driven values: progression curves, skill stat blocks, tooltip/text payloads, dropdown/radio option catalogs, item modifiers, status effect definitions, and movement/attack tuning constants. |
+| GOK-MMO-111 | ⬜ | 4 | Create content-versioned schema: `content_versions`, `content_bundles`, and domain tables keyed by `content_version_id`, including publish state (`draft`, `validated`, `active`, `retired`). |
+| GOK-MMO-112 | ⬜ | 3 | Implement backend content snapshot loader with in-memory cache keyed by active content version and hot-reload safe swap (atomic pointer switch). |
+| GOK-MMO-113 | ⬜ | 4 | Replace hardcoded runtime constants in backend combat/progression services with content snapshot reads (while preserving formulas in code). |
+| GOK-MMO-114 | ⬜ | 3 | Add content validation pipeline: schema checks, referential integrity, bounds checks (cooldown >= 0, coefficients in safe ranges), and semantic checks for missing tooltip text/options. |
+| GOK-MMO-115 | ⬜ | 2 | Add launcher bootstrap content fetch endpoint and client-side cache stamp (`content_version`) to keep UI options/tooltips synchronized with backend active content. |
+| GOK-MMO-116 | ⬜ | 3 | Refactor launcher create/select option sources (race/background/affiliation and future radio/dropdown sources) to use content payloads rather than hardcoded lists. |
+| GOK-MMO-117 | ⬜ | 2 | Externalize player-facing texts/tooltips into content domain records and wire locale-ready text key structure for future localization. |
+| GOK-MMO-118 | ⬜ | 3 | Add fallback behavior when content fetch fails: use last known good snapshot, block gameplay if no valid snapshot exists, and show actionable status to user. |
+| GOK-MMO-119 | ⬜ | 3 | Add integration tests proving deterministic results for skill execution against content snapshots (including Ember sample with INT scaling + modifiers). |
+
+### Epic C: Admin Publish Flow With Non-Admin Session Drain/Logout
+| Task ID | Status | Complexity | Detailed Description |
+| --- | --- | --- | --- |
+| GOK-MMO-120 | ⬜ | 3 | Define publish transaction semantics: activating a new content version creates a `drain_window` event and emits a cluster-wide publish notification with version id and grace period. |
+| GOK-MMO-121 | ⬜ | 4 | Implement backend session-drain orchestrator: on content publish, mark all non-admin sessions as `draining`, keep admin sessions active, and compute forced logout deadline. |
+| GOK-MMO-122 | ⬜ | 4 | Implement world-state flush path for draining users: persist location/character state, detach character from active world presence, and acknowledge despawn completion before token revocation. |
+| GOK-MMO-123 | ⬜ | 3 | Implement websocket broadcast events (`content_publish_started`, `content_publish_warning`, `content_publish_forced_logout`) with version id, deadline, and reason codes. |
+| GOK-MMO-124 | ⬜ | 3 | Implement launcher-side forced logout UX: receive event, save local transient state if needed, close play scene, clear auth/session, and return to login with mandatory refresh message. |
+| GOK-MMO-125 | ⬜ | 3 | Implement backend enforcement on API calls after deadline: non-admin tokens receive deterministic auth failure requiring re-login; admins remain exempt per policy. |
+| GOK-MMO-126 | ⬜ | 3 | Add audit log tables for publish + drain actions: who published, what content version, number of sessions drained, persistence success/failure counts, and final cutoff timestamp. |
+| GOK-MMO-127 | ⬜ | 2 | Add safety controls: max concurrent drains, publish lock to prevent overlapping publishes, and rollback switch to previous content version for emergency recovery. |
+| GOK-MMO-128 | ⬜ | 3 | Add end-to-end tests simulating online non-admin players during content publish, verifying persisted state, despawn, forced login return, and admin-session exemption. |
+
+### Epic D: Rollout Sequence, Observability, and Hardening
+| Task ID | Status | Complexity | Detailed Description |
+| --- | --- | --- | --- |
+| GOK-MMO-130 | ⬜ | 2 | Roll out in phases: schema + read-only snapshot API first, then combat/progression migration, then publish-drain enforcement. Gate each phase behind feature flags. |
+| GOK-MMO-131 | ⬜ | 2 | Add operational dashboards/metrics for active content version, snapshot load latencies, drain events, forced logout counts, and failed state-save rates. |
+| GOK-MMO-132 | ⬜ | 2 | Add runbooks for content publish and emergency rollback, including expected player-facing UX and admin verification checklist. |
+| GOK-MMO-133 | ⬜ | 3 | Perform load/stress tests for publish events under concurrent gameplay sessions and verify no data loss on state persistence path. |
+| GOK-MMO-134 | ⬜ | 2 | Freeze and sign content contract (`content schema version`) for launcher/backend compatibility checks during startup/login. |
+| GOK-MMO-135 | ⬜ | 2 | Final acceptance pass and production readiness review with explicit go/no-go criteria for enabling publish-triggered forced logout globally. |
+
 ## Finished Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
@@ -14,10 +72,10 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-002 | ✅ | 4 | Refactor launcher UI into structured card-based account flow (login/register/lobby/character create/select/play/update) with reusable layout tokens. |
 | GOK-MMO-003 | ✅ | 3 | Add backend-enforced version policy and release activation endpoint with 5-minute grace window for forced update lockout. |
 | GOK-MMO-004 | ✅ | 3 | Split CI behavior so backend-only changes do not trigger launcher releases and backend changes deploy via dedicated backend workflow. |
+| GOK-MMO-008 | ✅ | 3 | Implement gameplay handoff from selected character to in-launcher world session bootstrap (character identity + appearance transfer). |
 | GOK-MMO-011 | ✅ | 3 | Move chat/guild surfaces out of account lobby into character-gated in-game screen and enforce selected-character requirement on backend chat APIs. |
 | GOK-MMO-012 | ✅ | 3 | Upgrade character create/list/select UI structure with reusable layout blocks and art-preview-ready appearance selector scaffolding. |
 | GOK-MMO-013 | ✅ | 3 | Wire male/female character sprite assets (idle + walk/run sheets) into create/select UI previews and persist `appearance_key` on character records. |
-| GOK-MMO-008 | ✅ | 3 | Implement gameplay handoff from selected character to in-launcher world session bootstrap (character identity + appearance transfer). |
 | GOK-MMO-014 | ✅ | 4 | Refactor launcher shell UX: combined auth toggle card, borderless fullscreen + cog menu, 10-point character allocation UI, and WASD world movement with edge borders. |
 | GOK-MMO-015 | ✅ | 2 | Polish auth interactions: Enter-to-submit, full input hint coverage, explicit credential/network error messages, and auth-screen-only small box layout. |
 | GOK-MMO-016 | ✅ | 2 | Add remembered last-login email prefill and logged-in-only settings-controlled automatic login with startup refresh-session flow. |

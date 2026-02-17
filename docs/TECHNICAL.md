@@ -170,6 +170,53 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Passwords: bcrypt hash via passlib.
 - Ops endpoint auth: `x-ops-token` header backed by `OPS_API_TOKEN` secret.
 
+## Planned Architecture Draft (Review Pending, Not Implemented)
+### 1) Layered World/Level Data
+- Planned level content model adds explicit render/edit layers with deterministic ordering.
+- Initial reserved semantics:
+  - `layer 0`: ground/foliage/background tiles.
+  - `layer 1`: gameplay entities/obstacles (collision-relevant).
+  - `layer 2`: ambient/weather/overlays (non-collision by default).
+- Runtime collision extraction will be layer-filtered rather than derived from all rendered elements.
+- Legacy single-layer level payloads are planned to be auto-adapted to layered schema during migration/read path.
+
+### 2) Data-Driven Content Snapshot System
+- Planned database-driven content domains include:
+  - progression curves and level-up rewards,
+  - skill/stat numeric tuning and coefficients,
+  - tooltip/description text payloads,
+  - UI option catalogs (dropdown/radio/menu choices),
+  - shared constants (movement speed, attack speed, cooldown families, etc.).
+- Backend remains formula-authoritative; content values are inputs to formulas, not replacements for logic code.
+- Planned content versioning model:
+  - immutable `content_version` snapshots,
+  - publish state transitions (`draft` -> `validated` -> `active`),
+  - atomic active-version swap in backend cache.
+- Launcher/client runtime will consume published content snapshots for menu/options/presentation data to minimize hardcoded UI catalogs.
+
+### 3) Content Publish Session-Drain Flow
+- Planned admin publish action triggers non-admin session drain (admins exempt by policy).
+- Planned drain sequence:
+  1. mark non-admin sessions as draining with deadline,
+  2. broadcast publish/drain warnings to connected clients,
+  3. persist character state (location and other relevant runtime state),
+  4. despawn world presence,
+  5. revoke or invalidate non-admin sessions at cutoff,
+  6. force client return to login/re-auth.
+- Backend audit logs are planned for publish actor, version id, drained session count, persistence outcomes, and cutoff timestamps.
+- Rollback path is planned to allow reactivation of previous content snapshot if a publish causes regressions.
+
+### 4) Rollout/Hardening Approach
+- Planned phased rollout:
+  - schema + read-only snapshot endpoints,
+  - gameplay/progression migration to snapshots,
+  - publish-drain enforcement.
+- Planned guardrails:
+  - strict data validators and bounded ranges,
+  - feature flags for staged enablement,
+  - observability for content load latency, drain success rates, and forced logout counts.
+- Detailed implementation tasks and sequencing are tracked in `docs/TASKS.md` under `Strategic Plan Draft (Review Before Implementation)`.
+
 ## Documentation Rule
 This file is the single source of truth for technical information.
 
