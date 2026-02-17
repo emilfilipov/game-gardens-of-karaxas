@@ -44,9 +44,10 @@
   - `git add <paths>`
   - `git commit -m "<message>"`
   - `git push`
-- GitHub Actions polling (2-3 minute cadence):
-  - `source /home/emillfilipov/.secrets/github_pat.env`
-  - `curl -fsSL -H "Authorization: Bearer $GITHUB_PAT" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/emilfilipov/game-gardens-of-karaxas/actions/runs?per_page=30"`
+- GitHub Actions polling (2-3 minute cadence, use `gh` by default):
+  - `gh run list --limit 20 --json databaseId,workflowName,headSha,status,conclusion,displayTitle,createdAt`
+  - `gh run view <run-id> --json status,conclusion,jobs,url`
+  - `gh run view <run-id> --log-failed` (when a run fails and logs are needed)
   - `sleep 125 && ...` (repeat until `status=completed` for relevant workflows)
 
 ## Supporting Docs
