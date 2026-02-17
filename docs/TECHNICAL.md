@@ -89,7 +89,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Cog menu includes minimal updater entry (`Update & Restart`) available from auth/login flow and other screens.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Cog dropdown menu items use a themed basic menu-item UI delegate so hover/selection highlights stay in-theme (no platform-default blue highlight bleed).
-- Cog dropdown includes a logged-in-only header line with account identity (`Welcome [username].`).
+- Cog dropdown includes a logged-in-only header line with account identity (`Welcome username.`).
 - Combined auth uses a single centered panel (no large shell frame on auth screen) with login/register toggle, centered fields, and bordered solid input styling.
 - Register mode now uses `Register` + `Back` actions (instead of `Use Login`) for clearer return-to-login flow.
 - Pressing Enter in auth inputs submits login/register depending on current toggle mode.
@@ -114,6 +114,16 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character selection uses fixed-size themed character cards with per-row `Play` and `Delete` actions.
 - Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
 - Admin-only launcher controls (level-builder tab and per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
+- Cog dropdown admin menu includes `Level Editor`, `Asset Editor`, and `Content Versions`.
+- Asset Editor now uses a staged workflow:
+  - `Save Local` records item edits in a persistent local draft queue (`asset_editor_local_draft.json`) that survives launcher restarts.
+  - Right-side pending-changes panel tracks staged items before publish.
+  - `Publish Changes` writes staged domains to the current backend content draft and clears local staged changes on success.
+- Content Versions screen provides:
+  - searchable version-history cards,
+  - clear active-version badge/highlight,
+  - `Publish` (activate draft/validated) and `Revert To` (activate retired) controls,
+  - compare mode with two searchable version selectors and side-by-side item-state rendering with changed-item markers.
 - Level-builder tool now supports layered tile editing with an active-layer selector, per-layer visibility toggles, and a fixed-size side asset palette split into 3 layer columns (Layer 0/1/2) with expansion-ready fixed-size asset boxes.
 - Asset palette entries render visual previews/icons and themed hover tooltips so asset semantics are discoverable in-editor.
 - Level-builder is rendered in a dedicated scene (outside account card stack) with compact top controls for faster editing workflows.

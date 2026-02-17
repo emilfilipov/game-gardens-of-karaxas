@@ -1,3 +1,6 @@
-- Refactored level builder asset selection into a fixed 3-column side palette (Layer 0/1/2), with fixed-size asset cards for easier future expansion.
-- Added visual asset previews and per-asset hover tooltips in the palette so tile/spawn intent is clear during level design.
-- Replaced spawn visuals with a radar-ping marker placeholder in both the palette and the map canvas.
+- Added admin `Content Versions` screen in the cog menu with searchable version-history cards, active-version highlighting, `Publish` and `Revert To` actions.
+- Added side-by-side version comparison mode with two searchable selectors and item-level state output for both versions, including changed-item markers.
+- Refactored `Asset Editor` to use staged edits: `Save Local` stores changes in a persistent local queue and `Publish Changes` pushes staged domains to backend draft content versions.
+- Added right-side pending-changes panel in `Asset Editor` so admins can batch multiple edits before publish.
+- Added backend content `assets` domain validation/defaults to support data-driven asset metadata in the content model.
+- Updated admin workflow text/menu polish, including `Welcome username.` formatting in the cog dropdown.

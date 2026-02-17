@@ -20,6 +20,7 @@ CONTENT_DOMAIN_PROGRESSION = "progression"
 CONTENT_DOMAIN_CHARACTER_OPTIONS = "character_options"
 CONTENT_DOMAIN_STATS = "stats"
 CONTENT_DOMAIN_SKILLS = "skills"
+CONTENT_DOMAIN_ASSETS = "assets"
 CONTENT_DOMAIN_TUNING = "tuning"
 CONTENT_DOMAIN_UI_TEXT = "ui_text"
 
@@ -28,6 +29,7 @@ REQUIRED_DOMAINS = {
     CONTENT_DOMAIN_CHARACTER_OPTIONS,
     CONTENT_DOMAIN_STATS,
     CONTENT_DOMAIN_SKILLS,
+    CONTENT_DOMAIN_ASSETS,
     CONTENT_DOMAIN_TUNING,
     CONTENT_DOMAIN_UI_TEXT,
 }
@@ -180,6 +182,55 @@ DEFAULT_CONTENT_DOMAINS: dict[str, dict] = {
                 "effects": "Applies Regeneration I for 6s.",
                 "damage_text": "24 healing over time.",
                 "description": "Starter sustain skill.",
+            },
+        ]
+    },
+    CONTENT_DOMAIN_ASSETS: {
+        "entries": [
+            {
+                "key": "grass_tile",
+                "label": "Grass Tile",
+                "text_key": "asset.grass_tile",
+                "description": "Ground foliage tile for layer 0.",
+                "default_layer": 0,
+                "collidable": False,
+                "icon_asset_key": "grass_tile",
+            },
+            {
+                "key": "wall_block",
+                "label": "Wall Block",
+                "text_key": "asset.wall_block",
+                "description": "Solid collision wall for gameplay layer 1.",
+                "default_layer": 1,
+                "collidable": True,
+                "icon_asset_key": "wall_block",
+            },
+            {
+                "key": "tree_oak",
+                "label": "Oak Tree",
+                "text_key": "asset.tree_oak",
+                "description": "Tree obstacle used on gameplay layer 1.",
+                "default_layer": 1,
+                "collidable": True,
+                "icon_asset_key": "tree_oak",
+            },
+            {
+                "key": "cloud_soft",
+                "label": "Soft Cloud",
+                "text_key": "asset.cloud_soft",
+                "description": "Ambient weather overlay for layer 2.",
+                "default_layer": 2,
+                "collidable": False,
+                "icon_asset_key": "cloud_soft",
+            },
+            {
+                "key": "spawn_marker",
+                "label": "Spawn Marker",
+                "text_key": "asset.spawn_marker",
+                "description": "Player spawn marker used by level editor.",
+                "default_layer": 1,
+                "collidable": False,
+                "icon_asset_key": "spawn_marker",
             },
         ]
     },
@@ -350,6 +401,42 @@ def validate_domain_payload(domain: str, payload: dict) -> list[ContentValidatio
                         issues.append(ContentValidationIssue(domain, f"'entries[{index}].{numeric_key}' must be numeric"))
                     elif float(value) < 0:
                         issues.append(ContentValidationIssue(domain, f"'entries[{index}].{numeric_key}' must be >= 0"))
+
+    elif domain == CONTENT_DOMAIN_ASSETS:
+        entries = payload.get("entries")
+        if not isinstance(entries, list) or not entries:
+            issues.append(ContentValidationIssue(domain, "'entries' must be a non-empty list"))
+        else:
+            seen: set[str] = set()
+            for index, entry in enumerate(entries):
+                if not isinstance(entry, dict):
+                    issues.append(ContentValidationIssue(domain, f"'entries[{index}]' must be an object"))
+                    continue
+                key = str(entry.get("key", "")).strip()
+                label = str(entry.get("label", "")).strip()
+                text_key = str(entry.get("text_key", "")).strip()
+                description = str(entry.get("description", "")).strip()
+                icon_asset_key_raw = entry.get("icon_asset_key", "")
+                icon_asset_key = str(icon_asset_key_raw).strip() if icon_asset_key_raw is not None else ""
+                default_layer = entry.get("default_layer")
+                collidable = entry.get("collidable")
+                if not key:
+                    issues.append(ContentValidationIssue(domain, f"'entries[{index}].key' is required"))
+                if key in seen:
+                    issues.append(ContentValidationIssue(domain, f"'entries[{index}].key' is duplicated ('{key}')"))
+                seen.add(key)
+                if not label:
+                    issues.append(ContentValidationIssue(domain, f"'entries[{index}].label' is required"))
+                if not text_key:
+                    issues.append(ContentValidationIssue(domain, f"'entries[{index}].text_key' is required"))
+                if not description:
+                    issues.append(ContentValidationIssue(domain, f"'entries[{index}].description' is required"))
+                if icon_asset_key_raw is not None and not isinstance(icon_asset_key_raw, str):
+                    issues.append(ContentValidationIssue(domain, f"'entries[{index}].icon_asset_key' must be text"))
+                if not isinstance(default_layer, int) or default_layer < 0:
+                    issues.append(ContentValidationIssue(domain, f"'entries[{index}].default_layer' must be an integer >= 0"))
+                if not isinstance(collidable, bool):
+                    issues.append(ContentValidationIssue(domain, f"'entries[{index}].collidable' must be a boolean"))
 
     elif domain == CONTENT_DOMAIN_TUNING:
         for key in ("movement_speed", "attack_speed_base"):

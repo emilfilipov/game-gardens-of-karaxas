@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 from app.services.content import (
+    CONTENT_DOMAIN_ASSETS,
     CONTENT_DOMAIN_CHARACTER_OPTIONS,
     CONTENT_DOMAIN_SKILLS,
     DEFAULT_CONTENT_DOMAINS,
@@ -50,3 +51,21 @@ def test_skills_validation_requires_tooltip_fields() -> None:
     issues = validate_domain_payload(CONTENT_DOMAIN_SKILLS, payload)
     assert any(".effects" in issue.message for issue in issues)
     assert any(".description" in issue.message for issue in issues)
+
+
+def test_assets_validation_rejects_invalid_layer_and_collidable_type() -> None:
+    payload = {
+        "entries": [
+            {
+                "key": "tree_oak",
+                "label": "Oak Tree",
+                "text_key": "asset.tree_oak",
+                "description": "Tree",
+                "default_layer": -1,
+                "collidable": "yes",
+            }
+        ]
+    }
+    issues = validate_domain_payload(CONTENT_DOMAIN_ASSETS, payload)
+    assert any(".default_layer" in issue.message for issue in issues)
+    assert any(".collidable" in issue.message for issue in issues)

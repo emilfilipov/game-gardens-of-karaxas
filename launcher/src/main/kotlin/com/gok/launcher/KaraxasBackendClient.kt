@@ -112,6 +112,16 @@ data class ContentSkillEntryView(
     val description: String,
 )
 
+data class ContentAssetEntryView(
+    val key: String,
+    val label: String,
+    val description: String,
+    val textKey: String,
+    val defaultLayer: Int,
+    val collidable: Boolean,
+    val iconAssetKey: String,
+)
+
 data class ContentBootstrapView(
     val contentSchemaVersion: Int,
     val contentVersionId: Int,
@@ -125,9 +135,45 @@ data class ContentBootstrapView(
     val affiliations: List<ContentOptionEntryView>,
     val stats: List<ContentStatEntryView>,
     val skills: List<ContentSkillEntryView>,
+    val assets: List<ContentAssetEntryView> = emptyList(),
     val movementSpeed: Double,
     val attackSpeedBase: Double,
     val uiText: Map<String, String>,
+)
+
+data class ContentVersionSummaryView(
+    val id: Int,
+    val versionKey: String,
+    val state: String,
+    val note: String,
+) {
+    override fun toString(): String {
+        return if (note.isBlank()) "$versionKey [$state]" else "$versionKey [$state] - $note"
+    }
+}
+
+data class ContentVersionDetailView(
+    val id: Int,
+    val versionKey: String,
+    val state: String,
+    val note: String,
+    val createdByUserId: Int?,
+    val createdAt: String,
+    val validatedAt: String,
+    val activatedAt: String,
+    val updatedAt: String,
+    val domains: MutableMap<String, MutableMap<String, Any?>>,
+)
+
+data class ContentValidationIssueView(
+    val domain: String,
+    val message: String,
+)
+
+data class ContentValidationResultView(
+    val ok: Boolean,
+    val state: String,
+    val issues: List<ContentValidationIssueView>,
 )
 
 object LevelLayerPayloadCodec {
@@ -286,6 +332,24 @@ class KaraxasBackendClient(
         }
     }
 
+    private fun parseContentAssets(node: JsonNode): List<ContentAssetEntryView> {
+        if (!node.isArray) return emptyList()
+        return node.mapNotNull { item ->
+            val key = item.path("key").asText("").trim()
+            val label = item.path("label").asText("").trim()
+            if (key.isBlank() || label.isBlank()) return@mapNotNull null
+            ContentAssetEntryView(
+                key = key,
+                label = label,
+                description = item.path("description").asText("").trim(),
+                textKey = item.path("text_key").asText("").trim(),
+                defaultLayer = item.path("default_layer").asInt(0),
+                collidable = item.path("collidable").asBoolean(false),
+                iconAssetKey = item.path("icon_asset_key").asText("").trim(),
+            )
+        }
+    }
+
     fun fetchContentBootstrap(clientVersion: String? = null): ContentBootstrapView {
         val response = request(
             method = "GET",
@@ -299,6 +363,7 @@ class KaraxasBackendClient(
         val options = domains.path("character_options")
         val stats = domains.path("stats")
         val skills = domains.path("skills")
+        val assets = domains.path("assets")
         val tuning = domains.path("tuning")
         val uiText = domains.path("ui_text").path("strings")
 
@@ -307,6 +372,7 @@ class KaraxasBackendClient(
         val affiliations = parseContentOptions(options.path("affiliation"))
         val statEntries = parseContentStats(stats.path("entries"))
         val skillEntries = parseContentSkills(skills.path("entries"))
+        val assetEntries = parseContentAssets(assets.path("entries"))
 
         val uiTextMap = linkedMapOf<String, String>()
         if (uiText.isObject) {
@@ -333,10 +399,138 @@ class KaraxasBackendClient(
             affiliations = affiliations,
             stats = statEntries,
             skills = skillEntries,
+            assets = assetEntries,
             movementSpeed = tuning.path("movement_speed").asDouble(220.0),
             attackSpeedBase = tuning.path("attack_speed_base").asDouble(1.0),
             uiText = uiTextMap,
         )
+    }
+
+    private fun parseContentVersionSummary(node: JsonNode): ContentVersionSummaryView {
+        return ContentVersionSummaryView(
+            id = node.path("id").asInt(),
+            versionKey = node.path("version_key").asText(""),
+            state = node.path("state").asText("draft"),
+            note = node.path("note").asText(""),
+        )
+    }
+
+    private fun parseContentVersionDetail(node: JsonNode): ContentVersionDetailView {
+        return ContentVersionDetailView(
+            id = node.path("id").asInt(),
+            versionKey = node.path("version_key").asText(""),
+            state = node.path("state").asText("draft"),
+            note = node.path("note").asText(""),
+            createdByUserId = node.path("created_by_user_id").takeIf { !it.isMissingNode && !it.isNull }?.asInt(),
+            createdAt = node.path("created_at").asText(""),
+            validatedAt = node.path("validated_at").asText(""),
+            activatedAt = node.path("activated_at").asText(""),
+            updatedAt = node.path("updated_at").asText(""),
+            domains = parseContentDomains(node.path("domains")),
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseContentDomains(node: JsonNode): MutableMap<String, MutableMap<String, Any?>> {
+        if (!node.isObject) return mutableMapOf()
+        val converted = mapper.convertValue(node, MutableMap::class.java) as? MutableMap<String, Any?> ?: mutableMapOf()
+        val result = mutableMapOf<String, MutableMap<String, Any?>>()
+        converted.forEach { (domain, payload) ->
+            if (domain.isBlank()) return@forEach
+            val typedPayload = payload as? MutableMap<String, Any?> ?: mutableMapOf<String, Any?>()
+            result[domain] = typedPayload
+        }
+        return result
+    }
+
+    fun listContentVersions(accessToken: String, clientVersion: String): List<ContentVersionSummaryView> {
+        val response = request(
+            method = "GET",
+            path = "/content/versions",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        return mapper.readTree(response.body()).map { parseContentVersionSummary(it) }
+    }
+
+    fun createContentVersion(accessToken: String, clientVersion: String, note: String): ContentVersionDetailView {
+        val payload = mapOf("note" to note)
+        val response = request(
+            method = "POST",
+            path = "/content/versions",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+            body = mapper.writeValueAsString(payload),
+        )
+        ensureSuccess(response)
+        return parseContentVersionDetail(mapper.readTree(response.body()))
+    }
+
+    fun getContentVersion(accessToken: String, clientVersion: String, versionId: Int): ContentVersionDetailView {
+        val response = request(
+            method = "GET",
+            path = "/content/versions/$versionId",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        return parseContentVersionDetail(mapper.readTree(response.body()))
+    }
+
+    private fun parseContentValidationResult(root: JsonNode): ContentValidationResultView {
+        val issues = root.path("issues").map { issue ->
+            ContentValidationIssueView(
+                domain = issue.path("domain").asText(""),
+                message = issue.path("message").asText(""),
+            )
+        }
+        return ContentValidationResultView(
+            ok = root.path("ok").asBoolean(false),
+            state = root.path("state").asText("draft"),
+            issues = issues,
+        )
+    }
+
+    fun updateContentBundle(
+        accessToken: String,
+        clientVersion: String,
+        versionId: Int,
+        domain: String,
+        payload: Map<String, Any?>,
+    ): ContentValidationResultView {
+        val body = mapOf("payload" to payload)
+        val response = request(
+            method = "PUT",
+            path = "/content/versions/$versionId/bundles/$domain",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+            body = mapper.writeValueAsString(body),
+        )
+        ensureSuccess(response)
+        return parseContentValidationResult(mapper.readTree(response.body()))
+    }
+
+    fun validateContentVersion(accessToken: String, clientVersion: String, versionId: Int): ContentValidationResultView {
+        val response = request(
+            method = "POST",
+            path = "/content/versions/$versionId/validate",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        return parseContentValidationResult(mapper.readTree(response.body()))
+    }
+
+    fun activateContentVersion(accessToken: String, clientVersion: String, versionId: Int): ContentValidationResultView {
+        val response = request(
+            method = "POST",
+            path = "/content/versions/$versionId/activate",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        return parseContentValidationResult(mapper.readTree(response.body()))
     }
 
     fun register(email: String, password: String, displayName: String, clientVersion: String): AuthSession {

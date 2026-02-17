@@ -63,6 +63,8 @@ import javax.swing.UIManager
 import javax.swing.Box
 import javax.swing.AbstractAction
 import javax.swing.border.TitledBorder
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
 import javax.swing.plaf.basic.BasicButtonUI
 import javax.swing.plaf.basic.BasicComboBoxUI
 import javax.swing.plaf.basic.BasicMenuItemUI
@@ -135,6 +137,32 @@ object LauncherMain {
         val description: String,
     )
 
+    private data class AssetEditorCard(
+        val id: String,
+        val title: String,
+        val subtitle: String,
+        val domain: String,
+        val collectionKey: String?,
+        val collectionIndex: Int?,
+        val mapKey: String?,
+        val icon: BufferedImage?,
+        val tooltip: String,
+    )
+
+    private data class PendingAssetChange(
+        val cardId: String,
+        val title: String,
+        val domain: String,
+        val changedAtEpochMillis: Long,
+    )
+
+    private data class AssetEditorLocalDraftState(
+        val versionId: Int?,
+        val versionKey: String,
+        val domains: MutableMap<String, MutableMap<String, Any?>>,
+        val pendingChanges: List<PendingAssetChange>,
+    )
+
     @JvmStatic
     fun main(args: Array<String>) {
         Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
@@ -201,6 +229,7 @@ object LauncherMain {
         rootPanel.add(headerPanel, BorderLayout.NORTH)
 
         val backendClient = KaraxasBackendClient.fromEnvironment()
+        val jsonMapper = jacksonObjectMapper()
         var launcherPrefs = loadLauncherPrefs()
         var lastEmail = launcherPrefs.lastEmail
         var autoLoginEnabled = launcherPrefs.autoLoginEnabled
@@ -259,9 +288,12 @@ object LauncherMain {
         rootPanel.add(footerVersionLabel, BorderLayout.SOUTH)
 
         val settingsPopup = JPopupMenu()
-        val welcomeItem = JMenuItem("Welcome [Guest].")
+        val welcomeItem = JMenuItem("Welcome Guest.")
         val quickUpdateItem = JMenuItem("Update & Restart")
         val settingsItem = JMenuItem("Settings")
+        val levelEditorMenuItem = JMenuItem("Level Editor")
+        val assetEditorMenuItem = JMenuItem("Asset Editor")
+        val contentVersionsMenuItem = JMenuItem("Content Versions")
         val logoutMenuItem = JMenuItem("Logout")
         val exitItem = JMenuItem("Exit")
         val menuBg = Color(52, 39, 32)
@@ -293,12 +325,18 @@ object LauncherMain {
         stylePopupItem(welcomeItem)
         stylePopupItem(quickUpdateItem)
         stylePopupItem(settingsItem)
+        stylePopupItem(levelEditorMenuItem)
+        stylePopupItem(assetEditorMenuItem)
+        stylePopupItem(contentVersionsMenuItem)
         stylePopupItem(logoutMenuItem)
         stylePopupItem(exitItem)
         welcomeItem.isEnabled = false
         settingsPopup.add(welcomeItem)
         settingsPopup.add(quickUpdateItem)
         settingsPopup.add(settingsItem)
+        settingsPopup.add(levelEditorMenuItem)
+        settingsPopup.add(assetEditorMenuItem)
+        settingsPopup.add(contentVersionsMenuItem)
         settingsPopup.add(logoutMenuItem)
         settingsPopup.add(exitItem)
         exitItem.addActionListener {
@@ -431,13 +469,20 @@ object LauncherMain {
         }
         fun updateSettingsMenuAccess() {
             val loggedIn = authSession != null
+            val adminMode = authSession?.isAdmin == true
             welcomeItem.isVisible = loggedIn
             welcomeItem.text = authSession?.let { session ->
                 val username = session.displayName.ifBlank { session.email }
-                "Welcome [$username]."
-            } ?: "Welcome [Guest]."
+                "Welcome $username."
+            } ?: "Welcome Guest."
             settingsItem.isVisible = loggedIn
             settingsItem.isEnabled = loggedIn
+            levelEditorMenuItem.isVisible = adminMode
+            levelEditorMenuItem.isEnabled = adminMode
+            assetEditorMenuItem.isVisible = adminMode
+            assetEditorMenuItem.isEnabled = adminMode
+            contentVersionsMenuItem.isVisible = adminMode
+            contentVersionsMenuItem.isEnabled = adminMode
             logoutMenuItem.isVisible = loggedIn
             logoutMenuItem.isEnabled = loggedIn
         }
@@ -459,9 +504,6 @@ object LauncherMain {
 
         val tabSelect = buildMenuButton("Character List", rectangularButtonImage, Dimension(190, 38), 13f)
         val tabCreate = buildMenuButton("Create Character", rectangularButtonImage, Dimension(190, 38), 13f)
-        val tabLevelTool = buildMenuButton("Levels", rectangularButtonImage, Dimension(150, 38), 13f).apply {
-            isVisible = false
-        }
 
         val authEmail = UiScaffold.ghostTextField("Email")
         val authPassword = UiScaffold.ghostPasswordField("Password")
@@ -1061,6 +1103,168 @@ object LauncherMain {
             toolTipText = "Show/hide layer 2 (ambient/weather overlays)."
         }
 
+        var assetEditorVersionId: Int? = null
+        var assetEditorVersionKey: String = ""
+        var assetEditorVersionState: String = "draft"
+        val assetEditorDomains = mutableMapOf<String, MutableMap<String, Any?>>()
+        val assetEditorCards = mutableListOf<AssetEditorCard>()
+        val assetEditorPendingChanges = linkedMapOf<String, PendingAssetChange>()
+        var assetEditorSelectedCardId: String? = null
+        val assetEditorSearchField = UiScaffold.ghostTextField("Search assets/content...")
+        val assetEditorStatus = JLabel(" ").apply { themeStatusLabel(this) }
+        val assetEditorVersionLabel = JLabel("Draft: none").apply {
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 13)
+        }
+        val assetEditorCardsPanel = JPanel().apply {
+            layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
+            isOpaque = true
+            background = Color(24, 18, 15)
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        }
+        val assetEditorCardsScroll = ThemedScrollPane(assetEditorCardsPanel).apply {
+            border = themedTitledBorder("Editable Content")
+            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        }
+        val assetEditorPendingPanel = JPanel().apply {
+            layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
+            isOpaque = true
+            background = Color(24, 18, 15)
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        }
+        val assetEditorPendingScroll = ThemedScrollPane(assetEditorPendingPanel).apply {
+            border = themedTitledBorder("Pending Local Changes")
+            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        }
+        val assetEditorDetailTitle = UiScaffold.sectionLabel("Select an item")
+        val assetEditorIconPreview = JLabel("", SwingConstants.CENTER).apply {
+            preferredSize = Dimension(140, 140)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+            isOpaque = true
+            background = Color(31, 24, 20)
+            border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+            foreground = textColor
+            font = Font(THEME_FONT_FAMILY, Font.BOLD, 12)
+        }
+        val assetEditorMetaArea = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            foreground = textColor
+            background = Color(31, 24, 20)
+            font = UiScaffold.bodyFont
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+            text = "Select a card to load editable data."
+        }
+        val assetEditorJsonEditor = JTextArea().apply {
+            lineWrap = true
+            wrapStyleWord = true
+            foreground = textColor
+            background = Color(31, 24, 20)
+            font = Font("Monospaced", Font.PLAIN, 12)
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+            text = ""
+        }
+        val assetEditorJsonScroll = ThemedScrollPane(assetEditorJsonEditor).apply {
+            border = themedTitledBorder("Editable JSON")
+            preferredSize = Dimension(640, 400)
+        }
+        val assetEditorReloadButton = buildMenuButton("Reload", rectangularButtonImage, Dimension(90, 30), 12f)
+        val assetEditorSaveLocalButton = buildMenuButton("Save Local", rectangularButtonImage, Dimension(120, 30), 12f)
+        val assetEditorPublishButton = buildMenuButton("Publish Changes", rectangularButtonImage, Dimension(150, 30), 12f)
+        val assetEditorBackButton = buildMenuButton("Back", rectangularButtonImage, Dimension(86, 30), 12f)
+
+        val contentVersions = mutableListOf<ContentVersionSummaryView>()
+        val contentVersionDetailsCache = mutableMapOf<Int, ContentVersionDetailView>()
+        var contentVersionSelectedId: Int? = null
+        var contentVersionsCompareMode = false
+        lateinit var loadSelectedContentVersionDetails: () -> Unit
+        val contentVersionsSearchField = UiScaffold.ghostTextField("Search versions...")
+        val contentVersionsStatus = JLabel(" ").apply { themeStatusLabel(this) }
+        val contentVersionsCardsPanel = JPanel().apply {
+            layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
+            isOpaque = true
+            background = Color(24, 18, 15)
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        }
+        val contentVersionsCardsScroll = ThemedScrollPane(contentVersionsCardsPanel).apply {
+            border = themedTitledBorder("Version History")
+            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        }
+        val contentVersionsDetailTitle = UiScaffold.sectionLabel("Select a version")
+        val contentVersionsDetailArea = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            foreground = textColor
+            background = Color(31, 24, 20)
+            font = UiScaffold.bodyFont
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+            text = "Select a version card to inspect changes."
+        }
+        val contentVersionsCompareSearchA = UiScaffold.ghostTextField("Search left version...")
+        val contentVersionsCompareSearchB = UiScaffold.ghostTextField("Search right version...")
+        val contentVersionsCompareComboA = ThemedComboBox<Any>().apply {
+            preferredSize = Dimension(320, 32)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+        }
+        val contentVersionsCompareComboB = ThemedComboBox<Any>().apply {
+            preferredSize = Dimension(320, 32)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+        }
+        val contentVersionsCompareRunButton = buildMenuButton("Run Compare", rectangularButtonImage, Dimension(120, 30), 12f)
+        val contentVersionsCompareSummary = JLabel("Choose two versions and run compare.").apply { themeStatusLabel(this) }
+        val contentVersionsCompareAreaA = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            foreground = textColor
+            background = Color(31, 24, 20)
+            font = Font("Monospaced", Font.PLAIN, 12)
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        }
+        val contentVersionsCompareAreaB = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            foreground = textColor
+            background = Color(31, 24, 20)
+            font = Font("Monospaced", Font.PLAIN, 12)
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        }
+        val contentVersionsReloadButton = buildMenuButton("Reload", rectangularButtonImage, Dimension(90, 30), 12f)
+        val contentVersionsPublishButton = buildMenuButton("Publish", rectangularButtonImage, Dimension(100, 30), 12f)
+        val contentVersionsRevertButton = buildMenuButton("Revert To", rectangularButtonImage, Dimension(110, 30), 12f)
+        val contentVersionsCompareToggleButton = buildMenuButton("Compare View", rectangularButtonImage, Dimension(130, 30), 12f)
+        val contentVersionsBackButton = buildMenuButton("Back", rectangularButtonImage, Dimension(86, 30), 12f)
+
+        fun createFallbackAssetIcon(seed: String, size: Int = 52): BufferedImage {
+            val image = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
+            val g2 = image.createGraphics()
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+                val hash = seed.lowercase().fold(0) { acc, c -> acc * 31 + c.code }
+                val base = Color(80 + (hash and 0x1F), 60 + ((hash shr 5) and 0x1F), 42 + ((hash shr 10) and 0x1F))
+                g2.color = base
+                g2.fillRoundRect(0, 0, size, size, 12, 12)
+                g2.color = Color(196, 160, 111)
+                g2.drawRoundRect(0, 0, size - 1, size - 1, 12, 12)
+                g2.font = Font(THEME_FONT_FAMILY, Font.BOLD, 14)
+                val monogram = seed.trim().split('_', ' ').filter { it.isNotBlank() }.take(2)
+                    .joinToString("") { it.take(1).uppercase() }.ifBlank { "?" }
+                val metrics = g2.fontMetrics
+                val textW = metrics.stringWidth(monogram)
+                val textH = metrics.ascent
+                g2.drawString(monogram, (size - textW) / 2, ((size + textH) / 2) - 3)
+            } finally {
+                g2.dispose()
+            }
+            return image
+        }
+
         fun buildRadarPingMarker(size: Int): BufferedImage {
             val iconSize = size.coerceAtLeast(16)
             val image = BufferedImage(iconSize, iconSize, BufferedImage.TYPE_INT_ARGB)
@@ -1086,6 +1290,12 @@ object LauncherMain {
                 g2.dispose()
             }
             return image
+        }
+
+        fun assetIconFromKey(assetKey: String?): BufferedImage? {
+            if (assetKey.isNullOrBlank()) return null
+            if (assetKey == "spawn_marker") return buildRadarPingMarker(52)
+            return levelTileAssets[assetKey]?.image
         }
 
         fun configureLevelPaletteButton(button: JButton, label: String, iconImage: BufferedImage?, tooltip: String) {
@@ -1157,6 +1367,433 @@ object LauncherMain {
             levelToolTreeButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "tree_oak")
             levelToolCloudButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "cloud_soft")
             levelPaletteButtons.forEach { it.repaint() }
+        }
+
+        fun mutableMapFromAny(value: Any?): MutableMap<String, Any?> {
+            val out = mutableMapOf<String, Any?>()
+            val source = value as? Map<*, *> ?: return out
+            source.forEach { (k, v) ->
+                val key = k?.toString()?.trim().orEmpty()
+                if (key.isNotBlank()) out[key] = v
+            }
+            return out
+        }
+
+        fun mutableListFromAny(value: Any?): MutableList<Any?> {
+            return when (value) {
+                is MutableList<*> -> value.toMutableList() as MutableList<Any?>
+                is List<*> -> value.toMutableList() as MutableList<Any?>
+                else -> mutableListOf()
+            }
+        }
+
+        fun deepCopyAny(value: Any?): Any? {
+            return try {
+                jsonMapper.readValue(jsonMapper.writeValueAsString(value), Any::class.java)
+            } catch (_: Exception) {
+                value
+            }
+        }
+
+        fun deepCopyAssetDomains(domains: Map<String, MutableMap<String, Any?>>): MutableMap<String, MutableMap<String, Any?>> {
+            val copied = mutableMapOf<String, MutableMap<String, Any?>>()
+            domains.forEach { (domain, payload) ->
+                copied[domain] = mutableMapFromAny(deepCopyAny(payload))
+            }
+            return copied
+        }
+
+        fun assetEditorLocalDraftPath(): Path = installRoot(payloadRoot()).resolve("asset_editor_local_draft.json")
+
+        fun loadAssetEditorLocalDraftState(): AssetEditorLocalDraftState? {
+            val path = assetEditorLocalDraftPath()
+            if (!Files.exists(path)) return null
+            return try {
+                val root = jsonMapper.readTree(Files.readString(path))
+                val versionId = if (root.hasNonNull("version_id")) root.path("version_id").asInt() else null
+                val versionKey = root.path("version_key").asText("")
+                val domainsNode = root.path("domains")
+                val domainsRaw = jsonMapper.convertValue(domainsNode, MutableMap::class.java) as? MutableMap<*, *> ?: mutableMapOf<Any?, Any?>()
+                val domains = mutableMapOf<String, MutableMap<String, Any?>>()
+                domainsRaw.forEach { (k, v) ->
+                    val domain = k?.toString()?.trim().orEmpty()
+                    if (domain.isBlank()) return@forEach
+                    domains[domain] = mutableMapFromAny(v)
+                }
+                val pending = root.path("pending_changes")
+                    .takeIf { it.isArray }
+                    ?.mapNotNull { node ->
+                        val cardId = node.path("card_id").asText("").trim()
+                        val title = node.path("title").asText("").trim()
+                        val domain = node.path("domain").asText("").trim()
+                        if (cardId.isBlank() || domain.isBlank()) return@mapNotNull null
+                        PendingAssetChange(
+                            cardId = cardId,
+                            title = if (title.isBlank()) cardId else title,
+                            domain = domain,
+                            changedAtEpochMillis = node.path("changed_at_epoch_millis").asLong(System.currentTimeMillis()),
+                        )
+                    }
+                    .orEmpty()
+                AssetEditorLocalDraftState(
+                    versionId = versionId,
+                    versionKey = versionKey,
+                    domains = domains,
+                    pendingChanges = pending,
+                )
+            } catch (ex: Exception) {
+                log("Failed to load local asset editor draft from ${path.toAbsolutePath()}", ex)
+                null
+            }
+        }
+
+        fun persistAssetEditorLocalDraftState() {
+            val path = assetEditorLocalDraftPath()
+            try {
+                if (assetEditorPendingChanges.isEmpty()) {
+                    Files.deleteIfExists(path)
+                    return
+                }
+                Files.createDirectories(path.parent)
+                val pending = assetEditorPendingChanges.values.map { entry ->
+                    mapOf(
+                        "card_id" to entry.cardId,
+                        "title" to entry.title,
+                        "domain" to entry.domain,
+                        "changed_at_epoch_millis" to entry.changedAtEpochMillis,
+                    )
+                }
+                val payload = linkedMapOf<String, Any?>(
+                    "version_id" to assetEditorVersionId,
+                    "version_key" to assetEditorVersionKey,
+                    "domains" to deepCopyAssetDomains(assetEditorDomains),
+                    "pending_changes" to pending,
+                )
+                val json = jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload)
+                Files.writeString(
+                    path,
+                    json,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE,
+                )
+            } catch (ex: Exception) {
+                log("Failed to persist local asset editor draft to ${path.toAbsolutePath()}", ex)
+            }
+        }
+
+        fun clearAssetEditorLocalDraftState() {
+            assetEditorPendingChanges.clear()
+            val path = assetEditorLocalDraftPath()
+            try {
+                Files.deleteIfExists(path)
+            } catch (ex: Exception) {
+                log("Failed to delete local asset editor draft file ${path.toAbsolutePath()}", ex)
+            }
+        }
+
+        fun resolveAssetEditorCardValue(domains: Map<String, MutableMap<String, Any?>>, card: AssetEditorCard): Any? {
+            val domainPayload = domains[card.domain] ?: return null
+            val collectionKey = card.collectionKey ?: return domainPayload
+            if (card.mapKey != null) {
+                val map = mutableMapFromAny(domainPayload[collectionKey])
+                return map[card.mapKey]
+            }
+            val index = card.collectionIndex ?: return null
+            val list = mutableListFromAny(domainPayload[collectionKey])
+            return list.getOrNull(index)
+        }
+
+        fun resolveAssetEditorCardValue(card: AssetEditorCard): Any? = resolveAssetEditorCardValue(assetEditorDomains, card)
+
+        fun assetEditorCardValueJson(domains: Map<String, MutableMap<String, Any?>>, card: AssetEditorCard): String {
+            return try {
+                jsonMapper.writeValueAsString(resolveAssetEditorCardValue(domains, card))
+            } catch (_: Exception) {
+                resolveAssetEditorCardValue(domains, card)?.toString() ?: "null"
+            }
+        }
+
+        fun applyAssetEditorSelection(card: AssetEditorCard?) {
+            if (card == null) {
+                assetEditorDetailTitle.text = "Select an item"
+                assetEditorMetaArea.text = "Select a card to load editable data."
+                assetEditorIconPreview.icon = null
+                assetEditorIconPreview.text = "No preview"
+                assetEditorJsonEditor.text = ""
+                assetEditorSelectedCardId = null
+                return
+            }
+            assetEditorSelectedCardId = card.id
+            val value = resolveAssetEditorCardValue(card)
+            val pendingChange = assetEditorPendingChanges[card.id]
+            assetEditorDetailTitle.text = card.title
+            val meta = buildString {
+                appendLine("Type: ${card.subtitle}")
+                appendLine("Domain: ${card.domain}")
+                card.collectionKey?.let { appendLine("Collection: $it") }
+                card.collectionIndex?.let { appendLine("Index: $it") }
+                card.mapKey?.let { appendLine("Key: $it") }
+                appendLine("Pending local change: ${if (pendingChange != null) "Yes" else "No"}")
+                pendingChange?.let {
+                    val changedAt = Instant.ofEpochMilli(it.changedAtEpochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime()
+                    appendLine("Changed at: $changedAt")
+                }
+                appendLine()
+                append(card.tooltip)
+            }
+            assetEditorMetaArea.text = meta
+            val preview = card.icon ?: createFallbackAssetIcon(card.title)
+            assetEditorIconPreview.icon = ImageIcon(scaleImage(preview, 100, 100))
+            assetEditorIconPreview.text = ""
+            assetEditorJsonEditor.text = try {
+                jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(value)
+            } catch (_: Exception) {
+                value?.toString() ?: "null"
+            }
+        }
+
+        fun buildAssetEditorCardsForDomains(domains: Map<String, MutableMap<String, Any?>>): List<AssetEditorCard> {
+            val cards = mutableListOf<AssetEditorCard>()
+            val assetsByKey = mutableMapOf<String, BufferedImage?>()
+            val assetEntries = mutableListFromAny(domains["assets"]?.get("entries"))
+            assetEntries.forEachIndexed { index, raw ->
+                val entry = mutableMapFromAny(raw)
+                val key = entry["key"]?.toString()?.trim().orEmpty()
+                if (key.isBlank()) return@forEachIndexed
+                val iconKey = entry["icon_asset_key"]?.toString()?.trim().orEmpty().ifBlank { key }
+                val icon = assetIconFromKey(iconKey)
+                assetsByKey[key] = icon
+                val title = entry["label"]?.toString()?.trim().orEmpty().ifBlank { key }
+                val description = entry["description"]?.toString()?.trim().orEmpty()
+                cards.add(
+                    AssetEditorCard(
+                        id = "assets:entries:$index",
+                        title = title,
+                        subtitle = "Level Asset",
+                        domain = "assets",
+                        collectionKey = "entries",
+                        collectionIndex = index,
+                        mapKey = null,
+                        icon = icon ?: createFallbackAssetIcon(key),
+                        tooltip = if (description.isNotBlank()) description else "Editable level asset metadata.",
+                    )
+                )
+            }
+
+            val skillEntries = mutableListFromAny(domains["skills"]?.get("entries"))
+            skillEntries.forEachIndexed { index, raw ->
+                val entry = mutableMapFromAny(raw)
+                val key = entry["key"]?.toString()?.trim().orEmpty()
+                if (key.isBlank()) return@forEachIndexed
+                val title = entry["label"]?.toString()?.trim().orEmpty().ifBlank { key }
+                val tooltip = entry["description"]?.toString()?.trim().orEmpty()
+                val iconKey = entry["icon_asset_key"]?.toString()?.trim().orEmpty()
+                cards.add(
+                    AssetEditorCard(
+                        id = "skills:entries:$index",
+                        title = title,
+                        subtitle = "Skill",
+                        domain = "skills",
+                        collectionKey = "entries",
+                        collectionIndex = index,
+                        mapKey = null,
+                        icon = assetsByKey[iconKey] ?: assetIconFromKey(iconKey) ?: createFallbackAssetIcon(key),
+                        tooltip = if (tooltip.isNotBlank()) tooltip else "Editable skill configuration.",
+                    )
+                )
+            }
+
+            val statEntries = mutableListFromAny(domains["stats"]?.get("entries"))
+            statEntries.forEachIndexed { index, raw ->
+                val entry = mutableMapFromAny(raw)
+                val key = entry["key"]?.toString()?.trim().orEmpty()
+                if (key.isBlank()) return@forEachIndexed
+                val title = entry["label"]?.toString()?.trim().orEmpty().ifBlank { key }
+                val tooltip = entry["description"]?.toString()?.trim().orEmpty()
+                cards.add(
+                    AssetEditorCard(
+                        id = "stats:entries:$index",
+                        title = title,
+                        subtitle = "Stat",
+                        domain = "stats",
+                        collectionKey = "entries",
+                        collectionIndex = index,
+                        mapKey = null,
+                        icon = createFallbackAssetIcon(key),
+                        tooltip = if (tooltip.isNotBlank()) tooltip else "Editable stat metadata.",
+                    )
+                )
+            }
+
+            listOf("race" to "Race Option", "background" to "Background Option", "affiliation" to "Affiliation Option").forEach { (collection, subtitle) ->
+                val items = mutableListFromAny(domains["character_options"]?.get(collection))
+                items.forEachIndexed { index, raw ->
+                    val entry = mutableMapFromAny(raw)
+                    val value = entry["value"]?.toString()?.trim().orEmpty()
+                    if (value.isBlank()) return@forEachIndexed
+                    val title = entry["label"]?.toString()?.trim().orEmpty().ifBlank { value }
+                    cards.add(
+                        AssetEditorCard(
+                            id = "character_options:$collection:$index",
+                            title = title,
+                            subtitle = subtitle,
+                            domain = "character_options",
+                            collectionKey = collection,
+                            collectionIndex = index,
+                            mapKey = null,
+                            icon = createFallbackAssetIcon(title),
+                            tooltip = entry["description"]?.toString()?.trim().orEmpty().ifBlank { "Editable option entry." },
+                        )
+                    )
+                }
+            }
+
+            val uiStrings = mutableMapFromAny(domains["ui_text"]?.get("strings"))
+            uiStrings.keys.sorted().forEach { key ->
+                cards.add(
+                    AssetEditorCard(
+                        id = "ui_text:strings:$key",
+                        title = key,
+                        subtitle = "UI String",
+                        domain = "ui_text",
+                        collectionKey = "strings",
+                        collectionIndex = null,
+                        mapKey = key,
+                        icon = createFallbackAssetIcon("T"),
+                        tooltip = "Editable player-facing text key.",
+                    )
+                )
+            }
+
+            domains.keys.sorted()
+                .filter { it !in setOf("assets", "skills", "stats", "character_options", "ui_text") }
+                .forEach { domain ->
+                    cards.add(
+                        AssetEditorCard(
+                            id = "$domain:root",
+                            title = domain.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                            subtitle = "Domain",
+                            domain = domain,
+                            collectionKey = null,
+                            collectionIndex = null,
+                            mapKey = null,
+                            icon = createFallbackAssetIcon(domain),
+                            tooltip = "Editable domain payload.",
+                        )
+                    )
+                }
+            return cards
+        }
+
+        fun buildAssetEditorCards() {
+            assetEditorCards.clear()
+            assetEditorCards.addAll(buildAssetEditorCardsForDomains(assetEditorDomains))
+        }
+
+        fun renderAssetEditorPendingChanges() {
+            val entries = assetEditorPendingChanges.values.sortedByDescending { it.changedAtEpochMillis }
+            assetEditorPendingPanel.removeAll()
+            if (entries.isEmpty()) {
+                assetEditorPendingPanel.add(UiScaffold.titledLabel("No local changes staged.").apply {
+                    border = BorderFactory.createEmptyBorder(8, 4, 8, 4)
+                })
+            } else {
+                entries.forEachIndexed { index, entry ->
+                    val row = JPanel(GridLayout(3, 1, 0, 2)).apply {
+                        isOpaque = true
+                        background = Color(39, 29, 24)
+                        border = BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                            BorderFactory.createEmptyBorder(6, 8, 6, 8)
+                        )
+                        preferredSize = Dimension(0, 78)
+                        minimumSize = Dimension(0, 78)
+                        maximumSize = Dimension(Int.MAX_VALUE, 78)
+                    }
+                    val changedAt = Instant.ofEpochMilli(entry.changedAtEpochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime()
+                    row.add(UiScaffold.titledLabel(entry.title).apply { horizontalAlignment = SwingConstants.LEFT })
+                    row.add(UiScaffold.titledLabel("Domain: ${entry.domain}").apply {
+                        horizontalAlignment = SwingConstants.LEFT
+                        font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                    })
+                    row.add(UiScaffold.titledLabel("Changed: $changedAt").apply {
+                        horizontalAlignment = SwingConstants.LEFT
+                        font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                    })
+                    assetEditorPendingPanel.add(row)
+                    if (index < entries.lastIndex) {
+                        assetEditorPendingPanel.add(Box.createVerticalStrut(6))
+                    }
+                }
+            }
+            assetEditorPendingPanel.revalidate()
+            assetEditorPendingPanel.repaint()
+        }
+
+        fun renderAssetEditorCards() {
+            val query = assetEditorSearchField.text.trim().lowercase()
+            val filtered = assetEditorCards
+                .filter { card ->
+                    query.isBlank() ||
+                        card.title.lowercase().contains(query) ||
+                        card.subtitle.lowercase().contains(query) ||
+                        card.domain.lowercase().contains(query)
+                }
+                .sortedWith(compareBy<AssetEditorCard>({ it.subtitle }, { it.title }))
+            assetEditorCardsPanel.removeAll()
+            if (filtered.isEmpty()) {
+                assetEditorCardsPanel.add(UiScaffold.titledLabel("No matches.").apply {
+                    border = BorderFactory.createEmptyBorder(8, 4, 8, 4)
+                })
+            } else {
+                filtered.forEachIndexed { index, card ->
+                    val pending = assetEditorPendingChanges.containsKey(card.id)
+                    val row = JPanel(BorderLayout(8, 0)).apply {
+                        isOpaque = true
+                        background = when {
+                            assetEditorSelectedCardId == card.id -> Color(57, 42, 31)
+                            pending -> Color(66, 48, 34)
+                            else -> Color(39, 29, 24)
+                        }
+                        border = BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(if (pending) Color(224, 184, 126) else Color(172, 132, 87), 1),
+                            BorderFactory.createEmptyBorder(6, 8, 6, 8)
+                        )
+                        preferredSize = Dimension(0, 88)
+                        minimumSize = Dimension(0, 88)
+                        maximumSize = Dimension(Int.MAX_VALUE, 88)
+                        cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+                        toolTipText = card.tooltip
+                    }
+                    row.add(JLabel(ImageIcon(scaleImage(card.icon ?: createFallbackAssetIcon(card.title), 44, 44))).apply {
+                        preferredSize = Dimension(52, 52)
+                        horizontalAlignment = SwingConstants.CENTER
+                    }, BorderLayout.WEST)
+                    row.add(JPanel(GridLayout(2, 1, 0, 2)).apply {
+                        isOpaque = false
+                        add(UiScaffold.titledLabel(card.title).apply { horizontalAlignment = SwingConstants.LEFT })
+                        val suffix = if (pending) "  |  LOCAL" else ""
+                        add(UiScaffold.titledLabel("${card.subtitle}  |  ${card.domain}$suffix").apply {
+                            horizontalAlignment = SwingConstants.LEFT
+                            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                        })
+                    }, BorderLayout.CENTER)
+                    row.addMouseListener(object : java.awt.event.MouseAdapter() {
+                        override fun mouseClicked(e: java.awt.event.MouseEvent?) {
+                            assetEditorSelectedCardId = card.id
+                            applyAssetEditorSelection(card)
+                            renderAssetEditorCards()
+                        }
+                    })
+                    assetEditorCardsPanel.add(row)
+                    if (index < filtered.lastIndex) {
+                        assetEditorCardsPanel.add(Box.createVerticalStrut(6))
+                    }
+                }
+            }
+            assetEditorCardsPanel.revalidate()
+            assetEditorCardsPanel.repaint()
         }
 
         fun levelLayerCells(layerId: Int): MutableMap<Pair<Int, Int>, String> {
@@ -2225,7 +2862,6 @@ object LauncherMain {
             persistLauncherPrefs()
             registerMode = false
             updateSettingsMenuAccess()
-            tabLevelTool.isVisible = isAdminAccount()
             authStatus.text = "Loading account..."
             resetAuthInputsForMode()
             refreshLevels(selectStatus)
@@ -2318,8 +2954,7 @@ object LauncherMain {
 
         val accountTabButtons = linkedMapOf(
             "select_character" to tabSelect,
-            "create_character" to tabCreate,
-            "level_tool" to tabLevelTool
+            "create_character" to tabCreate
         )
         fun setActiveAccountTab(card: String) {
             accountTabButtons.forEach { (name, button) ->
@@ -2335,7 +2970,6 @@ object LauncherMain {
             background = panelBg
             add(tabSelect)
             add(tabCreate)
-            add(tabLevelTool)
         }
         val accountTopBar = JPanel(BorderLayout(10, 0)).apply {
             isOpaque = true
@@ -2537,6 +3171,514 @@ object LauncherMain {
             resizeLevelEditorCanvas()
         }
 
+        fun loadAssetEditorDraft() {
+            withSession(onMissing = { contentVersionsStatus.text = "Please login first." }) { session ->
+                if (!isAdminAccount()) {
+                    assetEditorStatus.text = "Admin access required."
+                    return@withSession
+                }
+                assetEditorStatus.text = "Loading editable content..."
+                Thread {
+                    try {
+                        val versions = backendClient.listContentVersions(session.accessToken, clientVersion)
+                        val localDraft = loadAssetEditorLocalDraftState()
+                        val requestedVersionId = localDraft?.versionId
+                        val chosenVersionId = when {
+                            requestedVersionId != null && versions.any { it.id == requestedVersionId } -> requestedVersionId
+                            else -> versions.firstOrNull { it.state == "draft" || it.state == "validated" }?.id
+                                ?: backendClient.createContentVersion(
+                                    accessToken = session.accessToken,
+                                    clientVersion = clientVersion,
+                                    note = "Asset editor draft",
+                                ).id
+                        }
+                        val detail = backendClient.getContentVersion(session.accessToken, clientVersion, chosenVersionId)
+                        javax.swing.SwingUtilities.invokeLater {
+                            assetEditorVersionId = detail.id
+                            assetEditorVersionKey = detail.versionKey
+                            assetEditorVersionState = detail.state
+                            assetEditorVersionLabel.text = "Draft: ${detail.versionKey} (${detail.state})"
+                            assetEditorDomains.clear()
+                            detail.domains.forEach { (domain, payload) ->
+                                assetEditorDomains[domain] = mutableMapFromAny(payload)
+                            }
+                            assetEditorPendingChanges.clear()
+                            localDraft?.let { draft ->
+                                if (draft.domains.isNotEmpty()) {
+                                    draft.domains.forEach { (domain, payload) ->
+                                        assetEditorDomains[domain] = mutableMapFromAny(payload)
+                                    }
+                                }
+                                draft.pendingChanges.forEach { change ->
+                                    assetEditorPendingChanges[change.cardId] = change
+                                }
+                            }
+                            buildAssetEditorCards()
+                            renderAssetEditorCards()
+                            renderAssetEditorPendingChanges()
+                            val selected = assetEditorCards.firstOrNull { it.id == assetEditorSelectedCardId } ?: assetEditorCards.firstOrNull()
+                            applyAssetEditorSelection(selected)
+                            persistAssetEditorLocalDraftState()
+                            assetEditorStatus.text = if (assetEditorPendingChanges.isEmpty()) {
+                                "Loaded ${assetEditorCards.size} editable entries."
+                            } else {
+                                "Loaded ${assetEditorCards.size} editable entries with ${assetEditorPendingChanges.size} local change(s)."
+                            }
+                        }
+                    } catch (ex: Exception) {
+                        log("Asset editor load failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            assetEditorStatus.text = formatServiceError(ex, "Unable to load editable content.")
+                        }
+                    }
+                }.start()
+            }
+        }
+
+        fun applyAssetEditorCardValue(card: AssetEditorCard, parsed: Any?): String? {
+            val domainPayload = assetEditorDomains.getOrPut(card.domain) { mutableMapOf() }
+            val collectionKey = card.collectionKey
+            when {
+                collectionKey == null -> {
+                    val replacement = mutableMapFromAny(parsed)
+                    assetEditorDomains[card.domain] = replacement
+                }
+                card.mapKey != null -> {
+                    val map = mutableMapFromAny(domainPayload[collectionKey])
+                    map[card.mapKey] = parsed
+                    domainPayload[collectionKey] = map
+                }
+                card.collectionIndex != null -> {
+                    val list = mutableListFromAny(domainPayload[collectionKey])
+                    val index = card.collectionIndex
+                    if (index !in 0 until list.size) {
+                        return "Selected entry index is out of range."
+                    }
+                    list[index] = parsed
+                    domainPayload[collectionKey] = list
+                }
+            }
+            return null
+        }
+
+        fun saveSelectedAssetEditorItemLocally() {
+            val selected = assetEditorCards.firstOrNull { it.id == assetEditorSelectedCardId }
+            if (selected == null) {
+                assetEditorStatus.text = "Select an item to save."
+                return
+            }
+            if (assetEditorVersionId == null) {
+                assetEditorStatus.text = "No editable draft loaded."
+                return
+            }
+            val parsed = try {
+                jsonMapper.readValue(assetEditorJsonEditor.text, Any::class.java)
+            } catch (ex: Exception) {
+                assetEditorStatus.text = "Invalid JSON: ${ex.message}"
+                return
+            }
+            val error = applyAssetEditorCardValue(selected, parsed)
+            if (error != null) {
+                assetEditorStatus.text = error
+                return
+            }
+            assetEditorPendingChanges[selected.id] = PendingAssetChange(
+                cardId = selected.id,
+                title = selected.title,
+                domain = selected.domain,
+                changedAtEpochMillis = System.currentTimeMillis(),
+            )
+            persistAssetEditorLocalDraftState()
+            buildAssetEditorCards()
+            renderAssetEditorCards()
+            renderAssetEditorPendingChanges()
+            val selectedCard = assetEditorCards.firstOrNull { it.id == selected.id }
+            applyAssetEditorSelection(selectedCard)
+            assetEditorStatus.text = "Saved ${selected.title} locally. Publish when ready."
+        }
+
+        fun publishAssetEditorLocalChanges() {
+            if (assetEditorPendingChanges.isEmpty()) {
+                assetEditorStatus.text = "No local changes to publish."
+                return
+            }
+            withSession(onMissing = { assetEditorStatus.text = "Please login first." }) { session ->
+                if (!isAdminAccount()) {
+                    assetEditorStatus.text = "Admin access required."
+                    return@withSession
+                }
+                assetEditorStatus.text = "Publishing ${assetEditorPendingChanges.size} local change(s)..."
+                Thread {
+                    try {
+                        val versionId = assetEditorVersionId ?: backendClient.createContentVersion(
+                            accessToken = session.accessToken,
+                            clientVersion = clientVersion,
+                            note = "Asset editor draft",
+                        ).id
+                        val changedDomains = assetEditorPendingChanges.values.map { it.domain }.toSet()
+                        changedDomains.forEach { domain ->
+                            val payload = assetEditorDomains[domain] ?: mutableMapOf()
+                            val result = backendClient.updateContentBundle(
+                                accessToken = session.accessToken,
+                                clientVersion = clientVersion,
+                                versionId = versionId,
+                                domain = domain,
+                                payload = payload,
+                            )
+                            if (!result.ok) {
+                                val issue = result.issues.firstOrNull()?.message ?: "validation failed"
+                                throw BackendClientException("Publish failed for domain '$domain': $issue")
+                            }
+                        }
+                        val refreshed = backendClient.getContentVersion(session.accessToken, clientVersion, versionId)
+                        javax.swing.SwingUtilities.invokeLater {
+                            assetEditorVersionId = refreshed.id
+                            assetEditorVersionKey = refreshed.versionKey
+                            assetEditorVersionState = refreshed.state
+                            assetEditorVersionLabel.text = "Draft: ${refreshed.versionKey} (${refreshed.state})"
+                            clearAssetEditorLocalDraftState()
+                            buildAssetEditorCards()
+                            renderAssetEditorCards()
+                            renderAssetEditorPendingChanges()
+                            val selected = assetEditorCards.firstOrNull { it.id == assetEditorSelectedCardId }
+                                ?: assetEditorCards.firstOrNull()
+                            applyAssetEditorSelection(selected)
+                            assetEditorStatus.text = "Published changes to draft ${refreshed.versionKey}. Activate from Content Versions."
+                        }
+                    } catch (ex: Exception) {
+                        log("Asset editor publish failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            assetEditorStatus.text = formatServiceError(ex, "Unable to publish local changes.")
+                        }
+                    }
+                }.start()
+            }
+        }
+
+        fun contentVersionDisplay(summary: ContentVersionSummaryView): String {
+            val note = summary.note.trim()
+            val activeTag = if (summary.state == "active") "ACTIVE" else summary.state.uppercase()
+            return if (note.isBlank()) "${summary.versionKey} [$activeTag]" else "${summary.versionKey} [$activeTag] - $note"
+        }
+
+        fun populateCompareCombo(combo: ThemedComboBox<Any>, query: String, preferredId: Int?) {
+            val currentItems = contentVersions.filter { summary ->
+                query.isBlank() ||
+                    summary.versionKey.lowercase().contains(query) ||
+                    summary.state.lowercase().contains(query) ||
+                    summary.note.lowercase().contains(query)
+            }
+            combo.model = javax.swing.DefaultComboBoxModel(
+                if (currentItems.isEmpty()) arrayOf("No versions") else currentItems.toTypedArray()
+            )
+            combo.isEnabled = currentItems.isNotEmpty()
+            if (preferredId != null) {
+                currentItems.firstOrNull { it.id == preferredId }?.let { combo.selectedItem = it }
+            }
+        }
+
+        fun buildVersionItemComparison(
+            left: ContentVersionDetailView,
+            right: ContentVersionDetailView,
+        ): Triple<String, String, List<String>> {
+            val leftCards = buildAssetEditorCardsForDomains(left.domains)
+            val rightCards = buildAssetEditorCardsForDomains(right.domains)
+            val leftById = leftCards.associateBy { it.id }
+            val rightById = rightCards.associateBy { it.id }
+            val allIds = (leftById.keys + rightById.keys).toSortedSet()
+            val changedTitles = mutableListOf<String>()
+            val leftText = StringBuilder()
+            val rightText = StringBuilder()
+            allIds.forEach { id ->
+                val leftCard = leftById[id]
+                val rightCard = rightById[id]
+                val title = leftCard?.title ?: rightCard?.title ?: id
+                val leftJson = leftCard?.let { assetEditorCardValueJson(left.domains, it) } ?: "null"
+                val rightJson = rightCard?.let { assetEditorCardValueJson(right.domains, it) } ?: "null"
+                val changed = leftJson != rightJson
+                val marker = if (changed) "[CHANGED]" else "[SAME]"
+                if (changed) changedTitles.add(title)
+                leftText.appendLine("$marker $title")
+                leftText.appendLine(leftJson)
+                leftText.appendLine()
+                rightText.appendLine("$marker $title")
+                rightText.appendLine(rightJson)
+                rightText.appendLine()
+            }
+            return Triple(leftText.toString().trimEnd(), rightText.toString().trimEnd(), changedTitles)
+        }
+
+        fun summarizeVersionChanges(
+            selectedDetail: ContentVersionDetailView,
+            baselineDetail: ContentVersionDetailView?,
+        ): String {
+            val baselineLabel = baselineDetail?.versionKey ?: "none"
+            if (baselineDetail == null) {
+                return "No baseline version available for diff."
+            }
+            val (_, _, changedTitles) = buildVersionItemComparison(selectedDetail, baselineDetail)
+            if (changedTitles.isEmpty()) {
+                return "Compared against $baselineLabel: no item-level changes."
+            }
+            return buildString {
+                appendLine("Compared against $baselineLabel")
+                appendLine("Changed items: ${changedTitles.size}")
+                changedTitles.sorted().forEach { title ->
+                    appendLine("- $title")
+                }
+            }.trimEnd()
+        }
+
+        fun getContentVersionDetailCached(
+            session: AuthSession,
+            versionId: Int,
+        ): ContentVersionDetailView {
+            return contentVersionDetailsCache[versionId]
+                ?: backendClient.getContentVersion(session.accessToken, clientVersion, versionId).also { detail ->
+                    contentVersionDetailsCache[versionId] = detail
+                }
+        }
+
+        fun renderContentVersionCards() {
+            val query = contentVersionsSearchField.text.trim().lowercase()
+            val filtered = contentVersions.filter { summary ->
+                query.isBlank() ||
+                    summary.versionKey.lowercase().contains(query) ||
+                    summary.state.lowercase().contains(query) ||
+                    summary.note.lowercase().contains(query)
+            }
+            contentVersionsCardsPanel.removeAll()
+            if (filtered.isEmpty()) {
+                contentVersionsCardsPanel.add(UiScaffold.titledLabel("No version matches.").apply {
+                    border = BorderFactory.createEmptyBorder(8, 4, 8, 4)
+                })
+            } else {
+                filtered.forEachIndexed { index, summary ->
+                    val selected = contentVersionSelectedId == summary.id
+                    val active = summary.state == "active"
+                    val row = JPanel(BorderLayout(8, 0)).apply {
+                        isOpaque = true
+                        background = when {
+                            selected -> Color(57, 42, 31)
+                            active -> Color(67, 50, 34)
+                            else -> Color(39, 29, 24)
+                        }
+                        border = BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(if (active) Color(224, 184, 126) else Color(172, 132, 87), 1),
+                            BorderFactory.createEmptyBorder(6, 8, 6, 8)
+                        )
+                        preferredSize = Dimension(0, 82)
+                        minimumSize = Dimension(0, 82)
+                        maximumSize = Dimension(Int.MAX_VALUE, 82)
+                        cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+                    }
+                    row.add(JPanel(GridLayout(2, 1, 0, 2)).apply {
+                        isOpaque = false
+                        add(UiScaffold.titledLabel(summary.versionKey).apply { horizontalAlignment = SwingConstants.LEFT })
+                        add(UiScaffold.titledLabel("State: ${summary.state}").apply {
+                            horizontalAlignment = SwingConstants.LEFT
+                            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                        })
+                    }, BorderLayout.CENTER)
+                    val badgeText = if (active) "ACTIVE" else summary.state.uppercase()
+                    row.add(UiScaffold.titledLabel(badgeText).apply {
+                        horizontalAlignment = SwingConstants.RIGHT
+                        foreground = if (active) Color(255, 226, 163) else textColor
+                    }, BorderLayout.EAST)
+                    row.toolTipText = contentVersionDisplay(summary)
+                    row.addMouseListener(object : java.awt.event.MouseAdapter() {
+                        override fun mouseClicked(e: java.awt.event.MouseEvent?) {
+                            contentVersionSelectedId = summary.id
+                            renderContentVersionCards()
+                            loadSelectedContentVersionDetails()
+                        }
+                    })
+                    contentVersionsCardsPanel.add(row)
+                    if (index < filtered.lastIndex) {
+                        contentVersionsCardsPanel.add(Box.createVerticalStrut(6))
+                    }
+                }
+            }
+            contentVersionsCardsPanel.revalidate()
+            contentVersionsCardsPanel.repaint()
+        }
+
+        fun refreshCompareCombos() {
+            val preferredA = (contentVersionsCompareComboA.selectedItem as? ContentVersionSummaryView)?.id
+            val preferredB = (contentVersionsCompareComboB.selectedItem as? ContentVersionSummaryView)?.id
+            populateCompareCombo(contentVersionsCompareComboA, contentVersionsCompareSearchA.text.trim().lowercase(), preferredA)
+            populateCompareCombo(contentVersionsCompareComboB, contentVersionsCompareSearchB.text.trim().lowercase(), preferredB)
+        }
+
+        loadSelectedContentVersionDetails = {
+            val selectedId = contentVersionSelectedId
+            if (selectedId == null) {
+                contentVersionsDetailTitle.text = "Select a version"
+                contentVersionsDetailArea.text = "Select a version card to inspect changes."
+            } else {
+                val selectedSummary = contentVersions.firstOrNull { it.id == selectedId }
+                if (selectedSummary != null) {
+                    withSession(onMissing = { contentVersionsStatus.text = "Please login first." }) { session ->
+                        Thread {
+                            try {
+                                val detail = getContentVersionDetailCached(session, selectedSummary.id)
+                                val baselineSummary = contentVersions
+                                    .sortedByDescending { it.id }
+                                    .indexOfFirst { it.id == selectedSummary.id }
+                                    .let { index ->
+                                        if (index >= 0) contentVersions.sortedByDescending { it.id }.getOrNull(index + 1) else null
+                                    }
+                                val baseline = baselineSummary?.let { getContentVersionDetailCached(session, it.id) }
+                                val overview = summarizeVersionChanges(detail, baseline)
+                                javax.swing.SwingUtilities.invokeLater {
+                                    contentVersionsDetailTitle.text = "Version ${selectedSummary.versionKey}"
+                                    contentVersionsDetailArea.text = buildString {
+                                        appendLine("Version: ${selectedSummary.versionKey}")
+                                        appendLine("State: ${selectedSummary.state}")
+                                        appendLine("Note: ${selectedSummary.note.ifBlank { "-" }}")
+                                        appendLine("Created: ${detail.createdAt.ifBlank { "-" }}")
+                                        appendLine("Validated: ${detail.validatedAt.ifBlank { "-" }}")
+                                        appendLine("Activated: ${detail.activatedAt.ifBlank { "-" }}")
+                                        appendLine("Updated: ${detail.updatedAt.ifBlank { "-" }}")
+                                        appendLine()
+                                        appendLine("Change Overview")
+                                        appendLine(overview)
+                                    }
+                                }
+                            } catch (ex: Exception) {
+                                log("Content version detail load failed against ${backendClient.endpoint()}", ex)
+                                javax.swing.SwingUtilities.invokeLater {
+                                    contentVersionsStatus.text = formatServiceError(ex, "Unable to load selected version.")
+                                }
+                            }
+                        }.start()
+                    }
+                } else {
+                    contentVersionsDetailTitle.text = "Select a version"
+                    contentVersionsDetailArea.text = "Select a version card to inspect changes."
+                }
+            }
+        }
+
+        fun runContentVersionCompare() {
+            val leftSummary = contentVersionsCompareComboA.selectedItem as? ContentVersionSummaryView
+            val rightSummary = contentVersionsCompareComboB.selectedItem as? ContentVersionSummaryView
+            if (leftSummary == null || rightSummary == null) {
+                contentVersionsStatus.text = "Select two versions for compare."
+                return
+            }
+            withSession(onMissing = { contentVersionsStatus.text = "Please login first." }) { session ->
+                contentVersionsStatus.text = "Comparing ${leftSummary.versionKey} vs ${rightSummary.versionKey}..."
+                Thread {
+                    try {
+                        val left = getContentVersionDetailCached(session, leftSummary.id)
+                        val right = getContentVersionDetailCached(session, rightSummary.id)
+                        val (leftText, rightText, changedTitles) = buildVersionItemComparison(left, right)
+                        javax.swing.SwingUtilities.invokeLater {
+                            contentVersionsCompareAreaA.text = leftText
+                            contentVersionsCompareAreaB.text = rightText
+                            contentVersionsCompareSummary.text = if (changedTitles.isEmpty()) {
+                                "No item-level differences between selected versions."
+                            } else {
+                                "Changed items: ${changedTitles.size} (${changedTitles.take(6).joinToString(", ")}${if (changedTitles.size > 6) "..." else ""})"
+                            }
+                            contentVersionsStatus.text = "Compare complete."
+                        }
+                    } catch (ex: Exception) {
+                        log("Content version compare failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            contentVersionsStatus.text = formatServiceError(ex, "Unable to compare selected versions.")
+                        }
+                    }
+                }.start()
+            }
+        }
+
+        fun loadContentVersions() {
+            withSession(onMissing = { contentVersionsStatus.text = "Please login first." }) { session ->
+                if (!isAdminAccount()) {
+                    contentVersionsStatus.text = "Admin access required."
+                    return@withSession
+                }
+                contentVersionsStatus.text = "Loading content versions..."
+                Thread {
+                    try {
+                        val versions = backendClient.listContentVersions(session.accessToken, clientVersion).sortedByDescending { it.id }
+                        javax.swing.SwingUtilities.invokeLater {
+                            contentVersions.clear()
+                            contentVersions.addAll(versions)
+                            contentVersionDetailsCache.clear()
+                            val selectedId = contentVersionSelectedId
+                            contentVersionSelectedId = versions.firstOrNull { it.id == selectedId }?.id ?: versions.firstOrNull()?.id
+                            renderContentVersionCards()
+                            refreshCompareCombos()
+                            loadSelectedContentVersionDetails()
+                            contentVersionsStatus.text = "Loaded ${versions.size} versions."
+                        }
+                    } catch (ex: Exception) {
+                        log("Content versions load failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            contentVersionsStatus.text = formatServiceError(ex, "Unable to load content versions.")
+                        }
+                    }
+                }.start()
+            }
+        }
+
+        fun activateSelectedContentVersion(mode: String) {
+            val selectedId = contentVersionSelectedId
+            if (selectedId == null) {
+                contentVersionsStatus.text = "Select a version first."
+                return
+            }
+            val selected = contentVersions.firstOrNull { it.id == selectedId } ?: run {
+                contentVersionsStatus.text = "Selected version is no longer available."
+                return
+            }
+            if (selected.state == "active") {
+                contentVersionsStatus.text = "Version ${selected.versionKey} is already active."
+                return
+            }
+            val isPublish = mode == "publish"
+            if (isPublish && selected.state == "retired") {
+                contentVersionsStatus.text = "Use Revert To for retired versions."
+                return
+            }
+            if (!isPublish && selected.state != "retired") {
+                contentVersionsStatus.text = "Use Publish for draft/validated versions."
+                return
+            }
+            withSession(onMissing = { contentVersionsStatus.text = "Please login first." }) { session ->
+                contentVersionsStatus.text = if (isPublish) {
+                    "Publishing ${selected.versionKey}..."
+                } else {
+                    "Reverting to ${selected.versionKey}..."
+                }
+                Thread {
+                    try {
+                        val result = backendClient.activateContentVersion(session.accessToken, clientVersion, selected.id)
+                        javax.swing.SwingUtilities.invokeLater {
+                            if (result.ok) {
+                                contentVersionsStatus.text = if (isPublish) {
+                                    "Published ${selected.versionKey}."
+                                } else {
+                                    "Reverted to ${selected.versionKey}."
+                                }
+                                loadContentVersions()
+                            } else {
+                                contentVersionsStatus.text = "Activation failed: ${result.issues.firstOrNull()?.message ?: "unknown issue"}"
+                            }
+                        }
+                    } catch (ex: Exception) {
+                        log("Content version activation failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            contentVersionsStatus.text = formatServiceError(ex, "Unable to activate selected version.")
+                        }
+                    }
+                }.start()
+            }
+        }
+
         val levelToolPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(8, 8)
             add(JPanel(BorderLayout(8, 0)).apply {
@@ -2655,6 +3797,163 @@ object LauncherMain {
             }, BorderLayout.CENTER)
         }
 
+        val assetEditorPanel = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(8, 8)
+            add(JPanel(BorderLayout(8, 0)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(6, 8, 6, 8)
+                )
+                add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                    isOpaque = false
+                    add(assetEditorVersionLabel)
+                    add(assetEditorReloadButton)
+                    add(assetEditorSaveLocalButton)
+                    add(assetEditorPublishButton)
+                    add(assetEditorBackButton)
+                }, BorderLayout.WEST)
+                add(UiScaffold.sectionLabel("Asset Editor (Admin)").apply {
+                    horizontalAlignment = SwingConstants.RIGHT
+                }, BorderLayout.EAST)
+            }, BorderLayout.NORTH)
+            add(JPanel(BorderLayout(8, 8)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(6, 6, 6, 6)
+                )
+                add(JPanel(BorderLayout(0, 6)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    preferredSize = Dimension(360, 0)
+                    minimumSize = Dimension(300, 0)
+                    add(assetEditorSearchField, BorderLayout.NORTH)
+                    add(assetEditorCardsScroll, BorderLayout.CENTER)
+                }, BorderLayout.WEST)
+                add(JPanel(BorderLayout(8, 8)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    add(assetEditorDetailTitle, BorderLayout.NORTH)
+                    add(JPanel(BorderLayout(8, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(assetEditorIconPreview, BorderLayout.WEST)
+                        add(ThemedScrollPane(assetEditorMetaArea).apply {
+                            border = themedTitledBorder("Item Details")
+                        }, BorderLayout.CENTER)
+                    }, BorderLayout.CENTER)
+                    add(assetEditorJsonScroll, BorderLayout.SOUTH)
+                }, BorderLayout.CENTER)
+                add(JPanel(BorderLayout(0, 6)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    preferredSize = Dimension(360, 0)
+                    minimumSize = Dimension(280, 0)
+                    add(assetEditorPendingScroll, BorderLayout.CENTER)
+                }, BorderLayout.EAST)
+                add(JPanel(BorderLayout()).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    add(assetEditorStatus, BorderLayout.SOUTH)
+                }, BorderLayout.SOUTH)
+            }, BorderLayout.CENTER)
+        }
+
+        val contentVersionsBodyLayout = CardLayout()
+        val contentVersionsBody = JPanel(contentVersionsBodyLayout).apply {
+            isOpaque = true
+            background = Color(24, 18, 15)
+        }
+        val contentVersionsPanel = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(8, 8)
+            add(JPanel(BorderLayout(8, 0)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(6, 8, 6, 8)
+                )
+                add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                    isOpaque = false
+                    add(contentVersionsReloadButton)
+                    add(contentVersionsPublishButton)
+                    add(contentVersionsRevertButton)
+                    add(contentVersionsCompareToggleButton)
+                    add(contentVersionsBackButton)
+                }, BorderLayout.WEST)
+                add(UiScaffold.sectionLabel("Content Versions (Admin)").apply {
+                    horizontalAlignment = SwingConstants.RIGHT
+                }, BorderLayout.EAST)
+            }, BorderLayout.NORTH)
+            add(JPanel(BorderLayout(8, 8)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(6, 6, 6, 6)
+                )
+                add(JPanel(BorderLayout(0, 6)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    preferredSize = Dimension(360, 0)
+                    minimumSize = Dimension(300, 0)
+                    add(contentVersionsSearchField, BorderLayout.NORTH)
+                    add(contentVersionsCardsScroll, BorderLayout.CENTER)
+                }, BorderLayout.WEST)
+
+                contentVersionsBody.add(JPanel(BorderLayout(8, 8)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    add(contentVersionsDetailTitle, BorderLayout.NORTH)
+                    add(ThemedScrollPane(contentVersionsDetailArea).apply {
+                        border = themedTitledBorder("Version Changes")
+                    }, BorderLayout.CENTER)
+                }, "details")
+
+                contentVersionsBody.add(JPanel(BorderLayout(8, 8)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    add(JPanel(GridLayout(2, 1, 0, 4)).apply {
+                        isOpaque = false
+                        add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                            isOpaque = false
+                            add(contentVersionsCompareSearchA.apply {
+                                preferredSize = Dimension(220, UiScaffold.fieldSize.height)
+                                minimumSize = preferredSize
+                            })
+                            add(contentVersionsCompareComboA)
+                        })
+                        add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                            isOpaque = false
+                            add(contentVersionsCompareSearchB.apply {
+                                preferredSize = Dimension(220, UiScaffold.fieldSize.height)
+                                minimumSize = preferredSize
+                            })
+                            add(contentVersionsCompareComboB)
+                            add(contentVersionsCompareRunButton)
+                        })
+                    }, BorderLayout.NORTH)
+                    add(JPanel(GridLayout(1, 2, 8, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(ThemedScrollPane(contentVersionsCompareAreaA).apply {
+                            border = themedTitledBorder("Left Version State")
+                        })
+                        add(ThemedScrollPane(contentVersionsCompareAreaB).apply {
+                            border = themedTitledBorder("Right Version State")
+                        })
+                    }, BorderLayout.CENTER)
+                    add(contentVersionsCompareSummary, BorderLayout.SOUTH)
+                }, "compare")
+
+                add(contentVersionsBody, BorderLayout.CENTER)
+                add(contentVersionsStatus, BorderLayout.SOUTH)
+            }, BorderLayout.CENTER)
+        }
+
         val playPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(8, 8)
             add(UiScaffold.sectionLabel("Game World"), BorderLayout.NORTH)
@@ -2672,7 +3971,15 @@ object LauncherMain {
             }, BorderLayout.SOUTH)
         }
         gameSceneContainer.add(playPanel, BorderLayout.CENTER)
-        levelSceneContainer.add(levelToolPanel, BorderLayout.CENTER)
+        val adminCardsLayout = CardLayout()
+        val adminCards = JPanel(adminCardsLayout).apply {
+            isOpaque = true
+            background = Color(24, 18, 15)
+            add(levelToolPanel, "level_tool")
+            add(assetEditorPanel, "asset_editor")
+            add(contentVersionsPanel, "content_versions")
+        }
+        levelSceneContainer.add(adminCards, BorderLayout.CENTER)
 
         menuCards.add(createCharacterPanel, "create_character")
         menuCards.add(selectCharacterPanel, "select_character")
@@ -2717,13 +4024,18 @@ object LauncherMain {
         }
 
         showCard = fun(card: String) {
-            val requiresAuth = card == "create_character" || card == "select_character" || card == "level_tool" || card == "play"
+            val requiresAuth = card == "create_character" ||
+                card == "select_character" ||
+                card == "level_tool" ||
+                card == "asset_editor" ||
+                card == "content_versions" ||
+                card == "play"
             if (requiresAuth && authSession == null) {
                 showCard("auth")
                 authStatus.text = " "
                 return
             }
-            if (card == "level_tool" && !isAdminAccount()) {
+            if ((card == "level_tool" || card == "asset_editor" || card == "content_versions") && !isAdminAccount()) {
                 selectStatus.text = "Admin access required."
                 showCard("select_character")
                 return
@@ -2745,11 +4057,12 @@ object LauncherMain {
                 gameSceneContainer.isVisible = true
                 levelSceneContainer.isVisible = false
                 accountTopBar.isVisible = false
-            } else if (card == "level_tool") {
+            } else if (card == "level_tool" || card == "asset_editor" || card == "content_versions") {
                 shellPanel.isVisible = false
                 gameSceneContainer.isVisible = false
                 levelSceneContainer.isVisible = true
                 accountTopBar.isVisible = false
+                adminCardsLayout.show(adminCards, card)
             } else {
                 shellPanel.isVisible = true
                 gameSceneContainer.isVisible = false
@@ -2799,6 +4112,13 @@ object LauncherMain {
                 refreshLevels(levelToolStatus) {
                     refreshLevelLoadCombo()
                 }
+            } else if (card == "asset_editor") {
+                loadAssetEditorDraft()
+            } else if (card == "content_versions") {
+                contentVersionsCompareMode = false
+                contentVersionsCompareToggleButton.text = "Compare View"
+                contentVersionsBodyLayout.show(contentVersionsBody, "details")
+                loadContentVersions()
             }
             if (card == "select_character" || card == "create_character" || card == "update") {
                 cardsLayout.show(menuCards, card)
@@ -2814,6 +4134,9 @@ object LauncherMain {
             updateStatus.text = "Checking for updates..."
             runUpdate(updateStatus, patchNotesPane, patchNotes, controls, autoRestartOnSuccess = true)
         }
+        levelEditorMenuItem.addActionListener { showCard("level_tool") }
+        assetEditorMenuItem.addActionListener { showCard("asset_editor") }
+        contentVersionsMenuItem.addActionListener { showCard("content_versions") }
 
         fun networkErrorMessage(ex: Exception): String? {
             val chain = generateSequence<Throwable>(ex) { it.cause }
@@ -2904,7 +4227,6 @@ object LauncherMain {
 
         tabCreate.addActionListener { showCard("create_character") }
         tabSelect.addActionListener { showCard("select_character") }
-        tabLevelTool.addActionListener { showCard("level_tool") }
         updateBackButton.addActionListener { showCard(lastAccountCard) }
         playBackToLobby.addActionListener {
             persistCurrentCharacterLocation()
@@ -2965,6 +4287,48 @@ object LauncherMain {
         levelToolWallButton.addActionListener { setLevelToolMode("paint", "wall_block") }
         levelToolTreeButton.addActionListener { setLevelToolMode("paint", "tree_oak") }
         levelToolCloudButton.addActionListener { setLevelToolMode("paint", "cloud_soft") }
+        assetEditorBackButton.addActionListener { showCard("select_character") }
+        assetEditorReloadButton.addActionListener { loadAssetEditorDraft() }
+        assetEditorSaveLocalButton.addActionListener { saveSelectedAssetEditorItemLocally() }
+        assetEditorPublishButton.addActionListener { publishAssetEditorLocalChanges() }
+        assetEditorSearchField.document.addDocumentListener(object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent?) {
+                renderAssetEditorCards()
+            }
+
+            override fun removeUpdate(e: DocumentEvent?) {
+                renderAssetEditorCards()
+            }
+
+            override fun changedUpdate(e: DocumentEvent?) {
+                renderAssetEditorCards()
+            }
+        })
+        contentVersionsBackButton.addActionListener { showCard("select_character") }
+        contentVersionsReloadButton.addActionListener { loadContentVersions() }
+        contentVersionsPublishButton.addActionListener { activateSelectedContentVersion("publish") }
+        contentVersionsRevertButton.addActionListener { activateSelectedContentVersion("revert") }
+        contentVersionsCompareToggleButton.addActionListener {
+            contentVersionsCompareMode = !contentVersionsCompareMode
+            contentVersionsCompareToggleButton.text = if (contentVersionsCompareMode) "Details View" else "Compare View"
+            contentVersionsBodyLayout.show(contentVersionsBody, if (contentVersionsCompareMode) "compare" else "details")
+        }
+        contentVersionsCompareRunButton.addActionListener { runContentVersionCompare() }
+        contentVersionsSearchField.document.addDocumentListener(object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent?) = renderContentVersionCards()
+            override fun removeUpdate(e: DocumentEvent?) = renderContentVersionCards()
+            override fun changedUpdate(e: DocumentEvent?) = renderContentVersionCards()
+        })
+        contentVersionsCompareSearchA.document.addDocumentListener(object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent?) = refreshCompareCombos()
+            override fun removeUpdate(e: DocumentEvent?) = refreshCompareCombos()
+            override fun changedUpdate(e: DocumentEvent?) = refreshCompareCombos()
+        })
+        contentVersionsCompareSearchB.document.addDocumentListener(object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent?) = refreshCompareCombos()
+            override fun removeUpdate(e: DocumentEvent?) = refreshCompareCombos()
+            override fun changedUpdate(e: DocumentEvent?) = refreshCompareCombos()
+        })
         levelToolClearButton.addActionListener {
             levelLayerCells(levelEditorActiveLayer).clear()
             levelEditorCanvas.repaint()
@@ -3143,7 +4507,6 @@ object LauncherMain {
             loadedCharacters = emptyList()
             availableLevels = emptyList()
             levelDetailsById.clear()
-            tabLevelTool.isVisible = false
             characterRowsPanel.removeAll()
             characterRowsPanel.revalidate()
             characterRowsPanel.repaint()
@@ -4345,6 +5708,53 @@ object LauncherMain {
                     description = "Starter sustain skill.",
                 ),
             ),
+            assets = listOf(
+                ContentAssetEntryView(
+                    key = "grass_tile",
+                    label = "Grass Tile",
+                    description = "Ground foliage tile for layer 0.",
+                    textKey = "asset.grass_tile",
+                    defaultLayer = 0,
+                    collidable = false,
+                    iconAssetKey = "grass_tile",
+                ),
+                ContentAssetEntryView(
+                    key = "wall_block",
+                    label = "Wall Block",
+                    description = "Solid collision wall for gameplay layer 1.",
+                    textKey = "asset.wall_block",
+                    defaultLayer = 1,
+                    collidable = true,
+                    iconAssetKey = "wall_block",
+                ),
+                ContentAssetEntryView(
+                    key = "tree_oak",
+                    label = "Oak Tree",
+                    description = "Tree obstacle used on gameplay layer 1.",
+                    textKey = "asset.tree_oak",
+                    defaultLayer = 1,
+                    collidable = true,
+                    iconAssetKey = "tree_oak",
+                ),
+                ContentAssetEntryView(
+                    key = "cloud_soft",
+                    label = "Soft Cloud",
+                    description = "Ambient weather overlay for layer 2.",
+                    textKey = "asset.cloud_soft",
+                    defaultLayer = 2,
+                    collidable = false,
+                    iconAssetKey = "cloud_soft",
+                ),
+                ContentAssetEntryView(
+                    key = "spawn_marker",
+                    label = "Spawn Marker",
+                    description = "Player spawn marker used by level editor.",
+                    textKey = "asset.spawn_marker",
+                    defaultLayer = 1,
+                    collidable = false,
+                    iconAssetKey = "spawn_marker",
+                ),
+            ),
             movementSpeed = 220.0,
             attackSpeedBase = 1.0,
             uiText = mapOf(
@@ -4364,6 +5774,7 @@ object LauncherMain {
         if (bootstrap.maxPerStat < 0) return false
         if (bootstrap.races.isEmpty() || bootstrap.backgrounds.isEmpty() || bootstrap.affiliations.isEmpty()) return false
         if (bootstrap.stats.isEmpty() || bootstrap.skills.isEmpty()) return false
+        if (bootstrap.assets.isEmpty()) return false
         return true
     }
 

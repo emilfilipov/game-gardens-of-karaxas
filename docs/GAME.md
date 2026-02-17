@@ -18,9 +18,10 @@ create/select characters, and enter gameplay sessions.
    - Register form always opens clean with hint text visible.
    - Register mode actions are `Register` and `Back` (returns to login mode).
 2. Enter account menu with persistent tab navigation (Create/Select).
-   - Top-right menu shows `Welcome [username].` and logged-in account actions.
+   - Top-right menu shows `Welcome username.` and logged-in account actions.
    - Admin-only menus/features are unlocked by the account's backend `is_admin` flag (not by hardcoded email).
-   - Authenticated tab order is `Character List` (left), `Create Character` (middle), `Levels` (right/admin-only).
+   - Authenticated tab order is `Character List` (left) and `Create Character` (right).
+   - Admin tools (`Level Editor`, `Asset Editor`, `Content Versions`) are opened from the top-right cog menu.
 3. Default post-login routing:
    - No characters: open Character Creation.
    - Has characters: open Character Selection.
@@ -43,6 +44,8 @@ create/select characters, and enter gameplay sessions.
 - Character selection screen.
 - In-game world screen.
 - Admin-only level builder screen (save/load named layered levels with spawn + tile/object layout).
+- Admin-only asset editor screen (searchable editable-content cards + large item editor panel + right-side staged-change queue with `Save Local` and `Publish Changes`).
+- Admin-only content versions screen (version history cards, active-version highlight, publish/revert controls, and side-by-side compare).
 - Shared menu/form controls use a consistent thin-border panel/button style over the same background key art.
 
 ## Character Direction
