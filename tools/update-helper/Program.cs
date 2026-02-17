@@ -29,7 +29,6 @@ internal static class Program
 
             Log(logFile, $"Repo={repoUrl}");
             Log(logFile, $"Prerelease={prerelease}");
-            Log(logFile, $"TokenPresent={ResolveToken(options).Length > 0}");
 
             var locator = VelopackLocator.CreateDefaultForPlatform(null);
             var mgr = new UpdateManager(repoUrl, options: null, locator: locator);
@@ -122,19 +121,6 @@ internal static class Program
         return 0;
     }
 
-    private static string ResolveToken(Options options)
-    {
-        if (!string.IsNullOrWhiteSpace(options.Token)) return options.Token;
-        if (!string.IsNullOrWhiteSpace(options.TokenFile) && File.Exists(options.TokenFile))
-        {
-            var content = File.ReadAllText(options.TokenFile).Trim();
-            if (!string.IsNullOrWhiteSpace(content)) return content;
-        }
-        var env = Environment.GetEnvironmentVariable("VELOPACK_TOKEN")
-                  ?? Environment.GetEnvironmentVariable("VELOPACK_GITHUB_TOKEN");
-        return env ?? string.Empty;
-    }
-
     private static void EmitDownloadMode(string? logFile, UpdateInfo info)
     {
         if (info.DeltasToTarget != null && info.DeltasToTarget.Length > 0)
@@ -166,12 +152,6 @@ internal static class Program
                 case "--repo-file":
                     options.RepoFile = NextValue(args, ref i);
                     break;
-                case "--token":
-                    options.Token = NextValue(args, ref i);
-                    break;
-                case "--token-file":
-                    options.TokenFile = NextValue(args, ref i);
-                    break;
                 case "--waitpid":
                     if (long.TryParse(NextValue(args, ref i), out var pid)) options.WaitPid = pid;
                     break;
@@ -200,8 +180,6 @@ internal static class Program
     {
         public string RepoUrl { get; set; } = string.Empty;
         public string RepoFile { get; set; } = string.Empty;
-        public string Token { get; set; } = string.Empty;
-        public string TokenFile { get; set; } = string.Empty;
         public long WaitPid { get; set; }
         public bool Prerelease { get; set; }
         public string[]? RestartArgs { get; set; }

@@ -81,7 +81,6 @@ This is the single source of truth for technical architecture, stack decisions, 
   - prefetches prior Velopack packages from GCS feed path before `vpk pack` so delta generation remains available across skipped versions.
   - uploads feed artifacts (`RELEASES`, `.nupkg`, setup exe) to GCS feed path and versioned archive path.
   - notifies backend release activation endpoint with new build/feed/notes metadata.
-  - supports temporary transition dual-publish to GitHub Releases (`KARAXAS_GITHUB_TRANSITION_RELEASE != false`) so legacy clients can receive one migration update.
 - Backend deploy workflow (`.github/workflows/deploy-backend.yml`):
   - triggers on backend non-markdown changes.
   - deploys backend to Cloud Run.
@@ -197,6 +196,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Update flow now uses status-text updates only (no visual progress bar), so updater state is communicated without extra bar controls.
 - Updater no-update terminal status is normalized to `Game is up to date.`.
 - Update helper applies Velopack updates in silent mode and is built as a windowless helper executable to reduce updater pop-up windows during apply/restart flow.
+- Launcher/update-helper no longer inject or resolve GitHub/Velopack repository tokens in client runtime update flow; update source is the backend-provided GCS feed URL.
 - Version/date is rendered in a centered footer on the launcher shell.
 
 ## Logging Strategy

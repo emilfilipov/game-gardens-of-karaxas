@@ -1,3 +1,4 @@
-- Expanded admin `Level Editor` and `Asset Editor` panels to use larger near-full-height layouts for more vertical workspace.
-- Refactored `Level Editor` to staged-change workflow with `Save Local` and `Publish Changes`, plus persistent local queue (`level_editor_local_draft.json`) and right-side pending-drafts panel.
-- Added `Level Editor` reload flow that restores staged drafts on entry/reload and keeps level list refresh synced with local pending state.
+- Removed GitHub-release transition logic from release automation; publishing is now GCS-only.
+- Removed GitHub release-note rendering/publish templates and scripts from the repository.
+- Removed updater token plumbing from launcher client and update-helper so client update flow no longer carries GitHub token/repository hooks.
+- Updated release-activation audit actor label from `github-actions` to generic `release-pipeline`.

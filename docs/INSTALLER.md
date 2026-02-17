@@ -29,8 +29,6 @@ Logs are stored under `<install_root>\logs` and include launcher/game/update log
 - Trigger: pushes to `main`/`master` excluding markdown-only and backend-only changes.
 - Publishes Velopack feed artifacts to GCS (feed path + version archive) and notifies backend release policy endpoint for forced-update gating (5-minute grace).
 - Release packaging prefetches existing GCS `.nupkg` artifacts so clients can still use delta updates when they skip several versions.
-- Optional transition mode can also publish one migration release to GitHub Releases (`KARAXAS_GITHUB_TRANSITION_RELEASE`), so legacy clients can auto-update into the GCS-fed build.
 
-## Notes on update tokens
-Prefer feed URLs that do not require embedding long-lived client secrets.
-If private-feed auth is required, keep tokens short-lived and avoid bundling permanent credentials in installer payload files.
+## Notes on update credentials
+Updater flow is designed for public-read GCS feed access and does not require embedding repository tokens in the game client.

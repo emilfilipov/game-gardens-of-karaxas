@@ -98,7 +98,7 @@ create/select characters, and enter gameplay sessions.
 - Release metadata and release notes are sourced from backend database records (not launcher-bundled static notes only).
 - Login is blocked for non-admin users until client build and client content version are aligned with currently published release policy.
 - On publish, non-admin players are forced out after grace window and returned to login, where they can choose when to click `Update & Restart`.
-- Update feed source is moving to GCS-backed Velopack hosting; a transition release can still publish to GitHub Releases once so existing clients can move forward without manual GCS download.
+- Update feed source is GCS-backed Velopack hosting.
 - Admin level editor now uses a larger, zoomed-out grid and shows a radar-ping marker at spawn position.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
 - Admin level editor now keeps `Reload`, `Load`, `Save Local`, `Publish Changes`, and `Back` in the top strip; the strip also contains the `Load Existing` dropdown and `Save Level` name box.

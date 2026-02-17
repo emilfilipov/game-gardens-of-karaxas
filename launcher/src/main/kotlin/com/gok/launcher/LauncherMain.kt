@@ -5455,14 +5455,6 @@ object LauncherMain {
                 val builder = ProcessBuilder(builderArgs)
                     .directory(root.toFile())
                     .redirectErrorStream(true)
-                val token = resolveUpdateToken(payloadRoot, root)
-                if (!token.isNullOrBlank()) {
-                    builder.environment()["VELOPACK_TOKEN"] = token
-                    builder.environment()["VELOPACK_GITHUB_TOKEN"] = token
-                    log("Update token loaded.")
-                } else {
-                    log("No update token found.")
-                }
                 val process = builder.start()
                 val outputLines = mutableListOf<String>()
                 process.inputStream.bufferedReader().useLines { lines ->
@@ -6064,27 +6056,6 @@ object LauncherMain {
                 status.text = "Applying update..."
             }
         }
-    }
-
-    private fun resolveUpdateToken(payloadRoot: Path, installRoot: Path): String? {
-        val env = System.getenv("VELOPACK_TOKEN")
-            ?: System.getenv("VELOPACK_GITHUB_TOKEN")
-        if (!env.isNullOrBlank()) return env.trim()
-
-        val candidates = listOf(
-            payloadRoot.resolve("update_token.txt"),
-            installRoot.resolve("update_token.txt")
-        )
-        for (path in candidates) {
-            if (!Files.exists(path)) continue
-            val token = try {
-                Files.readString(path).trim()
-            } catch (_: Exception) {
-                ""
-            }
-            if (token.isNotBlank()) return token
-        }
-        return null
     }
 
     private fun formatSpeed(bytesPerSecond: Long?): String? {

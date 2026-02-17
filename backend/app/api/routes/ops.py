@@ -38,7 +38,7 @@ async def activate(payload: ActivateReleaseRequest, db: Session = Depends(get_db
         build_release_notes=payload.build_release_notes,
         user_facing_notes=payload.user_facing_notes,
         grace_minutes=payload.grace_minutes,
-        updated_by="github-actions",
+        updated_by="release-pipeline",
     )
     await realtime_hub.notify_force_update(
         min_supported_version=policy.min_supported_version,
