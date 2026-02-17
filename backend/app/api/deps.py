@@ -13,6 +13,7 @@ from app.db.session import SessionLocal
 from app.models.release_policy import ReleasePolicy
 from app.models.session import UserSession
 from app.models.user import User
+from app.services.content import content_contract_signature
 from app.services.release_policy import ensure_release_policy, evaluate_version
 from app.services.session_drain import enforce_session_drain
 
@@ -42,6 +43,10 @@ def get_client_content_version(x_client_content_version: str | None = Header(def
     return x_client_content_version
 
 
+def get_client_content_contract(x_client_content_contract: str | None = Header(default=None)) -> str | None:
+    return x_client_content_contract
+
+
 def _unauthorized(message: str = "Authentication required") -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -54,6 +59,7 @@ def get_auth_context(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     client_version: str | None = Depends(get_client_version),
     client_content_version: str | None = Depends(get_client_content_version),
+    client_content_contract: str | None = Depends(get_client_content_contract),
 ) -> AuthContext:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise _unauthorized()
@@ -88,6 +94,19 @@ def get_auth_context(
                 "event_id": drain.event_id,
                 "reason_code": drain.reason_code,
                 "deadline": drain.deadline_at.isoformat() if drain.deadline_at else None,
+            },
+        )
+
+    server_contract = content_contract_signature()
+    normalized_contract = (client_content_contract or "").strip()
+    if normalized_contract and normalized_contract != server_contract and not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_426_UPGRADE_REQUIRED,
+            detail={
+                "message": "Content contract mismatch. Update required before login.",
+                "code": "content_contract_mismatch",
+                "server_content_contract": server_contract,
+                "client_content_contract": normalized_contract,
             },
         )
 

@@ -41,20 +41,40 @@ require_var() {
   fi
 }
 
+resolve_secret_or_env() {
+  local plain_name="$1"
+  local ref_name="$2"
+  local required="${3:-1}"
+  if [[ -n "${!ref_name:-}" ]]; then
+    printf 'secret:%s' "${!ref_name}"
+    return 0
+  fi
+  if [[ -n "${!plain_name:-}" ]]; then
+    printf 'env:%s' "${!plain_name}"
+    return 0
+  fi
+  if [[ "$required" == "1" ]]; then
+    echo "Missing required secret/input: ${plain_name} or ${ref_name}" >&2
+    exit 1
+  fi
+  printf ''
+}
+
 require_var PROJECT_ID
 require_var REGION
 require_var SERVICE_NAME
 require_var CLOUD_SQL_INSTANCE
 require_var AR_REPO
 require_var IMAGE_NAME
-require_var JWT_SECRET
-require_var OPS_API_TOKEN
 require_var DB_NAME
 require_var DB_USER
-require_var DB_PASSWORD
+
+JWT_SECRET_SOURCE="$(resolve_secret_or_env JWT_SECRET JWT_SECRET_SECRET_REF 1)"
+OPS_TOKEN_SOURCE="$(resolve_secret_or_env OPS_API_TOKEN OPS_API_TOKEN_SECRET_REF 1)"
+DB_PASSWORD_SOURCE="$(resolve_secret_or_env DB_PASSWORD DB_PASSWORD_SECRET_REF 1)"
 
 DB_PORT="${DB_PORT:-5432}"
-DB_SSLMODE="${DB_SSLMODE:-disable}"
+DB_SSLMODE="${DB_SSLMODE:-require}"
 DB_CONNECT_TIMEOUT="${DB_CONNECT_TIMEOUT:-5}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 JWT_ISSUER="${JWT_ISSUER:-karaxas}"
@@ -100,34 +120,63 @@ docker build -t "$IMAGE_URI" -f "${ROOT_DIR}/Dockerfile" "$REPO_ROOT"
 docker push "$IMAGE_URI"
 
 RUNTIME_VARS=(
-  "JWT_SECRET=${JWT_SECRET}"
   "JWT_ISSUER=${JWT_ISSUER}"
   "JWT_AUDIENCE=${JWT_AUDIENCE}"
   "JWT_ACCESS_TTL_MINUTES=${JWT_ACCESS_TTL_MINUTES}"
   "JWT_REFRESH_TTL_DAYS=${JWT_REFRESH_TTL_DAYS}"
-  "OPS_API_TOKEN=${OPS_API_TOKEN}"
   "VERSION_GRACE_MINUTES_DEFAULT=${VERSION_GRACE_MINUTES_DEFAULT}"
   "DB_HOST=${DB_HOST}"
   "DB_PORT=${DB_PORT}"
   "DB_NAME=${DB_NAME}"
   "DB_USER=${DB_USER}"
-  "DB_PASSWORD=${DB_PASSWORD}"
   "DB_SSLMODE=${DB_SSLMODE}"
   "DB_CONNECT_TIMEOUT=${DB_CONNECT_TIMEOUT}"
+  "PUBLISH_DRAIN_ENABLED=${PUBLISH_DRAIN_ENABLED:-true}"
+  "PUBLISH_DRAIN_MAX_CONCURRENT=${PUBLISH_DRAIN_MAX_CONCURRENT:-1}"
+  "CONTENT_FEATURE_PHASE=${CONTENT_FEATURE_PHASE:-drain_enforced}"
+  "SECURITY_FEATURE_PHASE=${SECURITY_FEATURE_PHASE:-hardened}"
+  "REQUEST_RATE_LIMIT_ENABLED=${REQUEST_RATE_LIMIT_ENABLED:-true}"
+  "CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}"
+  "MAX_REQUEST_BODY_BYTES=${MAX_REQUEST_BODY_BYTES:-1048576}"
 )
 
-RUNTIME_VARS_CSV="$(IFS=#; echo "${RUNTIME_VARS[*]}")"
 ENV_DELIM="^#^"
 
-gcloud run deploy "$SERVICE_NAME" \
-  --image "$IMAGE_URI" \
-  --region "$REGION" \
-  --platform managed \
-  --allow-unauthenticated \
-  --port 8080 \
-  --add-cloudsql-instances "$CLOUD_SQL_INSTANCE" \
-  --set-env-vars "${ENV_DELIM}${RUNTIME_VARS_CSV}" \
+RUNTIME_SECRETS=()
+if [[ "$JWT_SECRET_SOURCE" == secret:* ]]; then
+  RUNTIME_SECRETS+=("JWT_SECRET=${JWT_SECRET_SOURCE#secret:}")
+else
+  RUNTIME_VARS+=("JWT_SECRET=${JWT_SECRET_SOURCE#env:}")
+fi
+if [[ "$OPS_TOKEN_SOURCE" == secret:* ]]; then
+  RUNTIME_SECRETS+=("OPS_API_TOKEN=${OPS_TOKEN_SOURCE#secret:}")
+else
+  RUNTIME_VARS+=("OPS_API_TOKEN=${OPS_TOKEN_SOURCE#env:}")
+fi
+if [[ "$DB_PASSWORD_SOURCE" == secret:* ]]; then
+  RUNTIME_SECRETS+=("DB_PASSWORD=${DB_PASSWORD_SOURCE#secret:}")
+else
+  RUNTIME_VARS+=("DB_PASSWORD=${DB_PASSWORD_SOURCE#env:}")
+fi
+
+RUNTIME_VARS_CSV="$(IFS=#; echo "${RUNTIME_VARS[*]}")"
+DEPLOY_CMD=(
+  gcloud run deploy "$SERVICE_NAME"
+  --image "$IMAGE_URI"
+  --region "$REGION"
+  --platform managed
+  --allow-unauthenticated
+  --port 8080
+  --add-cloudsql-instances "$CLOUD_SQL_INSTANCE"
+  --set-env-vars "${ENV_DELIM}${RUNTIME_VARS_CSV}"
   --quiet
+)
+if [[ "${#RUNTIME_SECRETS[@]}" -gt 0 ]]; then
+  SECRETS_CSV="$(IFS=,; echo "${RUNTIME_SECRETS[*]}")"
+  DEPLOY_CMD+=(--set-secrets "$SECRETS_CSV")
+fi
+
+"${DEPLOY_CMD[@]}"
 
 SERVICE_URL="$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --format='get(status.url)')"
 echo "Cloud Run service deployed: ${SERVICE_NAME}"

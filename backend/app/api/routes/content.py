@@ -25,6 +25,7 @@ from app.services.content import (
     CONTENT_STATE_ACTIVE,
     CONTENT_STATE_RETIRED,
     activate_version,
+    content_contract_signature,
     create_draft_from_active,
     get_active_snapshot,
     get_content_version_domains,
@@ -33,6 +34,7 @@ from app.services.content import (
     upsert_version_bundle,
     validate_version,
 )
+from app.services.admin_audit import write_admin_audit
 from app.services.realtime import realtime_hub
 from app.services.release_policy import ensure_release_policy
 from app.services.session_drain import (
@@ -86,6 +88,25 @@ def _to_publish_drain_summary(row) -> ContentPublishDrainSummaryResponse:
     )
 
 
+def _ensure_content_phase_for_write(*, requires_drain: bool = False) -> None:
+    phase = (settings.content_feature_phase or "").strip().lower()
+    if phase in {"", "drain_enforced"}:
+        return
+    if phase == "snapshot_readonly":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": "Content writes are disabled in current rollout phase.", "code": "content_phase_readonly"},
+        )
+    if phase == "snapshot_runtime" and requires_drain:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Content activation is disabled until drain-enforced phase.",
+                "code": "content_phase_activation_disabled",
+            },
+        )
+
+
 async def _apply_publish_policy_and_drain(
     *,
     db: Session,
@@ -135,6 +156,7 @@ def bootstrap_content(db: Session = Depends(get_db)):
     snapshot = get_active_snapshot(db)
     return ContentBootstrapResponse(
         content_schema_version=CONTENT_SCHEMA_VERSION,
+        content_contract_signature=content_contract_signature(),
         content_version_id=snapshot.content_version_id,
         content_version_key=snapshot.content_version_key,
         fetched_at=snapshot.loaded_at,
@@ -179,10 +201,19 @@ def admin_create_content_version(
     context: AuthContext = Depends(require_admin_context),
     db: Session = Depends(get_db),
 ):
+    _ensure_content_phase_for_write()
     version = create_draft_from_active(
         db,
         created_by_user_id=context.user.id,
         note=payload.note,
+    )
+    write_admin_audit(
+        db,
+        actor=f"user:{context.user.id}",
+        action="content_version_create",
+        target_type="content_version",
+        target_id=str(version.id),
+        summary=f"Created draft {version.version_key}",
     )
     domains = get_content_version_domains(db, version.id)
     return _to_detail(version, domains)
@@ -196,6 +227,7 @@ def admin_upsert_content_bundle(
     context: AuthContext = Depends(require_admin_context),
     db: Session = Depends(get_db),
 ):
+    _ensure_content_phase_for_write()
     version = get_content_version_or_none(db, version_id)
     if version is None:
         raise HTTPException(
@@ -214,6 +246,14 @@ def admin_upsert_content_bundle(
         )
 
     issues = upsert_version_bundle(db, version=version, domain=domain.strip(), payload=payload.payload)
+    write_admin_audit(
+        db,
+        actor=f"user:{context.user.id}",
+        action="content_bundle_upsert",
+        target_type="content_version",
+        target_id=str(version.id),
+        summary=f"Domain={domain.strip()} issues={len(issues)}",
+    )
     refreshed = get_content_version_or_none(db, version_id)
     return ContentValidationResponse(
         ok=len(issues) == 0,
@@ -228,6 +268,7 @@ def admin_validate_content_version(
     context: AuthContext = Depends(require_admin_context),
     db: Session = Depends(get_db),
 ):
+    _ensure_content_phase_for_write()
     version = get_content_version_or_none(db, version_id)
     if version is None:
         raise HTTPException(
@@ -235,6 +276,14 @@ def admin_validate_content_version(
             detail={"message": "Content version not found", "code": "content_version_not_found"},
         )
     issues = validate_version(db, version)
+    write_admin_audit(
+        db,
+        actor=f"user:{context.user.id}",
+        action="content_version_validate",
+        target_type="content_version",
+        target_id=str(version.id),
+        summary=f"Issues={len(issues)}",
+    )
     refreshed = get_content_version_or_none(db, version_id) or version
     return ContentValidationResponse(
         ok=len(issues) == 0,
@@ -249,6 +298,7 @@ async def admin_activate_content_version(
     context: AuthContext = Depends(require_admin_context),
     db: Session = Depends(get_db),
 ):
+    _ensure_content_phase_for_write(requires_drain=True)
     try:
         ensure_publish_drain_capacity(db)
     except PublishDrainConflictError as exc:
@@ -273,6 +323,14 @@ async def admin_activate_content_version(
             content_note=refreshed.note or "",
             reason_code="content_publish",
         )
+    write_admin_audit(
+        db,
+        actor=f"user:{context.user.id}",
+        action="content_version_activate",
+        target_type="content_version",
+        target_id=str(version_id),
+        summary=f"Issues={len(issues)} state={refreshed.state}",
+    )
     return ContentValidationResponse(
         ok=len(issues) == 0,
         issues=[ContentValidationIssueResponse(domain=issue.domain, message=issue.message) for issue in issues],
@@ -285,6 +343,7 @@ async def admin_rollback_previous_version(
     context: AuthContext = Depends(require_admin_context),
     db: Session = Depends(get_db),
 ):
+    _ensure_content_phase_for_write(requires_drain=True)
     try:
         ensure_publish_drain_capacity(db)
     except PublishDrainConflictError as exc:
@@ -324,6 +383,14 @@ async def admin_rollback_previous_version(
             content_note=f"Rollback to {refreshed.version_key}",
             reason_code="content_rollback",
         )
+    write_admin_audit(
+        db,
+        actor=f"user:{context.user.id}",
+        action="content_version_rollback",
+        target_type="content_version",
+        target_id=str(previous.id),
+        summary=f"Issues={len(issues)} state={refreshed.state}",
+    )
     return ContentValidationResponse(
         ok=len(issues) == 0,
         issues=[ContentValidationIssueResponse(domain=issue.domain, message=issue.message) for issue in issues],

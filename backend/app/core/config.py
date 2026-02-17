@@ -19,6 +19,16 @@ class Settings(BaseSettings):
     content_feature_phase: str = "drain_enforced"
     security_feature_phase: str = "hardened"
     request_rate_limit_enabled: bool = True
+    cors_allowed_origins: str = ""
+    max_request_body_bytes: int = 1048576
+    auth_rate_limit_window_seconds: int = 60
+    auth_rate_limit_max_attempts_per_ip: int = 12
+    auth_rate_limit_max_attempts_per_account: int = 8
+    auth_rate_limit_lockout_seconds: int = 300
+    chat_write_rate_limit_window_seconds: int = 10
+    chat_write_rate_limit_max_per_ip: int = 40
+    chat_write_rate_limit_max_per_account: int = 30
+    chat_write_rate_limit_lockout_seconds: int = 30
 
     db_host: str
     db_port: int = 5432

@@ -3,12 +3,16 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import hashlib
+import json
+from time import perf_counter
 from threading import RLock
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.content import ContentBundle, ContentVersion
+from app.services.observability import record_snapshot_load_latency_ms
 
 CONTENT_SCHEMA_VERSION = 1
 CONTENT_STATE_DRAFT = "draft"
@@ -33,6 +37,14 @@ REQUIRED_DOMAINS = {
     CONTENT_DOMAIN_TUNING,
     CONTENT_DOMAIN_UI_TEXT,
 }
+
+CONTENT_CONTRACT_SPEC = {
+    "content_schema_version": CONTENT_SCHEMA_VERSION,
+    "required_domains": sorted(REQUIRED_DOMAINS),
+}
+CONTENT_CONTRACT_SIGNATURE = hashlib.sha256(
+    json.dumps(CONTENT_CONTRACT_SPEC, sort_keys=True, separators=(",", ":")).encode("utf-8")
+).hexdigest()
 
 DEFAULT_CONTENT_DOMAINS: dict[str, dict] = {
     CONTENT_DOMAIN_PROGRESSION: {
@@ -508,6 +520,7 @@ def _query_active_version(db: Session) -> ContentVersion | None:
 
 
 def ensure_content_seed(db: Session) -> ContentSnapshot:
+    started = perf_counter()
     active = _query_active_version(db)
     if active is None:
         active = ContentVersion(
@@ -566,10 +579,12 @@ def ensure_content_seed(db: Session) -> ContentSnapshot:
 
     snapshot = _build_snapshot(active, existing_domains)
     _set_cached_snapshot(snapshot)
+    record_snapshot_load_latency_ms((perf_counter() - started) * 1000.0)
     return snapshot
 
 
 def refresh_active_snapshot(db: Session) -> ContentSnapshot:
+    started = perf_counter()
     active = _query_active_version(db)
     if active is None:
         return ensure_content_seed(db)
@@ -579,6 +594,7 @@ def refresh_active_snapshot(db: Session) -> ContentSnapshot:
         return ensure_content_seed(db)
     snapshot = _build_snapshot(active, domains)
     _set_cached_snapshot(snapshot)
+    record_snapshot_load_latency_ms((perf_counter() - started) * 1000.0)
     return snapshot
 
 
@@ -588,6 +604,10 @@ def get_active_snapshot(db: Session, force_refresh: bool = False) -> ContentSnap
             if _cached_snapshot is not None:
                 return _cached_snapshot
     return refresh_active_snapshot(db)
+
+
+def content_contract_signature() -> str:
+    return CONTENT_CONTRACT_SIGNATURE
 
 
 def list_content_versions(db: Session) -> list[ContentVersion]:

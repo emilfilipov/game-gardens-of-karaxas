@@ -2,21 +2,22 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext, get_auth_context, get_db
-from app.core.security import TokenPayloadError, decode_access_token
 from app.db.session import SessionLocal
 from app.models.character import Character
 from app.models.chat import ChatChannel, ChatMember, ChatMessage
 from app.models.session import UserSession
 from app.models.user import User
 from app.schemas.chat import ChannelResponse, ChatMessageCreateRequest, ChatMessageResponse, DirectChannelRequest
+from app.services.rate_limit import CHAT_ACCOUNT_RULE, CHAT_IP_RULE, ensure_not_rate_limited, request_ip
 from app.services.realtime import ConnectionMeta, realtime_hub
 from app.services.release_policy import ensure_release_policy, evaluate_version
 from app.services.session_drain import enforce_session_drain
+from app.services.ws_ticket import WsTicketError, consume_ws_ticket
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -141,10 +142,13 @@ def list_messages(
 @router.post("/messages", response_model=ChatMessageResponse)
 async def create_message(
     payload: ChatMessageCreateRequest,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
     _require_selected_character(db, context.user.id)
+    ensure_not_rate_limited("chat_ip", f"ip:{request_ip(request)}", CHAT_IP_RULE)
+    ensure_not_rate_limited("chat_account", f"acct:{context.user.id}", CHAT_ACCOUNT_RULE)
     channel = db.get(ChatChannel, payload.channel_id)
     if channel is None or not _can_access_channel(db, context.user.id, channel):
         raise HTTPException(
@@ -182,25 +186,31 @@ async def create_message(
 
 @router.websocket("/ws")
 async def chat_ws(websocket: WebSocket):
-    token = websocket.query_params.get("token")
+    ws_ticket = websocket.query_params.get("ticket")
     channel_id_raw = websocket.query_params.get("channel_id", "1")
     client_version = websocket.query_params.get("client_version") or "0.0.0"
     client_content_version_key = websocket.query_params.get("client_content_version_key")
 
-    if token is None:
-        await websocket.close(code=4401, reason="Missing token")
+    if ws_ticket is None:
+        await websocket.close(code=4401, reason="Missing ticket")
         return
 
     try:
-        payload = decode_access_token(token)
-        user_id = int(payload["sub"])
-        session_id = str(payload["sid"])
         channel_id = int(channel_id_raw)
-    except (TokenPayloadError, ValueError):
-        await websocket.close(code=4401, reason="Invalid token")
+    except ValueError:
+        await websocket.close(code=4401, reason="Invalid channel")
         return
 
     db = SessionLocal()
+    try:
+        ticket_result = consume_ws_ticket(db, ws_ticket)
+        user_id = ticket_result.user_id
+        session_id = ticket_result.session_id
+    except WsTicketError:
+        await websocket.close(code=4401, reason="Invalid ticket")
+        db.close()
+        return
+
     try:
         session = db.get(UserSession, session_id)
         user = db.get(User, user_id)
@@ -289,6 +299,21 @@ async def chat_ws(websocket: WebSocket):
             if not content:
                 continue
 
+            try:
+                ensure_not_rate_limited("chat_ip", f"ip:{websocket.client.host if websocket.client else 'unknown'}", CHAT_IP_RULE)
+                ensure_not_rate_limited("chat_account", f"acct:{user_id}", CHAT_ACCOUNT_RULE)
+            except HTTPException as exc:
+                detail = exc.detail if isinstance(exc.detail, dict) else {}
+                await websocket.send_text(
+                    json.dumps(
+                        {
+                            "type": "error",
+                            "message": "rate_limited",
+                            "retry_after_seconds": int(detail.get("retry_after_seconds", 1)),
+                        }
+                    )
+                )
+                continue
             msg = ChatMessage(channel_id=channel_id, sender_user_id=user_id, content=content)
             db.add(msg)
             db.commit()

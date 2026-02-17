@@ -97,6 +97,7 @@ create/select characters, and enter gameplay sessions.
 - When no update is available, updater status reads `Game is up to date.`.
 - Release metadata and release notes are sourced from backend database records (not launcher-bundled static notes only).
 - Login is blocked for non-admin users until client build and client content version are aligned with currently published release policy.
+- Login is also blocked for non-admin users when client/backend content contract signatures diverge, preventing incompatible live-data schemas.
 - On publish, non-admin players are forced out after grace window and returned to login, where they can choose when to click `Update & Restart`.
 - Publish-triggered drain warnings are delivered live during active sessions and end in forced return to login for non-admin users at cutoff.
 - Update feed source is GCS-backed Velopack hosting.

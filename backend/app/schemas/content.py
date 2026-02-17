@@ -10,6 +10,7 @@ class ContentValidationIssueResponse(BaseModel):
 
 class ContentBootstrapResponse(BaseModel):
     content_schema_version: int
+    content_contract_signature: str
     content_version_id: int
     content_version_key: str
     fetched_at: datetime

@@ -35,3 +35,8 @@ class SessionResponse(BaseModel):
     is_admin: bool
     expires_at: datetime
     version_status: VersionStatus
+
+
+class WsTicketResponse(BaseModel):
+    ws_ticket: str
+    expires_at: datetime

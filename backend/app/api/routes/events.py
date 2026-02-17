@@ -5,35 +5,36 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
-from app.core.security import TokenPayloadError, decode_access_token
 from app.db.session import SessionLocal
 from app.models.session import UserSession
 from app.models.user import User
 from app.services.realtime import ConnectionMeta, realtime_hub
 from app.services.release_policy import ensure_release_policy, evaluate_version
 from app.services.session_drain import enforce_session_drain
+from app.services.ws_ticket import WsTicketError, consume_ws_ticket
 
 router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.websocket("/ws")
 async def events_ws(websocket: WebSocket):
-    token = websocket.query_params.get("token")
+    ws_ticket = websocket.query_params.get("ticket")
     client_version = websocket.query_params.get("client_version") or "0.0.0"
     client_content_version_key = websocket.query_params.get("client_content_version_key")
-    if token is None:
-        await websocket.close(code=4401, reason="Missing token")
-        return
-
-    try:
-        payload = decode_access_token(token)
-        user_id = int(payload["sub"])
-        session_id = str(payload["sid"])
-    except (TokenPayloadError, ValueError):
-        await websocket.close(code=4401, reason="Invalid token")
+    if ws_ticket is None:
+        await websocket.close(code=4401, reason="Missing ticket")
         return
 
     db: Session = SessionLocal()
+    try:
+        ticket_result = consume_ws_ticket(db, ws_ticket)
+        user_id = ticket_result.user_id
+        session_id = ticket_result.session_id
+    except WsTicketError:
+        await websocket.close(code=4401, reason="Invalid ticket")
+        db.close()
+        return
+
     try:
         session = db.get(UserSession, session_id)
         user = db.get(User, user_id)
@@ -119,4 +120,3 @@ async def events_ws(websocket: WebSocket):
     finally:
         await realtime_hub.disconnect(websocket)
         db.close()
-

@@ -3,11 +3,18 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import AuthContext, get_auth_context, get_client_content_version, get_client_version, get_db
+from app.api.deps import (
+    AuthContext,
+    get_auth_context,
+    get_client_content_contract,
+    get_client_content_version,
+    get_client_version,
+    get_db,
+)
 from app.core.config import settings
 from app.core.security import (
     create_access_token,
@@ -18,10 +25,19 @@ from app.core.security import (
 )
 from app.models.session import UserSession
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, SessionResponse
+from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, SessionResponse, WsTicketResponse
 from app.schemas.common import VersionStatus
+from app.services.content import content_contract_signature
+from app.services.rate_limit import (
+    AUTH_ACCOUNT_RULE,
+    AUTH_IP_RULE,
+    ensure_not_rate_limited,
+    rate_limiter,
+    request_ip,
+)
 from app.services.release_policy import ensure_release_policy, evaluate_version
 from app.services.session_drain import enforce_session_drain
+from app.services.ws_ticket import issue_ws_ticket
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -64,15 +80,39 @@ def _session_response(user: User, session: UserSession, version_status) -> Sessi
 @router.post("/register", response_model=SessionResponse)
 def register(
     payload: RegisterRequest,
+    request: Request,
     db: Session = Depends(get_db),
     client_version: str | None = Depends(get_client_version),
     client_content_version_key: str | None = Depends(get_client_content_version),
+    client_content_contract: str | None = Depends(get_client_content_contract),
 ):
+    ip_key = f"ip:{request_ip(request)}"
+    account_key = f"acct:{payload.email.lower()}"
+    ensure_not_rate_limited("auth_ip", ip_key, AUTH_IP_RULE)
+    ensure_not_rate_limited("auth_account", account_key, AUTH_ACCOUNT_RULE)
+
     exists = db.execute(select(User).where(User.email == payload.email.lower())).scalar_one_or_none()
     if exists is not None:
+        rate_limiter.record_failure("auth_ip", ip_key, AUTH_IP_RULE)
+        rate_limiter.record_failure("auth_account", account_key, AUTH_ACCOUNT_RULE)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"message": "Email already registered", "code": "email_conflict"},
+        )
+
+    normalized_contract = (client_content_contract or "").strip()
+    server_contract = content_contract_signature()
+    if normalized_contract and normalized_contract != server_contract:
+        rate_limiter.record_failure("auth_ip", ip_key, AUTH_IP_RULE)
+        rate_limiter.record_failure("auth_account", account_key, AUTH_ACCOUNT_RULE)
+        raise HTTPException(
+            status_code=status.HTTP_426_UPGRADE_REQUIRED,
+            detail={
+                "message": "Content contract mismatch. Update required before login.",
+                "code": "content_contract_mismatch",
+                "server_content_contract": server_contract,
+                "client_content_contract": normalized_contract,
+            },
         )
 
     user = User(
@@ -108,6 +148,8 @@ def register(
     )
     db.add(session)
     db.commit()
+    rate_limiter.reset("auth_ip", ip_key)
+    rate_limiter.reset("auth_account", account_key)
 
     response = _session_response(user, session, version_status)
     response.refresh_token = refresh_token
@@ -115,9 +157,21 @@ def register(
 
 
 @router.post("/login", response_model=SessionResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(
+    payload: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    client_content_contract: str | None = Depends(get_client_content_contract),
+):
+    ip_key = f"ip:{request_ip(request)}"
+    account_key = f"acct:{payload.email.lower()}"
+    ensure_not_rate_limited("auth_ip", ip_key, AUTH_IP_RULE)
+    ensure_not_rate_limited("auth_account", account_key, AUTH_ACCOUNT_RULE)
+
     user = db.execute(select(User).where(User.email == payload.email.lower())).scalar_one_or_none()
     if user is None or not verify_password(payload.password, user.password_hash):
+        rate_limiter.record_failure("auth_ip", ip_key, AUTH_IP_RULE)
+        rate_limiter.record_failure("auth_account", account_key, AUTH_ACCOUNT_RULE)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"message": "Invalid credentials", "code": "invalid_credentials"},
@@ -125,6 +179,18 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
     release_policy = ensure_release_policy(db)
     version_status = evaluate_version(release_policy, payload.client_version, payload.client_content_version_key)
+    normalized_contract = (client_content_contract or "").strip()
+    server_contract = content_contract_signature()
+    if normalized_contract and normalized_contract != server_contract and not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_426_UPGRADE_REQUIRED,
+            detail={
+                "message": "Content contract mismatch. Update required before login.",
+                "code": "content_contract_mismatch",
+                "server_content_contract": server_contract,
+                "client_content_contract": normalized_contract,
+            },
+        )
     if version_status.force_update and not user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_426_UPGRADE_REQUIRED,
@@ -147,6 +213,8 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     )
     db.add(session)
     db.commit()
+    rate_limiter.reset("auth_ip", ip_key)
+    rate_limiter.reset("auth_account", account_key)
 
     response = _session_response(user, session, version_status)
     response.refresh_token = refresh_token
@@ -154,7 +222,11 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=SessionResponse)
-def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
+def refresh(
+    payload: RefreshRequest,
+    db: Session = Depends(get_db),
+    client_content_contract: str | None = Depends(get_client_content_contract),
+):
     session = db.execute(
         select(UserSession).where(UserSession.refresh_token_hash == hash_token(payload.refresh_token))
     ).scalar_one_or_none()
@@ -192,6 +264,21 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
 
     release_policy = ensure_release_policy(db)
     version_status = evaluate_version(release_policy, payload.client_version, payload.client_content_version_key)
+    normalized_contract = (client_content_contract or "").strip()
+    server_contract = content_contract_signature()
+    if normalized_contract and normalized_contract != server_contract and not user.is_admin:
+        session.revoked_at = datetime.now(UTC)
+        db.add(session)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_426_UPGRADE_REQUIRED,
+            detail={
+                "message": "Content contract mismatch. Update required before login.",
+                "code": "content_contract_mismatch",
+                "server_content_contract": server_contract,
+                "client_content_contract": normalized_contract,
+            },
+        )
     if version_status.force_update and not user.is_admin:
         session.revoked_at = datetime.now(UTC)
         db.add(session)
@@ -227,6 +314,16 @@ def logout(context: AuthContext = Depends(get_auth_context), db: Session = Depen
         db.add(session)
         db.commit()
     return {"ok": True}
+
+
+@router.post("/ws-ticket", response_model=WsTicketResponse)
+def create_ws_ticket(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+    ticket, expires_at = issue_ws_ticket(
+        db,
+        user_id=context.user.id,
+        session_id=context.session.id,
+    )
+    return WsTicketResponse(ws_ticket=ticket, expires_at=expires_at)
 
 
 @router.get("/me")

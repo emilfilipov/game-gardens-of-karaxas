@@ -12,6 +12,7 @@ from app.models.character import Character
 from app.models.publish_drain import PublishDrainEvent, PublishDrainSessionAudit
 from app.models.session import UserSession
 from app.models.user import User
+from app.services.observability import record_forced_logout_event
 
 DRAIN_STATUS_DRAINING = "draining"
 DRAIN_STATUS_COMPLETED = "completed"
@@ -234,6 +235,9 @@ def finalize_publish_drain(db: Session, event_id: int, *, cutoff: datetime | Non
     event.cutoff_at = cutoff_at
     db.add(event)
     db.commit()
+    if revoked_count > 0:
+        for _ in range(revoked_count):
+            record_forced_logout_event()
     db.refresh(event)
     return event
 
@@ -287,6 +291,8 @@ def enforce_session_drain(db: Session, session: UserSession, user: User) -> Sess
             db.add(audit)
 
     db.commit()
+    if newly_revoked:
+        record_forced_logout_event()
     return SessionDrainDecision(
         force_logout=True,
         event_id=session.drain_event_id,

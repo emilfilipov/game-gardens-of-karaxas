@@ -288,6 +288,7 @@ object LauncherMain {
         var runtimeContent = runtimeContentState.bootstrap
         var hasValidContentSnapshot = runtimeContentState.validSnapshot
         var contentSnapshotSource = runtimeContentState.source
+        backendClient.setContentContractSignature(runtimeContent.contentContractSignature)
         fun contentText(textKey: String, fallback: String): String {
             val value = runtimeContent.uiText[textKey]?.trim().orEmpty()
             return if (value.isNotBlank()) value else fallback
@@ -3170,8 +3171,13 @@ object LauncherMain {
             realtimeEventClient?.stop()
             realtimeEventClient = RealtimeEventClient(
                 uriProvider = {
-                    backendClient.eventsWebSocketUri(
+                    val wsTicket = backendClient.issueWsTicket(
                         accessToken = session.accessToken,
+                        clientVersion = clientVersion,
+                        clientContentVersionKey = session.clientContentVersionKey,
+                    )
+                    backendClient.eventsWebSocketUri(
+                        wsTicket = wsTicket,
                         clientVersion = clientVersion,
                         clientContentVersionKey = session.clientContentVersionKey,
                     )
@@ -6167,6 +6173,7 @@ object LauncherMain {
     private fun embeddedContentBootstrap(): ContentBootstrapView {
         return ContentBootstrapView(
             contentSchemaVersion = 1,
+            contentContractSignature = "",
             contentVersionId = 0,
             contentVersionKey = "embedded_v1",
             fetchedAt = Instant.now().toString(),

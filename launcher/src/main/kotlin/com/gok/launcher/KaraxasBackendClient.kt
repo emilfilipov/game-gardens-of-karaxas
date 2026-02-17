@@ -147,6 +147,7 @@ data class ContentAssetEntryView(
 
 data class ContentBootstrapView(
     val contentSchemaVersion: Int,
+    val contentContractSignature: String = "",
     val contentVersionId: Int,
     val contentVersionKey: String,
     val fetchedAt: String,
@@ -286,6 +287,8 @@ class KaraxasBackendClient(
     private val mapper: ObjectMapper = jacksonObjectMapper(),
     private val httpClient: HttpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(),
 ) {
+    @Volatile private var contentContractSignatureHeader: String? = null
+
     companion object {
         private const val DEFAULT_CLOUD_BACKEND = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 
@@ -300,16 +303,33 @@ class KaraxasBackendClient(
 
     fun endpoint(): String = baseUrl
 
-    fun eventsWebSocketUri(accessToken: String, clientVersion: String, clientContentVersionKey: String): URI {
+    fun setContentContractSignature(signature: String?) {
+        contentContractSignatureHeader = signature?.trim()?.takeIf { it.isNotBlank() }
+    }
+
+    fun issueWsTicket(accessToken: String, clientVersion: String, clientContentVersionKey: String): String {
+        val response = request(
+            method = "POST",
+            path = "/auth/ws-ticket",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+            clientContentVersionKey = clientContentVersionKey,
+        )
+        ensureSuccess(response)
+        val node = mapper.readTree(response.body())
+        return node.path("ws_ticket").asText("").trim()
+    }
+
+    fun eventsWebSocketUri(wsTicket: String, clientVersion: String, clientContentVersionKey: String): URI {
         val wsBase = when {
             baseUrl.startsWith("https://", ignoreCase = true) -> "wss://${baseUrl.removePrefix("https://")}"
             baseUrl.startsWith("http://", ignoreCase = true) -> "ws://${baseUrl.removePrefix("http://")}"
             else -> baseUrl
         }
-        val encodedToken = URLEncoder.encode(accessToken, StandardCharsets.UTF_8)
+        val encodedToken = URLEncoder.encode(wsTicket, StandardCharsets.UTF_8)
         val encodedVersion = URLEncoder.encode(clientVersion, StandardCharsets.UTF_8)
         val encodedContent = URLEncoder.encode(clientContentVersionKey, StandardCharsets.UTF_8)
-        val path = "/events/ws?token=$encodedToken&client_version=$encodedVersion&client_content_version_key=$encodedContent"
+        val path = "/events/ws?ticket=$encodedToken&client_version=$encodedVersion&client_content_version_key=$encodedContent"
         return URI.create("$wsBase$path")
     }
 
@@ -424,6 +444,7 @@ class KaraxasBackendClient(
 
         return ContentBootstrapView(
             contentSchemaVersion = root.path("content_schema_version").asInt(1),
+            contentContractSignature = root.path("content_contract_signature").asText(""),
             contentVersionId = root.path("content_version_id").asInt(0),
             contentVersionKey = root.path("content_version_key").asText("unknown"),
             fetchedAt = root.path("fetched_at").asText(""),
@@ -1073,6 +1094,10 @@ class KaraxasBackendClient(
         }
         if (clientContentVersionKey != null) {
             builder.header("X-Client-Content-Version", clientContentVersionKey)
+        }
+        val contract = contentContractSignatureHeader
+        if (!contract.isNullOrBlank()) {
+            builder.header("X-Client-Content-Contract", contract)
         }
         if (accessToken != null) {
             builder.header("Authorization", "Bearer $accessToken")

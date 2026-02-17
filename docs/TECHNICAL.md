@@ -24,7 +24,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 ## Backend Service Shape (Current)
 - Single FastAPI service (modular monolith) with:
   - REST APIs for auth, lobby, characters, levels, chat, content, and ops.
-  - WebSocket endpoint for realtime chat/events.
+  - WebSocket endpoints for realtime chat/events secured by short-lived one-time ws tickets.
 - Chat endpoints are now character-gated: users must have an active selected character before chat access.
 - This keeps operational complexity low while preserving future split path (`api` + `realtime`) if scale requires it.
 
@@ -47,6 +47,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `content_bundles`: per-domain JSON payloads keyed by `content_version_id` + `domain`.
 - `publish_drain_events`: publish-triggered drain windows (actor, reason, deadline, targeted/persist/revoked counters, cutoff timestamp).
 - `publish_drain_session_audit`: per-session audit rows for drain persistence/despawn/revocation outcomes.
+- `ws_connection_tickets`: one-time websocket handshake credentials bound to authenticated sessions.
+- `admin_action_audit`: append-only audit records for privileged release/content actions.
 - `friendships`: friend graph.
 - `guilds`, `guild_members`: guild presence and rank scaffolding.
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
@@ -89,6 +91,9 @@ This is the single source of truth for technical architecture, stack decisions, 
   - triggers on backend non-markdown changes.
   - deploys backend to Cloud Run.
   - supports either GitHub-to-GCP WIF auth or service-account JSON auth (`GCP_SA_KEY_JSON`).
+- Security workflow (`.github/workflows/security-scan.yml`):
+  - scans backend dependencies with `pip-audit`.
+  - runs Trivy fs scan (vuln/misconfig/secret) and fails on high/critical findings.
 
 ## Launcher UI Structure Strategy
 - UI is organized with reusable screen scaffolds and layout tokens (`UiScaffold`) to keep alignment consistent across screens.
@@ -208,12 +213,20 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher logs to local files in install-root `logs/` (launcher, game, updater logs).
 - Backend logs to Cloud Logging via structured application logs.
 - Version/auth failures and force-update events are logged on backend.
+- Error responses include `X-Request-ID` so launcher/user reports can be correlated directly with backend logs.
 
 ## Security Baseline
 - Access token: JWT (short-lived).
 - Refresh/session token: stored as hash in DB.
 - Passwords: bcrypt hash via passlib.
 - Ops endpoint auth: `x-ops-token` header backed by `OPS_API_TOKEN` secret.
+- Websocket auth uses one-time short-lived ws tickets (`POST /auth/ws-ticket`) instead of bearer-token query params.
+- Backend returns sanitized error envelopes (with request id/path/timestamp) and no raw exception payload leakage.
+- Security middleware enforces secure response headers, optional CORS allowlist, and request-body size caps.
+- Auth/chat writes are guarded by per-IP/per-account rate limits with lockout/backoff.
+- DB transport defaults to `sslmode=require` unless explicitly overridden.
+- Deploy script supports Secret Manager references (`*_SECRET_REF`) for runtime secrets.
+- Privileged actions are persisted in immutable audit tables (`admin_action_audit`, publish-drain audit tables).
 
 ## Strategic Architecture Status
 ### 1) Layered World/Level Data (Implemented)
@@ -255,17 +268,22 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Audit tables capture publisher, reason/version keys, targeted sessions, persistence/despawn success counts, revocations, and cutoff time.
 - Emergency rollback is available via `POST /content/versions/rollback/previous`.
 
-### 4) Rollout/Hardening Approach (In Progress)
-- Completed phases:
-  - schema + read-only snapshot endpoints,
-  - character/progression/create-menu migration to snapshots.
-- Remaining phases:
-  - publish-drain enforcement and operational controls.
-- Guardrails:
-  - strict data validators and bounded ranges,
-  - feature flags for staged enablement,
-  - observability for content load latency, drain success rates, and forced logout counts.
-- Detailed implementation tasks and sequencing are tracked in `docs/TASKS.md` under `Strategic Plan (Execution Tracking)`.
+### 4) Rollout/Hardening Approach (Implemented Baseline)
+- Feature-phase controls are available via environment flags:
+  - `CONTENT_FEATURE_PHASE` (`snapshot_readonly`, `snapshot_runtime`, `drain_enforced`),
+  - `PUBLISH_DRAIN_ENABLED`,
+  - `REQUEST_RATE_LIMIT_ENABLED`.
+- Operational visibility endpoints:
+  - `GET /ops/release/feature-flags`
+  - `GET /ops/release/metrics`
+  - `GET /ops/release/admin-audit`
+- Content contract compatibility is signed and enforced:
+  - `/content/bootstrap` includes `content_contract_signature`,
+  - launcher forwards `X-Client-Content-Contract`,
+  - backend blocks non-admin auth on contract mismatch.
+- Runbooks and go/no-go checklists are documented in:
+  - `docs/OPERATIONS.md`
+  - `docs/SECURITY.md`.
 
 ## Documentation Rule
 This file is the single source of truth for technical information.

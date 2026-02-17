@@ -1,5 +1,7 @@
-- Added publish-drain orchestration for content/release activation with persisted drain windows, non-admin session draining, and cutoff revocation.
-- Added publish-drain audit schema (`publish_drain_events`, `publish_drain_session_audit`) plus admin audit API (`GET /content/publish-drains`).
-- Added realtime publish lifecycle events (`content_publish_started`, `content_publish_warning`, `content_publish_forced_logout`) and launcher-side event stream handling.
-- Added emergency rollback endpoint (`POST /content/versions/rollback/previous`) and max-concurrent drain lock protection.
-- Added publish-drain backend tests for non-admin draining, admin exemption, despawn persistence, cutoff enforcement, and overlap lock behavior.
+- Added publish-drain orchestration and audit schema for content/release activation, with non-admin session draining and forced logout cutoffs.
+- Added launcher realtime event-stream handling for publish warnings/forced logout and automatic return to auth after state-save.
+- Added rollout hardening controls and observability APIs (`/ops/release/feature-flags`, `/ops/release/metrics`, `/ops/release/admin-audit`).
+- Added signed content-contract compatibility flow (`content_contract_signature` + `X-Client-Content-Contract`) with backend mismatch enforcement.
+- Added security hardening: request-ID/sanitized errors, secure headers/CORS/body limits, auth/chat rate limiting, and one-time websocket tickets.
+- Added Secret Manager-ready deploy support (`*_SECRET_REF`) and CI vulnerability gates (`pip-audit` + Trivy workflow).
+- Added operational and security runbooks (`docs/OPERATIONS.md`, `docs/SECURITY.md`) plus stress-probe tooling for publish-drain validation.
