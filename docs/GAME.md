@@ -43,6 +43,7 @@ create/select characters, and enter gameplay sessions.
    - `Video` includes screen mode (`Borderless Fullscreen` / `Windowed`).
    - `Audio` includes mute toggle and master volume slider.
    - `Security` includes MFA setup/status/enable/disable for all users.
+   - MFA setup now displays a scannable QR code (plus copy secret/URI actions) for authenticator app onboarding.
 
 ## Required Frontend Screens
 - Combined authentication screen (login/register toggle in a single centered block) with integrated updater/release-notes panel.

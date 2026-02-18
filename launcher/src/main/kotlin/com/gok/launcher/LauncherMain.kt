@@ -2,6 +2,10 @@ package com.gok.launcher
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -20,6 +24,7 @@ import java.awt.GridLayout
 import java.awt.Insets
 import java.awt.Rectangle
 import java.awt.RenderingHints
+import java.awt.Toolkit
 import java.awt.image.BufferedImage
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
@@ -27,6 +32,7 @@ import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.awt.event.ActionEvent
 import java.awt.event.KeyEvent
+import java.awt.datatransfer.StringSelection
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -3569,6 +3575,103 @@ object LauncherMain {
             }
         }
 
+        fun renderMfaQrImage(content: String, size: Int = 240): BufferedImage? {
+            return try {
+                val hints = mapOf(
+                    EncodeHintType.MARGIN to 1,
+                    EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+                )
+                val matrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
+                BufferedImage(size, size, BufferedImage.TYPE_INT_RGB).apply {
+                    for (x in 0 until size) {
+                        for (y in 0 until size) {
+                            setRGB(
+                                x,
+                                y,
+                                if (matrix.get(x, y)) Color(25, 19, 15).rgb else THEME_TEXT_COLOR.rgb,
+                            )
+                        }
+                    }
+                }
+            } catch (ex: Exception) {
+                log("Failed to render MFA QR image.", ex)
+                null
+            }
+        }
+
+        fun copyTextToClipboard(value: String) {
+            try {
+                Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(value), null)
+            } catch (ex: Exception) {
+                log("Failed to copy MFA setup text to clipboard.", ex)
+            }
+        }
+
+        fun showMfaSetupDialog(secret: String, provisioningUri: String) {
+            val qrImage = renderMfaQrImage(provisioningUri)
+            val qrLabel = JLabel().apply {
+                horizontalAlignment = SwingConstants.CENTER
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(6, 6, 6, 6),
+                )
+                preferredSize = Dimension(254, 254)
+                minimumSize = preferredSize
+                background = THEME_TEXT_COLOR
+                isOpaque = true
+                if (qrImage != null) {
+                    icon = ImageIcon(qrImage)
+                    text = ""
+                } else {
+                    icon = null
+                    text = "QR unavailable"
+                    foreground = Color(58, 45, 35)
+                    font = UiScaffold.bodyFont
+                }
+            }
+            val infoArea = JTextArea(
+                "Scan this QR code with your authenticator app.\n\n" +
+                    "Secret:\n$secret\n\n" +
+                    "Provisioning URI:\n$provisioningUri"
+            ).apply {
+                isEditable = false
+                lineWrap = true
+                wrapStyleWord = true
+                foreground = THEME_TEXT_COLOR
+                background = Color(31, 24, 20)
+                font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+            }
+            val copySecretButton = buildMenuButton("Copy Secret", null, Dimension(140, 34), 12f).apply {
+                addActionListener { copyTextToClipboard(secret) }
+            }
+            val copyUriButton = buildMenuButton("Copy URI", null, Dimension(140, 34), 12f).apply {
+                addActionListener { copyTextToClipboard(provisioningUri) }
+            }
+            val content = JPanel(BorderLayout(10, 10)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+                add(qrLabel, BorderLayout.WEST)
+                add(ThemedScrollPane(infoArea).apply {
+                    preferredSize = Dimension(420, 254)
+                    border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+                }, BorderLayout.CENTER)
+                add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    add(copySecretButton)
+                    add(copyUriButton)
+                }, BorderLayout.SOUTH)
+            }
+            JOptionPane.showMessageDialog(
+                frame,
+                content,
+                "MFA Setup",
+                JOptionPane.PLAIN_MESSAGE,
+            )
+        }
+
         val settingsVideoPanel = UiScaffold.contentPanel().apply {
             layout = GridBagLayout()
             border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
@@ -3686,6 +3789,7 @@ object LauncherMain {
                             settingsMfaStatusLabel.text = "MFA: Secret configured, not enabled"
                             settingsMfaInfoArea.text =
                                 "Secret: ${setup.secret}\n\nProvisioning URI:\n${setup.provisioningUri}\n\nScan this in your authenticator app, then enter a code and click Enable MFA."
+                            showMfaSetupDialog(setup.secret, setup.provisioningUri)
                             settingsStatus.text = "MFA secret generated."
                         }
                     } catch (ex: Exception) {

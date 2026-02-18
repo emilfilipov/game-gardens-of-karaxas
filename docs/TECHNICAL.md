@@ -138,6 +138,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Video settings support `Borderless Fullscreen` and `Windowed` modes and apply immediately after save.
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
 - Security settings expose user MFA setup/status/enable/disable controls.
+- MFA setup now renders an in-launcher QR from backend `provisioning_uri` (ZXing) and provides copy actions for secret/URI fallback flows.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.
 - Stored auto-login refresh tokens are only used after an authenticated session updates settings, and are not consumed during app startup.
 - Cog dropdown also exposes a logged-in-only `Logout` action.
