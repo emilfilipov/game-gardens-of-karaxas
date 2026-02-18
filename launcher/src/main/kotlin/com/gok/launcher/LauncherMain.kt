@@ -500,12 +500,15 @@ object LauncherMain {
         fun applyWindowMode(mode: String) {
             val normalized = normalizeScreenMode(mode)
             val borderless = normalized == "borderless_fullscreen"
+            val desiredUndecorated = borderless
             val wasVisible = frame.isVisible
-            val needsDecorToggle = frame.isDisplayable && frame.isUndecorated == !borderless
+            val needsDecorToggle = frame.isDisplayable && frame.isUndecorated != desiredUndecorated
             if (needsDecorToggle) {
                 frame.dispose()
             }
-            frame.isUndecorated = borderless
+            if (!frame.isDisplayable || frame.isUndecorated != desiredUndecorated) {
+                frame.isUndecorated = desiredUndecorated
+            }
             if (needsDecorToggle && wasVisible) {
                 frame.isVisible = true
             }
@@ -5488,8 +5491,12 @@ object LauncherMain {
         }
         frame.pack()
         frame.isVisible = true
-        applyWindowMode(screenModeSetting)
         showCard("auth")
+        try {
+            applyWindowMode(screenModeSetting)
+        } catch (ex: Exception) {
+            log("Failed to apply startup window mode. Continuing in default mode.", ex)
+        }
         if (!hasValidContentSnapshot) {
             authStatus.text = contentText(
                 "ui.content.blocked_play",

@@ -108,6 +108,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - UI is organized with reusable screen scaffolds and layout tokens (`UiScaffold`) to keep alignment consistent across screens.
 - Screens are card-based (combined auth, character creation, character selection, update, play) instead of one-off ad hoc layouts.
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
+- Startup window-mode application now guards undecorated-frame transitions to avoid `IllegalComponentStateException` on already-displayable windows.
 - Launcher keeps the same full-screen background art image, but interactive UI chrome now uses lightweight shape-based rendering (thin borders + painted fills/gradients) instead of PNG-framed button/panel surfaces.
 - Launcher button styling is enforced through a shared `BasicButtonUI`-based theme path so all runtime buttons (auth, tabs, action rows, settings cog, and stat +/- controls) render consistently across platform look-and-feels.
 - Account tab active-state now uses button highlight styling (background/border emphasis) instead of relying on disabled/dimmed tab text.
