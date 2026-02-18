@@ -136,7 +136,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Video settings support `Borderless Fullscreen` and `Windowed` modes and apply immediately after save.
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
 - Security settings expose user MFA setup/status/enable/disable controls.
-- When auto-login is enabled, launcher attempts `POST /auth/refresh` during startup and clears invalid refresh tokens on 401/403.
+- Automatic login remains a persisted user setting, but startup auto-refresh is now gated by `GOK_ENABLE_STARTUP_AUTO_LOGIN=true` (disabled by default) to keep launch flow deterministic on auth/login screen.
+- When startup auto-login is enabled and refresh token auth fails, launcher clears invalid refresh tokens on 401/403.
 - Cog dropdown also exposes a logged-in-only `Logout` action.
 - Account menu is account-only (no chat/guild panels).
 - Account shell now keeps a persistent tab bar (Create/Select) visible across authenticated cards.

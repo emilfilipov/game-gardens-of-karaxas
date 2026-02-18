@@ -12,6 +12,7 @@ import java.awt.EventQueue
 import java.awt.Font
 import java.awt.Graphics
 import java.awt.Graphics2D
+import java.awt.GraphicsEnvironment
 import java.awt.GradientPaint
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
@@ -266,11 +267,11 @@ object LauncherMain {
         var lastEmail = launcherPrefs.lastEmail
         var autoLoginEnabled = launcherPrefs.autoLoginEnabled
         var autoLoginRefreshToken = launcherPrefs.autoLoginRefreshToken
-        var screenModeSetting = normalizeScreenMode(launcherPrefs.screenMode)
-        if (autoLoginEnabled) {
-            // Fail-safe: when auto-login is active, start in borderless mode to avoid trapped windowed state.
-            screenModeSetting = "borderless_fullscreen"
-        }
+        val startupAutoLoginEnabled = System.getenv("GOK_ENABLE_STARTUP_AUTO_LOGIN")
+            ?.trim()
+            ?.equals("true", ignoreCase = true) == true
+        // Startup default is always borderless fullscreen.
+        var screenModeSetting = "borderless_fullscreen"
         var audioMutedSetting = launcherPrefs.audioMuted
         var audioVolumeSetting = launcherPrefs.audioVolume.coerceIn(0, 100)
 
@@ -382,9 +383,6 @@ object LauncherMain {
         exitItem.addActionListener {
             frame.dispose()
             kotlin.system.exitProcess(0)
-        }
-        settingsButton.addActionListener {
-            settingsPopup.show(settingsButton, settingsButton.width - settingsPopup.preferredSize.width, settingsButton.height)
         }
 
         val centeredContent = JPanel(GridBagLayout()).apply { isOpaque = false }
@@ -516,6 +514,12 @@ object LauncherMain {
             }
             if (borderless) {
                 frame.extendedState = JFrame.NORMAL
+                val screenBounds = GraphicsEnvironment
+                    .getLocalGraphicsEnvironment()
+                    .defaultScreenDevice
+                    .defaultConfiguration
+                    .bounds
+                frame.setBounds(screenBounds)
                 frame.extendedState = frame.extendedState or JFrame.MAXIMIZED_BOTH
             } else {
                 frame.extendedState = JFrame.NORMAL
@@ -563,9 +567,6 @@ object LauncherMain {
         }
         settingsButton.addActionListener {
             updateSettingsMenuAccess()
-            if (authSession == null) {
-                return@addActionListener
-            }
             settingsPopup.show(settingsButton, settingsButton.width - settingsPopup.preferredSize.width, settingsButton.height)
         }
 
@@ -5492,7 +5493,7 @@ object LauncherMain {
         } else if (contentSnapshotSource == "cache") {
             authStatus.text = contentText("ui.content.cached", "Using cached content snapshot.")
         }
-        if (autoLoginEnabled && autoLoginRefreshToken.isNotBlank()) {
+        if (startupAutoLoginEnabled && autoLoginEnabled && autoLoginRefreshToken.isNotBlank()) {
             authStatus.text = "Attempting automatic login..."
             Thread {
                 try {
@@ -5516,6 +5517,9 @@ object LauncherMain {
                     }
                 }
             }.start()
+        } else if (autoLoginEnabled && autoLoginRefreshToken.isNotBlank()) {
+            authStatus.text = " "
+            log("Startup automatic login skipped (set GOK_ENABLE_STARTUP_AUTO_LOGIN=true to enable).")
         }
 
         frame.addWindowListener(object : WindowAdapter() {
