@@ -92,6 +92,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - ignores backend path changes so backend-only commits do not ship a launcher release.
   - prefetches prior Velopack packages from GCS feed path before `vpk pack` so delta generation remains available across skipped versions.
   - uploads feed artifacts (`RELEASES`, `.nupkg`, setup exe) to GCS feed path and versioned archive path.
+  - applies `Cache-Control: no-cache, max-age=0` metadata to mutable feed files (`RELEASES`, setup exe, portable zip, and feed JSON manifests) to prevent stale client/browser caching.
   - notifies backend release activation endpoint with new build/feed/notes metadata.
 - Backend deploy workflow (`.github/workflows/deploy-backend.yml`):
   - triggers on backend non-markdown changes.

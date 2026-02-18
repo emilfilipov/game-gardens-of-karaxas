@@ -165,7 +165,20 @@ jobs:
           $archivePrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/${{ steps.get-version.outputs.version }}"
           gsutil -m cp "releases/windows/*" "$feedPrefix/"
           gsutil -m cp "releases/windows/*" "$archivePrefix/"
-          gsutil setmeta -h "Cache-Control:no-cache, max-age=0" "$feedPrefix/RELEASES"
+          $mutableFeedObjects = @(
+            "RELEASES",
+            "assets.win.json",
+            "releases.win.json",
+            "GardensOfKaraxas-win-Setup.exe",
+            "GardensOfKaraxas-win-Portable.zip"
+          )
+          foreach ($name in $mutableFeedObjects) {
+            $target = "$feedPrefix/$name"
+            & gsutil -q stat $target
+            if ($LASTEXITCODE -eq 0) {
+              gsutil setmeta -h "Cache-Control:no-cache, max-age=0" $target
+            }
+          }
 
       - name: Notify Backend Release Activation
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
