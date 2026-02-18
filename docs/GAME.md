@@ -49,6 +49,7 @@ create/select characters, and enter gameplay sessions.
 
 ## Required Frontend Screens
 - Combined authentication screen (login/register toggle in a single centered block) with integrated updater/release-notes panel.
+  - Auth panel includes a direct `Exit` action so players can close the game without authenticating.
 - Account menu shell screen (Create/Select tabs).
 - Character creation screen.
 - Character selection screen.

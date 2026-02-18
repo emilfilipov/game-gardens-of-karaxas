@@ -1,3 +1,4 @@
 - Reworked Security MFA controls into a compact toggle flow (`MFA: ON/OFF`) with authenticator code input aligned in the same row.
 - Removed split enable/disable/refresh controls and applied a single OTP-confirmed toggle action for both states.
 - Revamped MFA QR enrollment window with full game-theme styling and simplified content (QR-first layout + copy secret/URI + close, no large text box).
+- Added an `Exit` button directly on the auth/login panel so users can close the client before login.

@@ -123,6 +123,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Cog dropdown menu items use a themed basic menu-item UI delegate so hover/selection highlights stay in-theme (no platform-default blue highlight bleed).
 - Cog dropdown includes a logged-in-only header line with account identity (`Welcome username.`).
 - Combined auth uses a single centered panel (no large shell frame on auth screen) with login/register toggle, centered fields, and bordered solid input styling.
+- Combined auth panel now includes a direct `Exit` button alongside login/register actions.
 - Register mode now uses `Register` + `Back` actions (instead of `Use Login`) for clearer return-to-login flow.
 - Pressing Enter in auth inputs submits login/register depending on current toggle mode.
 - Auth form pre-validates email/password/display-name constraints client-side to mirror backend schema and reduce avoidable 422 responses.

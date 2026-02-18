@@ -609,6 +609,7 @@ object LauncherMain {
         val authDisplayName = UiScaffold.ghostTextField("Display Name")
         val authSubmit = buildMenuButton("Login", rectangularButtonImage, Dimension(180, 42), 14f)
         val authToggleMode = buildMenuButton("Create Account", rectangularButtonImage, Dimension(180, 42), 13f)
+        val authExitButton = buildMenuButton("Exit", rectangularButtonImage, Dimension(150, 42), 13f)
         val authStatus = JLabel(" ", SwingConstants.CENTER).apply {
             foreground = textColor
             font = UiScaffold.bodyFont
@@ -3307,11 +3308,12 @@ object LauncherMain {
             add(authEmail, UiScaffold.gbc(1).apply { anchor = GridBagConstraints.CENTER })
             add(authPassword, UiScaffold.gbc(2).apply { anchor = GridBagConstraints.CENTER })
             add(authOtpCode, UiScaffold.gbc(3).apply { anchor = GridBagConstraints.CENTER })
-            add(JPanel(GridLayout(1, 2, 8, 0)).apply {
+            add(JPanel(GridLayout(1, 3, 8, 0)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
                 add(authSubmit)
                 add(authToggleMode)
+                add(authExitButton)
             }, UiScaffold.gbc(4).apply { anchor = GridBagConstraints.CENTER })
             add(authStatus, UiScaffold.gbc(5, weightX = 1.0, fill = GridBagConstraints.HORIZONTAL))
         }
@@ -5352,6 +5354,10 @@ object LauncherMain {
         authToggleMode.addActionListener {
             registerMode = !registerMode
             applyAuthMode()
+        }
+        authExitButton.addActionListener {
+            frame.dispose()
+            kotlin.system.exitProcess(0)
         }
 
         tabCreate.addActionListener { showCard("create_character") }
