@@ -1,3 +1,3 @@
-- Forced launcher startup default to borderless fullscreen to prevent persisted windowed-size lock-in.
-- Fixed cog menu dead-click state by removing auth-guard early return from the click handler.
-- Disabled startup auto-login by default (requires `GOK_ENABLE_STARTUP_AUTO_LOGIN=true`) so launcher consistently opens on auth screen.
+- Forced launcher startup into borderless fullscreen using display-device fullscreen/bounds fallback on Linux.
+- Disabled startup auto-login entirely so launcher always opens on the auth screen for manual login.
+- Kept cog menu interaction path single-bound so the top-right menu opens reliably after login.

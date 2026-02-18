@@ -99,7 +99,7 @@ create/select characters, and enter gameplay sessions.
 - Backend enforces release policy for both build version and content version with a grace window.
 - Current grace window target: 5 minutes before forced update lockout.
 - Optional automatic login is configured from in-session settings only (not from pre-login auth screen).
-- Startup automatic-login execution is disabled by default; it can be explicitly enabled for controlled environments.
+- Startup always opens on the authentication screen; players must explicitly log in each launch.
 - Pre-login updater access is embedded directly in the authentication screen (`Update & Restart` + compact release notes).
 - Updater access is no longer a lobby tab; authenticated users can still access updater from the top-right menu.
 - Updater progression is shown through status text messages in the update screen (no progress bar widget).

@@ -267,9 +267,6 @@ object LauncherMain {
         var lastEmail = launcherPrefs.lastEmail
         var autoLoginEnabled = launcherPrefs.autoLoginEnabled
         var autoLoginRefreshToken = launcherPrefs.autoLoginRefreshToken
-        val startupAutoLoginEnabled = System.getenv("GOK_ENABLE_STARTUP_AUTO_LOGIN")
-            ?.trim()
-            ?.equals("true", ignoreCase = true) == true
         // Startup default is always borderless fullscreen.
         var screenModeSetting = "borderless_fullscreen"
         var audioMutedSetting = launcherPrefs.audioMuted
@@ -512,16 +509,24 @@ object LauncherMain {
             if (needsDecorToggle && wasVisible) {
                 frame.isVisible = true
             }
+            val screenDevice = frame.graphicsConfiguration?.device
+                ?: GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice
             if (borderless) {
+                try {
+                    if (screenDevice.fullScreenWindow !== frame) {
+                        screenDevice.fullScreenWindow = frame
+                    }
+                } catch (_: Exception) {
+                    // Fallback to manual bounds/maximize path when fullscreen API is unsupported.
+                }
                 frame.extendedState = JFrame.NORMAL
-                val screenBounds = GraphicsEnvironment
-                    .getLocalGraphicsEnvironment()
-                    .defaultScreenDevice
-                    .defaultConfiguration
-                    .bounds
+                val screenBounds = screenDevice.defaultConfiguration.bounds
                 frame.setBounds(screenBounds)
                 frame.extendedState = frame.extendedState or JFrame.MAXIMIZED_BOTH
             } else {
+                if (screenDevice.fullScreenWindow === frame) {
+                    screenDevice.fullScreenWindow = null
+                }
                 frame.extendedState = JFrame.NORMAL
                 frame.minimumSize = Dimension(1280, 720)
                 frame.size = Dimension(1440, 810)
@@ -5493,33 +5498,9 @@ object LauncherMain {
         } else if (contentSnapshotSource == "cache") {
             authStatus.text = contentText("ui.content.cached", "Using cached content snapshot.")
         }
-        if (startupAutoLoginEnabled && autoLoginEnabled && autoLoginRefreshToken.isNotBlank()) {
-            authStatus.text = "Attempting automatic login..."
-            Thread {
-                try {
-                    val session = backendClient.refresh(autoLoginRefreshToken, clientVersion, runtimeContent.contentVersionKey)
-                    javax.swing.SwingUtilities.invokeLater {
-                        applyAuthenticatedSession(session)
-                    }
-                } catch (ex: Exception) {
-                    log("Automatic login failed against ${backendClient.endpoint()}", ex)
-                    val code = Regex("^(\\d{3}):").find(ex.message?.trim().orEmpty())
-                        ?.groupValues
-                        ?.getOrNull(1)
-                        ?.toIntOrNull()
-                    if (code == 401 || code == 403) {
-                        autoLoginRefreshToken = ""
-                        persistLauncherPrefs()
-                    }
-                    javax.swing.SwingUtilities.invokeLater {
-                        authStatus.text = formatAutoLoginError(ex)
-                        refreshReleaseSummaryForAuth()
-                    }
-                }
-            }.start()
-        } else if (autoLoginEnabled && autoLoginRefreshToken.isNotBlank()) {
+        if (autoLoginEnabled && autoLoginRefreshToken.isNotBlank()) {
             authStatus.text = " "
-            log("Startup automatic login skipped (set GOK_ENABLE_STARTUP_AUTO_LOGIN=true to enable).")
+            log("Startup automatic login disabled; waiting for manual login.")
         }
 
         frame.addWindowListener(object : WindowAdapter() {
