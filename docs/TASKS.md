@@ -115,3 +115,4 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-159 | ✅ | 3 | Enforced Secret Manager-first runtime secret injection in deploy flow (plain env fallback now explicit opt-in for local use only). |
 | GOK-MMO-160 | ✅ | 2 | Added executable rollback helper scripts for content and release policy rollback actions and expanded runbook coverage. |
 | GOK-MMO-161 | ✅ | 3 | Added immutable `security_event_audit` model, auth/session security event capture, ops query endpoint, and metrics aggregation wiring. |
+| GOK-MMO-162 | ✅ | 4 | Expanded account security and UX: MFA is now user-configurable (not admin-only) and launcher now ships a full in-session Settings screen with themed Video/Audio/Security tabs, immediate mode apply, and save/cancel unsaved-change confirmations. |

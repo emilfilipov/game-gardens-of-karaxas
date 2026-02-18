@@ -31,7 +31,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 ## Data Model (Current)
 - `users`: account identity.
   - Includes `is_admin` boolean for backend-authoritative admin gating.
-  - Includes admin MFA fields (`mfa_totp_secret`, `mfa_enabled`, `mfa_enabled_at`) for TOTP-based admin hardening.
+  - Includes account MFA fields (`mfa_totp_secret`, `mfa_enabled`, `mfa_enabled_at`) for TOTP-based user security hardening.
 - `user_sessions`: refresh/session records and client build/content version tracking.
   - Includes publish-drain state fields (`drain_state`, `drain_event_id`, `drain_deadline_at`, `drain_reason_code`) for non-admin forced relog orchestration.
   - Includes refresh-rotation replay detection fields (`previous_refresh_token_hash`, `refresh_rotated_at`).
@@ -124,13 +124,18 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Register mode now uses `Register` + `Back` actions (instead of `Use Login`) for clearer return-to-login flow.
 - Pressing Enter in auth inputs submits login/register depending on current toggle mode.
 - Auth form pre-validates email/password/display-name constraints client-side to mirror backend schema and reduce avoidable 422 responses.
+- Login form includes an optional MFA OTP field and forwards `otp_code` on login when provided.
 - Auth error mapping includes explicit UX strings for wrong credentials (`This account doesn't exist`) and common connectivity failures (offline, timeout, server unavailable, SSL errors).
 - Launcher persists lightweight auth preferences in `launcher_prefs.properties` under install root:
   - `last_email` for login prefill.
   - `auto_login_enabled` toggle.
   - `auto_login_refresh_token` for startup refresh-auth.
 - Login mode pre-fills `last_email`, while register mode is always reset to empty inputs so hint text remains visible.
-- Settings menu item in the cog dropdown is only available when authenticated; auto-login can only be configured there.
+- Settings menu item in the cog dropdown is only available when authenticated.
+- Authenticated settings now open as a full in-launcher screen (not a popup) with a sidebar tab layout (`Video`, `Audio`, `Security`), a large section panel, and explicit `Save`/`Cancel` confirmation flows.
+- Video settings support `Borderless Fullscreen` and `Windowed` modes and apply immediately after save.
+- Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
+- Security settings expose user MFA setup/status/enable/disable controls.
 - When auto-login is enabled, launcher attempts `POST /auth/refresh` during startup and clears invalid refresh tokens on 401/403.
 - Cog dropdown also exposes a logged-in-only `Logout` action.
 - Account menu is account-only (no chat/guild panels).
@@ -228,7 +233,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Access token: JWT (short-lived, HS256 via `PyJWT`).
 - Refresh/session token: stored as hash in DB with rotation and replay detection (reuse triggers bulk session revocation).
 - Passwords: bcrypt hash via passlib.
-- Admin auth hardening: TOTP-enabled admin MFA APIs plus shorter admin refresh-session TTL.
+- Account auth hardening: TOTP-enabled MFA APIs for all authenticated users plus shorter admin refresh-session TTL.
 - Ops endpoint auth: `x-ops-token` header backed by `OPS_API_TOKEN` secret.
 - Websocket auth uses one-time short-lived ws tickets (`POST /auth/ws-ticket`) instead of bearer-token query params.
 - Backend returns sanitized error envelopes (with request id/path/timestamp) and no raw exception payload leakage.

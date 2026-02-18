@@ -54,6 +54,7 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
+import javax.swing.JSlider
 import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.JToggleButton
@@ -95,7 +96,10 @@ object LauncherMain {
     private data class LauncherPrefs(
         val lastEmail: String = "",
         val autoLoginEnabled: Boolean = false,
-        val autoLoginRefreshToken: String = ""
+        val autoLoginRefreshToken: String = "",
+        val screenMode: String = "borderless_fullscreen",
+        val audioMuted: Boolean = false,
+        val audioVolume: Int = 80,
     )
 
     private data class RuntimeContentState(
@@ -251,10 +255,23 @@ object LauncherMain {
 
         val backendClient = KaraxasBackendClient.fromEnvironment()
         val jsonMapper = jacksonObjectMapper()
+        fun normalizeScreenMode(raw: String?): String {
+            return if (raw?.trim()?.equals("windowed", ignoreCase = true) == true) {
+                "windowed"
+            } else {
+                "borderless_fullscreen"
+            }
+        }
         var launcherPrefs = loadLauncherPrefs()
         var lastEmail = launcherPrefs.lastEmail
         var autoLoginEnabled = launcherPrefs.autoLoginEnabled
         var autoLoginRefreshToken = launcherPrefs.autoLoginRefreshToken
+        var screenModeSetting = normalizeScreenMode(launcherPrefs.screenMode)
+        var audioMutedSetting = launcherPrefs.audioMuted
+        var audioVolumeSetting = launcherPrefs.audioVolume.coerceIn(0, 100)
+        if (screenModeSetting == "windowed") {
+            frame.isUndecorated = false
+        }
 
         fun defaultClientVersion(): String {
             val source = loadPatchNotesSource()
@@ -477,12 +494,36 @@ object LauncherMain {
             background = Color(24, 18, 15)
         }
         shellPanel.add(menuCards, BorderLayout.CENTER)
+        var lastAccountCard = "select_character"
 
         val clientVersion = defaultClientVersion().ifBlank { "0.0.0" }
         var authSession: AuthSession? = null
         var realtimeEventClient: RealtimeEventClient? = null
         var releaseFeedUrlOverride: String? = null
         var remoteAuthReleaseNotesMarkdown: String? = null
+        fun applyWindowMode(mode: String) {
+            val normalized = normalizeScreenMode(mode)
+            val borderless = normalized == "borderless_fullscreen"
+            val wasVisible = frame.isVisible
+            val needsDecorToggle = frame.isDisplayable && frame.isUndecorated == !borderless
+            if (needsDecorToggle) {
+                frame.dispose()
+            }
+            frame.isUndecorated = borderless
+            if (needsDecorToggle && wasVisible) {
+                frame.isVisible = true
+            }
+            if (borderless) {
+                frame.extendedState = JFrame.NORMAL
+                frame.extendedState = frame.extendedState or JFrame.MAXIMIZED_BOTH
+            } else {
+                frame.extendedState = JFrame.NORMAL
+                frame.minimumSize = Dimension(1280, 720)
+                frame.size = Dimension(1440, 810)
+                frame.setLocationRelativeTo(null)
+            }
+            screenModeSetting = normalized
+        }
         fun persistLauncherPrefs() {
             if (!autoLoginEnabled) {
                 autoLoginRefreshToken = ""
@@ -490,7 +531,10 @@ object LauncherMain {
             launcherPrefs = LauncherPrefs(
                 lastEmail = lastEmail,
                 autoLoginEnabled = autoLoginEnabled,
-                autoLoginRefreshToken = autoLoginRefreshToken
+                autoLoginRefreshToken = autoLoginRefreshToken,
+                screenMode = screenModeSetting,
+                audioMuted = audioMutedSetting,
+                audioVolume = audioVolumeSetting,
             )
             saveLauncherPrefs(launcherPrefs)
         }
@@ -534,6 +578,7 @@ object LauncherMain {
 
         val authEmail = UiScaffold.ghostTextField("Email")
         val authPassword = UiScaffold.ghostPasswordField("Password")
+        val authOtpCode = UiScaffold.ghostTextField("MFA Code (if enabled)")
         val authDisplayName = UiScaffold.ghostTextField("Display Name")
         val authSubmit = buildMenuButton("Login", rectangularButtonImage, Dimension(180, 42), 14f)
         val authToggleMode = buildMenuButton("Create Account", rectangularButtonImage, Dimension(180, 42), 13f)
@@ -3091,10 +3136,12 @@ object LauncherMain {
             if (registerMode) {
                 authEmail.text = ""
                 authPassword.text = ""
+                authOtpCode.text = ""
                 authDisplayName.text = ""
             } else {
                 authEmail.text = lastEmail
                 authPassword.text = ""
+                authOtpCode.text = ""
                 authDisplayName.text = ""
             }
         }
@@ -3211,6 +3258,7 @@ object LauncherMain {
 
         fun applyAuthMode() {
             authDisplayName.isVisible = registerMode
+            authOtpCode.isVisible = !registerMode
             authSubmit.text = if (registerMode) "Register" else "Login"
             authToggleMode.text = if (registerMode) "Back" else "Create Account"
             authStatus.text = " "
@@ -3229,13 +3277,14 @@ object LauncherMain {
             add(authDisplayName, UiScaffold.gbc(0).apply { anchor = GridBagConstraints.CENTER })
             add(authEmail, UiScaffold.gbc(1).apply { anchor = GridBagConstraints.CENTER })
             add(authPassword, UiScaffold.gbc(2).apply { anchor = GridBagConstraints.CENTER })
+            add(authOtpCode, UiScaffold.gbc(3).apply { anchor = GridBagConstraints.CENTER })
             add(JPanel(GridLayout(1, 2, 8, 0)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
                 add(authSubmit)
                 add(authToggleMode)
-            }, UiScaffold.gbc(3).apply { anchor = GridBagConstraints.CENTER })
-            add(authStatus, UiScaffold.gbc(4, weightX = 1.0, fill = GridBagConstraints.HORIZONTAL))
+            }, UiScaffold.gbc(4).apply { anchor = GridBagConstraints.CENTER })
+            add(authStatus, UiScaffold.gbc(5, weightX = 1.0, fill = GridBagConstraints.HORIZONTAL))
         }
         val authBuildVersionLabel = JLabel("", SwingConstants.CENTER).apply {
             foreground = textColor
@@ -3378,42 +3427,309 @@ object LauncherMain {
         authUpdateStatus.text = "Ready."
         refreshReleaseSummaryForAuth()
         applyAuthMode()
-        fun openSettingsDialog() {
-            val session = authSession ?: run {
-                authStatus.text = "Login first to open settings."
-                return
-            }
-            val autoLoginCheck = JCheckBox("Enable automatic login on startup").apply {
-                isOpaque = false
-                foreground = textColor
-                font = UiScaffold.bodyFont
-                isSelected = autoLoginEnabled
-            }
-            val noteLabel = JLabel("Automatic login uses your current session token.", SwingConstants.LEFT).apply {
-                foreground = textColor
-                font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
-            }
-            val panel = JPanel(BorderLayout(0, 8)).apply {
-                isOpaque = false
-                border = BorderFactory.createEmptyBorder(8, 8, 2, 8)
-                add(autoLoginCheck, BorderLayout.NORTH)
-                add(noteLabel, BorderLayout.CENTER)
-            }
-            val result = JOptionPane.showConfirmDialog(
-                frame,
-                panel,
-                "Settings",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE
-            )
-            if (result == JOptionPane.OK_OPTION) {
-                autoLoginEnabled = autoLoginCheck.isSelected
-                autoLoginRefreshToken = if (autoLoginEnabled) session.refreshToken else ""
-                persistLauncherPrefs()
-                selectStatus.text = " "
+        val settingsStatus = JLabel(" ", SwingConstants.LEFT).apply {
+            foreground = textColor
+            font = UiScaffold.bodyFont
+        }
+        val settingsSaveButton = buildMenuButton("Save", rectangularButtonImage, Dimension(120, 38), 13f)
+        val settingsCancelButton = buildMenuButton("Cancel", rectangularButtonImage, Dimension(120, 38), 13f)
+        val settingsTabVideo = buildMenuButton("Video", rectangularButtonImage, Dimension(180, 42), 13f)
+        val settingsTabAudio = buildMenuButton("Audio", rectangularButtonImage, Dimension(180, 42), 13f)
+        val settingsTabSecurity = buildMenuButton("Security", rectangularButtonImage, Dimension(180, 42), 13f)
+        val settingsScreenModeChoice = ThemedComboBox<String>().apply {
+            addItem("Borderless Fullscreen")
+            addItem("Windowed")
+            preferredSize = Dimension(280, 34)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+            font = UiScaffold.bodyFont
+        }
+        val settingsAutoLoginCheck = JCheckBox("Enable automatic login on startup").apply {
+            isOpaque = false
+            foreground = textColor
+            font = UiScaffold.bodyFont
+            toolTipText = "Automatic login uses your current refresh token."
+        }
+        val settingsMuteAudioCheck = JCheckBox("Mute all audio").apply {
+            isOpaque = false
+            foreground = textColor
+            font = UiScaffold.bodyFont
+        }
+        val settingsVolumeSlider = JSlider(0, 100, 80).apply {
+            isOpaque = false
+            foreground = textColor
+            background = Color(24, 18, 15)
+            majorTickSpacing = 25
+            minorTickSpacing = 5
+            paintTicks = true
+            paintLabels = false
+        }
+        val settingsVolumeValue = JLabel("80%", SwingConstants.RIGHT).apply {
+            foreground = textColor
+            font = UiScaffold.bodyFont
+        }
+        val settingsMfaStatusLabel = JLabel("MFA: Loading...", SwingConstants.LEFT).apply {
+            foreground = textColor
+            font = UiScaffold.bodyFont
+        }
+        val settingsMfaOtpField = UiScaffold.ghostTextField("Authenticator code")
+        val settingsMfaSetupButton = buildMenuButton("Generate/Rotate Secret", rectangularButtonImage, Dimension(220, 36), 12f)
+        val settingsMfaEnableButton = buildMenuButton("Enable MFA", rectangularButtonImage, Dimension(140, 36), 12f)
+        val settingsMfaDisableButton = buildMenuButton("Disable MFA", rectangularButtonImage, Dimension(140, 36), 12f)
+        val settingsMfaRefreshButton = buildMenuButton("Refresh Status", rectangularButtonImage, Dimension(140, 36), 12f)
+        val settingsMfaInfoArea = JTextArea().apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            foreground = textColor
+            background = Color(31, 24, 20)
+            font = UiScaffold.bodyFont
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+            text = "Generate an MFA secret, scan it in your authenticator app, then enable MFA with a valid code."
+        }
+        var settingsDirty = false
+        val settingsContentLayout = CardLayout()
+        val settingsContentCards = JPanel(settingsContentLayout).apply {
+            isOpaque = true
+            background = Color(24, 18, 15)
+        }
+
+        fun selectedScreenModeValue(): String {
+            return if (settingsScreenModeChoice.selectedItem?.toString() == "Windowed") "windowed" else "borderless_fullscreen"
+        }
+
+        fun syncSettingsControlsFromSaved() {
+            settingsScreenModeChoice.selectedItem =
+                if (normalizeScreenMode(screenModeSetting) == "windowed") "Windowed" else "Borderless Fullscreen"
+            settingsAutoLoginCheck.isSelected = autoLoginEnabled
+            settingsMuteAudioCheck.isSelected = audioMutedSetting
+            settingsVolumeSlider.value = audioVolumeSetting.coerceIn(0, 100)
+            settingsVolumeValue.text = "${settingsVolumeSlider.value}%"
+            settingsDirty = false
+            settingsStatus.text = " "
+        }
+
+        fun settingsHasUnsavedChanges(): Boolean {
+            return selectedScreenModeValue() != normalizeScreenMode(screenModeSetting) ||
+                settingsAutoLoginCheck.isSelected != autoLoginEnabled ||
+                settingsMuteAudioCheck.isSelected != audioMutedSetting ||
+                settingsVolumeSlider.value != audioVolumeSetting.coerceIn(0, 100)
+        }
+
+        fun markSettingsDirty() {
+            settingsDirty = settingsHasUnsavedChanges()
+            if (settingsDirty) {
+                settingsStatus.text = "You have unsaved changes."
+            } else if (settingsStatus.text.trim() == "You have unsaved changes.") {
+                settingsStatus.text = " "
             }
         }
-        settingsItem.addActionListener { openSettingsDialog() }
+
+        fun refreshMfaStatusForSettings() {
+            withSession(onMissing = { settingsStatus.text = "Please login first." }) { session ->
+                settingsStatus.text = "Loading security settings..."
+                Thread {
+                    try {
+                        val status = backendClient.mfaStatus(session.accessToken, clientVersion)
+                        javax.swing.SwingUtilities.invokeLater {
+                            settingsMfaStatusLabel.text = when {
+                                status.enabled -> "MFA: Enabled"
+                                status.configured -> "MFA: Secret configured, not enabled"
+                                else -> "MFA: Not configured"
+                            }
+                            settingsStatus.text = "Security settings loaded."
+                        }
+                    } catch (ex: Exception) {
+                        log("MFA status fetch failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            settingsStatus.text = formatServiceError(ex, "Failed to load MFA status.")
+                        }
+                    }
+                }.start()
+            }
+        }
+
+        val settingsVideoPanel = UiScaffold.contentPanel().apply {
+            layout = GridBagLayout()
+            border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
+            add(UiScaffold.sectionLabel("Video"), UiScaffold.gbc(0))
+            add(UiScaffold.titledLabel("Screen Mode"), UiScaffold.gbc(1))
+            add(settingsScreenModeChoice, UiScaffold.gbc(2))
+            add(UiScaffold.titledLabel("Choose between borderless fullscreen and windowed mode."), UiScaffold.gbc(3))
+        }
+        val settingsAudioPanel = UiScaffold.contentPanel().apply {
+            layout = GridBagLayout()
+            border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
+            add(UiScaffold.sectionLabel("Audio"), UiScaffold.gbc(0))
+            add(settingsMuteAudioCheck, UiScaffold.gbc(1))
+            add(UiScaffold.titledLabel("Master Volume"), UiScaffold.gbc(2))
+            add(JPanel(BorderLayout(8, 0)).apply {
+                isOpaque = false
+                add(settingsVolumeSlider, BorderLayout.CENTER)
+                add(settingsVolumeValue, BorderLayout.EAST)
+            }, UiScaffold.gbc(3).apply { fill = GridBagConstraints.HORIZONTAL; weightx = 1.0 })
+        }
+        val settingsSecurityPanel = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(8, 8)
+            border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
+            add(UiScaffold.sectionLabel("Security"), BorderLayout.NORTH)
+            add(JPanel(GridBagLayout()).apply {
+                isOpaque = false
+                add(settingsMfaStatusLabel, UiScaffold.gbc(0).apply { fill = GridBagConstraints.HORIZONTAL; weightx = 1.0 })
+                add(settingsMfaOtpField, UiScaffold.gbc(1).apply { fill = GridBagConstraints.HORIZONTAL; weightx = 1.0 })
+                add(JPanel(GridLayout(2, 2, 8, 8)).apply {
+                    isOpaque = false
+                    add(settingsMfaRefreshButton)
+                    add(settingsMfaSetupButton)
+                    add(settingsMfaEnableButton)
+                    add(settingsMfaDisableButton)
+                }, UiScaffold.gbc(2).apply { fill = GridBagConstraints.HORIZONTAL; weightx = 1.0 })
+                add(ThemedScrollPane(settingsMfaInfoArea).apply {
+                    preferredSize = Dimension(0, 170)
+                    minimumSize = Dimension(0, 140)
+                    border = themedTitledBorder("MFA Setup")
+                }, UiScaffold.gbc(3).apply { fill = GridBagConstraints.BOTH; weightx = 1.0; weighty = 1.0 })
+            }, BorderLayout.CENTER)
+        }
+
+        settingsContentCards.add(settingsVideoPanel, "video")
+        settingsContentCards.add(settingsAudioPanel, "audio")
+        settingsContentCards.add(settingsSecurityPanel, "security")
+
+        val settingsNavButtons = linkedMapOf(
+            "video" to settingsTabVideo,
+            "audio" to settingsTabAudio,
+            "security" to settingsTabSecurity,
+        )
+        fun setActiveSettingsTab(tab: String) {
+            settingsNavButtons.forEach { (key, button) ->
+                val active = key == tab
+                button.putClientProperty("gokActiveTab", active)
+                button.repaint()
+            }
+            settingsContentLayout.show(settingsContentCards, tab)
+        }
+
+        val settingsPanel = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(10, 10)
+            add(UiScaffold.sectionLabel("Settings"), BorderLayout.NORTH)
+            add(JPanel(BorderLayout(10, 0)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                add(JPanel(GridBagLayout()).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+                    preferredSize = Dimension(230, 0)
+                    add(JPanel(GridLayout(3, 1, 0, 8)).apply {
+                        isOpaque = false
+                        border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+                        add(settingsTabVideo)
+                        add(settingsTabAudio)
+                        add(settingsTabSecurity)
+                    })
+                }, BorderLayout.WEST)
+                add(settingsContentCards, BorderLayout.CENTER)
+            }, BorderLayout.CENTER)
+            add(JPanel(BorderLayout(10, 0)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                add(settingsStatus, BorderLayout.CENTER)
+                add(JPanel(GridLayout(1, 2, 8, 0)).apply {
+                    isOpaque = false
+                    add(settingsSaveButton)
+                    add(settingsCancelButton)
+                }, BorderLayout.EAST)
+            }, BorderLayout.SOUTH)
+        }
+
+        syncSettingsControlsFromSaved()
+        setActiveSettingsTab("video")
+        settingsTabVideo.addActionListener { setActiveSettingsTab("video") }
+        settingsTabAudio.addActionListener { setActiveSettingsTab("audio") }
+        settingsTabSecurity.addActionListener { setActiveSettingsTab("security") }
+        settingsScreenModeChoice.addActionListener { markSettingsDirty() }
+        settingsAutoLoginCheck.addActionListener { markSettingsDirty() }
+        settingsMuteAudioCheck.addActionListener { markSettingsDirty() }
+        settingsVolumeSlider.addChangeListener {
+            settingsVolumeValue.text = "${settingsVolumeSlider.value}%"
+            markSettingsDirty()
+        }
+        settingsMfaRefreshButton.addActionListener { refreshMfaStatusForSettings() }
+        settingsMfaSetupButton.addActionListener {
+            withSession(onMissing = { settingsStatus.text = "Please login first." }) { session ->
+                settingsStatus.text = "Generating MFA secret..."
+                Thread {
+                    try {
+                        val setup = backendClient.mfaSetup(session.accessToken, clientVersion)
+                        javax.swing.SwingUtilities.invokeLater {
+                            settingsMfaStatusLabel.text = "MFA: Secret configured, not enabled"
+                            settingsMfaInfoArea.text =
+                                "Secret: ${setup.secret}\n\nProvisioning URI:\n${setup.provisioningUri}\n\nScan this in your authenticator app, then enter a code and click Enable MFA."
+                            settingsStatus.text = "MFA secret generated."
+                        }
+                    } catch (ex: Exception) {
+                        log("MFA setup failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            settingsStatus.text = formatServiceError(ex, "Failed to setup MFA.")
+                        }
+                    }
+                }.start()
+            }
+        }
+        settingsMfaEnableButton.addActionListener {
+            val otp = settingsMfaOtpField.text.trim()
+            if (otp.length !in 6..16) {
+                settingsStatus.text = "Enter a valid MFA code."
+                return@addActionListener
+            }
+            withSession(onMissing = { settingsStatus.text = "Please login first." }) { session ->
+                settingsStatus.text = "Enabling MFA..."
+                Thread {
+                    try {
+                        val status = backendClient.enableMfa(session.accessToken, clientVersion, otp)
+                        javax.swing.SwingUtilities.invokeLater {
+                            settingsMfaStatusLabel.text = if (status.enabled) "MFA: Enabled" else "MFA: Disabled"
+                            authSession = authSession?.copy(mfaEnabled = status.enabled)
+                            settingsMfaOtpField.text = ""
+                            settingsStatus.text = "MFA enabled."
+                        }
+                    } catch (ex: Exception) {
+                        log("MFA enable failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            settingsStatus.text = formatServiceError(ex, "Failed to enable MFA.")
+                        }
+                    }
+                }.start()
+            }
+        }
+        settingsMfaDisableButton.addActionListener {
+            val otp = settingsMfaOtpField.text.trim()
+            if (otp.length !in 6..16) {
+                settingsStatus.text = "Enter a valid MFA code."
+                return@addActionListener
+            }
+            withSession(onMissing = { settingsStatus.text = "Please login first." }) { session ->
+                settingsStatus.text = "Disabling MFA..."
+                Thread {
+                    try {
+                        val status = backendClient.disableMfa(session.accessToken, clientVersion, otp)
+                        javax.swing.SwingUtilities.invokeLater {
+                            settingsMfaStatusLabel.text = "MFA: Disabled"
+                            authSession = authSession?.copy(mfaEnabled = status.enabled)
+                            settingsMfaOtpField.text = ""
+                            settingsStatus.text = "MFA disabled."
+                        }
+                    } catch (ex: Exception) {
+                        log("MFA disable failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            settingsStatus.text = formatServiceError(ex, "Failed to disable MFA.")
+                        }
+                    }
+                }.start()
+            }
+        }
+        settingsItem.addActionListener { showCard("settings") }
         updateSettingsMenuAccess()
 
         val accountTabButtons = linkedMapOf(
@@ -4577,9 +4893,8 @@ object LauncherMain {
 
         menuCards.add(createCharacterPanel, "create_character")
         menuCards.add(selectCharacterPanel, "select_character")
+        menuCards.add(settingsPanel, "settings")
         menuCards.add(updateContent, "update")
-        var lastAccountCard = "select_character"
-
         var activeLog: Path? = null
         val controls = listOf(checkUpdates, launcherLogButton, gameLogButton, updateLogButton, clearLogsButton, showPatchNotesButton, authUpdateButton)
         checkUpdates.addActionListener {
@@ -4631,6 +4946,7 @@ object LauncherMain {
         showCard = fun(card: String) {
             val requiresAuth = card == "create_character" ||
                 card == "select_character" ||
+                card == "settings" ||
                 card == "level_tool" ||
                 card == "asset_editor" ||
                 card == "content_versions" ||
@@ -4685,7 +5001,7 @@ object LauncherMain {
                 lastAccountCard = card
                 accountTopBar.isVisible = true
                 setActiveAccountTab(card)
-            } else if (card == "update") {
+            } else if (card == "update" || card == "settings") {
                 accountTopBar.isVisible = false
             }
             if (card == "play" && selectedCharacterId == null) {
@@ -4726,6 +5042,10 @@ object LauncherMain {
                 refreshLevels(levelToolStatus) {
                     refreshLevelLoadCombo()
                 }
+            } else if (card == "settings") {
+                syncSettingsControlsFromSaved()
+                setActiveSettingsTab("video")
+                refreshMfaStatusForSettings()
             } else if (card == "asset_editor") {
                 loadAssetEditorDraft()
             } else if (card == "content_versions") {
@@ -4734,7 +5054,7 @@ object LauncherMain {
                 contentVersionsBodyLayout.show(contentVersionsBody, "details")
                 loadContentVersions()
             }
-            if (card == "select_character" || card == "create_character" || card == "update") {
+            if (card == "select_character" || card == "create_character" || card == "settings" || card == "update") {
                 cardsLayout.show(menuCards, card)
                 menuCards.revalidate()
                 menuCards.repaint()
@@ -4773,6 +5093,7 @@ object LauncherMain {
 
             val message = ex.message?.trim().orEmpty()
             val code = Regex("^(\\d{3}):").find(message)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            if (message.contains("invalid mfa code", ignoreCase = true)) return "Invalid MFA code."
             if (code == 401) return "This account doesn't exist."
             if (registering && code == 409) return "This account already exists."
             if (code == 426) return "A new version is required. Click Update & Restart when ready."
@@ -4793,6 +5114,7 @@ object LauncherMain {
         authSubmit.addActionListener {
             val email = authEmail.text.trim()
             val password = String(authPassword.password)
+            val otpCode = authOtpCode.text.trim()
             val displayName = authDisplayName.text.trim()
             val registering = registerMode
             if (email.isBlank() || password.isBlank()) {
@@ -4820,13 +5142,23 @@ object LauncherMain {
                 authStatus.text = "Display name must be 64 characters or fewer."
                 return@addActionListener
             }
+            if (!registering && otpCode.isNotBlank() && (otpCode.length < 6 || otpCode.length > 16)) {
+                authStatus.text = "MFA code must be between 6 and 16 characters."
+                return@addActionListener
+            }
             authStatus.text = if (registering) "Creating account..." else "Logging in..."
             Thread {
                 try {
                     val session = if (registering) {
                         backendClient.register(email, password, displayName, clientVersion, runtimeContent.contentVersionKey)
                     } else {
-                        backendClient.login(email, password, clientVersion, runtimeContent.contentVersionKey)
+                        backendClient.login(
+                            email = email,
+                            password = password,
+                            clientVersion = clientVersion,
+                            clientContentVersionKey = runtimeContent.contentVersionKey,
+                            otpCode = otpCode.ifBlank { null },
+                        )
                     }
                     javax.swing.SwingUtilities.invokeLater {
                         applyAuthenticatedSession(session)
@@ -4842,6 +5174,7 @@ object LauncherMain {
         }
         authEmail.addActionListener { authSubmit.doClick() }
         authPassword.addActionListener { authSubmit.doClick() }
+        authOtpCode.addActionListener { authSubmit.doClick() }
         authDisplayName.addActionListener { authSubmit.doClick() }
 
         authToggleMode.addActionListener {
@@ -4851,6 +5184,54 @@ object LauncherMain {
 
         tabCreate.addActionListener { showCard("create_character") }
         tabSelect.addActionListener { showCard("select_character") }
+        settingsSaveButton.addActionListener {
+            if (!settingsHasUnsavedChanges()) {
+                settingsStatus.text = "No changes to save."
+                return@addActionListener
+            }
+            val confirm = JOptionPane.showConfirmDialog(
+                frame,
+                "Are you sure you want to save these settings?",
+                "Save Settings",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+            )
+            if (confirm != JOptionPane.YES_OPTION) {
+                settingsStatus.text = "Save cancelled. Unsaved changes kept."
+                return@addActionListener
+            }
+            val session = authSession
+            autoLoginEnabled = settingsAutoLoginCheck.isSelected
+            autoLoginRefreshToken = when {
+                !autoLoginEnabled -> ""
+                session != null -> session.refreshToken
+                else -> autoLoginRefreshToken
+            }
+            screenModeSetting = selectedScreenModeValue()
+            audioMutedSetting = settingsMuteAudioCheck.isSelected
+            audioVolumeSetting = settingsVolumeSlider.value.coerceIn(0, 100)
+            persistLauncherPrefs()
+            applyWindowMode(screenModeSetting)
+            settingsDirty = false
+            settingsStatus.text = "Settings saved."
+        }
+        settingsCancelButton.addActionListener {
+            if (settingsHasUnsavedChanges()) {
+                val confirm = JOptionPane.showConfirmDialog(
+                    frame,
+                    "You have unsaved changes. Are you sure you want to exit the menu?",
+                    "Discard Changes",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                )
+                if (confirm != JOptionPane.YES_OPTION) {
+                    settingsStatus.text = "Unsaved changes kept."
+                    return@addActionListener
+                }
+            }
+            syncSettingsControlsFromSaved()
+            showCard(lastAccountCard)
+        }
         updateBackButton.addActionListener { showCard(lastAccountCard) }
         playBackToLobby.addActionListener {
             persistCurrentCharacterLocation()
@@ -5089,8 +5470,8 @@ object LauncherMain {
             applyDialogIcon(images)
         }
         frame.pack()
-        frame.extendedState = frame.extendedState or JFrame.MAXIMIZED_BOTH
         frame.isVisible = true
+        applyWindowMode(screenModeSetting)
         showCard("auth")
         if (!hasValidContentSnapshot) {
             authStatus.text = contentText(
@@ -6402,6 +6783,9 @@ object LauncherMain {
                 properties.load(input)
             }
             val enabled = properties.getProperty("auto_login_enabled", "false").equals("true", ignoreCase = true)
+            val screenMode = properties.getProperty("screen_mode", "borderless_fullscreen").trim().ifBlank { "borderless_fullscreen" }
+            val audioMuted = properties.getProperty("audio_muted", "false").equals("true", ignoreCase = true)
+            val audioVolume = properties.getProperty("audio_volume", "80").trim().toIntOrNull()?.coerceIn(0, 100) ?: 80
             LauncherPrefs(
                 lastEmail = properties.getProperty("last_email", "").trim(),
                 autoLoginEnabled = enabled,
@@ -6409,7 +6793,10 @@ object LauncherMain {
                     properties.getProperty("auto_login_refresh_token", "").trim()
                 } else {
                     ""
-                }
+                },
+                screenMode = screenMode,
+                audioMuted = audioMuted,
+                audioVolume = audioVolume,
             )
         } catch (_: Exception) {
             LauncherPrefs()
@@ -6424,6 +6811,9 @@ object LauncherMain {
             properties.setProperty("last_email", prefs.lastEmail)
             properties.setProperty("auto_login_enabled", prefs.autoLoginEnabled.toString())
             properties.setProperty("auto_login_refresh_token", refreshToken)
+            properties.setProperty("screen_mode", prefs.screenMode)
+            properties.setProperty("audio_muted", prefs.audioMuted.toString())
+            properties.setProperty("audio_volume", prefs.audioVolume.coerceIn(0, 100).toString())
             Files.createDirectories(path.parent)
             Files.newOutputStream(
                 path,

@@ -1,7 +1,4 @@
-- Implemented auth/security hardening: refresh-token replay detection with bulk session revocation, immutable security-event audit logging, and new ops security-audit query endpoint.
-- Added admin MFA/TOTP APIs (`setup`, `enable`, `disable`, `status`) plus shorter admin refresh-session TTL policy support.
-- Updated content publish flow so admin content publishes/rollbacks also advance a logical release build marker while preserving content-first forced relog drain behavior.
-- Added deep backend health endpoint (`/health/deep`) and CI post-deploy smoke gate (`/health` + `/health/deep`) in backend deployment workflow.
-- Migrated CI cloud auth paths to WIF-only and hardened deploy secret handling toward Secret Manager references.
-- Added operational automation scripts for Cloud SQL backup/restore drills, monitoring alert bootstrap, Cloud Armor baseline setup, and rollback helpers.
-- Updated launcher updater behavior to restart in forced-update flows even when no binary package delta exists, ensuring content snapshot resync after admin publish logout flows.
+- Expanded MFA from admin-only to all authenticated users with user-facing API routes (`/auth/mfa/status`, `/auth/mfa/setup`, `/auth/mfa/enable`, `/auth/mfa/disable`) and backward-compatible admin aliases.
+- Login now supports optional MFA OTP submission (`otp_code`) and enforces MFA for any account that has MFA enabled.
+- Replaced placeholder settings popup with a full in-launcher Settings screen (Video/Audio/Security sidebar tabs + central panel) available after login.
+- Added save/cancel confirmation flows for settings changes, immediate screen-mode apply (`Borderless Fullscreen`/`Windowed`), persisted audio preferences, and in-settings MFA management UI.

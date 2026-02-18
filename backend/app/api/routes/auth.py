@@ -14,7 +14,6 @@ from app.api.deps import (
     get_client_content_version,
     get_client_version,
     get_db,
-    require_admin_context,
 )
 from app.core.config import settings
 from app.core.security import (
@@ -30,10 +29,10 @@ from app.core.security import (
 from app.models.session import UserSession
 from app.models.user import User
 from app.schemas.auth import (
-    AdminMfaSetupResponse,
-    AdminMfaStatusResponse,
-    AdminMfaToggleRequest,
     LoginRequest,
+    MfaSetupResponse,
+    MfaStatusResponse,
+    MfaToggleRequest,
     RefreshRequest,
     RegisterRequest,
     SessionResponse,
@@ -98,9 +97,7 @@ def _refresh_ttl_days(user: User) -> int:
     return max(1, int(settings.jwt_refresh_ttl_days))
 
 
-def _assert_admin_mfa(user: User, otp_code: str | None) -> None:
-    if not user.is_admin:
-        return
+def _assert_user_mfa(user: User, otp_code: str | None) -> None:
     if not user.mfa_enabled:
         return
     if not user.mfa_totp_secret or not verify_totp_code(user.mfa_totp_secret, otp_code):
@@ -279,7 +276,7 @@ def login(
             detail={"message": "Invalid credentials", "code": "invalid_credentials"},
         )
     try:
-        _assert_admin_mfa(user, payload.otp_code)
+        _assert_user_mfa(user, payload.otp_code)
     except HTTPException:
         rate_limiter.record_failure("auth_ip", ip_key, AUTH_IP_RULE)
         rate_limiter.record_failure("auth_account", account_key, AUTH_ACCOUNT_RULE)
@@ -603,23 +600,30 @@ def me(context: AuthContext = Depends(get_auth_context)):
     }
 
 
-@router.get("/admin/mfa/status", response_model=AdminMfaStatusResponse)
-def admin_mfa_status(context: AuthContext = Depends(require_admin_context)):
-    secret = (context.user.mfa_totp_secret or "").strip()
-    return AdminMfaStatusResponse(
-        enabled=context.user.mfa_enabled,
-        configured=bool(secret),
-    )
-
-
-@router.post("/admin/mfa/setup", response_model=AdminMfaSetupResponse)
-def admin_mfa_setup(context: AuthContext = Depends(require_admin_context), db: Session = Depends(get_db)):
+def _load_context_user(context: AuthContext, db: Session) -> User:
     user = db.get(User, context.user.id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"message": "User not found", "code": "user_not_found"},
         )
+    return user
+
+
+@router.get("/mfa/status", response_model=MfaStatusResponse)
+@router.get("/admin/mfa/status", response_model=MfaStatusResponse, include_in_schema=False)
+def mfa_status(context: AuthContext = Depends(get_auth_context)):
+    secret = (context.user.mfa_totp_secret or "").strip()
+    return MfaStatusResponse(
+        enabled=context.user.mfa_enabled,
+        configured=bool(secret),
+    )
+
+
+@router.post("/mfa/setup", response_model=MfaSetupResponse)
+@router.post("/admin/mfa/setup", response_model=MfaSetupResponse, include_in_schema=False)
+def mfa_setup(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+    user = _load_context_user(context, db)
     secret = create_totp_secret()
     user.mfa_totp_secret = secret
     user.mfa_enabled = False
@@ -627,32 +631,28 @@ def admin_mfa_setup(context: AuthContext = Depends(require_admin_context), db: S
     db.add(user)
     write_security_event(
         db,
-        event_type="admin_mfa_secret_rotated",
+        event_type="mfa_secret_rotated",
         severity="warning",
         actor_user_id=user.id,
         session_id=context.session.id,
         detail={"email": user.email},
     )
     db.commit()
-    return AdminMfaSetupResponse(
+    return MfaSetupResponse(
         enabled=False,
         secret=secret,
         provisioning_uri=build_totp_provisioning_uri(secret=secret, account_name=user.email),
     )
 
 
-@router.post("/admin/mfa/enable", response_model=AdminMfaStatusResponse)
-def admin_mfa_enable(
-    payload: AdminMfaToggleRequest,
-    context: AuthContext = Depends(require_admin_context),
+@router.post("/mfa/enable", response_model=MfaStatusResponse)
+@router.post("/admin/mfa/enable", response_model=MfaStatusResponse, include_in_schema=False)
+def mfa_enable(
+    payload: MfaToggleRequest,
+    context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
-    user = db.get(User, context.user.id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"message": "User not found", "code": "user_not_found"},
-        )
+    user = _load_context_user(context, db)
     secret = (user.mfa_totp_secret or "").strip()
     if not secret:
         raise HTTPException(
@@ -662,7 +662,7 @@ def admin_mfa_enable(
     if not verify_totp_code(secret, payload.otp_code):
         write_security_event(
             db,
-            event_type="admin_mfa_enable_failed",
+            event_type="mfa_enable_failed",
             severity="warning",
             actor_user_id=user.id,
             session_id=context.session.id,
@@ -678,33 +678,29 @@ def admin_mfa_enable(
     db.add(user)
     write_security_event(
         db,
-        event_type="admin_mfa_enabled",
+        event_type="mfa_enabled",
         severity="warning",
         actor_user_id=user.id,
         session_id=context.session.id,
         detail={"email": user.email},
     )
     db.commit()
-    return AdminMfaStatusResponse(enabled=True, configured=True)
+    return MfaStatusResponse(enabled=True, configured=True)
 
 
-@router.post("/admin/mfa/disable", response_model=AdminMfaStatusResponse)
-def admin_mfa_disable(
-    payload: AdminMfaToggleRequest,
-    context: AuthContext = Depends(require_admin_context),
+@router.post("/mfa/disable", response_model=MfaStatusResponse)
+@router.post("/admin/mfa/disable", response_model=MfaStatusResponse, include_in_schema=False)
+def mfa_disable(
+    payload: MfaToggleRequest,
+    context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
-    user = db.get(User, context.user.id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"message": "User not found", "code": "user_not_found"},
-        )
+    user = _load_context_user(context, db)
     secret = (user.mfa_totp_secret or "").strip()
     if not secret or not verify_totp_code(secret, payload.otp_code):
         write_security_event(
             db,
-            event_type="admin_mfa_disable_failed",
+            event_type="mfa_disable_failed",
             severity="warning",
             actor_user_id=user.id,
             session_id=context.session.id,
@@ -719,11 +715,11 @@ def admin_mfa_disable(
     db.add(user)
     write_security_event(
         db,
-        event_type="admin_mfa_disabled",
+        event_type="mfa_disabled",
         severity="critical",
         actor_user_id=user.id,
         session_id=context.session.id,
         detail={"email": user.email},
     )
     db.commit()
-    return AdminMfaStatusResponse(enabled=False, configured=True)
+    return MfaStatusResponse(enabled=False, configured=True)

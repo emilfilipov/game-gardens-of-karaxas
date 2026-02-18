@@ -8,7 +8,7 @@
 - Auth/chat write rate limiting with lockout/backoff.
 - Refresh-token rotation with replay/reuse detection and deterministic bulk session revocation on compromise signal.
 - Short-lived one-time websocket tickets (`POST /auth/ws-ticket`) replacing bearer tokens in websocket query strings.
-- Admin MFA/TOTP APIs with shorter admin refresh-session TTL policy.
+- User MFA/TOTP APIs (all authenticated accounts) with shorter admin refresh-session TTL policy.
 - Secure DB transport default (`DB_SSLMODE=require`).
 - Privileged action audit trail (`admin_action_audit`, `publish_drain_events`, `publish_drain_session_audit`).
 - Immutable security-event audit trail (`security_event_audit`) for auth/session event telemetry.

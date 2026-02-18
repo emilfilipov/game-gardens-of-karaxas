@@ -36,6 +36,13 @@ create/select characters, and enter gameplay sessions.
    - Character location is persisted (level + coordinates) so the next login resumes from the last saved position.
 6. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
    - Collision currently comes from layer-1 collidable tiles (for example walls/trees) from the loaded level.
+7. Authenticated players can open a full Settings screen from the top-right menu.
+   - Settings screen uses sidebar tabs: `Video`, `Audio`, `Security`.
+   - `Save` prompts for confirmation when changes exist and keeps edits if user chooses `No`.
+   - `Cancel` prompts when unsaved changes exist before leaving settings.
+   - `Video` includes screen mode (`Borderless Fullscreen` / `Windowed`).
+   - `Audio` includes mute toggle and master volume slider.
+   - `Security` includes MFA setup/status/enable/disable for all users.
 
 ## Required Frontend Screens
 - Combined authentication screen (login/register toggle in a single centered block) with integrated updater/release-notes panel.
@@ -43,6 +50,7 @@ create/select characters, and enter gameplay sessions.
 - Character creation screen.
 - Character selection screen.
 - In-game world screen.
+- Authenticated settings screen (sidebar tabs + central settings panel + explicit save/cancel confirmation flow).
 - Admin-only level builder screen (load named layered levels, stage local drafts, and publish queued level changes with spawn + tile/object layout).
 - Admin-only asset editor screen (searchable editable-content cards + large item editor panel + right-side staged-change queue with `Save Local` and `Publish Changes`).
 - Admin-only content versions screen (version history cards, active-version highlight, publish/revert controls, and side-by-side compare).

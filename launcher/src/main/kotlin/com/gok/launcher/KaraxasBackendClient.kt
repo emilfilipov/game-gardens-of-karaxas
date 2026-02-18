@@ -31,6 +31,17 @@ data class AuthSession(
     val updateFeedUrl: String?,
 )
 
+data class MfaStatusView(
+    val enabled: Boolean,
+    val configured: Boolean,
+)
+
+data class MfaSetupView(
+    val enabled: Boolean,
+    val secret: String,
+    val provisioningUri: String,
+)
+
 data class ReleaseSummaryView(
     val clientVersion: String,
     val latestVersion: String,
@@ -614,13 +625,22 @@ class KaraxasBackendClient(
         return parseSession(response.body())
     }
 
-    fun login(email: String, password: String, clientVersion: String, clientContentVersionKey: String): AuthSession {
-        val payload = mapOf(
+    fun login(
+        email: String,
+        password: String,
+        clientVersion: String,
+        clientContentVersionKey: String,
+        otpCode: String? = null,
+    ): AuthSession {
+        val payload = linkedMapOf<String, Any>(
             "email" to email,
             "password" to password,
             "client_version" to clientVersion,
             "client_content_version_key" to clientContentVersionKey,
         )
+        otpCode?.trim()?.takeIf { it.isNotBlank() }?.let { code ->
+            payload["otp_code"] = code
+        }
         val response = request(
             method = "POST",
             path = "/auth/login",
@@ -647,6 +667,69 @@ class KaraxasBackendClient(
         )
         ensureSuccess(response)
         return parseSession(response.body())
+    }
+
+    fun mfaStatus(accessToken: String, clientVersion: String): MfaStatusView {
+        val response = request(
+            method = "GET",
+            path = "/auth/mfa/status",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        val node = mapper.readTree(response.body())
+        return MfaStatusView(
+            enabled = node.path("enabled").asBoolean(false),
+            configured = node.path("configured").asBoolean(false),
+        )
+    }
+
+    fun mfaSetup(accessToken: String, clientVersion: String): MfaSetupView {
+        val response = request(
+            method = "POST",
+            path = "/auth/mfa/setup",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        val node = mapper.readTree(response.body())
+        return MfaSetupView(
+            enabled = node.path("enabled").asBoolean(false),
+            secret = node.path("secret").asText(""),
+            provisioningUri = node.path("provisioning_uri").asText(""),
+        )
+    }
+
+    fun enableMfa(accessToken: String, clientVersion: String, otpCode: String): MfaStatusView {
+        val response = request(
+            method = "POST",
+            path = "/auth/mfa/enable",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+            body = mapper.writeValueAsString(mapOf("otp_code" to otpCode)),
+        )
+        ensureSuccess(response)
+        val node = mapper.readTree(response.body())
+        return MfaStatusView(
+            enabled = node.path("enabled").asBoolean(false),
+            configured = node.path("configured").asBoolean(false),
+        )
+    }
+
+    fun disableMfa(accessToken: String, clientVersion: String, otpCode: String): MfaStatusView {
+        val response = request(
+            method = "POST",
+            path = "/auth/mfa/disable",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+            body = mapper.writeValueAsString(mapOf("otp_code" to otpCode)),
+        )
+        ensureSuccess(response)
+        val node = mapper.readTree(response.body())
+        return MfaStatusView(
+            enabled = node.path("enabled").asBoolean(false),
+            configured = node.path("configured").asBoolean(false),
+        )
     }
 
     fun fetchReleaseSummary(clientVersion: String, clientContentVersionKey: String): ReleaseSummaryView {

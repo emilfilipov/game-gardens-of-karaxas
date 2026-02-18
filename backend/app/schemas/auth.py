@@ -44,16 +44,29 @@ class WsTicketResponse(BaseModel):
     expires_at: datetime
 
 
-class AdminMfaSetupResponse(BaseModel):
+class MfaSetupResponse(BaseModel):
     enabled: bool
     secret: str
     provisioning_uri: str
 
 
-class AdminMfaStatusResponse(BaseModel):
+class MfaStatusResponse(BaseModel):
     enabled: bool
     configured: bool
 
 
-class AdminMfaToggleRequest(BaseModel):
+class MfaToggleRequest(BaseModel):
     otp_code: str = Field(min_length=6, max_length=16)
+
+
+# Backward-compatible aliases while clients migrate to non-admin naming.
+class AdminMfaSetupResponse(MfaSetupResponse):
+    pass
+
+
+class AdminMfaStatusResponse(MfaStatusResponse):
+    pass
+
+
+class AdminMfaToggleRequest(MfaToggleRequest):
+    pass
