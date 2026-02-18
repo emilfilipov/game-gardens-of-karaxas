@@ -98,9 +98,10 @@ def _refresh_ttl_days(user: User) -> int:
 
 
 def _assert_user_mfa(user: User, otp_code: str | None) -> None:
-    if not user.mfa_enabled:
+    secret = (user.mfa_totp_secret or "").strip()
+    if not user.mfa_enabled and not secret:
         return
-    if not user.mfa_totp_secret or not verify_totp_code(user.mfa_totp_secret, otp_code):
+    if not secret or not verify_totp_code(secret, otp_code):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"message": "Invalid MFA code", "code": "invalid_mfa_code"},

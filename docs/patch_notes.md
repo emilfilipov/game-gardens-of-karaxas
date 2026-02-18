@@ -1,4 +1,3 @@
-- Hardened GCS release publishing to mark mutable feed files (`RELEASES`, setup exe, portable zip, manifests) as `Cache-Control: no-cache, max-age=0`.
-- Prevents stale installer/feed caching from serving outdated launcher builds after a new release is published.
-- Fixed startup window-mode crash (`IllegalComponentStateException`) that could skip auth-screen routing and leave the default create-character card visible.
-- Added MFA setup QR dialog in Security settings (scan-ready code + copy secret/URI buttons) so authenticator apps can be enrolled without manual URI typing.
+- Expanded `Level Editor` and `Asset Editor` panels toward near full-screen sizing so admin tools use significantly more of the available screen space.
+- Reduced Asset Editor side-column widths and scaled asset-card icons/rows down to free more room for the central JSON/detail editing surface.
+- Enforced MFA login challenge whenever an account has a configured MFA secret (not only when explicitly marked enabled), blocking password-only login after QR enrollment.

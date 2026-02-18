@@ -406,8 +406,8 @@ object LauncherMain {
             background = Color(12, 10, 9)
             isVisible = false
             border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
-            preferredSize = Dimension(1360, 820)
-            minimumSize = Dimension(1180, 700)
+            preferredSize = Dimension(1540, 860)
+            minimumSize = Dimension(1320, 760)
         }
         UIManager.put("ToolTip.background", Color(31, 24, 20))
         UIManager.put("ToolTip.foreground", THEME_TEXT_COLOR)
@@ -1254,7 +1254,7 @@ object LauncherMain {
         }
         val assetEditorDetailTitle = UiScaffold.sectionLabel("Select an item")
         val assetEditorIconPreview = JLabel("", SwingConstants.CENTER).apply {
-            preferredSize = Dimension(140, 140)
+            preferredSize = Dimension(116, 116)
             minimumSize = preferredSize
             maximumSize = preferredSize
             isOpaque = true
@@ -1860,7 +1860,7 @@ object LauncherMain {
             }
             assetEditorMetaArea.text = meta
             val preview = card.icon ?: createFallbackAssetIcon(card.title)
-            assetEditorIconPreview.icon = ImageIcon(scaleImage(preview, 100, 100))
+            assetEditorIconPreview.icon = ImageIcon(scaleImage(preview, 80, 80))
             assetEditorIconPreview.text = ""
             assetEditorJsonEditor.text = try {
                 jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(value)
@@ -2076,14 +2076,16 @@ object LauncherMain {
                             BorderFactory.createLineBorder(if (pending) Color(224, 184, 126) else Color(172, 132, 87), 1),
                             BorderFactory.createEmptyBorder(6, 8, 6, 8)
                         )
-                        preferredSize = Dimension(0, 88)
-                        minimumSize = Dimension(0, 88)
-                        maximumSize = Dimension(Int.MAX_VALUE, 88)
+                        preferredSize = Dimension(0, 74)
+                        minimumSize = Dimension(0, 74)
+                        maximumSize = Dimension(Int.MAX_VALUE, 74)
                         cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
                         toolTipText = card.tooltip
                     }
-                    row.add(JLabel(ImageIcon(scaleImage(card.icon ?: createFallbackAssetIcon(card.title), 44, 44))).apply {
-                        preferredSize = Dimension(52, 52)
+                    row.add(JLabel(ImageIcon(scaleImage(card.icon ?: createFallbackAssetIcon(card.title), 32, 32))).apply {
+                        preferredSize = Dimension(40, 40)
+                        minimumSize = preferredSize
+                        maximumSize = preferredSize
                         horizontalAlignment = SwingConstants.CENTER
                     }, BorderLayout.WEST)
                     row.add(JPanel(GridLayout(2, 1, 0, 2)).apply {
@@ -2175,8 +2177,8 @@ object LauncherMain {
                 isOpaque = true
                 background = Color(24, 18, 15)
                 border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
-                preferredSize = Dimension(1180, 680)
-                minimumSize = Dimension(640, 440)
+                preferredSize = Dimension(1320, 760)
+                minimumSize = Dimension(860, 560)
             }
 
             override fun paintComponent(graphics: Graphics) {
@@ -4701,8 +4703,8 @@ object LauncherMain {
 
         val levelToolPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(8, 8)
-            preferredSize = Dimension(1360, 820)
-            minimumSize = Dimension(1180, 700)
+            preferredSize = Dimension(1540, 860)
+            minimumSize = Dimension(1320, 760)
             add(JPanel(BorderLayout(8, 0)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
@@ -4831,8 +4833,8 @@ object LauncherMain {
 
         val assetEditorPanel = UiScaffold.contentPanel().apply {
             layout = BorderLayout(8, 8)
-            preferredSize = Dimension(1360, 820)
-            minimumSize = Dimension(1180, 700)
+            preferredSize = Dimension(1540, 860)
+            minimumSize = Dimension(1320, 760)
             add(JPanel(BorderLayout(8, 0)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
@@ -4862,8 +4864,8 @@ object LauncherMain {
                 add(JPanel(BorderLayout(0, 6)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    preferredSize = Dimension(360, 0)
-                    minimumSize = Dimension(300, 0)
+                    preferredSize = Dimension(290, 0)
+                    minimumSize = Dimension(240, 0)
                     add(assetEditorSearchField, BorderLayout.NORTH)
                     add(assetEditorCardsScroll, BorderLayout.CENTER)
                 }, BorderLayout.WEST)
@@ -4884,8 +4886,8 @@ object LauncherMain {
                 add(JPanel(BorderLayout(0, 6)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    preferredSize = Dimension(360, 0)
-                    minimumSize = Dimension(280, 0)
+                    preferredSize = Dimension(280, 0)
+                    minimumSize = Dimension(230, 0)
                     add(assetEditorPendingScroll, BorderLayout.CENTER)
                 }, BorderLayout.EAST)
                 add(JPanel(BorderLayout()).apply {

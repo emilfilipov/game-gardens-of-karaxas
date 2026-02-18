@@ -44,6 +44,7 @@ create/select characters, and enter gameplay sessions.
    - `Audio` includes mute toggle and master volume slider.
    - `Security` includes MFA setup/status/enable/disable for all users.
    - MFA setup now displays a scannable QR code (plus copy secret/URI actions) for authenticator app onboarding.
+   - Once MFA secret enrollment exists for an account, login requires a valid MFA code (password-only login is blocked).
 
 ## Required Frontend Screens
 - Combined authentication screen (login/register toggle in a single centered block) with integrated updater/release-notes panel.
@@ -114,6 +115,7 @@ create/select characters, and enter gameplay sessions.
 - When `Update & Restart` finds no binary package delta, launcher still restarts in admin-publish flows to re-sync content snapshot and complete relog/update gating.
 - Update feed source is GCS-backed Velopack hosting.
 - Admin level editor now uses a larger, zoomed-out grid and shows a radar-ping marker at spawn position.
+- Admin `Level Editor` and `Asset Editor` now occupy a larger near full-screen workspace; Asset Editor side columns/icons are reduced to give more room to the main edit surface.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.
 - Admin level editor now keeps `Reload`, `Load`, `Save Local`, `Publish Changes`, and `Back` in the top strip; the strip also contains the `Load Existing` dropdown and `Save Level` name box.
 - The editor body below is focused on build controls and grid interaction only.

@@ -139,6 +139,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
 - Security settings expose user MFA setup/status/enable/disable controls.
 - MFA setup now renders an in-launcher QR from backend `provisioning_uri` (ZXing) and provides copy actions for secret/URI fallback flows.
+- Login MFA challenge now triggers when MFA is either enabled or configured with a secret, preventing password-only login after QR enrollment.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.
 - Stored auto-login refresh tokens are only used after an authenticated session updates settings, and are not consumed during app startup.
 - Cog dropdown also exposes a logged-in-only `Logout` action.
@@ -180,6 +181,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level-builder canvas now renders a radar-ping spawn marker placeholder rather than character art for clearer spawn-point editing.
 - Level-builder save/load payload uses explicit layered schema (`schema_version=2`) and keeps backward compatibility with legacy wall-only payloads.
 - Admin `Level Editor` and `Asset Editor` panels now use larger near-full-height content layouts to maximize vertical workspace within the launcher shell.
+- Admin editor scene/panel sizing is expanded toward near full-screen usage, and Asset Editor side rails (left card list + right pending list) are compacted with smaller asset icons to prioritize the central edit pane.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
 - Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
 - `play` scene is currently an empty-world prototype with in-launcher gameplay handoff and WASD movement.
