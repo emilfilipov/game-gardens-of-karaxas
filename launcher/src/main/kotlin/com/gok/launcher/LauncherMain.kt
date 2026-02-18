@@ -541,6 +541,7 @@ object LauncherMain {
         fun updateSettingsMenuAccess() {
             val loggedIn = authSession != null
             val adminMode = authSession?.isAdmin == true
+            settingsButton.isVisible = loggedIn
             welcomeItem.isVisible = loggedIn
             welcomeItem.text = authSession?.let { session ->
                 val username = session.displayName.ifBlank { session.email }
@@ -556,6 +557,16 @@ object LauncherMain {
             contentVersionsMenuItem.isEnabled = adminMode
             logoutMenuItem.isVisible = loggedIn
             logoutMenuItem.isEnabled = loggedIn
+        }
+        settingsButton.actionListeners.forEach { listener ->
+            settingsButton.removeActionListener(listener)
+        }
+        settingsButton.addActionListener {
+            updateSettingsMenuAccess()
+            if (authSession == null) {
+                return@addActionListener
+            }
+            settingsPopup.show(settingsButton, settingsButton.width - settingsPopup.preferredSize.width, settingsButton.height)
         }
 
         fun themedTitledBorder(title: String): TitledBorder {
@@ -4979,7 +4990,7 @@ object LauncherMain {
                 centeredContent.repaint()
                 return
             }
-            settingsButton.isVisible = true
+            settingsButton.isVisible = authSession != null
             authStandaloneContainer.isVisible = false
             if (card == "play") {
                 shellPanel.isVisible = false
