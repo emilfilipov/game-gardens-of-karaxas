@@ -137,8 +137,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Authenticated settings now open as a full in-launcher screen (not a popup) with a sidebar tab layout (`Video`, `Audio`, `Security`), a large section panel, and explicit `Save`/`Cancel` confirmation flows.
 - Video settings support `Borderless Fullscreen` and `Windowed` modes and apply immediately after save.
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
-- Security settings expose user MFA setup/status/enable/disable controls.
-- MFA setup now renders an in-launcher QR from backend `provisioning_uri` (ZXing) and provides copy actions for secret/URI fallback flows.
+- Security settings expose MFA status, QR enrollment, and a single toggle-based enable/disable flow with OTP confirmation.
+- MFA setup now renders an in-launcher QR from backend `provisioning_uri` (ZXing) in a fully themed dialog and provides copy actions for secret/URI fallback flows.
 - Login MFA challenge now triggers when MFA is either enabled or configured with a secret, preventing password-only login after QR enrollment.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.
 - Stored auto-login refresh tokens are only used after an authenticated session updates settings, and are not consumed during app startup.

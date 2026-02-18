@@ -42,8 +42,9 @@ create/select characters, and enter gameplay sessions.
    - `Cancel` prompts when unsaved changes exist before leaving settings.
    - `Video` includes screen mode (`Borderless Fullscreen` / `Windowed`).
    - `Audio` includes mute toggle and master volume slider.
-   - `Security` includes MFA setup/status/enable/disable for all users.
-   - MFA setup now displays a scannable QR code (plus copy secret/URI actions) for authenticator app onboarding.
+   - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
+   - MFA toggle is applied with a single on/off control plus adjacent authenticator code field.
+   - MFA setup displays a scannable QR code (plus copy secret/URI actions) in a fully themed enrollment popup.
    - Once MFA secret enrollment exists for an account, login requires a valid MFA code (password-only login is blocked).
 
 ## Required Frontend Screens

@@ -56,6 +56,7 @@ import javax.swing.DefaultListCellRenderer
 import javax.swing.JOptionPane
 import javax.swing.JPasswordField
 import javax.swing.JEditorPane
+import javax.swing.JDialog
 import javax.swing.JFrame
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -3500,20 +3501,33 @@ object LauncherMain {
             foreground = textColor
             font = UiScaffold.bodyFont
         }
-        val settingsMfaOtpField = UiScaffold.ghostTextField("Authenticator code")
-        val settingsMfaSetupButton = buildMenuButton("Generate/Rotate Secret", rectangularButtonImage, Dimension(220, 36), 12f)
-        val settingsMfaEnableButton = buildMenuButton("Enable MFA", rectangularButtonImage, Dimension(140, 36), 12f)
-        val settingsMfaDisableButton = buildMenuButton("Disable MFA", rectangularButtonImage, Dimension(140, 36), 12f)
-        val settingsMfaRefreshButton = buildMenuButton("Refresh Status", rectangularButtonImage, Dimension(140, 36), 12f)
-        val settingsMfaInfoArea = JTextArea().apply {
-            isEditable = false
-            lineWrap = true
-            wrapStyleWord = true
-            foreground = textColor
-            background = Color(31, 24, 20)
-            font = UiScaffold.bodyFont
-            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
-            text = "Generate an MFA secret, scan it in your authenticator app, then enable MFA with a valid code."
+        val settingsMfaToggle = JToggleButton("MFA: OFF").apply {
+            preferredSize = Dimension(120, 34)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+            toolTipText = "Toggle MFA on/off. Enter authenticator code to confirm."
+        }
+        applyThemedToggleStyle(settingsMfaToggle, 12f)
+        val settingsMfaOtpField = UiScaffold.ghostTextField("Code").apply {
+            preferredSize = Dimension(160, UiScaffold.fieldSize.height)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+            horizontalAlignment = JTextField.CENTER
+            toolTipText = "Enter current 6-digit authenticator code to apply toggle."
+        }
+        val settingsMfaSetupButton = buildMenuButton("Generate Secret", rectangularButtonImage, Dimension(190, 36), 12f).apply {
+            toolTipText = "Create or rotate MFA secret and show QR code."
+        }
+        val settingsMfaHintLabel = UiScaffold.titledLabel(
+            "Toggle uses the code field. Generate/Rotate opens a QR enrollment window."
+        ).apply {
+            horizontalAlignment = SwingConstants.LEFT
+            font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+        }
+        var settingsMfaConfigured = false
+        var settingsMfaToggleSyncing = false
+        fun updateMfaToggleVisual(enabled: Boolean) {
+            settingsMfaToggle.text = if (enabled) "MFA: ON" else "MFA: OFF"
         }
         var settingsDirty = false
         val settingsContentLayout = CardLayout()
@@ -3565,6 +3579,12 @@ object LauncherMain {
                                 status.configured -> "MFA: Secret configured, not enabled"
                                 else -> "MFA: Not configured"
                             }
+                            settingsMfaConfigured = status.configured
+                            settingsMfaSetupButton.text = if (status.configured) "Rotate Secret" else "Generate Secret"
+                            settingsMfaToggleSyncing = true
+                            settingsMfaToggle.isSelected = status.enabled
+                            settingsMfaToggleSyncing = false
+                            updateMfaToggleVisual(status.enabled)
                             settingsStatus.text = "Security settings loaded."
                         }
                     } catch (ex: Exception) {
@@ -3613,12 +3633,10 @@ object LauncherMain {
             val qrImage = renderMfaQrImage(provisioningUri)
             val qrLabel = JLabel().apply {
                 horizontalAlignment = SwingConstants.CENTER
-                border = BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
-                    BorderFactory.createEmptyBorder(6, 6, 6, 6),
-                )
-                preferredSize = Dimension(254, 254)
+                border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
+                preferredSize = Dimension(238, 238)
                 minimumSize = preferredSize
+                maximumSize = preferredSize
                 background = THEME_TEXT_COLOR
                 isOpaque = true
                 if (qrImage != null) {
@@ -3631,47 +3649,63 @@ object LauncherMain {
                     font = UiScaffold.bodyFont
                 }
             }
-            val infoArea = JTextArea(
-                "Scan this QR code with your authenticator app.\n\n" +
-                    "Secret:\n$secret\n\n" +
-                    "Provisioning URI:\n$provisioningUri"
-            ).apply {
-                isEditable = false
-                lineWrap = true
-                wrapStyleWord = true
-                foreground = THEME_TEXT_COLOR
-                background = Color(31, 24, 20)
-                font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
-                border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
-            }
             val copySecretButton = buildMenuButton("Copy Secret", null, Dimension(140, 34), 12f).apply {
                 addActionListener { copyTextToClipboard(secret) }
             }
             val copyUriButton = buildMenuButton("Copy URI", null, Dimension(140, 34), 12f).apply {
                 addActionListener { copyTextToClipboard(provisioningUri) }
             }
-            val content = JPanel(BorderLayout(10, 10)).apply {
-                isOpaque = true
-                background = Color(24, 18, 15)
-                border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
-                add(qrLabel, BorderLayout.WEST)
-                add(ThemedScrollPane(infoArea).apply {
-                    preferredSize = Dimension(420, 254)
-                    border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
-                }, BorderLayout.CENTER)
-                add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0)).apply {
+            val closeButton = buildMenuButton("Close", null, Dimension(110, 34), 12f)
+            val dialog = JDialog(frame, "MFA Setup", true).apply {
+                isResizable = false
+                contentPane = JPanel(BorderLayout(8, 8)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
-                    add(copySecretButton)
-                    add(copyUriButton)
-                }, BorderLayout.SOUTH)
+                    border = BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                        BorderFactory.createEmptyBorder(10, 10, 10, 10),
+                    )
+                    add(UiScaffold.sectionLabel("Authenticator Enrollment").apply {
+                        horizontalAlignment = SwingConstants.LEFT
+                    }, BorderLayout.NORTH)
+                    add(JPanel(BorderLayout(10, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(qrLabel, BorderLayout.WEST)
+                        add(JPanel(GridBagLayout()).apply {
+                            isOpaque = true
+                            background = Color(24, 18, 15)
+                            add(UiScaffold.titledLabel("1. Scan QR with your authenticator app.").apply {
+                                horizontalAlignment = SwingConstants.LEFT
+                            }, UiScaffold.gbc(0))
+                            add(UiScaffold.titledLabel("2. Use Copy Secret/URI only if scan fails.").apply {
+                                horizontalAlignment = SwingConstants.LEFT
+                                font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                            }, UiScaffold.gbc(1))
+                            val secretMask = if (secret.length > 8) {
+                                "${secret.take(4)}...${secret.takeLast(4)}"
+                            } else {
+                                secret
+                            }
+                            add(UiScaffold.titledLabel("Secret: $secretMask").apply {
+                                horizontalAlignment = SwingConstants.LEFT
+                                font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                            }, UiScaffold.gbc(2))
+                        }, BorderLayout.CENTER)
+                    }, BorderLayout.CENTER)
+                    add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(copySecretButton)
+                        add(copyUriButton)
+                        add(closeButton)
+                    }, BorderLayout.SOUTH)
+                }
+                pack()
+                setLocationRelativeTo(frame)
             }
-            JOptionPane.showMessageDialog(
-                frame,
-                content,
-                "MFA Setup",
-                JOptionPane.PLAIN_MESSAGE,
-            )
+            closeButton.addActionListener { dialog.dispose() }
+            dialog.isVisible = true
         }
 
         val settingsVideoPanel = UiScaffold.contentPanel().apply {
@@ -3701,19 +3735,19 @@ object LauncherMain {
             add(JPanel(GridBagLayout()).apply {
                 isOpaque = false
                 add(settingsMfaStatusLabel, UiScaffold.gbc(0).apply { fill = GridBagConstraints.HORIZONTAL; weightx = 1.0 })
-                add(settingsMfaOtpField, UiScaffold.gbc(1).apply { fill = GridBagConstraints.HORIZONTAL; weightx = 1.0 })
-                add(JPanel(GridLayout(2, 2, 8, 8)).apply {
+                add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 0)).apply {
                     isOpaque = false
-                    add(settingsMfaRefreshButton)
+                    add(settingsMfaToggle)
+                    add(UiScaffold.titledLabel("Code").apply {
+                        font = Font(THEME_FONT_FAMILY, Font.PLAIN, 12)
+                    })
+                    add(settingsMfaOtpField)
                     add(settingsMfaSetupButton)
-                    add(settingsMfaEnableButton)
-                    add(settingsMfaDisableButton)
                 }, UiScaffold.gbc(2).apply { fill = GridBagConstraints.HORIZONTAL; weightx = 1.0 })
-                add(ThemedScrollPane(settingsMfaInfoArea).apply {
-                    preferredSize = Dimension(0, 170)
-                    minimumSize = Dimension(0, 140)
-                    border = themedTitledBorder("MFA Setup")
-                }, UiScaffold.gbc(3).apply { fill = GridBagConstraints.BOTH; weightx = 1.0; weighty = 1.0 })
+                add(settingsMfaHintLabel, UiScaffold.gbc(3).apply {
+                    fill = GridBagConstraints.HORIZONTAL
+                    weightx = 1.0
+                })
             }, BorderLayout.CENTER)
         }
 
@@ -3780,7 +3814,6 @@ object LauncherMain {
             settingsVolumeValue.text = "${settingsVolumeSlider.value}%"
             markSettingsDirty()
         }
-        settingsMfaRefreshButton.addActionListener { refreshMfaStatusForSettings() }
         settingsMfaSetupButton.addActionListener {
             withSession(onMissing = { settingsStatus.text = "Please login first." }) { session ->
                 settingsStatus.text = "Generating MFA secret..."
@@ -3789,8 +3822,12 @@ object LauncherMain {
                         val setup = backendClient.mfaSetup(session.accessToken, clientVersion)
                         javax.swing.SwingUtilities.invokeLater {
                             settingsMfaStatusLabel.text = "MFA: Secret configured, not enabled"
-                            settingsMfaInfoArea.text =
-                                "Secret: ${setup.secret}\n\nProvisioning URI:\n${setup.provisioningUri}\n\nScan this in your authenticator app, then enter a code and click Enable MFA."
+                            settingsMfaConfigured = true
+                            settingsMfaSetupButton.text = "Rotate Secret"
+                            settingsMfaToggleSyncing = true
+                            settingsMfaToggle.isSelected = false
+                            settingsMfaToggleSyncing = false
+                            updateMfaToggleVisual(false)
                             showMfaSetupDialog(setup.secret, setup.provisioningUri)
                             settingsStatus.text = "MFA secret generated."
                         }
@@ -3803,53 +3840,62 @@ object LauncherMain {
                 }.start()
             }
         }
-        settingsMfaEnableButton.addActionListener {
+        settingsMfaToggle.addActionListener {
+            if (settingsMfaToggleSyncing) {
+                return@addActionListener
+            }
+            val targetEnabled = settingsMfaToggle.isSelected
+            if (targetEnabled && !settingsMfaConfigured) {
+                settingsStatus.text = "Generate MFA secret first."
+                settingsMfaToggleSyncing = true
+                settingsMfaToggle.isSelected = false
+                settingsMfaToggleSyncing = false
+                updateMfaToggleVisual(false)
+                return@addActionListener
+            }
             val otp = settingsMfaOtpField.text.trim()
             if (otp.length !in 6..16) {
                 settingsStatus.text = "Enter a valid MFA code."
+                settingsMfaToggleSyncing = true
+                settingsMfaToggle.isSelected = !targetEnabled
+                settingsMfaToggleSyncing = false
+                updateMfaToggleVisual(!targetEnabled)
                 return@addActionListener
             }
             withSession(onMissing = { settingsStatus.text = "Please login first." }) { session ->
-                settingsStatus.text = "Enabling MFA..."
+                settingsStatus.text = if (targetEnabled) "Enabling MFA..." else "Disabling MFA..."
+                settingsMfaToggle.isEnabled = false
+                settingsMfaSetupButton.isEnabled = false
                 Thread {
                     try {
-                        val status = backendClient.enableMfa(session.accessToken, clientVersion, otp)
+                        val status = if (targetEnabled) {
+                            backendClient.enableMfa(session.accessToken, clientVersion, otp)
+                        } else {
+                            backendClient.disableMfa(session.accessToken, clientVersion, otp)
+                        }
                         javax.swing.SwingUtilities.invokeLater {
-                            settingsMfaStatusLabel.text = if (status.enabled) "MFA: Enabled" else "MFA: Disabled"
+                            settingsMfaConfigured = status.configured
+                            settingsMfaStatusLabel.text = if (status.enabled) "MFA: Enabled" else "MFA: Secret configured, not enabled"
+                            settingsMfaToggleSyncing = true
+                            settingsMfaToggle.isSelected = status.enabled
+                            settingsMfaToggleSyncing = false
+                            updateMfaToggleVisual(status.enabled)
+                            settingsMfaToggle.isEnabled = true
+                            settingsMfaSetupButton.isEnabled = true
                             authSession = authSession?.copy(mfaEnabled = status.enabled)
                             settingsMfaOtpField.text = ""
-                            settingsStatus.text = "MFA enabled."
+                            settingsStatus.text = if (status.enabled) "MFA enabled." else "MFA disabled."
                         }
                     } catch (ex: Exception) {
-                        log("MFA enable failed against ${backendClient.endpoint()}", ex)
+                        log("MFA toggle failed against ${backendClient.endpoint()}", ex)
                         javax.swing.SwingUtilities.invokeLater {
-                            settingsStatus.text = formatServiceError(ex, "Failed to enable MFA.")
-                        }
-                    }
-                }.start()
-            }
-        }
-        settingsMfaDisableButton.addActionListener {
-            val otp = settingsMfaOtpField.text.trim()
-            if (otp.length !in 6..16) {
-                settingsStatus.text = "Enter a valid MFA code."
-                return@addActionListener
-            }
-            withSession(onMissing = { settingsStatus.text = "Please login first." }) { session ->
-                settingsStatus.text = "Disabling MFA..."
-                Thread {
-                    try {
-                        val status = backendClient.disableMfa(session.accessToken, clientVersion, otp)
-                        javax.swing.SwingUtilities.invokeLater {
-                            settingsMfaStatusLabel.text = "MFA: Disabled"
-                            authSession = authSession?.copy(mfaEnabled = status.enabled)
-                            settingsMfaOtpField.text = ""
-                            settingsStatus.text = "MFA disabled."
-                        }
-                    } catch (ex: Exception) {
-                        log("MFA disable failed against ${backendClient.endpoint()}", ex)
-                        javax.swing.SwingUtilities.invokeLater {
-                            settingsStatus.text = formatServiceError(ex, "Failed to disable MFA.")
+                            settingsMfaToggleSyncing = true
+                            settingsMfaToggle.isSelected = !targetEnabled
+                            settingsMfaToggleSyncing = false
+                            updateMfaToggleVisual(!targetEnabled)
+                            settingsMfaToggle.isEnabled = true
+                            settingsMfaSetupButton.isEnabled = true
+                            settingsStatus.text = formatServiceError(ex, "Failed to update MFA state.")
                         }
                     }
                 }.start()

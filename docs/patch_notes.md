@@ -1,3 +1,3 @@
-- Expanded `Level Editor` and `Asset Editor` panels toward near full-screen sizing so admin tools use significantly more of the available screen space.
-- Reduced Asset Editor side-column widths and scaled asset-card icons/rows down to free more room for the central JSON/detail editing surface.
-- Enforced MFA login challenge whenever an account has a configured MFA secret (not only when explicitly marked enabled), blocking password-only login after QR enrollment.
+- Reworked Security MFA controls into a compact toggle flow (`MFA: ON/OFF`) with authenticator code input aligned in the same row.
+- Removed split enable/disable/refresh controls and applied a single OTP-confirmed toggle action for both states.
+- Revamped MFA QR enrollment window with full game-theme styling and simplified content (QR-first layout + copy secret/URI + close, no large text box).
