@@ -12,6 +12,8 @@ class UserSession(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     refresh_token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    previous_refresh_token_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    refresh_rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     client_version: Mapped[str] = mapped_column(String(64), nullable=False, default="0.0.0")
     client_content_version_key: Mapped[str] = mapped_column(String(64), nullable=False, default="unknown")
     drain_state: Mapped[str] = mapped_column(String(24), nullable=False, default="active")

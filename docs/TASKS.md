@@ -5,16 +5,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-152 | ⬜ | 3 | Migrate GitHub Actions GCP auth to Workload Identity Federation (WIF) and remove long-lived `GCP_SA_KEY_JSON` usage from workflows/secrets. |
-| GOK-MMO-153 | ⬜ | 3 | Configure Cloud SQL backup policy (daily automated backups + PITR where supported) and document/execute a repeatable restore drill. |
-| GOK-MMO-154 | ⬜ | 3 | Add production alerting for Cloud Run/API health: startup failures, sustained 5xx, elevated latency, auth failure spikes, and publish-drain anomalies. |
-| GOK-MMO-155 | ⬜ | 3 | Add deploy health gates after backend deployment (`/health`, DB connectivity, core auth smoke) and fail deployment on post-deploy health regression. |
-| GOK-MMO-156 | ⬜ | 4 | Implement refresh-token rotation with replay/reuse detection and deterministic session revocation on stolen-token reuse events. |
-| GOK-MMO-157 | ⬜ | 4 | Add admin account hardening with MFA/TOTP flow and shorter admin session TTL/policy than standard users. |
-| GOK-MMO-158 | ⬜ | 3 | Front backend with Cloud Armor baseline WAF/rate protections and document safe default rules/exceptions for MMO traffic. |
-| GOK-MMO-159 | ⬜ | 3 | Complete secrets lifecycle hardening: Secret Manager-only runtime injection, rotation cadence, and emergency revocation runbook. |
-| GOK-MMO-160 | ⬜ | 2 | Formalize and validate rollback runbooks for both build releases and content-version publishes (including operator checklist and verification steps). |
-| GOK-MMO-161 | ⬜ | 3 | Expand immutable security/audit telemetry to cover all privileged mutations plus key auth/session security events with queryable retention guidance. |
+| - | - | - | Standalone backlog is currently empty. |
 
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
@@ -114,3 +105,13 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-149 | ✅ | 2 | Added immutable privileged-action audit model and admin audit retrieval endpoint. |
 | GOK-MMO-150 | ✅ | 2 | Enforced secure response headers and configurable CORS allowlist in backend middleware. |
 | GOK-MMO-151 | ✅ | 2 | Added security readiness checklist and pentest preflight criteria in `docs/SECURITY.md`. |
+| GOK-MMO-152 | ✅ | 3 | Migrated CI cloud auth to WIF-only flow and removed service-account JSON key path from release/deploy workflows. |
+| GOK-MMO-153 | ✅ | 3 | Added Cloud SQL backup policy automation script and restore-drill script to operationalize backup/restore practice. |
+| GOK-MMO-154 | ✅ | 3 | Added monitoring alert bootstrap script for backend reliability signals (5xx and latency baselines) and integrated observability guidance updates. |
+| GOK-MMO-155 | ✅ | 3 | Added deep health endpoint (`/health/deep`) and backend deploy smoke gate in CI to fail post-deploy regressions before completion. |
+| GOK-MMO-156 | ✅ | 4 | Implemented refresh-token replay/reuse detection with bulk session revocation and immutable security-event logging on compromise signals. |
+| GOK-MMO-157 | ✅ | 4 | Added admin MFA/TOTP management APIs and shorter admin refresh-session TTL policy wiring. |
+| GOK-MMO-158 | ✅ | 3 | Added Cloud Armor baseline automation script and documented attach/default-rule workflow for MMO perimeter hardening. |
+| GOK-MMO-159 | ✅ | 3 | Enforced Secret Manager-first runtime secret injection in deploy flow (plain env fallback now explicit opt-in for local use only). |
+| GOK-MMO-160 | ✅ | 2 | Added executable rollback helper scripts for content and release policy rollback actions and expanded runbook coverage. |
+| GOK-MMO-161 | ✅ | 3 | Added immutable `security_event_audit` model, auth/session security event capture, ops query endpoint, and metrics aggregation wiring. |

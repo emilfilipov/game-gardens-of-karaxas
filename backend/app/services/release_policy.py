@@ -40,6 +40,15 @@ def _normalize_content_key(raw: str | None) -> str:
     return (raw or "").strip() or "unknown"
 
 
+def next_logical_build_version(raw: str | None) -> str:
+    version = _safe_version(raw)
+    components = list(version.release)
+    while len(components) < 3:
+        components.append(0)
+    components[2] += 1
+    return ".".join(str(part) for part in components[:3])
+
+
 def resolve_active_content_version_key(db: Session) -> str:
     row = db.execute(
         select(ContentVersion.version_key)
@@ -94,7 +103,9 @@ def evaluate_version(
     latest_content_key = _normalize_content_key(policy.latest_content_version_key)
     min_content_key = _normalize_content_key(policy.min_supported_content_version_key)
 
-    build_update_available = client < latest
+    # Content-only publishes may bump latest build marker without a binary package.
+    # In that mode `min_supported_version` remains below `latest_version`, so binary update is not advertised.
+    build_update_available = client < latest and (latest == minimum or client < minimum)
     content_update_available = normalized_client_content_key != latest_content_key
     update_available = build_update_available or content_update_available
 
@@ -165,6 +176,46 @@ def activate_release(
         )
     )
 
+    db.commit()
+    db.refresh(policy)
+    return policy
+
+
+def activate_content_release(
+    db: Session,
+    *,
+    content_version_key: str,
+    user_facing_notes: str,
+    updated_by: str,
+    grace_minutes: int | None = None,
+) -> ReleasePolicy:
+    policy = ensure_release_policy(db)
+    next_build = next_logical_build_version(policy.latest_version)
+    resolved_content_key = _normalize_content_key(content_version_key)
+
+    policy.latest_version = next_build
+    # Keep min supported build unchanged for content-only publish so binary package is not required.
+    policy.min_supported_version = policy.min_supported_version or next_build
+    policy.latest_content_version_key = resolved_content_key
+    policy.min_supported_content_version_key = resolved_content_key
+    minutes = grace_minutes if grace_minutes is not None else settings.version_grace_minutes_default
+    policy.enforce_after = datetime.now(UTC) + timedelta(minutes=minutes)
+    policy.updated_by = updated_by
+    db.add(policy)
+
+    db.add(
+        ReleaseRecord(
+            build_version=policy.latest_version,
+            min_supported_version=policy.min_supported_version,
+            content_version_key=policy.latest_content_version_key,
+            min_supported_content_version_key=policy.min_supported_content_version_key,
+            update_feed_url=policy.update_feed_url,
+            build_release_notes="",
+            user_facing_notes=(user_facing_notes or "").strip(),
+            activated_by=updated_by,
+            enforce_after=policy.enforce_after,
+        )
+    )
     db.commit()
     db.refresh(policy)
     return policy

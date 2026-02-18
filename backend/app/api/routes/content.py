@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -36,7 +35,7 @@ from app.services.content import (
 )
 from app.services.admin_audit import write_admin_audit
 from app.services.realtime import realtime_hub
-from app.services.release_policy import ensure_release_policy
+from app.services.release_policy import activate_content_release
 from app.services.session_drain import (
     PublishDrainConflictError,
     ensure_publish_drain_capacity,
@@ -116,12 +115,13 @@ async def _apply_publish_policy_and_drain(
     content_note: str,
     reason_code: str,
 ) -> None:
-    policy = ensure_release_policy(db)
-    policy.latest_content_version_key = content_version_key
-    policy.min_supported_content_version_key = content_version_key
-    policy.enforce_after = datetime.now(UTC) + timedelta(minutes=settings.version_grace_minutes_default)
-    policy.updated_by = f"user:{user_id}"
-    db.add(policy)
+    policy = activate_content_release(
+        db,
+        content_version_key=content_version_key,
+        user_facing_notes=content_note,
+        updated_by=f"user:{user_id}",
+        grace_minutes=settings.version_grace_minutes_default,
+    )
 
     try:
         drain_event = start_publish_drain(

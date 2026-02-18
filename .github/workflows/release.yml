@@ -50,23 +50,12 @@ jobs:
         id: auth-mode
         if: steps.preflight.outputs.enabled == 'true'
         shell: pwsh
-        env:
-          HAS_SA_KEY: ${{ secrets.GCP_SA_KEY_JSON != '' }}
-          HAS_WIF: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
         run: |
-          if ("$env:HAS_SA_KEY" -eq "true") {
-            "mode=sa_key" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          } elseif ("$env:HAS_WIF" -eq "true") {
+          if ("${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" -ne "" -and "${{ secrets.GCP_SERVICE_ACCOUNT }}" -ne "") {
             "mode=wif" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           } else {
             "mode=none" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
-
-      - name: Authenticate to Google Cloud (SA Key)
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode == 'sa_key'
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
 
       - name: Authenticate to Google Cloud (WIF)
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode == 'wif'

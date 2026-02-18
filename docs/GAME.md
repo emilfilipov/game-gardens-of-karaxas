@@ -96,10 +96,12 @@ create/select characters, and enter gameplay sessions.
 - Updater progression is shown through status text messages in the update screen (no progress bar widget).
 - When no update is available, updater status reads `Game is up to date.`.
 - Release metadata and release notes are sourced from backend database records (not launcher-bundled static notes only).
+- Admin content publishes now also advance a logical release/build marker in release metadata even when no new binary build is produced.
 - Login is blocked for non-admin users until client build and client content version are aligned with currently published release policy.
 - Login is also blocked for non-admin users when client/backend content contract signatures diverge, preventing incompatible live-data schemas.
 - On publish, non-admin players are forced out after grace window and returned to login, where they can choose when to click `Update & Restart`.
 - Publish-triggered drain warnings are delivered live during active sessions and end in forced return to login for non-admin users at cutoff.
+- When `Update & Restart` finds no binary package delta, launcher still restarts in admin-publish flows to re-sync content snapshot and complete relog/update gating.
 - Update feed source is GCS-backed Velopack hosting.
 - Admin level editor now uses a larger, zoomed-out grid and shows a radar-ping marker at spawn position.
 - Admin level editor grid dimensions can be edited on the fly (width/height) before saving levels.

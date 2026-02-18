@@ -1,3 +1,7 @@
-- Fixed backend startup stability for Cloud Run by correcting observability metrics-state initialization (`deque` default now uses `default_factory`).
-- Replaced backend JWT implementation dependency from `python-jose` to `PyJWT`, removing the vulnerable `ecdsa` transitive path flagged by `pip-audit`.
-- Hardened backend container runtime to run as a dedicated non-root user, satisfying Trivy Dockerfile security baseline checks.
+- Implemented auth/security hardening: refresh-token replay detection with bulk session revocation, immutable security-event audit logging, and new ops security-audit query endpoint.
+- Added admin MFA/TOTP APIs (`setup`, `enable`, `disable`, `status`) plus shorter admin refresh-session TTL policy support.
+- Updated content publish flow so admin content publishes/rollbacks also advance a logical release build marker while preserving content-first forced relog drain behavior.
+- Added deep backend health endpoint (`/health/deep`) and CI post-deploy smoke gate (`/health` + `/health/deep`) in backend deployment workflow.
+- Migrated CI cloud auth paths to WIF-only and hardened deploy secret handling toward Secret Manager references.
+- Added operational automation scripts for Cloud SQL backup/restore drills, monitoring alert bootstrap, Cloud Armor baseline setup, and rollback helpers.
+- Updated launcher updater behavior to restart in forced-update flows even when no binary package delta exists, ensuring content snapshot resync after admin publish logout flows.

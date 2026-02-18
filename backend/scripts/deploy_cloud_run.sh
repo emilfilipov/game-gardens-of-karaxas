@@ -45,16 +45,21 @@ resolve_secret_or_env() {
   local plain_name="$1"
   local ref_name="$2"
   local required="${3:-1}"
+  local allow_plain="${ALLOW_PLAIN_ENV_SECRETS:-false}"
   if [[ -n "${!ref_name:-}" ]]; then
     printf 'secret:%s' "${!ref_name}"
     return 0
   fi
-  if [[ -n "${!plain_name:-}" ]]; then
+  if [[ "$allow_plain" == "true" && -n "${!plain_name:-}" ]]; then
     printf 'env:%s' "${!plain_name}"
     return 0
   fi
   if [[ "$required" == "1" ]]; then
-    echo "Missing required secret/input: ${plain_name} or ${ref_name}" >&2
+    if [[ "$allow_plain" == "true" ]]; then
+      echo "Missing required secret/input: ${plain_name} or ${ref_name}" >&2
+    else
+      echo "Missing required secret reference: ${ref_name}" >&2
+    fi
     exit 1
   fi
   printf ''
@@ -81,6 +86,7 @@ JWT_ISSUER="${JWT_ISSUER:-karaxas}"
 JWT_AUDIENCE="${JWT_AUDIENCE:-karaxas-client}"
 JWT_ACCESS_TTL_MINUTES="${JWT_ACCESS_TTL_MINUTES:-15}"
 JWT_REFRESH_TTL_DAYS="${JWT_REFRESH_TTL_DAYS:-30}"
+JWT_REFRESH_TTL_DAYS_ADMIN="${JWT_REFRESH_TTL_DAYS_ADMIN:-7}"
 VERSION_GRACE_MINUTES_DEFAULT="${VERSION_GRACE_MINUTES_DEFAULT:-5}"
 SKIP_BOOTSTRAP="${SKIP_BOOTSTRAP:-0}"
 
@@ -124,6 +130,7 @@ RUNTIME_VARS=(
   "JWT_AUDIENCE=${JWT_AUDIENCE}"
   "JWT_ACCESS_TTL_MINUTES=${JWT_ACCESS_TTL_MINUTES}"
   "JWT_REFRESH_TTL_DAYS=${JWT_REFRESH_TTL_DAYS}"
+  "JWT_REFRESH_TTL_DAYS_ADMIN=${JWT_REFRESH_TTL_DAYS_ADMIN}"
   "VERSION_GRACE_MINUTES_DEFAULT=${VERSION_GRACE_MINUTES_DEFAULT}"
   "DB_HOST=${DB_HOST}"
   "DB_PORT=${DB_PORT}"

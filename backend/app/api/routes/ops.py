@@ -17,6 +17,7 @@ from app.services.observability import build_publish_drain_metrics, snapshot_lat
 from app.services.rate_limit import rate_limiter
 from app.services.realtime import realtime_hub
 from app.services.release_policy import activate_release, ensure_release_policy
+from app.services.security_events import list_security_events, security_event_stats
 from app.services.session_drain import (
     PublishDrainConflictError,
     ensure_publish_drain_capacity,
@@ -69,6 +70,7 @@ def metrics(db: Session = Depends(get_db)):
         "snapshot_latency_ms": snapshot_latency_stats(),
         "publish_drain": build_publish_drain_metrics(db),
         "rate_limiter": rate_limiter.stats(),
+        "security_events": security_event_stats(db),
     }
 
 
@@ -88,6 +90,28 @@ def admin_audit_log(db: Session = Depends(get_db), limit: int = 100):
             "target_type": row.target_type,
             "target_id": row.target_id,
             "summary": row.summary,
+            "created_at": row.created_at,
+        }
+        for row in rows
+    ]
+
+
+@router.get("/security-audit", dependencies=[Depends(require_ops_token)])
+def security_audit_log(
+    db: Session = Depends(get_db),
+    limit: int = 200,
+    event_type: str | None = None,
+):
+    rows = list_security_events(db, limit=limit, event_type=event_type)
+    return [
+        {
+            "id": row.id,
+            "actor_user_id": row.actor_user_id,
+            "session_id": row.session_id,
+            "event_type": row.event_type,
+            "severity": row.severity,
+            "ip_address": row.ip_address,
+            "detail": row.detail,
             "created_at": row.created_at,
         }
         for row in rows

@@ -14,6 +14,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    otp_code: str | None = Field(default=None, min_length=6, max_length=16)
     client_version: str = Field(min_length=1, max_length=64)
     client_content_version_key: str = Field(default="unknown", min_length=1, max_length=64)
 
@@ -33,6 +34,7 @@ class SessionResponse(BaseModel):
     email: EmailStr
     display_name: str
     is_admin: bool
+    mfa_enabled: bool = False
     expires_at: datetime
     version_status: VersionStatus
 
@@ -40,3 +42,18 @@ class SessionResponse(BaseModel):
 class WsTicketResponse(BaseModel):
     ws_ticket: str
     expires_at: datetime
+
+
+class AdminMfaSetupResponse(BaseModel):
+    enabled: bool
+    secret: str
+    provisioning_uri: str
+
+
+class AdminMfaStatusResponse(BaseModel):
+    enabled: bool
+    configured: bool
+
+
+class AdminMfaToggleRequest(BaseModel):
+    otp_code: str = Field(min_length=6, max_length=16)

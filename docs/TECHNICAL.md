@@ -31,8 +31,10 @@ This is the single source of truth for technical architecture, stack decisions, 
 ## Data Model (Current)
 - `users`: account identity.
   - Includes `is_admin` boolean for backend-authoritative admin gating.
+  - Includes admin MFA fields (`mfa_totp_secret`, `mfa_enabled`, `mfa_enabled_at`) for TOTP-based admin hardening.
 - `user_sessions`: refresh/session records and client build/content version tracking.
   - Includes publish-drain state fields (`drain_state`, `drain_event_id`, `drain_deadline_at`, `drain_reason_code`) for non-admin forced relog orchestration.
+  - Includes refresh-rotation replay detection fields (`previous_refresh_token_hash`, `refresh_rotated_at`).
 - `release_policy`: active build/content release policy (`latest/min-supported` build, `latest/min-supported` content keys, `update_feed_url`, `enforce_after`).
 - `release_records`: append-only release activation history (build/content versions, feed URL, build notes, user-facing notes, actor, activation timestamp).
 - `characters`: user-owned character builds (stats/skills point allocations).
@@ -49,6 +51,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `publish_drain_session_audit`: per-session audit rows for drain persistence/despawn/revocation outcomes.
 - `ws_connection_tickets`: one-time websocket handshake credentials bound to authenticated sessions.
 - `admin_action_audit`: append-only audit records for privileged release/content actions.
+- `security_event_audit`: append-only security telemetry for auth/session events (login/refresh/logout/MFA/replay detection and bulk revocation).
 - `friendships`: friend graph.
 - `guilds`, `guild_members`: guild presence and rank scaffolding.
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
@@ -61,6 +64,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Non-admin sessions are rejected with `426 Upgrade Required` (and revoked when already authenticated) after grace if either:
   - build is below minimum supported build, or
   - content version key is below minimum supported content key.
+- Content publishes now emit a logical build-version bump in release metadata while keeping `min_supported_version` unchanged for content-only pushes; this preserves forced relog/update UX without requiring a new binary package.
 - Admin sessions are exempt from forced-update lockout for operational validation.
 - Grace window is currently 5 minutes.
 - Public `GET /release/summary` exposes launcher-facing release state (`update_feed_url`, latest build/content keys, update flags, and DB-backed release notes).
@@ -72,6 +76,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Backend writes release activation to `release_records` and updates active `release_policy`.
 - Backend broadcasts `force_update` to connected websocket clients with build/content minimums and feed URL.
 - Content version activation also updates release-policy content keys and triggers the same grace-window force-update broadcast.
+- Content version activation/rollback also records a content-only release activation entry with incremented logical latest build marker for synchronized release-note/version history.
 - Content/release activation also creates a publish-drain event and begins non-admin session draining with realtime warning/forced-logout events.
 
 ## Deployment and Infra Pattern
@@ -91,7 +96,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Backend deploy workflow (`.github/workflows/deploy-backend.yml`):
   - triggers on backend non-markdown changes.
   - deploys backend to Cloud Run.
-  - supports either GitHub-to-GCP WIF auth or service-account JSON auth (`GCP_SA_KEY_JSON`).
+  - uses WIF-only GitHub->GCP auth (no service-account JSON key path).
+  - enforces Secret Manager refs for runtime secrets (`*_SECRET_REF`) in CI deploy path.
+  - runs post-deploy smoke checks (`/health` + `/health/deep`) and fails workflow on failed deep health.
 - Security workflow (`.github/workflows/security-scan.yml`):
   - scans backend dependencies with `pip-audit`.
   - runs Trivy fs scan (vuln/misconfig/secret) and fails on high/critical findings, including Dockerfile root-user misconfiguration.
@@ -214,12 +221,14 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher logs to local files in install-root `logs/` (launcher, game, updater logs).
 - Backend logs to Cloud Logging via structured application logs.
 - Version/auth failures and force-update events are logged on backend.
+- Auth/session security events are also persisted in immutable `security_event_audit` rows and surfaced via ops APIs/metrics.
 - Error responses include `X-Request-ID` so launcher/user reports can be correlated directly with backend logs.
 
 ## Security Baseline
 - Access token: JWT (short-lived, HS256 via `PyJWT`).
-- Refresh/session token: stored as hash in DB.
+- Refresh/session token: stored as hash in DB with rotation and replay detection (reuse triggers bulk session revocation).
 - Passwords: bcrypt hash via passlib.
+- Admin auth hardening: TOTP-enabled admin MFA APIs plus shorter admin refresh-session TTL.
 - Ops endpoint auth: `x-ops-token` header backed by `OPS_API_TOKEN` secret.
 - Websocket auth uses one-time short-lived ws tickets (`POST /auth/ws-ticket`) instead of bearer-token query params.
 - Backend returns sanitized error envelopes (with request id/path/timestamp) and no raw exception payload leakage.
@@ -228,6 +237,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - DB transport defaults to `sslmode=require` unless explicitly overridden.
 - Deploy script supports Secret Manager references (`*_SECRET_REF`) for runtime secrets.
 - Privileged actions are persisted in immutable audit tables (`admin_action_audit`, publish-drain audit tables).
+- Security telemetry is persisted in immutable `security_event_audit` and exposed at `GET /ops/release/security-audit`.
 
 ## Strategic Architecture Status
 ### 1) Layered World/Level Data (Implemented)

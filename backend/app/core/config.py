@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     jwt_audience: str = "karaxas-client"
     jwt_access_ttl_minutes: int = 15
     jwt_refresh_ttl_days: int = 30
+    jwt_refresh_ttl_days_admin: int = 7
 
     ops_api_token: str
     version_grace_minutes_default: int = 5

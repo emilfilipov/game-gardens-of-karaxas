@@ -7,6 +7,7 @@ from app.models.level import Level
 from app.models.publish_drain import PublishDrainEvent, PublishDrainSessionAudit
 from app.models.release_record import ReleaseRecord
 from app.models.release_policy import ReleasePolicy
+from app.models.security_event import SecurityEventAudit
 from app.models.session import UserSession
 from app.models.user import Friendship, User
 from app.models.ws_ticket import WsConnectionTicket
@@ -27,6 +28,7 @@ __all__ = [
     "PublishDrainSessionAudit",
     "ReleaseRecord",
     "ReleasePolicy",
+    "SecurityEventAudit",
     "User",
     "UserSession",
     "WsConnectionTicket",

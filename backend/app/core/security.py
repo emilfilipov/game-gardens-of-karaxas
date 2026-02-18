@@ -4,6 +4,7 @@ import secrets
 from uuid import uuid4
 
 from passlib.context import CryptContext
+import pyotp
 import jwt
 from jwt import InvalidTokenError
 
@@ -61,3 +62,20 @@ def decode_access_token(token: str) -> dict:
 
 def create_refresh_token() -> str:
     return secrets.token_urlsafe(48)
+
+
+def create_totp_secret() -> str:
+    return pyotp.random_base32()
+
+
+def build_totp_provisioning_uri(*, secret: str, account_name: str) -> str:
+    issuer = (settings.jwt_issuer or "Gardens of Karaxas").strip() or "Gardens of Karaxas"
+    return pyotp.TOTP(secret).provisioning_uri(name=account_name, issuer_name=issuer)
+
+
+def verify_totp_code(secret: str, code: str | None) -> bool:
+    normalized_secret = (secret or "").strip()
+    normalized_code = (code or "").strip().replace(" ", "")
+    if not normalized_secret or not normalized_code:
+        return False
+    return pyotp.TOTP(normalized_secret).verify(normalized_code, valid_window=1)
