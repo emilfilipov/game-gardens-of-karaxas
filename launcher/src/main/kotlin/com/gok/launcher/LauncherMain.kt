@@ -267,11 +267,12 @@ object LauncherMain {
         var autoLoginEnabled = launcherPrefs.autoLoginEnabled
         var autoLoginRefreshToken = launcherPrefs.autoLoginRefreshToken
         var screenModeSetting = normalizeScreenMode(launcherPrefs.screenMode)
+        if (autoLoginEnabled) {
+            // Fail-safe: when auto-login is active, start in borderless mode to avoid trapped windowed state.
+            screenModeSetting = "borderless_fullscreen"
+        }
         var audioMutedSetting = launcherPrefs.audioMuted
         var audioVolumeSetting = launcherPrefs.audioVolume.coerceIn(0, 100)
-        if (screenModeSetting == "windowed") {
-            frame.isUndecorated = false
-        }
 
         fun defaultClientVersion(): String {
             val source = loadPatchNotesSource()
@@ -541,7 +542,6 @@ object LauncherMain {
         fun updateSettingsMenuAccess() {
             val loggedIn = authSession != null
             val adminMode = authSession?.isAdmin == true
-            settingsButton.isVisible = loggedIn
             welcomeItem.isVisible = loggedIn
             welcomeItem.text = authSession?.let { session ->
                 val username = session.displayName.ifBlank { session.email }
@@ -4990,7 +4990,7 @@ object LauncherMain {
                 centeredContent.repaint()
                 return
             }
-            settingsButton.isVisible = authSession != null
+            settingsButton.isVisible = true
             authStandaloneContainer.isVisible = false
             if (card == "play") {
                 shellPanel.isVisible = false

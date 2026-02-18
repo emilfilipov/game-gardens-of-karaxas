@@ -2,3 +2,5 @@
 - Login now supports optional MFA OTP submission (`otp_code`) and enforces MFA for any account that has MFA enabled.
 - Replaced placeholder settings popup with a full in-launcher Settings screen (Video/Audio/Security sidebar tabs + central panel) available after login.
 - Added save/cancel confirmation flows for settings changes, immediate screen-mode apply (`Borderless Fullscreen`/`Windowed`), persisted audio preferences, and in-settings MFA management UI.
+- Fixed post-login cog/menu regression: cog is hidden only on auth screen and reliably visible on authenticated/account screens.
+- Added startup fullscreen fail-safe for auto-login sessions to prevent getting stuck in a small windowed state.
