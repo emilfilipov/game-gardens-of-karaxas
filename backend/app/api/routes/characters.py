@@ -15,6 +15,7 @@ from app.schemas.character import (
     CharacterResponse,
 )
 from app.services.content import (
+    CONTENT_DOMAIN_ASSETS,
     CONTENT_DOMAIN_CHARACTER_OPTIONS,
     CONTENT_DOMAIN_PROGRESSION,
     CONTENT_DOMAIN_SKILLS,
@@ -78,6 +79,60 @@ def _stat_max_value(db: Session) -> int:
     return 10
 
 
+def _equipment_slots(db: Session) -> set[str]:
+    snapshot = get_active_snapshot(db)
+    assets = snapshot.domain(CONTENT_DOMAIN_ASSETS)
+    raw_slots = assets.get("equipment_slots")
+    if not isinstance(raw_slots, list):
+        return set()
+    allowed: set[str] = set()
+    for raw in raw_slots:
+        if not isinstance(raw, dict):
+            continue
+        slot = str(raw.get("slot", "")).strip().lower()
+        if slot:
+            allowed.add(slot)
+    return allowed
+
+
+def _default_equipment(db: Session) -> dict[str, str]:
+    snapshot = get_active_snapshot(db)
+    assets = snapshot.domain(CONTENT_DOMAIN_ASSETS)
+    visuals = assets.get("equipment_visuals")
+    if not isinstance(visuals, list):
+        return {}
+    defaults: dict[str, str] = {}
+    for raw in visuals:
+        if not isinstance(raw, dict):
+            continue
+        if not isinstance(raw.get("default_for_slot"), bool) or not raw.get("default_for_slot"):
+            continue
+        slot = str(raw.get("slot", "")).strip().lower()
+        item_key = str(raw.get("item_key", "")).strip().lower()
+        if slot and item_key and slot not in defaults:
+            defaults[slot] = item_key
+    return defaults
+
+
+def _normalize_equipment_selection(db: Session, raw_equipment: dict[str, str]) -> dict[str, str]:
+    normalized: dict[str, str] = {}
+    allowed_slots = _equipment_slots(db)
+    for raw_slot, raw_item in raw_equipment.items():
+        slot = str(raw_slot).strip().lower()
+        item = str(raw_item).strip().lower()
+        if not slot:
+            continue
+        if allowed_slots and slot not in allowed_slots:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"message": f"Unknown equipment slot '{raw_slot}'", "code": "invalid_equipment_slot"},
+            )
+        if not item:
+            continue
+        normalized[slot] = item
+    return normalized
+
+
 def _normalize_catalog_choice(db: Session, catalog_key: str, raw_value: str, fallback: str) -> str:
     snapshot = get_active_snapshot(db)
     options = snapshot.domain(CONTENT_DOMAIN_CHARACTER_OPTIONS).get(catalog_key)
@@ -117,6 +172,7 @@ def _to_response(character: Character, xp_per_level: int) -> CharacterResponse:
         experience_to_next_level=band - current_band_progress if current_band_progress > 0 else band,
         stat_points_total=character.stat_points_total,
         stat_points_used=character.stat_points_used,
+        equipment=character.equipment,
         stats=character.stats,
         skills=character.skills,
         is_selected=character.is_selected,
@@ -164,6 +220,7 @@ def create_character(
     allowed_stats = _allowed_stat_keys(db)
     allowed_skills = _allowed_skill_keys(db)
     max_per_stat = _stat_max_value(db)
+    default_equipment = _default_equipment(db)
 
     normalized_stats: dict[str, int] = {}
     for key, value in payload.stats.items():
@@ -194,6 +251,9 @@ def create_character(
                 detail={"message": f"Skill '{key}' must be 0 or 1", "code": "invalid_skill_value"},
             )
         normalized_skills[normalized_key] = value
+    normalized_equipment = _normalize_equipment_selection(db, payload.equipment)
+    merged_equipment = dict(default_equipment)
+    merged_equipment.update(normalized_equipment)
 
     stat_points_used = sum(v for v in normalized_stats.values() if v > 0) + sum(v for v in normalized_skills.values() if v > 0)
     if stat_points_used > configured_budget:
@@ -217,6 +277,7 @@ def create_character(
         stat_points_used=stat_points_used,
         level=1,
         experience=0,
+        equipment=merged_equipment,
         stats=normalized_stats,
         skills=normalized_skills,
         is_selected=False,

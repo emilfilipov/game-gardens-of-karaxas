@@ -41,6 +41,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `characters`: user-owned character builds (stats/skills point allocations).
   - Includes `appearance_key` for visual preset selection persistence.
   - Includes `race`, `background`, and `affiliation` for character identity scaffolds selected in creation UI.
+  - Includes `equipment` JSON loadout map (slot -> item visual key) for modular/paperdoll visual composition.
   - Includes `level` and `experience` (starts at level 1 / 0 XP).
   - Includes nullable `level_id` to map a character to a saved world layout.
   - Includes nullable `location_x`/`location_y` for persisted world coordinates.
@@ -229,9 +230,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Service error formatting now maps `401/403` and `invalid token` responses to a clear session-expiry message (`Session expired or invalid token. Please log in again.`), including level-builder operations.
 - Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.
 - Character preview rendering normalizes sprite frames to a fixed preview canvas before scaling, keeping sex-switch preview zoom consistent.
-- Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
-- Isometric migration target upgrades character animation coverage to full 8-direction sets (`N`,`NE`,`E`,`SE`,`S`,`SW`,`W`,`NW`) with importer/runtime validation for missing directions per action.
-- Item/equipment visuals are planned as modular layered composition (paperdoll-style slot overlays) bound to DB-driven item definitions so equipment appearance changes can ship via content publish.
+- Character art integration now supports both 4-direction and 8-direction walk/run sheets (auto-detected from filenames/sheet metadata) with deterministic runtime fallback to 4-direction behavior.
+- Isometric migration target keeps full 8-direction action coverage (`N`,`NE`,`E`,`SE`,`S`,`SW`,`W`,`NW`) as the primary runtime direction contract.
+- Assets content domain now includes modular equipment slot/visual metadata (`equipment_slots`, `equipment_visuals`) with backend validation and launcher bootstrap parsing for paperdoll rollout.
 - Character creation and deletion both perform immediate character-list reloads and UI refreshes to avoid stale list state.
 - Account cards now render on opaque themed surfaces to prevent visual overlap artifacts when switching tabs.
 - Updater is accessible directly on auth (embedded panel) and through cog menu / updater card for authenticated flows; it remains removed from lobby tab navigation.

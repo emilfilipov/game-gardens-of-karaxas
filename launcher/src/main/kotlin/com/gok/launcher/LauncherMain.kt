@@ -818,34 +818,73 @@ object LauncherMain {
                 }
             }
 
-            val grouped = linkedMapOf<String, MutableMap<String, BufferedImage>>()
-            val strictMatcher = Regex("^karaxas_([a-z0-9_]+)_(idle(?:_[0-9]+)?|walk(?:_sheet(?:_4dir_6f)?)?|run(?:_sheet(?:_4dir_6f)?)?)\\.png$")
-            val skipTokens = setOf("karaxas", "idle", "walk", "run", "sheet", "4dir", "6f", "32")
+            data class SheetDescriptor(
+                val image: BufferedImage,
+                val directions: Int,
+                val framesPerDirection: Int,
+            )
 
-            fun normalizeKind(raw: String): String? {
+            data class ArtDescriptor(
+                val key: String,
+                val kind: String,
+                val directions: Int,
+                val framesPerDirection: Int,
+            )
+
+            val grouped = linkedMapOf<String, MutableMap<String, SheetDescriptor>>()
+            val strictMatcher = Regex("^karaxas_([a-z0-9_]+)_(idle(?:_[0-9]+)?|(?:walk|run)(?:_sheet)?(?:_([48])dir(?:_([0-9]+)f)?)?)\\.png$")
+            val skipTokens = setOf("karaxas", "idle", "walk", "run", "sheet", "4dir", "8dir", "6f", "32")
+
+            fun parseSheetSpec(raw: String): Pair<Int, Int> {
+                val lowered = raw.lowercase()
+                val directions = Regex("([48])dir").find(lowered)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(4, 8)
+                    ?: if (lowered.startsWith("idle")) 1 else 4
+                val frames = Regex("([0-9]+)f").find(lowered)?.groupValues?.get(1)?.toIntOrNull()?.coerceAtLeast(1)
+                    ?: if (lowered.startsWith("idle")) 1 else 6
+                return directions to frames
+            }
+
+            fun normalizeKind(raw: String): Triple<String, Int, Int>? {
                 val lowered = raw.lowercase()
                 return when {
-                    lowered.startsWith("idle") -> "idle_32"
-                    lowered.startsWith("walk") -> "walk_sheet_4dir_6f"
-                    lowered.startsWith("run") -> "run_sheet_4dir_6f"
+                    lowered.startsWith("idle") -> Triple("idle", 1, 1)
+                    lowered.startsWith("walk") -> {
+                        val (dirs, frames) = parseSheetSpec(lowered)
+                        Triple("walk", dirs, frames)
+                    }
+                    lowered.startsWith("run") -> {
+                        val (dirs, frames) = parseSheetSpec(lowered)
+                        Triple("run", dirs, frames)
+                    }
                     else -> null
                 }
             }
 
-            fun parseArtDescriptor(fileName: String): Pair<String, String>? {
+            fun parseArtDescriptor(fileName: String): ArtDescriptor? {
                 val lowered = fileName.lowercase()
                 val strict = strictMatcher.matchEntire(lowered)
                 if (strict != null) {
                     val key = strict.groupValues[1]
-                    val kind = normalizeKind(strict.groupValues[2]) ?: return null
-                    return key to kind
+                    val normalized = normalizeKind(strict.groupValues[2]) ?: return null
+                    return ArtDescriptor(
+                        key = key,
+                        kind = normalized.first,
+                        directions = normalized.second,
+                        framesPerDirection = normalized.third,
+                    )
                 }
                 if (!lowered.endsWith(".png")) return null
                 val base = lowered.removeSuffix(".png")
-                val kind = when {
-                    "idle" in base -> "idle_32"
-                    "walk" in base -> "walk_sheet_4dir_6f"
-                    "run" in base -> "run_sheet_4dir_6f"
+                val normalized = when {
+                    "idle" in base -> Triple("idle", 1, 1)
+                    "walk" in base -> {
+                        val (dirs, frames) = parseSheetSpec(base)
+                        Triple("walk", dirs, frames)
+                    }
+                    "run" in base -> {
+                        val (dirs, frames) = parseSheetSpec(base)
+                        Triple("run", dirs, frames)
+                    }
                     else -> return null
                 }
                 val key = when {
@@ -853,12 +892,23 @@ object LauncherMain {
                     maleToken.containsMatchIn(base) -> if ("human" in base) "human_male" else "male"
                     else -> {
                         val tokens = base.split('_', '-')
-                            .filter { it.isNotBlank() && it !in skipTokens }
+                            .filter { token ->
+                                token.isNotBlank() &&
+                                    token !in skipTokens &&
+                                    !token.matches(Regex("\\d+dir")) &&
+                                    !token.matches(Regex("\\d+f")) &&
+                                    !token.matches(Regex("[0-9]+"))
+                            }
                         if (tokens.isEmpty()) return null
                         tokens.joinToString("_")
                     }
                 }
-                return key to kind
+                return ArtDescriptor(
+                    key = key,
+                    kind = normalized.first,
+                    directions = normalized.second,
+                    framesPerDirection = normalized.third,
+                )
             }
 
             for (root in roots.distinct()) {
@@ -876,8 +926,12 @@ object LauncherMain {
                                     null
                                 }
                                 if (image != null) {
-                                    val (key, kind) = descriptor
-                                    grouped.getOrPut(key) { mutableMapOf() }[kind] = image
+                                    grouped.getOrPut(descriptor.key) { mutableMapOf() }[descriptor.kind] =
+                                        SheetDescriptor(
+                                            image = image,
+                                            directions = descriptor.directions,
+                                            framesPerDirection = descriptor.framesPerDirection,
+                                        )
                                 }
                             }
                     }
@@ -893,17 +947,26 @@ object LauncherMain {
             }
 
             grouped.entries.sortedBy { it.key }.forEach { (key, images) ->
-                val idle = images["idle_32"]
-                val walk = images["walk_sheet_4dir_6f"]
-                val run = images["run_sheet_4dir_6f"]
-                val reference = walk ?: run
+                val idle = images["idle"]?.image
+                val walkDescriptor = images["walk"]
+                val runDescriptor = images["run"]
+                val walk = walkDescriptor?.image
+                val run = runDescriptor?.image
+                val reference = when {
+                    walkDescriptor?.directions == 8 -> walkDescriptor
+                    runDescriptor?.directions == 8 -> runDescriptor
+                    walkDescriptor != null -> walkDescriptor
+                    else -> runDescriptor
+                }
+                val directions = reference?.directions ?: 4
+                val framesPerDirection = reference?.framesPerDirection ?: 6
                 val frameWidth = when {
-                    reference != null && reference.width % 6 == 0 -> reference.width / 6
+                    reference != null && reference.image.width % framesPerDirection == 0 -> reference.image.width / framesPerDirection
                     idle != null -> idle.width
                     else -> 32
                 }.coerceAtLeast(1)
                 val frameHeight = when {
-                    reference != null && reference.height % 4 == 0 -> reference.height / 4
+                    reference != null && reference.image.height % directions == 0 -> reference.image.height / directions
                     idle != null -> idle.height
                     else -> 32
                 }.coerceAtLeast(1)
@@ -916,6 +979,8 @@ object LauncherMain {
                         runSheet = run,
                         frameWidth = frameWidth,
                         frameHeight = frameHeight,
+                        directions = directions,
+                        framesPerDirection = framesPerDirection,
                     )
                 )
             }
@@ -3281,6 +3346,27 @@ object LauncherMain {
         bindMovementKey(gameWorldPanel, "S", KeyEvent.VK_S)
         bindMovementKey(gameWorldPanel, "D", KeyEvent.VK_D)
 
+        fun resolveMovementDirectionIndex(nx: Double, ny: Double, availableDirections: Int): Int {
+            if (availableDirections >= 8) {
+                val angle = Math.toDegrees(kotlin.math.atan2(ny, nx))
+                return when {
+                    angle >= 67.5 && angle < 112.5 -> 0 // south
+                    angle >= 112.5 && angle < 157.5 -> 1 // south-west
+                    angle >= 157.5 || angle < -157.5 -> 2 // west
+                    angle >= -157.5 && angle < -112.5 -> 3 // north-west
+                    angle >= -112.5 && angle < -67.5 -> 4 // north
+                    angle >= -67.5 && angle < -22.5 -> 5 // north-east
+                    angle >= -22.5 && angle < 22.5 -> 6 // east
+                    else -> 7 // south-east
+                }
+            }
+            return if (kotlin.math.abs(nx) >= kotlin.math.abs(ny)) {
+                if (nx >= 0.0) 2 else 1
+            } else {
+                if (ny >= 0.0) 0 else 3
+            }
+        }
+
         var lastGameTickNanos = System.nanoTime()
         val gameLoopTimer = Timer(16) {
             if (!gameSceneContainer.isVisible) {
@@ -3314,11 +3400,7 @@ object LauncherMain {
                 }
                 clampPlayerToWorld()
 
-                gameDirection = if (kotlin.math.abs(nx) >= kotlin.math.abs(ny)) {
-                    if (nx >= 0.0) 2 else 1
-                } else {
-                    if (ny >= 0.0) 0 else 3
-                }
+                gameDirection = resolveMovementDirectionIndex(nx, ny, gameCharacterAppearance?.directions ?: 4)
 
                 val frameCount = gameCharacterAppearance?.framesPerDirection ?: 1
                 gameAnimationCarryMs += dt * 1000.0

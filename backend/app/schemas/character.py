@@ -10,6 +10,7 @@ class CharacterCreateRequest(BaseModel):
     background: str = Field(default="Drifter", min_length=1, max_length=64)
     affiliation: str = Field(default="Unaffiliated", min_length=1, max_length=64)
     stat_points_total: int = Field(default=20, ge=1, le=200)
+    equipment: dict[str, str] = Field(default_factory=dict)
     stats: dict[str, int] = Field(default_factory=dict)
     skills: dict[str, int] = Field(default_factory=dict)
 
@@ -29,6 +30,7 @@ class CharacterResponse(BaseModel):
     experience_to_next_level: int
     stat_points_total: int
     stat_points_used: int
+    equipment: dict[str, str]
     stats: dict[str, int]
     skills: dict[str, int]
     is_selected: bool

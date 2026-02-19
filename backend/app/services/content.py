@@ -271,7 +271,95 @@ DEFAULT_CONTENT_DOMAINS: dict[str, dict] = {
                 "collidable": False,
                 "icon_asset_key": "spawn_marker",
             },
-        ]
+        ],
+        "equipment_slots": [
+            {
+                "slot": "head",
+                "label": "Head",
+                "description": "Helmets, hats, and head accessories.",
+                "draw_layer": 10,
+            },
+            {
+                "slot": "chest",
+                "label": "Chest",
+                "description": "Torso armor and robes.",
+                "draw_layer": 20,
+            },
+            {
+                "slot": "legs",
+                "label": "Legs",
+                "description": "Leg armor and cloth.",
+                "draw_layer": 30,
+            },
+            {
+                "slot": "hands",
+                "label": "Hands",
+                "description": "Gloves and bracers.",
+                "draw_layer": 40,
+            },
+            {
+                "slot": "feet",
+                "label": "Feet",
+                "description": "Boots and greaves.",
+                "draw_layer": 50,
+            },
+            {
+                "slot": "weapon_main",
+                "label": "Main Hand",
+                "description": "Primary weapon visual overlay.",
+                "draw_layer": 60,
+            },
+            {
+                "slot": "weapon_off",
+                "label": "Off Hand",
+                "description": "Secondary weapon/shield visual overlay.",
+                "draw_layer": 55,
+            },
+        ],
+        "equipment_visuals": [
+            {
+                "item_key": "weapon_training_saber",
+                "label": "Training Saber",
+                "slot": "weapon_main",
+                "text_key": "item.weapon_training_saber",
+                "description": "Starter saber visual placeholder.",
+                "asset_key": "weapon_training_saber",
+                "default_for_slot": True,
+                "draw_layer": 60,
+                "pivot_x": 16,
+                "pivot_y": 24,
+                "directions": 8,
+                "frames_per_direction": 6,
+            },
+            {
+                "item_key": "weapon_training_longsword",
+                "label": "Training Longsword",
+                "slot": "weapon_main",
+                "text_key": "item.weapon_training_longsword",
+                "description": "Starter longsword visual placeholder.",
+                "asset_key": "weapon_training_longsword",
+                "default_for_slot": False,
+                "draw_layer": 60,
+                "pivot_x": 16,
+                "pivot_y": 24,
+                "directions": 8,
+                "frames_per_direction": 6,
+            },
+            {
+                "item_key": "offhand_training_buckler",
+                "label": "Training Buckler",
+                "slot": "weapon_off",
+                "text_key": "item.offhand_training_buckler",
+                "description": "Starter off-hand shield visual placeholder.",
+                "asset_key": "offhand_training_buckler",
+                "default_for_slot": True,
+                "draw_layer": 55,
+                "pivot_x": 16,
+                "pivot_y": 24,
+                "directions": 8,
+                "frames_per_direction": 6,
+            },
+        ],
     },
     CONTENT_DOMAIN_TUNING: {
         "movement_speed": 220.0,
@@ -347,6 +435,101 @@ def _validate_option_list(domain: str, key: str, payload: dict) -> list[ContentV
         if value in seen_values:
             issues.append(ContentValidationIssue(domain, f"'{key}[{index}].value' is duplicated ('{value}')"))
         seen_values.add(value)
+    return issues
+
+
+def _validate_equipment_slots(domain: str, payload: dict) -> tuple[list[ContentValidationIssue], set[str]]:
+    issues: list[ContentValidationIssue] = []
+    slots = payload.get("equipment_slots")
+    if slots is None:
+        return issues, set()
+    if not isinstance(slots, list):
+        return [ContentValidationIssue(domain, "'equipment_slots' must be a list when provided")], set()
+
+    seen_slots: set[str] = set()
+    for index, raw in enumerate(slots):
+        if not isinstance(raw, dict):
+            issues.append(ContentValidationIssue(domain, f"'equipment_slots[{index}]' must be an object"))
+            continue
+        slot = str(raw.get("slot", "")).strip().lower()
+        label = str(raw.get("label", "")).strip()
+        draw_layer = raw.get("draw_layer")
+        if not slot:
+            issues.append(ContentValidationIssue(domain, f"'equipment_slots[{index}].slot' is required"))
+            continue
+        if slot in seen_slots:
+            issues.append(ContentValidationIssue(domain, f"'equipment_slots[{index}].slot' is duplicated ('{slot}')"))
+        seen_slots.add(slot)
+        if not label:
+            issues.append(ContentValidationIssue(domain, f"'equipment_slots[{index}].label' is required"))
+        if not isinstance(draw_layer, int) or draw_layer < 0:
+            issues.append(ContentValidationIssue(domain, f"'equipment_slots[{index}].draw_layer' must be an integer >= 0"))
+    return issues, seen_slots
+
+
+def _validate_equipment_visuals(domain: str, payload: dict, allowed_slots: set[str]) -> list[ContentValidationIssue]:
+    visuals = payload.get("equipment_visuals")
+    if visuals is None:
+        return []
+    if not isinstance(visuals, list):
+        return [ContentValidationIssue(domain, "'equipment_visuals' must be a list when provided")]
+
+    issues: list[ContentValidationIssue] = []
+    seen_items: set[str] = set()
+    slot_default_counts: dict[str, int] = {}
+    for index, raw in enumerate(visuals):
+        if not isinstance(raw, dict):
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}]' must be an object"))
+            continue
+        item_key = str(raw.get("item_key", "")).strip().lower()
+        label = str(raw.get("label", "")).strip()
+        slot = str(raw.get("slot", "")).strip().lower()
+        text_key = str(raw.get("text_key", "")).strip()
+        description = str(raw.get("description", "")).strip()
+        asset_key = str(raw.get("asset_key", "")).strip()
+        default_for_slot = raw.get("default_for_slot")
+        draw_layer = raw.get("draw_layer")
+        pivot_x = raw.get("pivot_x")
+        pivot_y = raw.get("pivot_y")
+        directions = raw.get("directions")
+        frames_per_direction = raw.get("frames_per_direction")
+
+        if not item_key:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].item_key' is required"))
+        if item_key in seen_items:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].item_key' is duplicated ('{item_key}')"))
+        seen_items.add(item_key)
+        if not label:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].label' is required"))
+        if not slot:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].slot' is required"))
+        elif allowed_slots and slot not in allowed_slots:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].slot' is unknown ('{slot}')"))
+        if not text_key:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].text_key' is required"))
+        if not description:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].description' is required"))
+        if not asset_key:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].asset_key' is required"))
+        if not isinstance(default_for_slot, bool):
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].default_for_slot' must be boolean"))
+        if isinstance(default_for_slot, bool) and default_for_slot:
+            slot_default_counts[slot] = slot_default_counts.get(slot, 0) + 1
+        if not isinstance(draw_layer, int) or draw_layer < 0:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].draw_layer' must be an integer >= 0"))
+        if not isinstance(pivot_x, int):
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].pivot_x' must be an integer"))
+        if not isinstance(pivot_y, int):
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].pivot_y' must be an integer"))
+        if not isinstance(directions, int) or directions not in {4, 8}:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].directions' must be 4 or 8"))
+        if not isinstance(frames_per_direction, int) or frames_per_direction <= 0:
+            issues.append(ContentValidationIssue(domain, f"'equipment_visuals[{index}].frames_per_direction' must be > 0"))
+
+    for slot, count in slot_default_counts.items():
+        if count > 1:
+            issues.append(ContentValidationIssue(domain, f"Only one default visual is allowed per slot ('{slot}')"))
+
     return issues
 
 
@@ -476,6 +659,9 @@ def validate_domain_payload(domain: str, payload: dict) -> list[ContentValidatio
                     issues.append(ContentValidationIssue(domain, f"'entries[{index}].default_layer' must be an integer >= 0"))
                 if not isinstance(collidable, bool):
                     issues.append(ContentValidationIssue(domain, f"'entries[{index}].collidable' must be a boolean"))
+        slot_issues, slot_keys = _validate_equipment_slots(domain, payload)
+        issues.extend(slot_issues)
+        issues.extend(_validate_equipment_visuals(domain, payload, slot_keys))
 
     elif domain == CONTENT_DOMAIN_TUNING:
         for key in ("movement_speed", "attack_speed_base"):

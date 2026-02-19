@@ -75,6 +75,7 @@ data class CharacterView(
     val experienceToNextLevel: Int,
     val statPointsTotal: Int,
     val statPointsUsed: Int,
+    val equipment: Map<String, String> = emptyMap(),
     val isSelected: Boolean
 ) {
     override fun toString(): String {
@@ -169,6 +170,28 @@ data class ContentAssetEntryView(
     val iconAssetKey: String,
 )
 
+data class ContentEquipmentSlotView(
+    val slot: String,
+    val label: String,
+    val description: String,
+    val drawLayer: Int,
+)
+
+data class ContentEquipmentVisualView(
+    val itemKey: String,
+    val label: String,
+    val slot: String,
+    val textKey: String,
+    val description: String,
+    val assetKey: String,
+    val defaultForSlot: Boolean,
+    val drawLayer: Int,
+    val pivotX: Int,
+    val pivotY: Int,
+    val directions: Int,
+    val framesPerDirection: Int,
+)
+
 data class ContentBootstrapView(
     val contentSchemaVersion: Int,
     val contentContractSignature: String = "",
@@ -184,6 +207,8 @@ data class ContentBootstrapView(
     val stats: List<ContentStatEntryView>,
     val skills: List<ContentSkillEntryView>,
     val assets: List<ContentAssetEntryView> = emptyList(),
+    val equipmentSlots: List<ContentEquipmentSlotView> = emptyList(),
+    val equipmentVisuals: List<ContentEquipmentVisualView> = emptyList(),
     val movementSpeed: Double,
     val attackSpeedBase: Double,
     val uiText: Map<String, String>,
@@ -430,6 +455,45 @@ class KaraxasBackendClient(
         }
     }
 
+    private fun parseContentEquipmentSlots(node: JsonNode): List<ContentEquipmentSlotView> {
+        if (!node.isArray) return emptyList()
+        return node.mapNotNull { item ->
+            val slot = item.path("slot").asText("").trim().lowercase()
+            val label = item.path("label").asText("").trim()
+            if (slot.isBlank() || label.isBlank()) return@mapNotNull null
+            ContentEquipmentSlotView(
+                slot = slot,
+                label = label,
+                description = item.path("description").asText("").trim(),
+                drawLayer = item.path("draw_layer").asInt(0),
+            )
+        }
+    }
+
+    private fun parseContentEquipmentVisuals(node: JsonNode): List<ContentEquipmentVisualView> {
+        if (!node.isArray) return emptyList()
+        return node.mapNotNull { item ->
+            val itemKey = item.path("item_key").asText("").trim().lowercase()
+            val label = item.path("label").asText("").trim()
+            val slot = item.path("slot").asText("").trim().lowercase()
+            if (itemKey.isBlank() || label.isBlank() || slot.isBlank()) return@mapNotNull null
+            ContentEquipmentVisualView(
+                itemKey = itemKey,
+                label = label,
+                slot = slot,
+                textKey = item.path("text_key").asText("").trim(),
+                description = item.path("description").asText("").trim(),
+                assetKey = item.path("asset_key").asText("").trim(),
+                defaultForSlot = item.path("default_for_slot").asBoolean(false),
+                drawLayer = item.path("draw_layer").asInt(0),
+                pivotX = item.path("pivot_x").asInt(0),
+                pivotY = item.path("pivot_y").asInt(0),
+                directions = item.path("directions").asInt(8),
+                framesPerDirection = item.path("frames_per_direction").asInt(6),
+            )
+        }
+    }
+
     fun fetchContentBootstrap(clientVersion: String? = null): ContentBootstrapView {
         val response = request(
             method = "GET",
@@ -453,6 +517,8 @@ class KaraxasBackendClient(
         val statEntries = parseContentStats(stats.path("entries"))
         val skillEntries = parseContentSkills(skills.path("entries"))
         val assetEntries = parseContentAssets(assets.path("entries"))
+        val equipmentSlots = parseContentEquipmentSlots(assets.path("equipment_slots"))
+        val equipmentVisuals = parseContentEquipmentVisuals(assets.path("equipment_visuals"))
 
         val uiTextMap = linkedMapOf<String, String>()
         if (uiText.isObject) {
@@ -481,6 +547,8 @@ class KaraxasBackendClient(
             stats = statEntries,
             skills = skillEntries,
             assets = assetEntries,
+            equipmentSlots = equipmentSlots,
+            equipmentVisuals = equipmentVisuals,
             movementSpeed = tuning.path("movement_speed").asDouble(220.0),
             attackSpeedBase = tuning.path("attack_speed_base").asDouble(1.0),
             uiText = uiTextMap,
@@ -828,6 +896,7 @@ class KaraxasBackendClient(
                 experienceToNextLevel = item.path("experience_to_next_level").asInt(100),
                 statPointsTotal = item.path("stat_points_total").asInt(),
                 statPointsUsed = item.path("stat_points_used").asInt(),
+                equipment = parseStringMap(item.path("equipment")),
                 isSelected = item.path("is_selected").asBoolean(false),
             )
         }
@@ -844,6 +913,7 @@ class KaraxasBackendClient(
         totalPoints: Int,
         stats: Map<String, Int>,
         skills: Map<String, Int>,
+        equipment: Map<String, String> = emptyMap(),
     ): CharacterView {
         val payload = mapOf(
             "name" to name,
@@ -854,6 +924,7 @@ class KaraxasBackendClient(
             "stat_points_total" to totalPoints,
             "stats" to stats,
             "skills" to skills,
+            "equipment" to equipment,
         )
         val response = request(
             method = "POST",
@@ -879,8 +950,24 @@ class KaraxasBackendClient(
             experienceToNextLevel = item.path("experience_to_next_level").asInt(100),
             statPointsTotal = item.path("stat_points_total").asInt(),
             statPointsUsed = item.path("stat_points_used").asInt(),
+            equipment = parseStringMap(item.path("equipment")),
             isSelected = item.path("is_selected").asBoolean(false),
         )
+    }
+
+    private fun parseStringMap(node: JsonNode): Map<String, String> {
+        if (!node.isObject) return emptyMap()
+        val result = linkedMapOf<String, String>()
+        val fields = node.fields()
+        while (fields.hasNext()) {
+            val (key, value) = fields.next()
+            val normalizedKey = key.trim()
+            val normalizedValue = value.asText("").trim()
+            if (normalizedKey.isNotBlank() && normalizedValue.isNotBlank()) {
+                result[normalizedKey] = normalizedValue
+            }
+        }
+        return result
     }
 
     fun selectCharacter(accessToken: String, clientVersion: String, characterId: Int) {

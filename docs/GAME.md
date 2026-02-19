@@ -96,10 +96,11 @@ create/select characters, and enter gameplay sessions.
 - Character creation identity controls are aligned in one horizontal row: Name, Sex, Race, Background, Affiliation.
 - Character creation footer shows a live point budget label (`x/N points left`) beside the `Create Character` action.
 - Character creation selections are persisted on character records (stats, skills, race, background, affiliation, appearance).
+- Character creation now also persists a per-character equipment loadout map (slot -> item visual key) for future modular visual rendering.
 - Character art loading accepts both canonical filenames and fallback naming/folder layouts so male/female previews continue working when asset files are reorganized.
 - Initial visual presets currently wired: human male and human female.
-- Isometric character animation target is 8-direction movement/action coverage (`N`, `NE`, `E`, `SE`, `S`, `SW`, `W`, `NW`) for runtime readability and combat responsiveness.
-- Character visuals are planned to become modular/equipment-driven (base body + gear slot overlays) so equipped items visibly change the character model in gameplay.
+- Launcher runtime now supports 8-direction movement/action sprite sheets (`N`, `NE`, `E`, `SE`, `S`, `SW`, `W`, `NW`) with automatic fallback to existing 4-direction sheets.
+- Modular equipment-driven visuals are now scaffolded in DB content (slot + item visual definitions + default slot mappings), with full render layering/paperdoll rollout still in progress.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.
 
 ## Social Scope (Current)

@@ -1,2 +1,3 @@
-- Shrunk Level Editor header inputs (`Save Level`, `Descriptive`, `Order`) so action buttons like `Save Local` remain visible and don’t clip off-screen on narrower widths.
-- Updater no-update path no longer restarts launcher; `Game is up to date.` now stays in-session with no forced restart.
+- Added 8-direction sprite runtime scaffolding: launcher now auto-detects 4-dir/8-dir walk-run sheets and uses 8-way facing when available with 4-way fallback.
+- Added modular equipment data foundations: new validated content payload sections (`equipment_slots`, `equipment_visuals`) and persisted character equipment loadouts.
+- Added blocked input ticket for art production requirements (style refs, resolution/zoom, slot list, v1 item list, and frame-count contract) so remaining art-heavy implementation can proceed deterministically.
