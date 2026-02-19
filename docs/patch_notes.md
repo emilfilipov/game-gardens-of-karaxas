@@ -1,5 +1,2 @@
-- Added zone-scoped realtime infrastructure: launcher now publishes active/adjacent floor scope and backend fanout filters zone presence events to scoped clients only.
-- Added runtime telemetry flow for zone streaming (`preload_latency`, `transition_handoff`, `transition_fallback`) and surfaced aggregated `zone_runtime` metrics in `/ops/release/metrics`.
-- Added backend tests for zone filtering and runtime observability plus spawn/order persistence tests; added launcher tests for preload-trigger and transition-trigger helper behavior.
-- Gameplay loop updates are now gated to visible gameplay scene state, and character logout clears gameplay-level scope to reduce cross-screen overlap artifacts.
-- Added `docs/TOWER_ADMIN_CHECKLIST.md` with a repeatable two-level authoring/order/gameplay validation flow for admins.
+- Shrunk Level Editor header inputs (`Save Level`, `Descriptive`, `Order`) so action buttons like `Save Local` remain visible and don’t clip off-screen on narrower widths.
+- Documented compact Level Editor header sizing in `docs/TECHNICAL.md` for consistent future UI changes.

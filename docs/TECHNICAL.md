@@ -180,6 +180,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level-builder is rendered in a dedicated scene (outside account card stack) with compact top controls for faster editing workflows.
 - Level-builder scene header strip now contains `Reload`, `Load`, `Save Local`, `Publish Changes`, and `Back`, plus the load-dropdown and level-name input placed adjacent to their respective actions.
 - Level-builder header now includes technical `name`, player-facing `descriptive_name`, and optional `order_index` inputs used by tower-floor routing/order.
+- Level-builder header input widths are intentionally compact (`name`, `descriptive_name`, `order_index`) so `Save Local` remains visible on narrower window widths.
 - Lower editor rows are reserved for level-editing controls and viewport/grid inputs.
 - Level-builder grid defaults to a large logical footprint (`100000x100000`) and uses viewport panning for editing.
 - Level-builder top controls are split into two compact rows and grid canvas minimum size is constrained so the scene stays within visible screen bounds on common desktop resolutions.

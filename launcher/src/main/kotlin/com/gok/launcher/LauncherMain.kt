@@ -1218,7 +1218,7 @@ object LauncherMain {
         val levelEditorDescriptiveName = UiScaffold.ghostTextField("Descriptive Name")
         val levelEditorOrderIndexField = UiScaffold.ghostTextField("Order").apply {
             horizontalAlignment = JTextField.CENTER
-            preferredSize = Dimension(78, UiScaffold.fieldSize.height)
+            preferredSize = Dimension(64, UiScaffold.fieldSize.height)
             minimumSize = preferredSize
             maximumSize = preferredSize
         }
@@ -5442,13 +5442,13 @@ object LauncherMain {
                     add(levelToolLoadButton)
                     add(UiScaffold.titledLabel("Save Level"))
                     add(levelEditorName.apply {
-                        preferredSize = Dimension(150, UiScaffold.fieldSize.height)
+                        preferredSize = Dimension(120, UiScaffold.fieldSize.height)
                         minimumSize = preferredSize
                         maximumSize = preferredSize
                     })
                     add(UiScaffold.titledLabel("Descriptive"))
                     add(levelEditorDescriptiveName.apply {
-                        preferredSize = Dimension(200, UiScaffold.fieldSize.height)
+                        preferredSize = Dimension(140, UiScaffold.fieldSize.height)
                         minimumSize = preferredSize
                         maximumSize = preferredSize
                     })
