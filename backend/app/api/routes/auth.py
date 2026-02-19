@@ -613,10 +613,11 @@ def _load_context_user(context: AuthContext, db: Session) -> User:
 
 @router.get("/mfa/status", response_model=MfaStatusResponse)
 @router.get("/admin/mfa/status", response_model=MfaStatusResponse, include_in_schema=False)
-def mfa_status(context: AuthContext = Depends(get_auth_context)):
-    secret = (context.user.mfa_totp_secret or "").strip()
+def mfa_status(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+    user = _load_context_user(context, db)
+    secret = (user.mfa_totp_secret or "").strip()
     return MfaStatusResponse(
-        enabled=context.user.mfa_enabled,
+        enabled=user.mfa_enabled,
         configured=bool(secret),
     )
 

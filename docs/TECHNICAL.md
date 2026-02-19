@@ -140,6 +140,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
 - Security settings expose MFA status, QR enrollment, and a single toggle-based enable/disable flow with OTP confirmation.
 - MFA setup now renders an in-launcher QR from backend `provisioning_uri` (ZXing) in a fully themed dialog and provides copy actions for secret/URI fallback flows.
+- Settings save/discard confirmations now use themed in-launcher modal dialogs (no system-default placeholder confirm popups).
 - Login MFA challenge now triggers when MFA is either enabled or configured with a secret, preventing password-only login after QR enrollment.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.
 - Stored auto-login refresh tokens are only used after an authenticated session updates settings, and are not consumed during app startup.
@@ -241,6 +242,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Refresh/session token: stored as hash in DB with rotation and replay detection (reuse triggers bulk session revocation).
 - Passwords: bcrypt hash via passlib.
 - Account auth hardening: TOTP-enabled MFA APIs for all authenticated users plus shorter admin refresh-session TTL.
+- MFA status reads now resolve against a fresh DB user row on each request (`/auth/mfa/status`) to prevent stale session-context state in security UI.
 - Ops endpoint auth: `x-ops-token` header backed by `OPS_API_TOKEN` secret.
 - Websocket auth uses one-time short-lived ws tickets (`POST /auth/ws-ticket`) instead of bearer-token query params.
 - Backend returns sanitized error envelopes (with request id/path/timestamp) and no raw exception payload leakage.

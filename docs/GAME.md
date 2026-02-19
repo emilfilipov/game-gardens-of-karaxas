@@ -38,13 +38,13 @@ create/select characters, and enter gameplay sessions.
    - Collision currently comes from layer-1 collidable tiles (for example walls/trees) from the loaded level.
 7. Authenticated players can open a full Settings screen from the top-right menu.
    - Settings screen uses sidebar tabs: `Video`, `Audio`, `Security`.
-   - `Save` prompts for confirmation when changes exist and keeps edits if user chooses `No`.
-   - `Cancel` prompts when unsaved changes exist before leaving settings.
+   - `Save` prompts with a themed confirmation modal when changes exist and keeps edits if user chooses `No`.
+   - `Cancel` prompts with a themed confirmation modal when unsaved changes exist before leaving settings.
    - `Video` includes screen mode (`Borderless Fullscreen` / `Windowed`).
    - `Audio` includes mute toggle and master volume slider.
    - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
    - MFA toggle is applied with a single on/off control plus adjacent authenticator code field.
-   - MFA setup displays a scannable QR code (plus copy secret/URI actions) in a fully themed enrollment popup.
+   - MFA setup displays a scannable QR code (plus copy secret/URI actions) in a fully themed enrollment popup with no placeholder/system dialog chrome.
    - Once MFA secret enrollment exists for an account, login requires a valid MFA code (password-only login is blocked).
 
 ## Required Frontend Screens

@@ -365,6 +365,51 @@ object LauncherMain {
                 item.background = if (item.model.isArmed || item.model.isSelected) menuHover else menuBg
             }
         }
+        fun showThemedConfirmDialog(
+            title: String,
+            message: String,
+            confirmText: String = "Yes",
+            cancelText: String = "No"
+        ): Boolean {
+            var confirmed = false
+            val confirmButton = buildMenuButton(confirmText, null, Dimension(130, 38), 13f)
+            val cancelButton = buildMenuButton(cancelText, null, Dimension(130, 38), 13f)
+            val dialog = JDialog(frame, title, true).apply {
+                isUndecorated = true
+                isResizable = false
+                contentPane = JPanel(BorderLayout(10, 10)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    border = BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                        BorderFactory.createEmptyBorder(12, 12, 12, 12),
+                    )
+                    add(UiScaffold.sectionLabel(title).apply {
+                        horizontalAlignment = SwingConstants.LEFT
+                    }, BorderLayout.NORTH)
+                    add(UiScaffold.titledLabel(message).apply {
+                        horizontalAlignment = SwingConstants.LEFT
+                        font = Font(THEME_FONT_FAMILY, Font.PLAIN, 13)
+                    }, BorderLayout.CENTER)
+                    add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(cancelButton)
+                        add(confirmButton)
+                    }, BorderLayout.SOUTH)
+                }
+                rootPane.defaultButton = confirmButton
+                pack()
+                setLocationRelativeTo(frame)
+            }
+            confirmButton.addActionListener {
+                confirmed = true
+                dialog.dispose()
+            }
+            cancelButton.addActionListener { dialog.dispose() }
+            dialog.isVisible = true
+            return confirmed
+        }
         settingsPopup.background = menuBg
         settingsPopup.border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
         stylePopupItem(welcomeItem)
@@ -3658,7 +3703,9 @@ object LauncherMain {
                 addActionListener { copyTextToClipboard(provisioningUri) }
             }
             val closeButton = buildMenuButton("Close", null, Dimension(110, 34), 12f)
+            val topCloseButton = buildMenuButton("X", null, Dimension(36, 30), 12f)
             val dialog = JDialog(frame, "MFA Setup", true).apply {
+                isUndecorated = true
                 isResizable = false
                 contentPane = JPanel(BorderLayout(8, 8)).apply {
                     isOpaque = true
@@ -3667,8 +3714,13 @@ object LauncherMain {
                         BorderFactory.createLineBorder(Color(172, 132, 87), 1),
                         BorderFactory.createEmptyBorder(10, 10, 10, 10),
                     )
-                    add(UiScaffold.sectionLabel("Authenticator Enrollment").apply {
-                        horizontalAlignment = SwingConstants.LEFT
+                    add(JPanel(BorderLayout(8, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(UiScaffold.sectionLabel("Authenticator Enrollment").apply {
+                            horizontalAlignment = SwingConstants.LEFT
+                        }, BorderLayout.CENTER)
+                        add(topCloseButton, BorderLayout.EAST)
                     }, BorderLayout.NORTH)
                     add(JPanel(BorderLayout(10, 0)).apply {
                         isOpaque = true
@@ -3706,6 +3758,7 @@ object LauncherMain {
                 pack()
                 setLocationRelativeTo(frame)
             }
+            topCloseButton.addActionListener { dialog.dispose() }
             closeButton.addActionListener { dialog.dispose() }
             dialog.isVisible = true
         }
@@ -5367,14 +5420,7 @@ object LauncherMain {
                 settingsStatus.text = "No changes to save."
                 return@addActionListener
             }
-            val confirm = JOptionPane.showConfirmDialog(
-                frame,
-                "Are you sure you want to save these settings?",
-                "Save Settings",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE,
-            )
-            if (confirm != JOptionPane.YES_OPTION) {
+            if (!showThemedConfirmDialog("Save Settings", "Are you sure you want to save these settings?")) {
                 settingsStatus.text = "Save cancelled. Unsaved changes kept."
                 return@addActionListener
             }
@@ -5395,14 +5441,7 @@ object LauncherMain {
         }
         settingsCancelButton.addActionListener {
             if (settingsHasUnsavedChanges()) {
-                val confirm = JOptionPane.showConfirmDialog(
-                    frame,
-                    "You have unsaved changes. Are you sure you want to exit the menu?",
-                    "Discard Changes",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.WARNING_MESSAGE,
-                )
-                if (confirm != JOptionPane.YES_OPTION) {
+                if (!showThemedConfirmDialog("Discard Changes", "You have unsaved changes. Are you sure you want to exit the menu?")) {
                     settingsStatus.text = "Unsaved changes kept."
                     return@addActionListener
                 }

@@ -63,6 +63,10 @@
 - Runtime must run without launcher/updater dependencies.
 - Preserve portability path: Windows first, then Linux/Steam, then Android.
 
+## UI Quality Rule
+- All UI dialogs, panels, and controls must be themed to Gardens of Karaxas.
+- Do not ship placeholder/system-default UI surfaces for in-game launcher flows.
+
 ## System Map
 - Current repo structure:
   - `docs/` - repository documentation (canonical + supporting docs).
