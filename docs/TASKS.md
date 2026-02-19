@@ -5,6 +5,56 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-174 | ⬜ | 3 | Lock visual direction for isometric migration: define target camera angle/projection (`2:1` iso vs true iso), sprite scale, lighting mood, readability constraints, and UI-over-world composition rules; output approved art/tech reference board. |
+| GOK-MMO-175 | ⬜ | 3 | Produce formal isometric coordinate spec: world<->screen transforms, tile origin conventions, pivot rules, draw-order tie breakers, and deterministic rounding behavior for movement/collision/editor picking. |
+| GOK-MMO-176 | ⬜ | 4 | Run engine migration spike (Godot vs Unity) against project constraints (Windows-first launcher, backend APIs, data-driven model) and lock runtime/editor host stack with risk matrix and cutover plan. |
+| GOK-MMO-177 | ⬜ | 3 | Define `Level Schema v3` for hybrid placement: preserve logical grid data while adding freeform prop transforms (`x/y/z`, rotation, scale, pivot) and stable IDs for per-object editing/versioning. |
+| GOK-MMO-178 | ⬜ | 3 | Design backward-compatible migration path from current layered level payloads to `v3` hybrid payloads, including validation/fallback adapters and reversible migration scripts for staged rollout. |
+| GOK-MMO-179 | ⬜ | 3 | Establish production art pipeline contract (source formats, export profiles, naming standards, atlas grouping, compression policy, color-space, outline/contrast guidelines, and per-asset metadata requirements). |
+| GOK-MMO-180 | ⬜ | 2 | Build automated asset ingest checks (naming/dimensions/pivot/frame-count consistency) to reject invalid art imports before runtime/editor consumption. |
+| GOK-MMO-181 | ⬜ | 2 | Define milestone gates for isometric vertical slice: technical completion criteria, visual quality criteria, performance budgets, and explicit go/no-go checkpoints per phase. |
+| GOK-MMO-182 | ⬜ | 4 | Implement shared isometric math runtime module with unit tests for coordinate transforms, tile picking, camera offsets, and depth-sort keys; wire it as authoritative math layer for game + editor. |
+| GOK-MMO-183 | ⬜ | 4 | Refactor gameplay renderer from top-down layering to isometric draw pipeline with stable Y-sort buckets, object pivot-aware depth ordering, and deterministic layer overrides for effects/foreground occluders. |
+| GOK-MMO-184 | ⬜ | 3 | Upgrade movement to 8-direction isometric locomotion (input remap, normalized diagonals, animation direction selection) while preserving authoritative location persistence and transition triggers. |
+| GOK-MMO-185 | ⬜ | 4 | Rework collision/walkability for iso space: hybrid tile+shape colliders, layer masks (ground/player/flying/projectile), and precise base-only collision for tall props (for example trees). |
+| GOK-MMO-186 | ⬜ | 3 | Add occlusion/visibility rules so tall world props can partially hide entities while preserving gameplay readability (silhouette/outline fallback for obscured player/targets). |
+| GOK-MMO-187 | ⬜ | 3 | Port transition-link runtime to iso world coordinates and ensure floor handoff remains seamless (no loading card), including spawn correction and cooldown/debounce safeguards in iso movement flow. |
+| GOK-MMO-188 | ⬜ | 4 | Implement zone-stream cache policy for iso runtime: active zone + warm adjacent zones with memory budgets, preload priority near transitions, and deterministic eviction strategy under pressure. |
+| GOK-MMO-189 | ⬜ | 3 | Extend zone interest/fanout to entity-state channels (not only presence pings) so multiplayer replication is floor-scoped with optional adjacent preview channels guarded by explicit policy flags. |
+| GOK-MMO-190 | ⬜ | 4 | Build `Level Editor v2` shell with modern docked layout (asset browser, hierarchy/layers panel, inspector, viewport, validation panel, change queue) sized for full-screen production workflows. |
+| GOK-MMO-191 | ⬜ | 4 | Implement editor command bus with undo/redo stacks, atomic transactions, and deterministic serialization for all authoring actions (placement, transform, collision edits, links, metadata changes). |
+| GOK-MMO-192 | ⬜ | 3 | Build searchable asset browser with tags/categories/favorites/recent sets and visual thumbnails/icons; include hover metadata and quick filters for gameplay-critical vs decorative assets. |
+| GOK-MMO-193 | ⬜ | 3 | Implement modern placement toolset: single-place, brush paint, erase, box paint, lasso fill, stamp tool, and scatter tool with tunable density/randomization controls. |
+| GOK-MMO-194 | ⬜ | 4 | Implement hybrid placement modes: strict grid for gameplay logic assets and freeform transforms for visual props; support mode switching per tool with clear viewport indicators. |
+| GOK-MMO-195 | ⬜ | 2 | Add snap system with toggle + steps (`off`, `0.25`, `0.5`, `1 tile`) and per-axis snapping so designers can keep precision where needed without grid-only clunkiness. |
+| GOK-MMO-196 | ⬜ | 3 | Add transform gizmos (move/rotate/scale), numeric transform inputs, and pivot editing for selected objects, including multi-select transform operations and alignment/distribution helpers. |
+| GOK-MMO-197 | ⬜ | 3 | Implement multi-select editing workflow (marquee, additive/subtractive selection, copy/paste/duplicate, group/ungroup, prefab instance placement) with stable object references. |
+| GOK-MMO-198 | ⬜ | 3 | Build robust layer manager (`ground/gameplay/ambient/foreground/custom`) with lock/hide/solo states and batch reassignment tools for selected objects. |
+| GOK-MMO-199 | ⬜ | 4 | Implement per-asset collision/hitbox editor with shape primitives and polygon editing; persist collision templates to DB-driven asset definitions and reuse across levels automatically. |
+| GOK-MMO-200 | ⬜ | 3 | Add navigation/walkability paint tools and debug overlays to separate walkable logic from visual placement; include exporter that compiles nav/collision artifacts for runtime consumption. |
+| GOK-MMO-201 | ⬜ | 3 | Build transition graph editor UX (link creation, destination validation, bidirectional helpers, orphan detection) with graph integrity checks before publish. |
+| GOK-MMO-202 | ⬜ | 3 | Add live validation panel for editor drafts (missing assets, invalid links, collision conflicts, out-of-bounds objects, duplicate keys, schema violations) with clickable fix navigation. |
+| GOK-MMO-203 | ⬜ | 3 | Add in-editor playtest mode that spawns selected character profile and simulates runtime movement/collision/transition behavior without full relaunch, including quick return to edit mode. |
+| GOK-MMO-204 | ⬜ | 4 | Extend local-draft workflow to full level editor v2 object graph with diff previews; publish should create auditable content/version entries and preserve rollback compatibility. |
+| GOK-MMO-205 | ⬜ | 3 | Build level version history panel with searchable cards, active marker, revert flow, and side-by-side object-state diff view highlighting added/removed/modified entities. |
+| GOK-MMO-206 | ⬜ | 4 | Execute character art upgrade pipeline for iso style: unified skeleton/pose sheets, direction sets, combat states, and consistent silhouette/readability at target zoom levels. |
+| GOK-MMO-207 | ⬜ | 4 | Execute environment tileset overhaul by biome/floor themes with modular edge/corner variants, transition blends, and consistent texel density for professional visual cohesion. |
+| GOK-MMO-208 | ⬜ | 4 | Implement atmosphere/lighting stack (shadow decals, emissive overlays, fog layers, ambient particles, weather layers) with performance-aware toggles and scalability presets. |
+| GOK-MMO-209 | ⬜ | 3 | Add material/shader style package for 2D assets (tinting, normal-map optionality, glow masks, highlight effects) to increase depth/readability while keeping art pipeline manageable. |
+| GOK-MMO-210 | ⬜ | 3 | Expand prop library quality with variant sets and procedural randomization rules (rotation, tint, scale jitter) to reduce repeated patterns in authored levels. |
+| GOK-MMO-211 | ⬜ | 3 | Standardize animation blueprint across entities (idle/walk/run/attack/cast/hit/death/interact) and enforce importer validation for missing clips/states. |
+| GOK-MMO-212 | ⬜ | 2 | Add post-processing profile system (color grading, vignette, bloom constraints, contrast tuning) with per-zone overrides sourced from data-driven config bundles. |
+| GOK-MMO-213 | ⬜ | 3 | Refactor game/UI visual language package (fonts, spacing, iconography, tooltips, panel chrome) to match new iso art style and remove remaining prototype-era visual inconsistency. |
+| GOK-MMO-214 | ⬜ | 4 | Expand DB-driven content model for asset definitions: visual variants, collision templates, placement rules, layer defaults, editor tags, and runtime behavior flags with strict validation. |
+| GOK-MMO-215 | ⬜ | 3 | Expand DB-driven descriptive content coverage (skill/stat descriptions, tooltips, dropdown options, level-up text, affinity/race/background labels) with locale-ready key structure. |
+| GOK-MMO-216 | ⬜ | 4 | Add schema registry + migration validator for data-driven bundles so invalid content changes are blocked pre-publish; include actionable diagnostics and auto-generated remediation hints. |
+| GOK-MMO-217 | ⬜ | 3 | Add admin approval workflow for staged changes (author -> reviewer -> publish) with immutable audit records and batch publish manifests linking levels/assets/config deltas. |
+| GOK-MMO-218 | ⬜ | 3 | Improve publish-to-player messaging: generate user-friendly release notes from changed content fields (for example collision/damage/cost changes) and display by build/content version at login. |
+| GOK-MMO-219 | ⬜ | 3 | Add automated test suite for iso transform correctness, level `v3` serialization integrity, collision template propagation, transition graph validity, and editor command undo/redo determinism. |
+| GOK-MMO-220 | ⬜ | 3 | Add performance/observability gates for isometric runtime and editor: frame-time histograms, zone preload latency SLOs, memory budgets, and regression alerts in CI/ops dashboards. |
+| GOK-MMO-221 | ⬜ | 2 | Create large-level soak/perf scenarios (dense props, many transitions, long sessions) with repeatable scripts and acceptance thresholds before enabling broader player testing. |
+| GOK-MMO-222 | ⬜ | 2 | Build vertical-slice acceptance checklist covering art quality, editor productivity, runtime smoothness, and backend data integrity; require full pass before gameplay feature expansion resumes. |
+| GOK-MMO-223 | ⬜ | 2 | Prepare post-vertical-slice stabilization sprint plan: bug triage buckets, polish priorities, and explicit handoff from infrastructure/editor upgrade work back to gameplay systems development. |
 
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
