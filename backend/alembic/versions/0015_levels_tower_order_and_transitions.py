@@ -1,6 +1,6 @@
 """Add level descriptive names, tower ordering, and transition links.
 
-Revision ID: 0015_levels_tower_order_and_transitions
+Revision ID: 0015_levels_tower_order
 Revises: 0014_auth_security_hardening
 Create Date: 2026-02-19 00:00:00.000000
 """
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0015_levels_tower_order_and_transitions"
+revision = "0015_levels_tower_order"
 down_revision = "0014_auth_security_hardening"
 branch_labels = None
 depends_on = None
