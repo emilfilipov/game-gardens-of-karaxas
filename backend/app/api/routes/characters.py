@@ -125,6 +125,13 @@ def _to_response(character: Character, xp_per_level: int) -> CharacterResponse:
     )
 
 
+def _first_level_spawn(db: Session) -> tuple[int, int, int] | None:
+    level = db.execute(select(Level).order_by(Level.order_index.asc(), Level.id.asc()).limit(1)).scalar_one_or_none()
+    if level is None:
+        return None
+    return level.id, level.spawn_x, level.spawn_y
+
+
 @router.get("", response_model=list[CharacterResponse])
 def list_characters(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
     xp_per_level = _xp_per_level(db)
@@ -195,9 +202,13 @@ def create_character(
             detail={"message": "Allocated points exceed total", "code": "invalid_point_budget"},
         )
 
+    default_spawn = _first_level_spawn(db)
     character = Character(
         user_id=context.user.id,
         name=normalized_name,
+        level_id=default_spawn[0] if default_spawn is not None else None,
+        location_x=default_spawn[1] if default_spawn is not None else None,
+        location_y=default_spawn[2] if default_spawn is not None else None,
         appearance_key=payload.appearance_key.strip(),
         race=_normalize_catalog_choice(db, "race", payload.race, "Human"),
         background=_normalize_catalog_choice(db, "background", payload.background, "Drifter"),
@@ -269,6 +280,8 @@ def assign_character_level(
         )
 
     level_id = payload.level_id
+    spawn_x: int | None = None
+    spawn_y: int | None = None
     if level_id is not None:
         level = db.get(Level, level_id)
         if level is None:
@@ -276,13 +289,21 @@ def assign_character_level(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"message": "Level not found", "code": "level_not_found"},
             )
+        spawn_x = level.spawn_x
+        spawn_y = level.spawn_y
 
     character.level_id = level_id
-    character.location_x = None
-    character.location_y = None
+    character.location_x = spawn_x
+    character.location_y = spawn_y
     db.add(character)
     db.commit()
-    return {"ok": True, "character_id": character.id, "level_id": character.level_id}
+    return {
+        "ok": True,
+        "character_id": character.id,
+        "level_id": character.level_id,
+        "location_x": character.location_x,
+        "location_y": character.location_y,
+    }
 
 
 @router.post("/{character_id}/location")

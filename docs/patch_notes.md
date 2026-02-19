@@ -1,3 +1,6 @@
-- Fixed MFA status reporting so `/auth/mfa/status` always reads the latest account MFA state from the database.
-- Replaced settings `Save` and `Cancel` confirmation popups with themed in-launcher dialogs (removed system placeholder confirm windows).
-- Updated MFA enrollment popup to an undecorated game-themed modal shell (custom header/close, no OS-default chrome).
+- Added tower-floor metadata and ordering to levels (`descriptive_name`, `order_index`) plus transition-link persistence (`stairs`, `ladder`, `elevator`) in backend APIs/migration.
+- Added seamless transition runtime flow: adjacent linked floors preload near transition cells and handoff occurs in-scene without loading-card interruption.
+- New characters now start at first ordered floor spawn; returning characters resume from persisted floor + coordinates with first-floor fallback for missing assignment.
+- Expanded admin Level Editor with descriptive name/order inputs, transition-link placement/config, and transition placeholder assets in editor/runtime rendering.
+- Added admin `Level Order` scene with drag/drop floor ordering and atomic publish to backend.
+- In-game cog menu is now gameplay-scoped only: `Settings`, `Logout Character`, `Logout Account`, and `Exit Game`.

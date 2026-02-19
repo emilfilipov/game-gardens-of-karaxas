@@ -32,6 +32,7 @@ import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.awt.event.ActionEvent
 import java.awt.event.KeyEvent
+import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.StringSelection
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -53,12 +54,14 @@ import javax.swing.JMenuItem
 import javax.swing.JComboBox
 import javax.swing.JList
 import javax.swing.DefaultListCellRenderer
+import javax.swing.DefaultListModel
 import javax.swing.JOptionPane
 import javax.swing.JPasswordField
 import javax.swing.JEditorPane
 import javax.swing.JDialog
 import javax.swing.JFrame
 import javax.swing.JLabel
+import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
@@ -72,6 +75,8 @@ import javax.swing.Timer
 import javax.swing.UIManager
 import javax.swing.Box
 import javax.swing.AbstractAction
+import javax.swing.DropMode
+import javax.swing.TransferHandler
 import javax.swing.border.TitledBorder
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
@@ -178,11 +183,14 @@ object LauncherMain {
 
     private data class LevelDraftPayload(
         val name: String,
+        val descriptiveName: String,
+        val orderIndex: Int?,
         val width: Int,
         val height: Int,
         val spawnX: Int,
         val spawnY: Int,
         val layers: Map<Int, List<LevelLayerCellView>>,
+        val transitions: List<LevelTransitionView>,
     )
 
     private data class PendingLevelChange(
@@ -337,9 +345,11 @@ object LauncherMain {
         val quickUpdateItem = JMenuItem("Update & Restart")
         val settingsItem = JMenuItem("Settings")
         val levelEditorMenuItem = JMenuItem("Level Editor")
+        val levelOrderMenuItem = JMenuItem("Level Order")
         val assetEditorMenuItem = JMenuItem("Asset Editor")
         val contentVersionsMenuItem = JMenuItem("Content Versions")
-        val logoutMenuItem = JMenuItem("Logout")
+        val logoutCharacterMenuItem = JMenuItem("Logout Character")
+        val logoutAccountMenuItem = JMenuItem("Logout Account")
         val exitItem = JMenuItem("Exit")
         val menuBg = Color(52, 39, 32)
         val menuHover = Color(84, 58, 41)
@@ -416,18 +426,22 @@ object LauncherMain {
         stylePopupItem(quickUpdateItem)
         stylePopupItem(settingsItem)
         stylePopupItem(levelEditorMenuItem)
+        stylePopupItem(levelOrderMenuItem)
         stylePopupItem(assetEditorMenuItem)
         stylePopupItem(contentVersionsMenuItem)
-        stylePopupItem(logoutMenuItem)
+        stylePopupItem(logoutCharacterMenuItem)
+        stylePopupItem(logoutAccountMenuItem)
         stylePopupItem(exitItem)
         welcomeItem.isEnabled = false
         settingsPopup.add(welcomeItem)
         settingsPopup.add(quickUpdateItem)
         settingsPopup.add(settingsItem)
         settingsPopup.add(levelEditorMenuItem)
+        settingsPopup.add(levelOrderMenuItem)
         settingsPopup.add(assetEditorMenuItem)
         settingsPopup.add(contentVersionsMenuItem)
-        settingsPopup.add(logoutMenuItem)
+        settingsPopup.add(logoutCharacterMenuItem)
+        settingsPopup.add(logoutAccountMenuItem)
         settingsPopup.add(exitItem)
         exitItem.addActionListener {
             frame.dispose()
@@ -606,21 +620,28 @@ object LauncherMain {
         fun updateSettingsMenuAccess() {
             val loggedIn = authSession != null
             val adminMode = authSession?.isAdmin == true
-            welcomeItem.isVisible = loggedIn
+            val inGame = loggedIn && gameSceneContainer.isVisible
+            welcomeItem.isVisible = loggedIn && !inGame
             welcomeItem.text = authSession?.let { session ->
                 val username = session.displayName.ifBlank { session.email }
                 "Welcome $username."
             } ?: "Welcome Guest."
             settingsItem.isVisible = loggedIn
             settingsItem.isEnabled = loggedIn
-            levelEditorMenuItem.isVisible = adminMode
-            levelEditorMenuItem.isEnabled = adminMode
-            assetEditorMenuItem.isVisible = adminMode
-            assetEditorMenuItem.isEnabled = adminMode
-            contentVersionsMenuItem.isVisible = adminMode
-            contentVersionsMenuItem.isEnabled = adminMode
-            logoutMenuItem.isVisible = loggedIn
-            logoutMenuItem.isEnabled = loggedIn
+            quickUpdateItem.isVisible = loggedIn && !inGame
+            quickUpdateItem.isEnabled = loggedIn && !inGame
+            levelEditorMenuItem.isVisible = adminMode && !inGame
+            levelEditorMenuItem.isEnabled = adminMode && !inGame
+            levelOrderMenuItem.isVisible = adminMode && !inGame
+            levelOrderMenuItem.isEnabled = adminMode && !inGame
+            assetEditorMenuItem.isVisible = adminMode && !inGame
+            assetEditorMenuItem.isEnabled = adminMode && !inGame
+            contentVersionsMenuItem.isVisible = adminMode && !inGame
+            contentVersionsMenuItem.isEnabled = adminMode && !inGame
+            logoutCharacterMenuItem.isVisible = inGame
+            logoutCharacterMenuItem.isEnabled = inGame
+            logoutAccountMenuItem.isVisible = loggedIn
+            logoutAccountMenuItem.isEnabled = loggedIn
         }
         settingsButton.actionListeners.forEach { listener ->
             settingsButton.removeActionListener(listener)
@@ -767,7 +788,6 @@ object LauncherMain {
 
         val gameStatus = JLabel(" ").apply { themeStatusLabel(this) }
         val playStatus = JLabel(" ").apply { themeStatusLabel(this) }
-        val playBackToLobby = buildMenuButton("Back to Select", rectangularButtonImage, Dimension(180, 42), 14f)
         val levelToolStatus = JLabel(" ").apply { themeStatusLabel(this) }
         var selectedCharacterId: Int? = null
         var selectedCharacterView: CharacterView? = null
@@ -983,6 +1003,27 @@ object LauncherMain {
                     collidable = false,
                     fileNames = listOf("karaxas_cloud_soft_32.png", "cloud_soft.png"),
                 ),
+                TileSpec(
+                    key = "stairs_passage",
+                    label = "Stairs",
+                    defaultLayer = 1,
+                    collidable = false,
+                    fileNames = listOf("karaxas_stairs_passage_32.png", "stairs_passage.png", "stairs.png"),
+                ),
+                TileSpec(
+                    key = "ladder_passage",
+                    label = "Ladder",
+                    defaultLayer = 1,
+                    collidable = false,
+                    fileNames = listOf("karaxas_ladder_passage_32.png", "ladder_passage.png", "ladder.png"),
+                ),
+                TileSpec(
+                    key = "elevator_platform",
+                    label = "Elevator",
+                    defaultLayer = 1,
+                    collidable = false,
+                    fileNames = listOf("karaxas_elevator_platform_32.png", "elevator_platform.png", "elevator.png"),
+                ),
             )
 
             val roots = mutableListOf<Path>()
@@ -1174,6 +1215,14 @@ object LauncherMain {
         var levelEditorViewX = 0
         var levelEditorViewY = 0
         val levelEditorName = UiScaffold.ghostTextField("Level Name")
+        val levelEditorDescriptiveName = UiScaffold.ghostTextField("Descriptive Name")
+        val levelEditorOrderIndexField = UiScaffold.ghostTextField("Order").apply {
+            horizontalAlignment = JTextField.CENTER
+            preferredSize = Dimension(78, UiScaffold.fieldSize.height)
+            minimumSize = preferredSize
+            maximumSize = preferredSize
+        }
+        val levelEditorTransitions = mutableMapOf<Pair<Int, Int>, LevelTransitionView>()
         val levelGridWidthField = UiScaffold.ghostTextField("Grid Width").apply {
             text = levelEditorCols.toString()
             horizontalAlignment = JTextField.CENTER
@@ -1223,6 +1272,9 @@ object LauncherMain {
         val levelToolGrassButton = buildMenuButton("Grass", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
         val levelToolWallButton = buildMenuButton("Wall", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
         val levelToolTreeButton = buildMenuButton("Tree", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
+        val levelToolStairsButton = buildMenuButton("Stairs", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
+        val levelToolLadderButton = buildMenuButton("Ladder", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
+        val levelToolElevatorButton = buildMenuButton("Elevator", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
         val levelToolCloudButton = buildMenuButton("Cloud", rectangularButtonImage, levelPaletteAssetBoxSize, 12f)
         val levelToolLoadButton = buildMenuButton("Load", rectangularButtonImage, Dimension(72, 30), 12f)
         val levelToolSaveLocalButton = buildMenuButton("Save Local", rectangularButtonImage, Dimension(120, 30), 12f)
@@ -1404,6 +1456,45 @@ object LauncherMain {
         val contentVersionsCompareToggleButton = buildMenuButton("Compare View", rectangularButtonImage, Dimension(130, 30), 12f)
         val contentVersionsBackButton = buildMenuButton("Back", rectangularButtonImage, Dimension(86, 30), 12f)
 
+        val levelOrderStatus = JLabel(" ").apply { themeStatusLabel(this) }
+        val levelOrderListModel = DefaultListModel<LevelSummaryView>()
+        val levelOrderList = JList(levelOrderListModel).apply {
+            selectionMode = javax.swing.ListSelectionModel.SINGLE_SELECTION
+            isOpaque = true
+            background = Color(24, 18, 15)
+            foreground = textColor
+            font = UiScaffold.bodyFont
+            fixedCellHeight = 56
+            cellRenderer = object : DefaultListCellRenderer() {
+                override fun getListCellRendererComponent(
+                    list: JList<*>?,
+                    value: Any?,
+                    index: Int,
+                    isSelected: Boolean,
+                    cellHasFocus: Boolean
+                ): Component {
+                    val rendered = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus) as JLabel
+                    val level = value as? LevelSummaryView
+                    rendered.text = if (level == null) "Unknown Level" else "${index + 1}. ${level.descriptiveName.ifBlank { level.name }}"
+                    rendered.isOpaque = true
+                    rendered.background = if (isSelected) Color(57, 42, 31) else Color(34, 26, 21)
+                    rendered.foreground = textColor
+                    rendered.border = BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                        BorderFactory.createEmptyBorder(6, 8, 6, 8),
+                    )
+                    return rendered
+                }
+            }
+        }
+        val levelOrderScroll = ThemedScrollPane(levelOrderList).apply {
+            border = themedTitledBorder("Tower Level Order")
+            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        }
+        val levelOrderReloadButton = buildMenuButton("Reload", rectangularButtonImage, Dimension(90, 30), 12f)
+        val levelOrderPublishButton = buildMenuButton("Publish Order", rectangularButtonImage, Dimension(130, 30), 12f)
+        val levelOrderBackButton = buildMenuButton("Back", rectangularButtonImage, Dimension(86, 30), 12f)
+
         fun createFallbackAssetIcon(seed: String, size: Int = 52): BufferedImage {
             val image = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
             val g2 = image.createGraphics()
@@ -1499,6 +1590,24 @@ object LauncherMain {
             "Tree obstacle for layer 1 (collision at gameplay layer).",
         )
         configureLevelPaletteButton(
+            levelToolStairsButton,
+            "Stairs",
+            levelTileAssets["stairs_passage"]?.image,
+            "Transition tool: link this cell to another level via stairs.",
+        )
+        configureLevelPaletteButton(
+            levelToolLadderButton,
+            "Ladder",
+            levelTileAssets["ladder_passage"]?.image,
+            "Transition tool: link this cell to another level via ladder.",
+        )
+        configureLevelPaletteButton(
+            levelToolElevatorButton,
+            "Elevator",
+            levelTileAssets["elevator_platform"]?.image,
+            "Transition tool: link this cell to another level via elevator.",
+        )
+        configureLevelPaletteButton(
             levelToolCloudButton,
             "Cloud",
             levelTileAssets["cloud_soft"]?.image,
@@ -1510,6 +1619,9 @@ object LauncherMain {
             levelToolGrassButton,
             levelToolWallButton,
             levelToolTreeButton,
+            levelToolStairsButton,
+            levelToolLadderButton,
+            levelToolElevatorButton,
             levelToolCloudButton,
         )
         var levelGridViewportPanel: JPanel? = null
@@ -1528,6 +1640,9 @@ object LauncherMain {
             levelToolGrassButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "grass_tile")
             levelToolWallButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "wall_block")
             levelToolTreeButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "tree_oak")
+            levelToolStairsButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "stairs_passage")
+            levelToolLadderButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "ladder_passage")
+            levelToolElevatorButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "elevator_platform")
             levelToolCloudButton.putClientProperty("gokActiveTab", !spawnActive && levelEditorBrushKey == "cloud_soft")
             levelPaletteButtons.forEach { it.repaint() }
         }
@@ -1678,13 +1793,20 @@ object LauncherMain {
         }
 
         fun buildCurrentLevelDraftPayload(levelName: String): LevelDraftPayload {
+            val transitions = levelEditorTransitions.values
+                .sortedWith(compareBy<LevelTransitionView> { it.y }.thenBy { it.x }.thenBy { it.transitionType }.thenBy { it.destinationLevelId })
+                .toList()
+            val orderIndex = levelEditorOrderIndexField.text.trim().toIntOrNull()?.takeIf { it > 0 }
             return LevelDraftPayload(
                 name = levelName,
+                descriptiveName = levelEditorDescriptiveName.text.trim().ifBlank { levelName },
+                orderIndex = orderIndex,
                 width = levelEditorCols,
                 height = levelEditorRows,
                 spawnX = levelEditorSpawn.first,
                 spawnY = levelEditorSpawn.second,
                 layers = buildLevelLayerSnapshot(),
+                transitions = transitions,
             )
         }
 
@@ -1708,13 +1830,36 @@ object LauncherMain {
                         val spawnX = node.path("spawn_x").asInt(1).coerceIn(0, width - 1)
                         val spawnY = node.path("spawn_y").asInt(1).coerceIn(0, height - 1)
                         val layers = LevelLayerPayloadCodec.fromResponse(node)
+                        val descriptiveName = node.path("descriptive_name").asText(levelName).trim().ifBlank { levelName }
+                        val orderIndex = node.path("order_index").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
+                            ?.takeIf { it > 0 }
+                        val transitions = node.path("transitions")
+                            .takeIf { it.isArray }
+                            ?.mapNotNull { entry ->
+                                val transitionType = entry.path("transition_type").asText("").trim().lowercase()
+                                val destinationLevelId = entry.path("destination_level_id").asInt(0)
+                                if (transitionType.isBlank() || destinationLevelId <= 0) {
+                                    null
+                                } else {
+                                    LevelTransitionView(
+                                        x = entry.path("x").asInt(0),
+                                        y = entry.path("y").asInt(0),
+                                        transitionType = transitionType,
+                                        destinationLevelId = destinationLevelId,
+                                    )
+                                }
+                            }
+                            .orEmpty()
                         drafts[levelName] = LevelDraftPayload(
                             name = node.path("name").asText(levelName).trim().ifBlank { levelName },
+                            descriptiveName = descriptiveName,
+                            orderIndex = orderIndex,
                             width = width,
                             height = height,
                             spawnX = spawnX,
                             spawnY = spawnY,
                             layers = layers,
+                            transitions = transitions,
                         )
                     }
                 }
@@ -1752,11 +1897,21 @@ object LauncherMain {
                 levelEditorPendingDrafts.forEach { (levelName, draft) ->
                     drafts[levelName] = linkedMapOf(
                         "name" to draft.name,
+                        "descriptive_name" to draft.descriptiveName,
+                        "order_index" to draft.orderIndex,
                         "width" to draft.width,
                         "height" to draft.height,
                         "spawn_x" to draft.spawnX,
                         "spawn_y" to draft.spawnY,
                         "layers" to LevelLayerPayloadCodec.toRequestLayers(draft.layers),
+                        "transitions" to draft.transitions.map { transition ->
+                            mapOf(
+                                "x" to transition.x,
+                                "y" to transition.y,
+                                "transition_type" to transition.transitionType,
+                                "destination_level_id" to transition.destinationLevelId,
+                            )
+                        },
                     )
                 }
                 val pending = levelEditorPendingChanges.values.map { entry ->
@@ -2183,6 +2338,9 @@ object LauncherMain {
             val fallback = when (assetKey) {
                 "grass_tile" -> Color(72, 104, 63)
                 "tree_oak" -> Color(46, 92, 54)
+                "stairs_passage" -> Color(143, 122, 98)
+                "ladder_passage" -> Color(124, 98, 66)
+                "elevator_platform" -> Color(104, 125, 137)
                 "cloud_soft" -> Color(176, 178, 181, 200)
                 else -> Color(104, 77, 53)
             }
@@ -2259,6 +2417,14 @@ object LauncherMain {
                             val drawY = (cellY - levelEditorViewY) * levelEditorCell + 1
                             val drawSize = (levelEditorCell - 2).coerceAtLeast(2)
                             drawEditorTileCell(g2, drawX, drawY, drawSize, layerId, assetKey)
+                            val transition = levelEditorTransitions[cellX to cellY]
+                            if (transition != null) {
+                                g2.color = Color(245, 214, 158)
+                                g2.drawRect(drawX, drawY, drawSize, drawSize)
+                                g2.font = Font(THEME_FONT_FAMILY, Font.BOLD, 11)
+                                val marker = transition.transitionType.take(1).uppercase()
+                                g2.drawString(marker, drawX + 3, drawY + 12)
+                            }
                         }
                     }
                     val (spawnX, spawnY) = levelEditorSpawn
@@ -2292,6 +2458,7 @@ object LauncherMain {
             levelEditorLayerCells.values.forEach { layerMap ->
                 layerMap.keys.removeIf { (x, y) -> x !in 0 until levelEditorCols || y !in 0 until levelEditorRows }
             }
+            levelEditorTransitions.keys.removeIf { (x, y) -> x !in 0 until levelEditorCols || y !in 0 until levelEditorRows }
             resizeLevelEditorCanvas()
         }
 
@@ -2305,11 +2472,101 @@ object LauncherMain {
             return cellX to cellY
         }
 
+        fun transitionTypeForAsset(assetKey: String): String? {
+            return when (assetKey) {
+                "stairs_passage" -> "stairs"
+                "ladder_passage" -> "ladder"
+                "elevator_platform" -> "elevator"
+                else -> null
+            }
+        }
+
+        fun showTransitionConfigDialog(
+            cell: Pair<Int, Int>,
+            transitionType: String,
+            existingDestinationLevelId: Int? = null,
+        ): LevelTransitionView? {
+            if (availableLevels.isEmpty()) {
+                levelToolStatus.text = "No destination levels available. Create another level first."
+                return null
+            }
+            var confirmed = false
+            val destinationCombo = ThemedComboBox<Any>().apply {
+                preferredSize = Dimension(240, 34)
+                minimumSize = preferredSize
+                maximumSize = preferredSize
+                model = javax.swing.DefaultComboBoxModel(availableLevels.toTypedArray())
+            }
+            val defaultDestination = availableLevels.firstOrNull { it.id == existingDestinationLevelId }
+                ?: availableLevels.firstOrNull()
+            if (defaultDestination != null) {
+                destinationCombo.selectedItem = defaultDestination
+            }
+            val saveButton = buildMenuButton("Save", null, Dimension(120, 36), 13f)
+            val cancelButton = buildMenuButton("Cancel", null, Dimension(120, 36), 13f)
+            val dialog = JDialog(frame, "Configure Transition", true).apply {
+                isUndecorated = true
+                isResizable = false
+                contentPane = JPanel(BorderLayout(8, 8)).apply {
+                    isOpaque = true
+                    background = Color(24, 18, 15)
+                    border = BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                        BorderFactory.createEmptyBorder(12, 12, 12, 12),
+                    )
+                    add(UiScaffold.sectionLabel("Configure ${transitionType.replaceFirstChar { it.uppercase() }}").apply {
+                        horizontalAlignment = SwingConstants.LEFT
+                    }, BorderLayout.NORTH)
+                    add(JPanel(GridBagLayout()).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(UiScaffold.titledLabel("Cell: ${cell.first}, ${cell.second}").apply {
+                            horizontalAlignment = SwingConstants.LEFT
+                        }, UiScaffold.gbc(0))
+                        add(UiScaffold.titledLabel("Destination Level").apply {
+                            horizontalAlignment = SwingConstants.LEFT
+                        }, UiScaffold.gbc(1))
+                        add(destinationCombo, UiScaffold.gbc(2))
+                    }, BorderLayout.CENTER)
+                    add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0)).apply {
+                        isOpaque = true
+                        background = Color(24, 18, 15)
+                        add(cancelButton)
+                        add(saveButton)
+                    }, BorderLayout.SOUTH)
+                }
+                rootPane.defaultButton = saveButton
+                pack()
+                setLocationRelativeTo(frame)
+            }
+            saveButton.addActionListener {
+                confirmed = true
+                dialog.dispose()
+            }
+            cancelButton.addActionListener { dialog.dispose() }
+            dialog.isVisible = true
+            if (!confirmed) {
+                return null
+            }
+            val destination = destinationCombo.selectedItem as? LevelSummaryView
+            if (destination == null) {
+                levelToolStatus.text = "Destination level is required."
+                return null
+            }
+            return LevelTransitionView(
+                x = cell.first,
+                y = cell.second,
+                transitionType = transitionType,
+                destinationLevelId = destination.id,
+            )
+        }
+
         fun applyLevelToolPlacement(mouseX: Int, mouseY: Int, erase: Boolean) {
             val cell = levelCellAt(mouseX, mouseY) ?: return
             val layerMap = levelLayerCells(levelEditorActiveLayer)
             if (erase) {
                 layerMap.remove(cell)
+                levelEditorTransitions.remove(cell)
                 levelEditorCanvas.repaint()
                 return
             }
@@ -2322,6 +2579,20 @@ object LauncherMain {
                     return
                 }
                 layerMap[cell] = levelEditorBrushKey
+                val transitionType = transitionTypeForAsset(levelEditorBrushKey)
+                if (transitionType != null) {
+                    val existingDestination = levelEditorTransitions[cell]?.destinationLevelId
+                    val configured = showTransitionConfigDialog(cell, transitionType, existingDestination)
+                    if (configured == null) {
+                        layerMap.remove(cell)
+                        levelEditorTransitions.remove(cell)
+                        levelEditorCanvas.repaint()
+                        return
+                    }
+                    levelEditorTransitions[cell] = configured
+                } else if (levelEditorTransitions.containsKey(cell)) {
+                    levelEditorTransitions.remove(cell)
+                }
             }
             levelEditorCanvas.repaint()
         }
@@ -2591,6 +2862,10 @@ object LauncherMain {
         var gameSpawnCellY = 1
         var gameWallCells = emptySet<Pair<Int, Int>>()
         var gameLayerCells = emptyMap<Int, List<LevelLayerCellView>>()
+        var gameTransitionsByCell = emptyMap<Pair<Int, Int>, LevelTransitionView>()
+        val gameLoadedLevelsById = mutableMapOf<Int, LevelDataView>()
+        val gamePreloadingLevelIds = mutableSetOf<Int>()
+        var gameLastTransitionAtMillis = 0L
         val spriteHalf = 16f
         var gamePlayerX = gameWorldWidth / 2f
         var gamePlayerY = gameWorldHeight / 2f
@@ -2645,6 +2920,145 @@ object LauncherMain {
         fun clampPlayerToWorld() {
             gamePlayerX = gamePlayerX.coerceIn(spriteHalf, gameWorldWidth - spriteHalf)
             gamePlayerY = gamePlayerY.coerceIn(spriteHalf, gameWorldHeight - spriteHalf)
+        }
+
+        fun applyGameLevelSnapshot(level: LevelDataView?) {
+            if (level == null) {
+                activeGameLevelId = null
+                activeGameLevelName = "Default"
+                gameLevelWidthCells = 40
+                gameLevelHeightCells = 24
+                gameSpawnCellX = 1
+                gameSpawnCellY = 1
+                gameWorldWidth = gameLevelWidthCells * gameTileSize
+                gameWorldHeight = gameLevelHeightCells * gameTileSize
+                gameWallCells = emptySet()
+                gameLayerCells = emptyMap()
+                gameTransitionsByCell = emptyMap()
+                gameLoadedLevelsById.clear()
+                return
+            }
+            gameLoadedLevelsById[level.id] = level
+            activeGameLevelId = level.id
+            activeGameLevelName = level.descriptiveName.ifBlank { level.name }
+            gameLevelWidthCells = level.width.coerceAtLeast(8)
+            gameLevelHeightCells = level.height.coerceAtLeast(8)
+            gameSpawnCellX = level.spawnX.coerceIn(0, gameLevelWidthCells - 1)
+            gameSpawnCellY = level.spawnY.coerceIn(0, gameLevelHeightCells - 1)
+            gameWorldWidth = gameLevelWidthCells * gameTileSize
+            gameWorldHeight = gameLevelHeightCells * gameTileSize
+            val rawLayers = if (level.layers.isNotEmpty()) {
+                level.layers
+            } else {
+                mapOf(
+                    1 to level.wallCells.map { wall ->
+                        LevelLayerCellView(layer = 1, x = wall.x, y = wall.y, assetKey = "wall_block")
+                    }
+                )
+            }
+            val normalizedLayers = linkedMapOf<Int, MutableList<LevelLayerCellView>>()
+            rawLayers.keys.sorted().forEach { layerId ->
+                val cells = rawLayers[layerId].orEmpty()
+                val normalized = cells.mapNotNull { cell ->
+                    val cellX = cell.x.coerceIn(0, gameLevelWidthCells - 1)
+                    val cellY = cell.y.coerceIn(0, gameLevelHeightCells - 1)
+                    val key = cell.assetKey.trim().lowercase().ifBlank { "decor" }
+                    if (cellX == gameSpawnCellX && cellY == gameSpawnCellY && collidableTileKeys.contains(key)) {
+                        null
+                    } else {
+                        LevelLayerCellView(layer = layerId, x = cellX, y = cellY, assetKey = key)
+                    }
+                }
+                normalizedLayers[layerId] = normalized.toMutableList()
+            }
+            gameLayerCells = normalizedLayers
+            gameWallCells = normalizedLayers[1]
+                .orEmpty()
+                .filter { collidableTileKeys.contains(it.assetKey) }
+                .map { it.x to it.y }
+                .toSet()
+            gameTransitionsByCell = level.transitions
+                .filter { transition ->
+                    transition.x in 0 until gameLevelWidthCells &&
+                        transition.y in 0 until gameLevelHeightCells
+                }
+                .associateBy { it.x to it.y }
+        }
+
+        fun currentPlayerCell(): Pair<Int, Int> {
+            val x = kotlin.math.floor(gamePlayerX / gameTileSize).toInt().coerceIn(0, gameLevelWidthCells - 1)
+            val y = kotlin.math.floor(gamePlayerY / gameTileSize).toInt().coerceIn(0, gameLevelHeightCells - 1)
+            return x to y
+        }
+
+        fun preloadLevelById(levelId: Int) {
+            if (levelId <= 0) return
+            if (levelId == activeGameLevelId) return
+            if (gameLoadedLevelsById.containsKey(levelId)) return
+            val session = authSession ?: return
+            synchronized(gamePreloadingLevelIds) {
+                if (gamePreloadingLevelIds.contains(levelId)) {
+                    return
+                }
+                gamePreloadingLevelIds.add(levelId)
+            }
+            Thread {
+                try {
+                    val loaded = backendClient.getLevel(session.accessToken, clientVersion, levelId)
+                    javax.swing.SwingUtilities.invokeLater {
+                        gameLoadedLevelsById[loaded.id] = loaded
+                    }
+                } catch (ex: Exception) {
+                    log("Adjacent level preload failed against ${backendClient.endpoint()}", ex)
+                } finally {
+                    synchronized(gamePreloadingLevelIds) { gamePreloadingLevelIds.remove(levelId) }
+                }
+            }.start()
+        }
+
+        fun maybePreloadAdjacentLevels() {
+            if (gameTransitionsByCell.isEmpty()) return
+            val (playerCellX, playerCellY) = currentPlayerCell()
+            gameTransitionsByCell.values.forEach { transition ->
+                val nearX = kotlin.math.abs(playerCellX - transition.x) <= 2
+                val nearY = kotlin.math.abs(playerCellY - transition.y) <= 2
+                if (nearX && nearY) {
+                    preloadLevelById(transition.destinationLevelId)
+                }
+            }
+        }
+
+        fun switchToTransitionDestination(transition: LevelTransitionView) {
+            val now = System.currentTimeMillis()
+            if (now - gameLastTransitionAtMillis < 600L) {
+                return
+            }
+            val destination = gameLoadedLevelsById[transition.destinationLevelId]
+            if (destination == null) {
+                preloadLevelById(transition.destinationLevelId)
+                playStatus.text = "Preparing next floor..."
+                return
+            }
+            gameLastTransitionAtMillis = now
+            applyGameLevelSnapshot(destination)
+            resetPlayerPosition(null, null)
+            clampPlayerToWorld()
+            activeGameCharacterView = activeGameCharacterView?.copy(levelId = destination.id, locationX = null, locationY = null)
+            selectedCharacterView = selectedCharacterView?.copy(levelId = destination.id, locationX = null, locationY = null)
+            loadedCharacters = loadedCharacters.map { character ->
+                if (character.id == activeGameCharacterView?.id) {
+                    character.copy(levelId = destination.id, locationX = null, locationY = null)
+                } else {
+                    character
+                }
+            }
+            playStatus.text = "Entered ${destination.descriptiveName.ifBlank { destination.name }}."
+        }
+
+        fun maybeApplyTransition() {
+            if (gameTransitionsByCell.isEmpty()) return
+            val transition = gameTransitionsByCell[currentPlayerCell()] ?: return
+            switchToTransitionDestination(transition)
         }
 
         val gameWorldPanel = object : JPanel() {
@@ -2707,6 +3121,9 @@ object LauncherMain {
                             g2.color = when (cell.assetKey) {
                                 "grass_tile" -> Color(73, 105, 63)
                                 "tree_oak" -> Color(44, 92, 53)
+                                "stairs_passage" -> Color(143, 122, 98)
+                                "ladder_passage" -> Color(124, 98, 66)
+                                "elevator_platform" -> Color(104, 125, 137)
                                 "cloud_soft" -> Color(178, 182, 187)
                                 else -> Color(52, 40, 31)
                             }
@@ -2821,62 +3238,14 @@ object LauncherMain {
                 gameAnimationCarryMs = 0.0
                 gameAnimationFrame = 0
             }
+            maybePreloadAdjacentLevels()
+            maybeApplyTransition()
             gameWorldPanel.repaint()
         }
         gameLoopTimer.start()
 
         fun applyGameLevel(level: LevelDataView?) {
-            if (level == null) {
-                activeGameLevelId = null
-                activeGameLevelName = "Default"
-                gameLevelWidthCells = 40
-                gameLevelHeightCells = 24
-                gameSpawnCellX = 1
-                gameSpawnCellY = 1
-                gameWorldWidth = gameLevelWidthCells * gameTileSize
-                gameWorldHeight = gameLevelHeightCells * gameTileSize
-                gameWallCells = emptySet()
-                gameLayerCells = emptyMap()
-                return
-            }
-            activeGameLevelId = level.id
-            activeGameLevelName = level.name
-            gameLevelWidthCells = level.width.coerceAtLeast(8)
-            gameLevelHeightCells = level.height.coerceAtLeast(8)
-            gameSpawnCellX = level.spawnX.coerceIn(0, gameLevelWidthCells - 1)
-            gameSpawnCellY = level.spawnY.coerceIn(0, gameLevelHeightCells - 1)
-            gameWorldWidth = gameLevelWidthCells * gameTileSize
-            gameWorldHeight = gameLevelHeightCells * gameTileSize
-            val rawLayers = if (level.layers.isNotEmpty()) {
-                level.layers
-            } else {
-                mapOf(
-                    1 to level.wallCells.map { wall ->
-                        LevelLayerCellView(layer = 1, x = wall.x, y = wall.y, assetKey = "wall_block")
-                    }
-                )
-            }
-            val normalizedLayers = linkedMapOf<Int, MutableList<LevelLayerCellView>>()
-            rawLayers.keys.sorted().forEach { layerId ->
-                val cells = rawLayers[layerId].orEmpty()
-                val normalized = cells.mapNotNull { cell ->
-                    val cellX = cell.x.coerceIn(0, gameLevelWidthCells - 1)
-                    val cellY = cell.y.coerceIn(0, gameLevelHeightCells - 1)
-                    val key = cell.assetKey.trim().lowercase().ifBlank { "decor" }
-                    if (cellX == gameSpawnCellX && cellY == gameSpawnCellY && collidableTileKeys.contains(key)) {
-                        null
-                    } else {
-                        LevelLayerCellView(layer = layerId, x = cellX, y = cellY, assetKey = key)
-                    }
-                }
-                normalizedLayers[layerId] = normalized.toMutableList()
-            }
-            gameLayerCells = normalizedLayers
-            gameWallCells = normalizedLayers[1]
-                .orEmpty()
-                .filter { collidableTileKeys.contains(it.assetKey) }
-                .map { it.x to it.y }
-                .toSet()
+            applyGameLevelSnapshot(level)
         }
 
         fun enterGameWithCharacter(character: CharacterView, level: LevelDataView?, forceSpawn: Boolean = false) {
@@ -2884,13 +3253,15 @@ object LauncherMain {
             gameCharacterName = character.name
             gameCharacterAppearance = resolveAppearanceOption(character.appearanceKey)
             applyGameLevel(level)
+            gameLastTransitionAtMillis = 0L
             resetPlayerPosition(
                 if (forceSpawn) null else character.locationX,
                 if (forceSpawn) null else character.locationY
             )
             clampPlayerToWorld()
+            maybePreloadAdjacentLevels()
             gameStatus.text = " "
-            val levelName = level?.name ?: "Default"
+            val levelName = level?.descriptiveName?.ifBlank { level.name } ?: "Default"
             playStatus.text = if (!forceSpawn && character.locationX != null && character.locationY != null) {
                 "Loaded $levelName at (${character.locationX}, ${character.locationY})."
             } else {
@@ -2986,13 +3357,25 @@ object LauncherMain {
                     try {
                         backendClient.selectCharacter(session.accessToken, clientVersion, character.id)
                         val requestedLevelId = overrideLevelId ?: character.levelId
-                        val selectedLevel = requestedLevelId?.let { levelId ->
-                            levelDetailsById[levelId] ?: backendClient.getLevel(session.accessToken, clientVersion, levelId).also {
-                                levelDetailsById[levelId] = it
+                        val selectedLevel = when {
+                            requestedLevelId != null -> {
+                                levelDetailsById[requestedLevelId]
+                                    ?: backendClient.getLevel(session.accessToken, clientVersion, requestedLevelId).also {
+                                        levelDetailsById[requestedLevelId] = it
+                                    }
+                            }
+                            else -> try {
+                                backendClient.getFirstLevel(session.accessToken, clientVersion).also {
+                                    levelDetailsById[it.id] = it
+                                }
+                            } catch (_: Exception) {
+                                null
                             }
                         }
                         val gameplayCharacter = if (overrideLevelId != null) {
                             character.copy(levelId = overrideLevelId, locationX = null, locationY = null)
+                        } else if (selectedLevel != null && character.levelId == null) {
+                            character.copy(levelId = selectedLevel.id, locationX = null, locationY = null)
                         } else {
                             character
                         }
@@ -3000,6 +3383,8 @@ object LauncherMain {
                             if (selectedLevel != null) {
                                 activeGameLevelId = selectedLevel.id
                             }
+                            selectedCharacterId = gameplayCharacter.id
+                            selectedCharacterView = gameplayCharacter
                             enterGameWithCharacter(gameplayCharacter, selectedLevel, forceSpawn = overrideLevelId != null)
                             showCard("play")
                         }
@@ -3050,9 +3435,10 @@ object LauncherMain {
         fun renderCharacterRows(characters: List<CharacterView>) {
             fun characterLocationLabel(character: CharacterView): String {
                 val area = character.levelId?.let { levelId ->
-                    availableLevels.firstOrNull { it.id == levelId }?.name
-                    ?: levelDetailsById[levelId]?.name
-                    ?: "Level #$levelId"
+                    val summary = availableLevels.firstOrNull { it.id == levelId }
+                    summary?.descriptiveName?.ifBlank { summary.name }
+                        ?: levelDetailsById[levelId]?.descriptiveName?.ifBlank { levelDetailsById[levelId]?.name.orEmpty() }
+                        ?: "Level #$levelId"
                 } ?: "Default"
                 val x = character.locationX
                 val y = character.locationY
@@ -3207,6 +3593,108 @@ object LauncherMain {
             }
         }
 
+        fun syncLevelOrderModel(levels: List<LevelSummaryView>) {
+            val ordered = levels.sortedWith(compareBy<LevelSummaryView> { it.orderIndex }.thenBy { it.id })
+            levelOrderListModel.clear()
+            ordered.forEach { levelOrderListModel.addElement(it) }
+        }
+
+        var levelOrderDragIndex = -1
+        levelOrderList.dragEnabled = true
+        levelOrderList.dropMode = DropMode.INSERT
+        levelOrderList.transferHandler = object : TransferHandler() {
+            override fun getSourceActions(c: JComponent): Int = MOVE
+
+            override fun createTransferable(c: JComponent): java.awt.datatransfer.Transferable {
+                val list = c as JList<*>
+                levelOrderDragIndex = list.selectedIndex
+                return StringSelection(levelOrderDragIndex.toString())
+            }
+
+            override fun canImport(support: TransferSupport): Boolean {
+                if (!support.isDrop) return false
+                if (!support.isDataFlavorSupported(DataFlavor.stringFlavor)) return false
+                val dropLocation = support.dropLocation as? JList.DropLocation ?: return false
+                return dropLocation.index >= 0 && support.component === levelOrderList
+            }
+
+            override fun importData(support: TransferSupport): Boolean {
+                if (!canImport(support)) return false
+                val dropLocation = support.dropLocation as JList.DropLocation
+                if (levelOrderDragIndex !in 0 until levelOrderListModel.size()) return false
+                val element = levelOrderListModel.get(levelOrderDragIndex)
+                levelOrderListModel.remove(levelOrderDragIndex)
+                val target = if (levelOrderDragIndex < dropLocation.index) {
+                    (dropLocation.index - 1).coerceAtLeast(0)
+                } else {
+                    dropLocation.index.coerceAtMost(levelOrderListModel.size())
+                }
+                levelOrderListModel.add(target, element)
+                levelOrderList.selectedIndex = target
+                levelOrderStatus.text = "Level order changed locally. Publish when ready."
+                levelOrderList.repaint()
+                return true
+            }
+        }
+
+        fun reloadLevelOrderPanel() {
+            refreshLevels(levelOrderStatus) { levels ->
+                syncLevelOrderModel(levels)
+                levelOrderStatus.text = if (levels.isEmpty()) {
+                    "No levels available."
+                } else {
+                    "Drag and drop cards to reorder tower levels, then publish."
+                }
+            }
+        }
+
+        fun publishLevelOrder() {
+            if (levelOrderListModel.size() == 0) {
+                levelOrderStatus.text = "No levels to publish."
+                return
+            }
+            withSession(onMissing = { levelOrderStatus.text = "Please login first." }) { session ->
+                if (!isAdminAccount()) {
+                    levelOrderStatus.text = "Admin access required."
+                    return@withSession
+                }
+                val orderedIds = (0 until levelOrderListModel.size()).map { index ->
+                    levelOrderListModel.get(index).id
+                }
+                levelOrderStatus.text = "Publishing level order..."
+                Thread {
+                    try {
+                        backendClient.saveLevelOrder(
+                            accessToken = session.accessToken,
+                            clientVersion = clientVersion,
+                            orderedLevelIds = orderedIds,
+                        )
+                        val levels = backendClient.listLevels(session.accessToken, clientVersion)
+                        javax.swing.SwingUtilities.invokeLater {
+                            availableLevels = levels
+                            syncLevelOrderModel(levels)
+                            val comboOptions: Array<Any> = if (levels.isEmpty()) {
+                                arrayOf("No levels")
+                            } else {
+                                levels.toTypedArray()
+                            }
+                            levelLoadCombo.model = javax.swing.DefaultComboBoxModel(comboOptions)
+                            levelLoadCombo.isEnabled = levels.isNotEmpty()
+                            if (loadedCharacters.isNotEmpty()) {
+                                renderCharacterRows(loadedCharacters)
+                            }
+                            levelOrderStatus.text = "Tower level order published."
+                        }
+                    } catch (ex: Exception) {
+                        log("Level order publish failed against ${backendClient.endpoint()}", ex)
+                        javax.swing.SwingUtilities.invokeLater {
+                            levelOrderStatus.text = formatServiceError(ex, "Unable to publish level order.")
+                        }
+                    }
+                }.start()
+            }
+        }
+
         fun resetAuthInputsForMode() {
             if (registerMode) {
                 authEmail.text = ""
@@ -3234,6 +3722,11 @@ object LauncherMain {
             selectedCharacterView = null
             activeGameCharacterView = null
             heldKeys.clear()
+            gameTransitionsByCell = emptyMap()
+            gameLoadedLevelsById.clear()
+            synchronized(gamePreloadingLevelIds) {
+                gamePreloadingLevelIds.clear()
+            }
             createStatus.text = " "
             selectStatus.text = " "
             gameStatus.text = " "
@@ -4145,18 +4638,24 @@ object LauncherMain {
 
         fun applyLevelPayloadToEditor(
             levelName: String,
+            descriptiveName: String,
+            orderIndex: Int?,
             width: Int,
             height: Int,
             spawnX: Int,
             spawnY: Int,
             layers: Map<Int, List<LevelLayerCellView>>,
+            transitions: List<LevelTransitionView>,
         ) {
             applyLevelGridSize(width, height)
             levelEditorName.text = levelName
+            levelEditorDescriptiveName.text = descriptiveName
+            levelEditorOrderIndexField.text = orderIndex?.toString() ?: ""
             levelEditorSpawn = spawnX.coerceIn(0, levelEditorCols - 1) to spawnY.coerceIn(0, levelEditorRows - 1)
             levelEditorViewX = (levelEditorSpawn.first - 20).coerceAtLeast(0)
             levelEditorViewY = (levelEditorSpawn.second - 12).coerceAtLeast(0)
             levelEditorLayerCells.values.forEach { it.clear() }
+            levelEditorTransitions.clear()
             layers.forEach layerLoop@{ (layerId, cells) ->
                 val clampedLayer = layerId.coerceIn(0, 2)
                 val layerMap = levelLayerCells(clampedLayer)
@@ -4169,6 +4668,11 @@ object LauncherMain {
                     }
                     layerMap[x to y] = assetKey
                 }
+            }
+            transitions.forEach { transition ->
+                val x = transition.x.coerceIn(0, levelEditorCols - 1)
+                val y = transition.y.coerceIn(0, levelEditorRows - 1)
+                levelEditorTransitions[x to y] = transition.copy(x = x, y = y)
             }
             levelEditorActiveLayer = 1
             levelActiveLayerCombo.selectedIndex = levelEditorActiveLayer
@@ -4188,11 +4692,14 @@ object LauncherMain {
             }
             applyLevelPayloadToEditor(
                 levelName = level.name,
+                descriptiveName = level.descriptiveName,
+                orderIndex = level.orderIndex,
                 width = level.width,
                 height = level.height,
                 spawnX = level.spawnX,
                 spawnY = level.spawnY,
                 layers = sourceLayers,
+                transitions = level.transitions,
             )
         }
 
@@ -4442,11 +4949,14 @@ object LauncherMain {
                                 accessToken = session.accessToken,
                                 clientVersion = clientVersion,
                                 name = draft.name,
+                                descriptiveName = draft.descriptiveName,
+                                orderIndex = draft.orderIndex,
                                 width = draft.width,
                                 height = draft.height,
                                 spawnX = draft.spawnX,
                                 spawnY = draft.spawnY,
                                 layers = draft.layers,
+                                transitions = draft.transitions,
                             )
                             savedLevels.add(saved)
                         }
@@ -4826,6 +5336,14 @@ object LauncherMain {
                         minimumSize = preferredSize
                         maximumSize = preferredSize
                     })
+                    add(UiScaffold.titledLabel("Descriptive"))
+                    add(levelEditorDescriptiveName.apply {
+                        preferredSize = Dimension(200, UiScaffold.fieldSize.height)
+                        minimumSize = preferredSize
+                        maximumSize = preferredSize
+                    })
+                    add(UiScaffold.titledLabel("Order"))
+                    add(levelEditorOrderIndexField)
                     add(levelToolSaveLocalButton)
                     add(levelToolPublishButton)
                     add(levelToolBackButton)
@@ -4874,7 +5392,19 @@ object LauncherMain {
                     isOpaque = true
                     background = Color(24, 18, 15)
                     add(buildLayerPaletteColumn("Layer 0", listOf(levelToolGrassButton)))
-                    add(buildLayerPaletteColumn("Layer 1", listOf(levelToolSpawnButton, levelToolWallButton, levelToolTreeButton)))
+                    add(
+                        buildLayerPaletteColumn(
+                            "Layer 1",
+                            listOf(
+                                levelToolSpawnButton,
+                                levelToolWallButton,
+                                levelToolTreeButton,
+                                levelToolStairsButton,
+                                levelToolLadderButton,
+                                levelToolElevatorButton,
+                            )
+                        )
+                    )
                     add(buildLayerPaletteColumn("Layer 2", listOf(levelToolCloudButton)))
                 }
                 add(layerPalettePanel, BorderLayout.WEST)
@@ -4918,7 +5448,7 @@ object LauncherMain {
                     add(JPanel(BorderLayout(6, 0)).apply {
                         isOpaque = true
                         background = Color(24, 18, 15)
-                        add(UiScaffold.titledLabel("Select an asset from the layer palette. Drag paints. Right-drag erases. Alt+drag or mouse-wheel pans."), BorderLayout.WEST)
+                        add(UiScaffold.titledLabel("Select an asset from the palette. Drag paints. Right-drag erases. Transition assets open destination-link setup. Alt+drag or wheel pans."), BorderLayout.WEST)
                         add(levelToolStatus, BorderLayout.EAST)
                     }, BorderLayout.SOUTH)
                 }, BorderLayout.CENTER)
@@ -4996,6 +5526,42 @@ object LauncherMain {
                     background = Color(24, 18, 15)
                     add(assetEditorStatus, BorderLayout.SOUTH)
                 }, BorderLayout.SOUTH)
+            }, BorderLayout.CENTER)
+        }
+
+        val levelOrderPanel = UiScaffold.contentPanel().apply {
+            layout = BorderLayout(8, 8)
+            preferredSize = Dimension(1540, 860)
+            minimumSize = Dimension(1320, 760)
+            add(JPanel(BorderLayout(8, 0)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(6, 8, 6, 8)
+                )
+                add(JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply {
+                    isOpaque = false
+                    add(levelOrderReloadButton)
+                    add(levelOrderPublishButton)
+                    add(levelOrderBackButton)
+                }, BorderLayout.WEST)
+                add(UiScaffold.sectionLabel("Level Order (Admin)").apply {
+                    horizontalAlignment = SwingConstants.RIGHT
+                }, BorderLayout.EAST)
+            }, BorderLayout.NORTH)
+            add(JPanel(BorderLayout(8, 8)).apply {
+                isOpaque = true
+                background = Color(24, 18, 15)
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color(172, 132, 87), 1),
+                    BorderFactory.createEmptyBorder(8, 8, 8, 8)
+                )
+                add(levelOrderScroll, BorderLayout.CENTER)
+                add(UiScaffold.titledLabel("Drag cards to reorder tower floors. Publish to apply new sequence.").apply {
+                    horizontalAlignment = SwingConstants.LEFT
+                }, BorderLayout.NORTH)
+                add(levelOrderStatus, BorderLayout.SOUTH)
             }, BorderLayout.CENTER)
         }
 
@@ -5098,7 +5664,6 @@ object LauncherMain {
             add(JPanel(BorderLayout(6, 0)).apply {
                 isOpaque = true
                 background = Color(24, 18, 15)
-                add(playBackToLobby, BorderLayout.NORTH)
                 add(JPanel(GridLayout(2, 1)).apply {
                     isOpaque = true
                     background = Color(24, 18, 15)
@@ -5113,6 +5678,7 @@ object LauncherMain {
             isOpaque = true
             background = Color(24, 18, 15)
             add(levelToolPanel, "level_tool")
+            add(levelOrderPanel, "level_order")
             add(assetEditorPanel, "asset_editor")
             add(contentVersionsPanel, "content_versions")
         }
@@ -5175,6 +5741,7 @@ object LauncherMain {
                 card == "select_character" ||
                 card == "settings" ||
                 card == "level_tool" ||
+                card == "level_order" ||
                 card == "asset_editor" ||
                 card == "content_versions" ||
                 card == "play"
@@ -5183,7 +5750,7 @@ object LauncherMain {
                 authStatus.text = " "
                 return
             }
-            if ((card == "level_tool" || card == "asset_editor" || card == "content_versions") && !isAdminAccount()) {
+            if ((card == "level_tool" || card == "level_order" || card == "asset_editor" || card == "content_versions") && !isAdminAccount()) {
                 selectStatus.text = "Admin access required."
                 showCard("select_character")
                 return
@@ -5202,6 +5769,7 @@ object LauncherMain {
                 renderAuthReleaseNotes()
                 refreshReleaseSummaryForAuth()
                 resetAuthInputsForMode()
+                updateSettingsMenuAccess()
                 centeredContent.revalidate()
                 centeredContent.repaint()
                 return
@@ -5213,7 +5781,7 @@ object LauncherMain {
                 gameSceneContainer.isVisible = true
                 levelSceneContainer.isVisible = false
                 accountTopBar.isVisible = false
-            } else if (card == "level_tool" || card == "asset_editor" || card == "content_versions") {
+            } else if (card == "level_tool" || card == "level_order" || card == "asset_editor" || card == "content_versions") {
                 shellPanel.isVisible = false
                 gameSceneContainer.isVisible = false
                 levelSceneContainer.isVisible = true
@@ -5224,6 +5792,7 @@ object LauncherMain {
                 gameSceneContainer.isVisible = false
                 levelSceneContainer.isVisible = false
             }
+            updateSettingsMenuAccess()
             if (card == "select_character" || card == "create_character") {
                 lastAccountCard = card
                 accountTopBar.isVisible = true
@@ -5269,6 +5838,8 @@ object LauncherMain {
                 refreshLevels(levelToolStatus) {
                     refreshLevelLoadCombo()
                 }
+            } else if (card == "level_order") {
+                reloadLevelOrderPanel()
             } else if (card == "settings") {
                 syncSettingsControlsFromSaved()
                 setActiveSettingsTab("video")
@@ -5303,6 +5874,7 @@ object LauncherMain {
             )
         }
         levelEditorMenuItem.addActionListener { showCard("level_tool") }
+        levelOrderMenuItem.addActionListener { showCard("level_order") }
         assetEditorMenuItem.addActionListener { showCard("asset_editor") }
         contentVersionsMenuItem.addActionListener { showCard("content_versions") }
 
@@ -5450,10 +6022,6 @@ object LauncherMain {
             showCard(lastAccountCard)
         }
         updateBackButton.addActionListener { showCard(lastAccountCard) }
-        playBackToLobby.addActionListener {
-            persistCurrentCharacterLocation()
-            showCard("select_character")
-        }
         fun applyRequestedGridSizeFromInputs(): Boolean {
             val cols = levelGridWidthField.text.trim().toIntOrNull()
             val rows = levelGridHeightField.text.trim().toIntOrNull()
@@ -5508,6 +6076,9 @@ object LauncherMain {
         levelToolGrassButton.addActionListener { setLevelToolMode("paint", "grass_tile") }
         levelToolWallButton.addActionListener { setLevelToolMode("paint", "wall_block") }
         levelToolTreeButton.addActionListener { setLevelToolMode("paint", "tree_oak") }
+        levelToolStairsButton.addActionListener { setLevelToolMode("paint", "stairs_passage") }
+        levelToolLadderButton.addActionListener { setLevelToolMode("paint", "ladder_passage") }
+        levelToolElevatorButton.addActionListener { setLevelToolMode("paint", "elevator_platform") }
         levelToolCloudButton.addActionListener { setLevelToolMode("paint", "cloud_soft") }
         assetEditorBackButton.addActionListener { showCard("select_character") }
         assetEditorReloadButton.addActionListener { loadAssetEditorDraft() }
@@ -5551,6 +6122,9 @@ object LauncherMain {
             override fun removeUpdate(e: DocumentEvent?) = refreshCompareCombos()
             override fun changedUpdate(e: DocumentEvent?) = refreshCompareCombos()
         })
+        levelOrderReloadButton.addActionListener { reloadLevelOrderPanel() }
+        levelOrderPublishButton.addActionListener { publishLevelOrder() }
+        levelOrderBackButton.addActionListener { showCard("select_character") }
         levelToolReloadButton.addActionListener {
             loadLevelEditorDraftState()
             refreshLevels(levelToolStatus) {
@@ -5564,6 +6138,9 @@ object LauncherMain {
         }
         levelToolClearButton.addActionListener {
             levelLayerCells(levelEditorActiveLayer).clear()
+            if (levelEditorActiveLayer == 1) {
+                levelEditorTransitions.clear()
+            }
             levelEditorCanvas.repaint()
             levelToolStatus.text = "Cleared layer $levelEditorActiveLayer."
         }
@@ -5581,7 +6158,7 @@ object LauncherMain {
                         levelDetailsById[selected.id] = loadedLevel
                         javax.swing.SwingUtilities.invokeLater {
                             loadLevelIntoEditor(loadedLevel)
-                            levelToolStatus.text = "Loaded level '${loadedLevel.name}'."
+                            levelToolStatus.text = "Loaded level '${loadedLevel.descriptiveName.ifBlank { loadedLevel.name }}'."
                         }
                     } catch (ex: Exception) {
                         log("Level load failed against ${backendClient.endpoint()}", ex)
@@ -5677,7 +6254,18 @@ object LauncherMain {
             }
             clearSessionToAuth()
         }
-        logoutMenuItem.addActionListener { performLogout() }
+        fun performCharacterLogout() {
+            if (gameSceneContainer.isVisible) {
+                persistCurrentCharacterLocation()
+            }
+            heldKeys.clear()
+            selectedCharacterId = null
+            selectedCharacterView = null
+            activeGameCharacterView = null
+            showCard("select_character")
+        }
+        logoutCharacterMenuItem.addActionListener { performCharacterLogout() }
+        logoutAccountMenuItem.addActionListener { performLogout() }
 
         frame.contentPane.add(rootPanel, BorderLayout.CENTER)
         loadIconImages()?.let { images ->

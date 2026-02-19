@@ -32,10 +32,14 @@ create/select characters, and enter gameplay sessions.
    - Character rows show current location (area + coordinates when known).
 5. Enter gameplay session from the chosen character row (`Play` action on that row only).
    - World/session opens in a dedicated gameplay scene (separate from lobby/select cards).
-   - If the character has a map assignment, the session loads that level layout and spawn.
-   - Character location is persisted (level + coordinates) so the next login resumes from the last saved position.
+   - If the character has a map assignment, the session loads that level/floor layout and spawn.
+   - New characters now start on the first tower floor (lowest configured floor order) at that floor's spawn point.
+   - Returning characters resume from their persisted location (floor + coordinates).
+   - Character location is persisted (floor/level + coordinates) so the next login resumes from the last saved position.
 6. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
    - Collision currently comes from layer-1 collidable tiles (for example walls/trees) from the loaded level.
+   - Transition assets (`stairs`, `ladder`, `elevator`) allow seamless floor-to-floor travel without loading screens.
+   - Adjacent linked floors are preloaded when the player approaches a transition trigger zone.
 7. Authenticated players can open a full Settings screen from the top-right menu.
    - Settings screen uses sidebar tabs: `Video`, `Audio`, `Security`.
    - `Save` prompts with a themed confirmation modal when changes exist and keeps edits if user chooses `No`.
@@ -56,6 +60,7 @@ create/select characters, and enter gameplay sessions.
 - In-game world screen.
 - Authenticated settings screen (sidebar tabs + central settings panel + explicit save/cancel confirmation flow).
 - Admin-only level builder screen (load named layered levels, stage local drafts, and publish queued level changes with spawn + tile/object layout).
+- Admin-only level-order screen (drag/drop floor cards to reorder tower progression and publish order).
 - Admin-only asset editor screen (searchable editable-content cards + large item editor panel + right-side staged-change queue with `Save Local` and `Publish Changes`).
 - Admin-only content versions screen (version history cards, active-version highlight, publish/revert controls, and side-by-side compare).
 - Shared menu/form controls use a consistent thin-border panel/button style over the same background key art.
@@ -127,8 +132,11 @@ create/select characters, and enter gameplay sessions.
 - Level builder now uses a compact control strip and a virtual panning grid that supports up to 100000x100000 logical dimensions.
 - Level builder includes a fixed-size side palette split into 3 fixed-width columns (Layer 0/1/2), with fixed-size asset boxes for expansion-ready asset catalogs.
 - Asset boxes render visual previews and provide hover tooltips describing each asset and its intended usage.
+- Level builder now supports transition assets (`stairs`, `ladder`, `elevator`) and per-cell destination linking to other levels.
+- Level builder now includes both technical level name and descriptive level name fields; descriptive names are used for player-facing floor labels.
 - Level builder includes a right-side pending-drafts panel so admins can review staged changes before publishing.
 - Staged level drafts persist across launcher restarts until published.
+- In-game cog menu is now minimized to gameplay actions only: `Settings`, `Logout Character`, `Logout Account`, `Exit Game`.
 - Level builder supports explicit rendering layers with active-layer editing and visibility toggles:
   - Layer 0: ground/foliage (`grass` tile scaffold).
   - Layer 1: gameplay entities/obstacles and spawn tool (`wall`, `tree`, `spawn` scaffold).

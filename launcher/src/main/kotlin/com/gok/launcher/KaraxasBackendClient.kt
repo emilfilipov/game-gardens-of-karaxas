@@ -94,25 +94,37 @@ data class LevelLayerCellView(
     val assetKey: String,
 )
 
+data class LevelTransitionView(
+    val x: Int,
+    val y: Int,
+    val transitionType: String,
+    val destinationLevelId: Int,
+)
+
 data class LevelSummaryView(
     val id: Int,
     val name: String,
+    val descriptiveName: String,
+    val orderIndex: Int,
     val schemaVersion: Int,
     val width: Int,
     val height: Int
 ) {
-    override fun toString(): String = name
+    override fun toString(): String = descriptiveName.ifBlank { name }
 }
 
 data class LevelDataView(
     val id: Int,
     val name: String,
+    val descriptiveName: String,
+    val orderIndex: Int,
     val schemaVersion: Int,
     val width: Int,
     val height: Int,
     val spawnX: Int,
     val spawnY: Int,
     val layers: Map<Int, List<LevelLayerCellView>>,
+    val transitions: List<LevelTransitionView>,
     val wallCells: List<LevelGridCellView>
 )
 
@@ -926,6 +938,42 @@ class KaraxasBackendClient(
         ensureSuccess(response)
     }
 
+    private fun parseLevelData(item: JsonNode): LevelDataView {
+        val layers = LevelLayerPayloadCodec.fromResponse(item)
+        val transitions = item.path("transitions").takeIf { it.isArray }?.mapNotNull { node ->
+            val destinationLevelId = node.path("destination_level_id").asInt(0)
+            val transitionType = node.path("transition_type").asText("").trim().lowercase()
+            if (destinationLevelId <= 0 || transitionType.isBlank()) {
+                null
+            } else {
+                LevelTransitionView(
+                    x = node.path("x").asInt(),
+                    y = node.path("y").asInt(),
+                    transitionType = transitionType,
+                    destinationLevelId = destinationLevelId,
+                )
+            }
+        }.orEmpty()
+        val wallCells = layers
+            .getOrDefault(1, emptyList())
+            .filter { it.assetKey == "wall_block" || it.assetKey == "tree_oak" }
+            .map { LevelGridCellView(x = it.x, y = it.y) }
+        return LevelDataView(
+            id = item.path("id").asInt(),
+            name = item.path("name").asText(),
+            descriptiveName = item.path("descriptive_name").asText("").ifBlank { item.path("name").asText() },
+            orderIndex = item.path("order_index").asInt(1),
+            schemaVersion = item.path("schema_version").asInt(2),
+            width = item.path("width").asInt(40),
+            height = item.path("height").asInt(24),
+            spawnX = item.path("spawn_x").asInt(1),
+            spawnY = item.path("spawn_y").asInt(1),
+            layers = layers,
+            transitions = transitions,
+            wallCells = wallCells,
+        )
+    }
+
     fun listLevels(accessToken: String, clientVersion: String): List<LevelSummaryView> {
         val response = request(
             method = "GET",
@@ -938,11 +986,24 @@ class KaraxasBackendClient(
             LevelSummaryView(
                 id = item.path("id").asInt(),
                 name = item.path("name").asText(),
+                descriptiveName = item.path("descriptive_name").asText("").ifBlank { item.path("name").asText() },
+                orderIndex = item.path("order_index").asInt(1),
                 schemaVersion = item.path("schema_version").asInt(2),
                 width = item.path("width").asInt(40),
                 height = item.path("height").asInt(24),
             )
         }
+    }
+
+    fun getFirstLevel(accessToken: String, clientVersion: String): LevelDataView {
+        val response = request(
+            method = "GET",
+            path = "/levels/first",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+        )
+        ensureSuccess(response)
+        return parseLevelData(mapper.readTree(response.body()))
     }
 
     fun getLevel(accessToken: String, clientVersion: String, levelId: Int): LevelDataView {
@@ -953,34 +1014,21 @@ class KaraxasBackendClient(
             clientVersion = clientVersion,
         )
         ensureSuccess(response)
-        val item = mapper.readTree(response.body())
-        val layers = LevelLayerPayloadCodec.fromResponse(item)
-        val wallCells = layers
-            .getOrDefault(1, emptyList())
-            .filter { it.assetKey == "wall_block" || it.assetKey == "tree_oak" }
-            .map { LevelGridCellView(x = it.x, y = it.y) }
-        return LevelDataView(
-            id = item.path("id").asInt(),
-            name = item.path("name").asText(),
-            schemaVersion = item.path("schema_version").asInt(2),
-            width = item.path("width").asInt(40),
-            height = item.path("height").asInt(24),
-            spawnX = item.path("spawn_x").asInt(1),
-            spawnY = item.path("spawn_y").asInt(1),
-            layers = layers,
-            wallCells = wallCells,
-        )
+        return parseLevelData(mapper.readTree(response.body()))
     }
 
     fun saveLevel(
         accessToken: String,
         clientVersion: String,
         name: String,
+        descriptiveName: String,
+        orderIndex: Int?,
         width: Int,
         height: Int,
         spawnX: Int,
         spawnY: Int,
         layers: Map<Int, List<LevelLayerCellView>>,
+        transitions: List<LevelTransitionView>,
     ): LevelDataView {
         val collisionWalls = layers
             .getOrDefault(1, emptyList())
@@ -990,12 +1038,22 @@ class KaraxasBackendClient(
         val layerPayload = LevelLayerPayloadCodec.toRequestLayers(layers)
         val payload = mapOf(
             "name" to name,
+            "descriptive_name" to descriptiveName,
+            "order_index" to orderIndex,
             "schema_version" to 2,
             "width" to width,
             "height" to height,
             "spawn_x" to spawnX,
             "spawn_y" to spawnY,
             "layers" to layerPayload,
+            "transitions" to transitions.map { transition ->
+                mapOf(
+                    "x" to transition.x,
+                    "y" to transition.y,
+                    "transition_type" to transition.transitionType,
+                    "destination_level_id" to transition.destinationLevelId,
+                )
+            },
             "wall_cells" to collisionWalls,
         )
         val response = request(
@@ -1006,23 +1064,26 @@ class KaraxasBackendClient(
             body = mapper.writeValueAsString(payload),
         )
         ensureSuccess(response)
-        val item = mapper.readTree(response.body())
-        val parsedLayers = LevelLayerPayloadCodec.fromResponse(item)
-        val parsedWalls = parsedLayers
-            .getOrDefault(1, emptyList())
-            .filter { it.assetKey == "wall_block" || it.assetKey == "tree_oak" }
-            .map { LevelGridCellView(x = it.x, y = it.y) }
-        return LevelDataView(
-            id = item.path("id").asInt(),
-            name = item.path("name").asText(),
-            schemaVersion = item.path("schema_version").asInt(2),
-            width = item.path("width").asInt(40),
-            height = item.path("height").asInt(24),
-            spawnX = item.path("spawn_x").asInt(1),
-            spawnY = item.path("spawn_y").asInt(1),
-            layers = parsedLayers,
-            wallCells = parsedWalls,
+        return parseLevelData(mapper.readTree(response.body()))
+    }
+
+    fun saveLevelOrder(accessToken: String, clientVersion: String, orderedLevelIds: List<Int>) {
+        val payload = mapOf(
+            "levels" to orderedLevelIds.mapIndexed { index, levelId ->
+                mapOf(
+                    "level_id" to levelId,
+                    "order_index" to index + 1,
+                )
+            }
         )
+        val response = request(
+            method = "POST",
+            path = "/levels/order",
+            accessToken = accessToken,
+            clientVersion = clientVersion,
+            body = mapper.writeValueAsString(payload),
+        )
+        ensureSuccess(response)
     }
 
     fun listChannels(accessToken: String, clientVersion: String): List<ChannelView> {

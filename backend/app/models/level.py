@@ -11,6 +11,8 @@ class Level(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    descriptive_name: Mapped[str] = mapped_column(String(96), nullable=False, default="")
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=1, index=True)
     schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
     width: Mapped[int] = mapped_column(Integer, nullable=False, default=40)
     height: Mapped[int] = mapped_column(Integer, nullable=False, default=24)
@@ -18,6 +20,7 @@ class Level(Base):
     spawn_y: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     wall_cells: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     layer_cells: Mapped[dict[str, list[dict]]] = mapped_column(JSON, nullable=False, default=dict)
+    transitions: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

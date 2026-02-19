@@ -45,6 +45,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - Includes nullable `location_x`/`location_y` for persisted world coordinates.
   - Character names are globally unique (case-insensitive unique index on `lower(name)`).
 - `levels`: named level layouts with schema-versioned layered tile payloads (`layer_cells`) plus legacy-compatible derived `wall_cells` for collision fallback.
+  - Includes `descriptive_name` (player-facing floor label), `order_index` (tower progression ordering), and `transitions` (stairs/ladder/elevator destination links).
 - `content_versions`: immutable content snapshot headers with lifecycle state (`draft`, `validated`, `active`, `retired`).
 - `content_bundles`: per-domain JSON payloads keyed by `content_version_id` + `domain`.
 - `publish_drain_events`: publish-triggered drain windows (actor, reason, deadline, targeted/persist/revoked counters, cutoff timestamp).
@@ -119,9 +120,10 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Auth updater panel now hydrates release notes/feed metadata from backend DB-backed release summary when reachable, with local patch-note fallback.
 - Cog menu is hidden on the auth screen and remains available only after login.
 - Cog dropdown still includes updater entry for authenticated flows.
+- While gameplay scene is active, cog dropdown is restricted to `Settings`, `Logout Character`, `Logout Account`, and `Exit` only.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Cog dropdown menu items use a themed basic menu-item UI delegate so hover/selection highlights stay in-theme (no platform-default blue highlight bleed).
-- Cog dropdown includes a logged-in-only header line with account identity (`Welcome username.`).
+- Cog dropdown includes a logged-in-only header line with account identity (`Welcome username.`) outside gameplay scene.
 - Combined auth uses a single centered panel (no large shell frame on auth screen) with login/register toggle, centered fields, and bordered solid input styling.
 - Combined auth panel now includes a direct `Exit` button alongside login/register actions.
 - Register mode now uses `Register` + `Back` actions (instead of `Use Login`) for clearer return-to-login flow.
@@ -156,7 +158,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character selection uses fixed-size themed character cards with per-row `Play` and `Delete` actions.
 - Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
 - Admin-only launcher controls (level-builder tab and per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
-- Cog dropdown admin menu includes `Level Editor`, `Asset Editor`, and `Content Versions`.
+- Cog dropdown admin menu includes `Level Editor`, `Level Order`, `Asset Editor`, and `Content Versions`.
 - Asset Editor now uses a staged workflow:
   - `Save Local` records item edits in a persistent local draft queue (`asset_editor_local_draft.json`) that survives launcher restarts.
   - Right-side pending-changes panel tracks staged items before publish.
@@ -172,8 +174,11 @@ This is the single source of truth for technical architecture, stack decisions, 
   - compare mode with two searchable version selectors and side-by-side item-state rendering with changed-item markers.
 - Level-builder tool now supports layered tile editing with an active-layer selector, per-layer visibility toggles, and a fixed-size side asset palette split into 3 layer columns (Layer 0/1/2) with expansion-ready fixed-size asset boxes.
 - Asset palette entries render visual previews/icons and themed hover tooltips so asset semantics are discoverable in-editor.
+- Level-builder now includes transition assets (`stairs_passage`, `ladder_passage`, `elevator_platform`) with per-cell destination-level configuration dialogs.
+- Level save payload now includes transition-link metadata in addition to layered tile payloads.
 - Level-builder is rendered in a dedicated scene (outside account card stack) with compact top controls for faster editing workflows.
 - Level-builder scene header strip now contains `Reload`, `Load`, `Save Local`, `Publish Changes`, and `Back`, plus the load-dropdown and level-name input placed adjacent to their respective actions.
+- Level-builder header now includes technical `name`, player-facing `descriptive_name`, and optional `order_index` inputs used by tower-floor routing/order.
 - Lower editor rows are reserved for level-editing controls and viewport/grid inputs.
 - Level-builder grid defaults to a large logical footprint (`100000x100000`) and uses viewport panning for editing.
 - Level-builder top controls are split into two compact rows and grid canvas minimum size is constrained so the scene stays within visible screen bounds on common desktop resolutions.
@@ -182,6 +187,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level-builder grid is now virtualized/pannable and supports up to `100000x100000` logical dimensions without allocating a full pixel canvas of that size.
 - Level-builder canvas now renders a radar-ping spawn marker placeholder rather than character art for clearer spawn-point editing.
 - Level-builder save/load payload uses explicit layered schema (`schema_version=2`) and keeps backward compatibility with legacy wall-only payloads.
+- Admin `Level Order` scene provides drag/drop floor reordering and publishes ordering to backend via `POST /levels/order`.
 - Admin `Level Editor` and `Asset Editor` panels now use larger near-full-height content layouts to maximize vertical workspace within the launcher shell.
 - Admin editor scene/panel sizing is expanded toward near full-screen usage, and Asset Editor side rails (left card list + right pending list) are compacted with smaller asset icons to prioritize the central edit pane.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
@@ -189,6 +195,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `play` scene is currently an empty-world prototype with in-launcher gameplay handoff and WASD movement.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
 - When a character has an assigned `level_id`, gameplay loads layered level data and renders deterministic layer order (`0 -> 1 -> player -> 2`).
+- If a character has no `level_id`, launcher falls back to backend `GET /levels/first` and enters the first ordered tower floor.
+- Runtime preloads linked destination floors when player approaches transition cells and swaps floors in-scene when stepping on configured transitions (no separate loading card).
 - Runtime collision map is derived only from configured collision-layer assets on layer `1` (currently `wall_block`, `tree_oak`) plus world-edge collision.
 - Launcher persists character runtime location through `POST /characters/{id}/location` when leaving gameplay (or logout/close while in gameplay) and resumes from saved coordinates on next play session.
 - Character creation/select screens are structured for art integration (sex-based appearance choice + preview panel) and can load art assets from `assets/characters/` in working dir, install root, payload root, or `GOK_CHARACTER_ART_DIR`.
@@ -214,6 +222,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character creation now renders Name/Sex/Race/Background/Affiliation in one horizontal identity row, with fixed-size stats/skills tables and fixed-size row controls to prevent layout drift.
 - Character creation action row now includes a live point-budget label (`x/N points left`) anchored immediately left of the `Create Character` button.
 - Launcher character create API payload now forwards race/background/affiliation and backend persists them in `characters`; list/create responses return those fields for UI/detail rendering.
+- Backend character creation now initializes new characters at the first ordered floor spawn (`levels.order_index` ascending) when at least one floor exists.
 - Gameplay movement speed baseline now reads from content tuning (`tuning.movement_speed`) instead of hardcoded launcher constants.
 - Service error formatting now maps `401/403` and `invalid token` responses to a clear session-expiry message (`Session expired or invalid token. Please log in again.`), including level-builder operations.
 - Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.
