@@ -230,6 +230,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character selection panel title is now sourced from the list container border (`Character List`) and the details panel title is `Character details`.
 - Character preview rendering normalizes sprite frames to a fixed preview canvas before scaling, keeping sex-switch preview zoom consistent.
 - Character art integration currently supports 32x32 idle sprites and 192x128 (4-direction x 6-frame) walk/run sheets for male/female presets.
+- Isometric migration target upgrades character animation coverage to full 8-direction sets (`N`,`NE`,`E`,`SE`,`S`,`SW`,`W`,`NW`) with importer/runtime validation for missing directions per action.
+- Item/equipment visuals are planned as modular layered composition (paperdoll-style slot overlays) bound to DB-driven item definitions so equipment appearance changes can ship via content publish.
 - Character creation and deletion both perform immediate character-list reloads and UI refreshes to avoid stale list state.
 - Account cards now render on opaque themed surfaces to prevent visual overlap artifacts when switching tabs.
 - Updater is accessible directly on auth (embedded panel) and through cog menu / updater card for authenticated flows; it remains removed from lobby tab navigation.

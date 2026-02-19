@@ -98,6 +98,8 @@ create/select characters, and enter gameplay sessions.
 - Character creation selections are persisted on character records (stats, skills, race, background, affiliation, appearance).
 - Character art loading accepts both canonical filenames and fallback naming/folder layouts so male/female previews continue working when asset files are reorganized.
 - Initial visual presets currently wired: human male and human female.
+- Isometric character animation target is 8-direction movement/action coverage (`N`, `NE`, `E`, `SE`, `S`, `SW`, `W`, `NW`) for runtime readability and combat responsiveness.
+- Character visuals are planned to become modular/equipment-driven (base body + gear slot overlays) so equipped items visibly change the character model in gameplay.
 - Exact stat/skill catalogs are intentionally deferred to a later design pass.
 
 ## Social Scope (Current)
@@ -172,6 +174,7 @@ create/select characters, and enter gameplay sessions.
 - Reintroduction sequence for in-game chat/guild UX on top of the world session screen.
 - Guild management feature depth and permissions model.
 - Moderation/reporting model for future chat and social systems.
+- Final equipment slot taxonomy and art-quality bar for production-ready item visual variants.
 
 ## Documentation Rule
 This file is the single source of truth for all non-technical game/product information.
