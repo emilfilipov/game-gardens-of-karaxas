@@ -1,2 +1,2 @@
 - Shrunk Level Editor header inputs (`Save Level`, `Descriptive`, `Order`) so action buttons like `Save Local` remain visible and don’t clip off-screen on narrower widths.
-- Documented compact Level Editor header sizing in `docs/TECHNICAL.md` for consistent future UI changes.
+- Updater no-update path no longer restarts launcher; `Game is up to date.` now stays in-session with no forced restart.

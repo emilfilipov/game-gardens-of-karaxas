@@ -236,6 +236,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Update card layout uses explicit inner padding; build/version text and patch notes are inset from the brick frame with hidden scrollbars (wheel scroll remains enabled).
 - Update flow now uses status-text updates only (no visual progress bar), so updater state is communicated without extra bar controls.
 - Updater no-update terminal status is normalized to `Game is up to date.`.
+- Updater no-update path never auto-restarts launcher runtime; restart is only triggered when an update is actually being applied.
 - Update helper applies Velopack updates in silent mode and is built as a windowless helper executable to reduce updater pop-up windows during apply/restart flow.
 - Launcher/update-helper no longer inject or resolve GitHub/Velopack repository tokens in client runtime update flow; update source is the backend-provided GCS feed URL.
 - Launcher now keeps a dedicated realtime event websocket (`/events/ws`) active while authenticated and responds to publish-drain events by returning non-admin users to auth after state-save.

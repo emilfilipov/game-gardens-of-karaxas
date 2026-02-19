@@ -6850,18 +6850,6 @@ object LauncherMain {
                             }
                         }
                         2 -> "Game is up to date."
-                            .let { base ->
-                                if (autoRestartOnSuccess) {
-                                    log("No binary update available. Restarting launcher to resync content snapshot.")
-                                    Thread {
-                                        Thread.sleep(750)
-                                        kotlin.system.exitProcess(0)
-                                    }.start()
-                                    "Game is up to date. Restarting..."
-                                } else {
-                                    base
-                                }
-                            }
                         else -> buildUpdateFailureMessage(exitCode, root, output)
                     }
                     setUpdatingState(controls, false)
