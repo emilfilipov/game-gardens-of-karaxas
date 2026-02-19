@@ -13,7 +13,7 @@ from app.models.admin_audit import AdminActionAudit
 from app.schemas.ops import ActivateReleaseRequest, ReleasePolicyResponse
 from app.services.admin_audit import write_admin_audit
 from app.services.content import get_active_snapshot
-from app.services.observability import build_publish_drain_metrics, snapshot_latency_stats
+from app.services.observability import build_publish_drain_metrics, snapshot_latency_stats, zone_runtime_stats
 from app.services.rate_limit import rate_limiter
 from app.services.realtime import realtime_hub
 from app.services.release_policy import activate_release, ensure_release_policy
@@ -68,6 +68,7 @@ def metrics(db: Session = Depends(get_db)):
             "enforce_after": policy.enforce_after.isoformat() if policy.enforce_after else None,
         },
         "snapshot_latency_ms": snapshot_latency_stats(),
+        "zone_runtime": zone_runtime_stats(),
         "publish_drain": build_publish_drain_metrics(db),
         "rate_limiter": rate_limiter.stats(),
         "security_events": security_event_stats(db),

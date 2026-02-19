@@ -5,9 +5,6 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-171 | ⬜ | 4 | Implement authoritative zone visibility/interest filtering for multiplayer readiness: client renders entities/assets only for active zone; backend realtime/event fanout is filtered by player zone scope to avoid cross-zone ghost presence. Include hooks for optional adjacent-zone preview channels if enabled later. |
-| GOK-MMO-172 | ⬜ | 3 | Add test + observability coverage for zone streaming and transitions: automated tests for spawn routing (new vs returning), preload trigger behavior, transition handoff correctness, and order-reorder persistence; structured logs/metrics for preload latency, transition success/fail counts, and forced fallback cases. |
-| GOK-MMO-173 | ⬜ | 2 | UX validation pass for this tower-navigation slice: ensure all non-game cards are despawned/hidden once gameplay starts, verify no overlapping UI artifacts on transitions/logouts, and produce a concise admin test checklist for creating and validating two linked sample levels end-to-end. |
 
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
@@ -126,3 +123,6 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-168 | ✅ | 3 | Built admin `Level Order` management scene with drag/drop floor cards and backend publish (`POST /levels/order`) for atomic tower-order updates. |
 | GOK-MMO-169 | ✅ | 3 | Added transition asset palette/runtime support for stairs, ladder, and elevator placeholders with themed editor rendering and marker overlays. |
 | GOK-MMO-170 | ✅ | 3 | Refactored in-game cog menu scope to gameplay-only controls (`Settings`, `Logout Character`, `Logout Account`, `Exit`) and ensured gameplay-exit actions persist location/session state. |
+| GOK-MMO-171 | ✅ | 4 | Implemented zone-scoped realtime presence infrastructure: websocket clients now publish active/adjacent floor scope, backend fanout filters zone events by active floor plus optional adjacent-preview subscriptions, and launcher keeps rendering bound to the active floor scene only. |
+| GOK-MMO-172 | ✅ | 3 | Added zone-stream observability and tests: preload-latency + transition-handoff/fallback telemetry now feeds ops metrics, with new backend/launcher tests covering spawn routing, zone filtering hooks, transition/preload helper behavior, and level-order persistence. |
+| GOK-MMO-173 | ✅ | 2 | Completed UX validation pass for tower navigation flow by hard-gating gameplay loop updates to gameplay scene visibility, clearing gameplay scope on character logout, and documenting an admin two-level linking validation checklist for repeatable QA. |

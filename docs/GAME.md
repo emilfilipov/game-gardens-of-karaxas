@@ -40,6 +40,7 @@ create/select characters, and enter gameplay sessions.
    - Collision currently comes from layer-1 collidable tiles (for example walls/trees) from the loaded level.
    - Transition assets (`stairs`, `ladder`, `elevator`) allow seamless floor-to-floor travel without loading screens.
    - Adjacent linked floors are preloaded when the player approaches a transition trigger zone.
+   - Runtime renders only the active floor scene; adjacent floors are preload-only until transition handoff.
 7. Authenticated players can open a full Settings screen from the top-right menu.
    - Settings screen uses sidebar tabs: `Video`, `Audio`, `Security`.
    - `Save` prompts with a themed confirmation modal when changes exist and keeps edits if user chooses `No`.
@@ -137,6 +138,7 @@ create/select characters, and enter gameplay sessions.
 - Level builder includes a right-side pending-drafts panel so admins can review staged changes before publishing.
 - Staged level drafts persist across launcher restarts until published.
 - In-game cog menu is now minimized to gameplay actions only: `Settings`, `Logout Character`, `Logout Account`, `Exit Game`.
+- Admin tower-floor QA checklist for linked-level validation is maintained in `docs/TOWER_ADMIN_CHECKLIST.md`.
 - Level builder supports explicit rendering layers with active-layer editing and visibility toggles:
   - Layer 0: ground/foliage (`grass` tile scaffold).
   - Layer 1: gameplay entities/obstacles and spawn tool (`wall`, `tree`, `spawn` scaffold).

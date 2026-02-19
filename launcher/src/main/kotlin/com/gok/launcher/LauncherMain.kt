@@ -2866,6 +2866,8 @@ object LauncherMain {
         val gameLoadedLevelsById = mutableMapOf<Int, LevelDataView>()
         val gamePreloadingLevelIds = mutableSetOf<Int>()
         var gameLastTransitionAtMillis = 0L
+        var gameLastPresenceSentAtMillis = 0L
+        var gameLastPresenceCell: Pair<Int, Int>? = null
         val spriteHalf = 16f
         var gamePlayerX = gameWorldWidth / 2f
         var gamePlayerY = gameWorldHeight / 2f
@@ -2922,6 +2924,30 @@ object LauncherMain {
             gamePlayerY = gamePlayerY.coerceIn(spriteHalf, gameWorldHeight - spriteHalf)
         }
 
+        fun emitZoneTelemetry(event: String, extra: Map<String, Any?> = emptyMap()) {
+            val payload = LinkedHashMap<String, Any?>()
+            payload["type"] = "zone_telemetry"
+            payload["event"] = event
+            extra.forEach { (key, value) -> payload[key] = value }
+            realtimeEventClient?.sendJson(payload)
+        }
+
+        fun publishRealtimeZoneScope() {
+            val currentLevel = activeGameLevelId
+            val adjacent = gameTransitionsByCell.values
+                .map { it.destinationLevelId }
+                .filter { it > 0 }
+                .distinct()
+            realtimeEventClient?.sendJson(
+                mapOf(
+                    "type" to "zone_scope",
+                    "level_id" to currentLevel,
+                    "adjacent_level_ids" to adjacent,
+                    "allow_adjacent_preview" to true,
+                )
+            )
+        }
+
         fun applyGameLevelSnapshot(level: LevelDataView?) {
             if (level == null) {
                 activeGameLevelId = null
@@ -2936,6 +2962,9 @@ object LauncherMain {
                 gameLayerCells = emptyMap()
                 gameTransitionsByCell = emptyMap()
                 gameLoadedLevelsById.clear()
+                gameLastPresenceCell = null
+                gameLastPresenceSentAtMillis = 0L
+                publishRealtimeZoneScope()
                 return
             }
             gameLoadedLevelsById[level.id] = level
@@ -2983,12 +3012,17 @@ object LauncherMain {
                         transition.y in 0 until gameLevelHeightCells
                 }
                 .associateBy { it.x to it.y }
+            publishRealtimeZoneScope()
         }
 
         fun currentPlayerCell(): Pair<Int, Int> {
-            val x = kotlin.math.floor(gamePlayerX / gameTileSize).toInt().coerceIn(0, gameLevelWidthCells - 1)
-            val y = kotlin.math.floor(gamePlayerY / gameTileSize).toInt().coerceIn(0, gameLevelHeightCells - 1)
-            return x to y
+            return ZoneRuntime.playerCell(
+                worldX = gamePlayerX,
+                worldY = gamePlayerY,
+                tileSize = gameTileSize,
+                widthCells = gameLevelWidthCells,
+                heightCells = gameLevelHeightCells,
+            )
         }
 
         fun preloadLevelById(levelId: Int) {
@@ -3002,13 +3036,24 @@ object LauncherMain {
                 }
                 gamePreloadingLevelIds.add(levelId)
             }
+            val startedAt = System.nanoTime()
             Thread {
                 try {
                     val loaded = backendClient.getLevel(session.accessToken, clientVersion, levelId)
+                    val durationMs = (System.nanoTime() - startedAt) / 1_000_000.0
+                    emitZoneTelemetry(
+                        event = "preload_latency",
+                        extra = mapOf("level_id" to levelId, "duration_ms" to durationMs, "success" to true),
+                    )
                     javax.swing.SwingUtilities.invokeLater {
                         gameLoadedLevelsById[loaded.id] = loaded
                     }
                 } catch (ex: Exception) {
+                    val durationMs = (System.nanoTime() - startedAt) / 1_000_000.0
+                    emitZoneTelemetry(
+                        event = "preload_latency",
+                        extra = mapOf("level_id" to levelId, "duration_ms" to durationMs, "success" to false),
+                    )
                     log("Adjacent level preload failed against ${backendClient.endpoint()}", ex)
                 } finally {
                     synchronized(gamePreloadingLevelIds) { gamePreloadingLevelIds.remove(levelId) }
@@ -3020,12 +3065,31 @@ object LauncherMain {
             if (gameTransitionsByCell.isEmpty()) return
             val (playerCellX, playerCellY) = currentPlayerCell()
             gameTransitionsByCell.values.forEach { transition ->
-                val nearX = kotlin.math.abs(playerCellX - transition.x) <= 2
-                val nearY = kotlin.math.abs(playerCellY - transition.y) <= 2
-                if (nearX && nearY) {
+                if (ZoneRuntime.shouldPreloadTransition(playerCellX, playerCellY, transition, proximityCells = 2)) {
                     preloadLevelById(transition.destinationLevelId)
                 }
             }
+        }
+
+        fun maybePublishZonePresence() {
+            val levelId = activeGameLevelId ?: return
+            val currentCell = currentPlayerCell()
+            val now = System.currentTimeMillis()
+            if (currentCell == gameLastPresenceCell && now - gameLastPresenceSentAtMillis < 1000L) {
+                return
+            }
+            val character = activeGameCharacterView ?: return
+            gameLastPresenceCell = currentCell
+            gameLastPresenceSentAtMillis = now
+            realtimeEventClient?.sendJson(
+                mapOf(
+                    "type" to "zone_presence",
+                    "character_id" to character.id,
+                    "level_id" to levelId,
+                    "location_x" to currentCell.first,
+                    "location_y" to currentCell.second,
+                )
+            )
         }
 
         fun switchToTransitionDestination(transition: LevelTransitionView) {
@@ -3036,10 +3100,27 @@ object LauncherMain {
             val destination = gameLoadedLevelsById[transition.destinationLevelId]
             if (destination == null) {
                 preloadLevelById(transition.destinationLevelId)
+                emitZoneTelemetry(
+                    event = "transition_fallback",
+                    extra = mapOf(
+                        "source_level_id" to activeGameLevelId,
+                        "destination_level_id" to transition.destinationLevelId,
+                        "reason" to "destination_not_preloaded",
+                    ),
+                )
+                emitZoneTelemetry(
+                    event = "transition_handoff",
+                    extra = mapOf(
+                        "source_level_id" to activeGameLevelId,
+                        "destination_level_id" to transition.destinationLevelId,
+                        "success" to false,
+                    ),
+                )
                 playStatus.text = "Preparing next floor..."
                 return
             }
             gameLastTransitionAtMillis = now
+            val sourceLevelId = activeGameLevelId
             applyGameLevelSnapshot(destination)
             resetPlayerPosition(null, null)
             clampPlayerToWorld()
@@ -3052,12 +3133,20 @@ object LauncherMain {
                     character
                 }
             }
+            emitZoneTelemetry(
+                event = "transition_handoff",
+                extra = mapOf(
+                    "source_level_id" to sourceLevelId,
+                    "destination_level_id" to destination.id,
+                    "success" to true,
+                ),
+            )
             playStatus.text = "Entered ${destination.descriptiveName.ifBlank { destination.name }}."
         }
 
         fun maybeApplyTransition() {
             if (gameTransitionsByCell.isEmpty()) return
-            val transition = gameTransitionsByCell[currentPlayerCell()] ?: return
+            val transition = ZoneRuntime.triggeredTransition(currentPlayerCell(), gameTransitionsByCell) ?: return
             switchToTransitionDestination(transition)
         }
 
@@ -3194,6 +3283,9 @@ object LauncherMain {
 
         var lastGameTickNanos = System.nanoTime()
         val gameLoopTimer = Timer(16) {
+            if (!gameSceneContainer.isVisible) {
+                return@Timer
+            }
             val now = System.nanoTime()
             val elapsedNs = (now - lastGameTickNanos).coerceIn(0L, 100_000_000L)
             lastGameTickNanos = now
@@ -3240,6 +3332,7 @@ object LauncherMain {
             }
             maybePreloadAdjacentLevels()
             maybeApplyTransition()
+            maybePublishZonePresence()
             gameWorldPanel.repaint()
         }
         gameLoopTimer.start()
@@ -3260,6 +3353,7 @@ object LauncherMain {
             )
             clampPlayerToWorld()
             maybePreloadAdjacentLevels()
+            maybePublishZonePresence()
             gameStatus.text = " "
             val levelName = level?.descriptiveName?.ifBlank { level.name } ?: "Default"
             playStatus.text = if (!forceSpawn && character.locationX != null && character.locationY != null) {
@@ -3724,6 +3818,8 @@ object LauncherMain {
             heldKeys.clear()
             gameTransitionsByCell = emptyMap()
             gameLoadedLevelsById.clear()
+            gameLastPresenceCell = null
+            gameLastPresenceSentAtMillis = 0L
             synchronized(gamePreloadingLevelIds) {
                 gamePreloadingLevelIds.clear()
             }
@@ -3742,6 +3838,20 @@ object LauncherMain {
         fun handleRealtimeEvent(node: JsonNode) {
             val eventType = node.path("type").asText("").trim()
             if (eventType.isBlank()) return
+            when (eventType) {
+                "connected" -> {
+                    publishRealtimeZoneScope()
+                    maybePublishZonePresence()
+                    return
+                }
+                "zone_scope_ack" -> {
+                    return
+                }
+                "zone_presence" -> {
+                    // Multiplayer entity rendering is intentionally deferred.
+                    return
+                }
+            }
             if (authSession?.isAdmin == true) return
             when (eventType) {
                 "content_publish_started" -> {
@@ -5793,6 +5903,18 @@ object LauncherMain {
                 levelSceneContainer.isVisible = false
             }
             updateSettingsMenuAccess()
+            if (card != "play") {
+                gameLastPresenceCell = null
+                gameLastPresenceSentAtMillis = 0L
+                realtimeEventClient?.sendJson(
+                    mapOf(
+                        "type" to "zone_scope",
+                        "level_id" to null,
+                        "adjacent_level_ids" to emptyList<Int>(),
+                        "allow_adjacent_preview" to true,
+                    )
+                )
+            }
             if (card == "select_character" || card == "create_character") {
                 lastAccountCard = card
                 accountTopBar.isVisible = true
@@ -6259,6 +6381,7 @@ object LauncherMain {
                 persistCurrentCharacterLocation()
             }
             heldKeys.clear()
+            applyGameLevelSnapshot(null)
             selectedCharacterId = null
             selectedCharacterView = null
             activeGameCharacterView = null

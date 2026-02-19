@@ -25,6 +25,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Single FastAPI service (modular monolith) with:
   - REST APIs for auth, lobby, characters, levels, chat, content, and ops.
   - WebSocket endpoints for realtime chat/events secured by short-lived one-time ws tickets.
+  - Events websocket now accepts zone-scope (`zone_scope`) and zone-telemetry (`zone_telemetry`) messages for floor-scoped presence fanout + runtime observability.
 - Chat endpoints are now character-gated: users must have an active selected character before chat access.
 - This keeps operational complexity low while preserving future split path (`api` + `realtime`) if scale requires it.
 
@@ -237,6 +238,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Update helper applies Velopack updates in silent mode and is built as a windowless helper executable to reduce updater pop-up windows during apply/restart flow.
 - Launcher/update-helper no longer inject or resolve GitHub/Velopack repository tokens in client runtime update flow; update source is the backend-provided GCS feed URL.
 - Launcher now keeps a dedicated realtime event websocket (`/events/ws`) active while authenticated and responds to publish-drain events by returning non-admin users to auth after state-save.
+- Launcher now publishes active-floor scope and adjacent-floor preview scope over realtime events; backend zone presence fanout is filtered by this scope to prevent cross-floor ghost events.
+- Gameplay loop updates (movement/preload/transition/presence emit) are now hard-gated to visible gameplay scene state to prevent background scene overlap artifacts.
 - Version/date is rendered in a centered footer on the launcher shell.
 
 ## Logging Strategy
@@ -311,13 +314,19 @@ This is the single source of truth for technical architecture, stack decisions, 
   - `GET /ops/release/feature-flags`
   - `GET /ops/release/metrics`
   - `GET /ops/release/admin-audit`
+- `GET /ops/release/metrics` now includes `zone_runtime` telemetry:
+  - preload latency samples (success/failed),
+  - transition handoff success/fail/fallback counters,
+  - zone-scope update count,
+  - zone-broadcast event/recipient counters.
 - Content contract compatibility is signed and enforced:
   - `/content/bootstrap` includes `content_contract_signature`,
   - launcher forwards `X-Client-Content-Contract`,
   - backend blocks non-admin auth on contract mismatch.
 - Runbooks and go/no-go checklists are documented in:
   - `docs/OPERATIONS.md`
-  - `docs/SECURITY.md`.
+  - `docs/SECURITY.md`
+  - `docs/TOWER_ADMIN_CHECKLIST.md`.
 
 ## Documentation Rule
 This file is the single source of truth for technical information.

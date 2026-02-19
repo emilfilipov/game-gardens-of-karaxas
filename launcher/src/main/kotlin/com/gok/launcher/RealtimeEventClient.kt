@@ -45,6 +45,21 @@ class RealtimeEventClient(
         }
     }
 
+    fun sendJson(payload: Map<String, Any?>): Boolean {
+        if (!running.get()) return false
+        val encoded = try {
+            mapper.writeValueAsString(payload)
+        } catch (_: Exception) {
+            return false
+        }
+        return try {
+            socket?.sendText(encoded, true)
+            socket != null
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun scheduleConnect(delaySeconds: Long) {
         if (!running.get()) return
         scheduler.schedule({ connectInternal() }, delaySeconds.coerceAtLeast(0), TimeUnit.SECONDS)
@@ -129,4 +144,3 @@ class RealtimeEventClient(
         }
     }
 }
-
