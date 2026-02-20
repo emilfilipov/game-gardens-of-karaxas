@@ -172,6 +172,7 @@ create/select characters, and enter gameplay sessions.
 ## Open Design Decisions
 - Final stats/skills taxonomy and balancing model.
 - World content population and spawn/zone architecture beyond current empty-world prototype.
+- Day/night system tuning per zone/floor (including reversed cycles and custom cycle speeds).
 - Reintroduction sequence for in-game chat/guild UX on top of the world session screen.
 - Guild management feature depth and permissions model.
 - Moderation/reporting model for future chat and social systems.

@@ -48,6 +48,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - Character names are globally unique (case-insensitive unique index on `lower(name)`).
 - `levels`: named level layouts with schema-versioned layered tile payloads (`layer_cells`) plus legacy-compatible derived `wall_cells` for collision fallback.
   - Includes `descriptive_name` (player-facing floor label), `order_index` (tower progression ordering), and `transitions` (stairs/ladder/elevator destination links).
+  - Planned extension: per-level lighting profile/cycle config for configurable day-night behavior (speed multiplier, start phase/time, and forward/reversed direction).
 - `content_versions`: immutable content snapshot headers with lifecycle state (`draft`, `validated`, `active`, `retired`).
 - `content_bundles`: per-domain JSON payloads keyed by `content_version_id` + `domain`.
 - `publish_drain_events`: publish-triggered drain windows (actor, reason, deadline, targeted/persist/revoked counters, cutoff timestamp).
