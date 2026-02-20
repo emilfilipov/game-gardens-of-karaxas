@@ -1,0 +1,16 @@
+; Engine configuration file.
+; Godot 4.x project scaffold for Gardens of Karaxas runtime host migration.
+
+config_version=5
+
+[application]
+config/name="Gardens of Karaxas - Game Client"
+run/main_scene="res://scenes/bootstrap.tscn"
+
+[display]
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/mode=4
+
+[rendering]
+renderer/rendering_method="gl_compatibility"

@@ -1,0 +1,59 @@
+{
+  "schema_version": "gok_runtime_bootstrap_v1",
+  "generated_at": "2026-02-20T15:00:00Z",
+  "session": {
+    "access_token": "sample_access",
+    "refresh_token": "sample_refresh",
+    "session_id": "sample_session",
+    "user_id": 1,
+    "email": "admin@admin.com",
+    "display_name": "admin",
+    "is_admin": true
+  },
+  "character": {
+    "id": 11,
+    "name": "Ikphelion",
+    "appearance_key": "human_male",
+    "race": "Human",
+    "background": "Drifter",
+    "affiliation": "Unaffiliated",
+    "level": 1,
+    "experience": 0,
+    "equipment": {
+      "weapon_main": "short_sword"
+    }
+  },
+  "spawn": {
+    "level_id": 2,
+    "level_name": "tower_floor_01",
+    "descriptive_name": "Tower Floor 1 - Broken Gardens",
+    "order_index": 0,
+    "world_x": 96.0,
+    "world_y": 96.0,
+    "source": "character_persisted_location"
+  },
+  "content": {
+    "version_id": 25,
+    "version_key": "cv_bootstrap_v1",
+    "schema_version": 1,
+    "contract_signature": "sample_signature"
+  },
+  "release": {
+    "client_version": "v1.0.81",
+    "latest_version": "v1.0.81",
+    "min_supported_version": "v1.0.80",
+    "latest_content_version_key": "cv_bootstrap_v1",
+    "min_supported_content_version_key": "cv_bootstrap_v1",
+    "update_feed_url": "https://storage.googleapis.com/example-feed/RELEASES"
+  },
+  "runtime": {
+    "runtime_host": "godot",
+    "window_mode": "borderless_fullscreen",
+    "isometric_projection": "2:1_dimetric",
+    "tile_width": 64,
+    "tile_height": 32,
+    "default_zoom": 0.8,
+    "zoom_min": 0.7,
+    "zoom_max": 1.1
+  }
+}

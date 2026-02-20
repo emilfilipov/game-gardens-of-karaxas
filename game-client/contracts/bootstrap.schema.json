@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gardensofkaraxas/contracts/runtime-bootstrap-v1.schema.json",
+  "title": "Gardens of Karaxas Runtime Bootstrap v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "session",
+    "character",
+    "spawn",
+    "content",
+    "release",
+    "runtime"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "gok_runtime_bootstrap_v1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "access_token",
+        "refresh_token",
+        "session_id",
+        "user_id",
+        "email",
+        "display_name",
+        "is_admin"
+      ],
+      "properties": {
+        "access_token": { "type": "string", "minLength": 1 },
+        "refresh_token": { "type": "string", "minLength": 1 },
+        "session_id": { "type": "string", "minLength": 1 },
+        "user_id": { "type": "integer", "minimum": 1 },
+        "email": { "type": "string", "minLength": 1 },
+        "display_name": { "type": "string", "minLength": 1 },
+        "is_admin": { "type": "boolean" }
+      }
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "appearance_key",
+        "level",
+        "experience",
+        "equipment"
+      ],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "appearance_key": { "type": "string", "minLength": 1 },
+        "race": { "type": "string" },
+        "background": { "type": "string" },
+        "affiliation": { "type": "string" },
+        "level": { "type": "integer", "minimum": 1 },
+        "experience": { "type": "integer", "minimum": 0 },
+        "equipment": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "spawn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level_id",
+        "level_name",
+        "descriptive_name",
+        "order_index",
+        "world_x",
+        "world_y",
+        "source"
+      ],
+      "properties": {
+        "level_id": { "type": "integer", "minimum": 1 },
+        "level_name": { "type": "string", "minLength": 1 },
+        "descriptive_name": { "type": "string", "minLength": 1 },
+        "order_index": { "type": "integer", "minimum": 0 },
+        "world_x": { "type": "number" },
+        "world_y": { "type": "number" },
+        "source": {
+          "type": "string",
+          "enum": [
+            "character_persisted_location",
+            "first_ordered_floor_spawn",
+            "admin_level_override_spawn"
+          ]
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version_id",
+        "version_key",
+        "schema_version",
+        "contract_signature"
+      ],
+      "properties": {
+        "version_id": { "type": "integer", "minimum": 1 },
+        "version_key": { "type": "string", "minLength": 1 },
+        "schema_version": { "type": "integer", "minimum": 1 },
+        "contract_signature": { "type": "string" }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "client_version",
+        "latest_version",
+        "min_supported_version",
+        "latest_content_version_key",
+        "min_supported_content_version_key",
+        "update_feed_url"
+      ],
+      "properties": {
+        "client_version": { "type": "string", "minLength": 1 },
+        "latest_version": { "type": "string", "minLength": 1 },
+        "min_supported_version": { "type": "string", "minLength": 1 },
+        "latest_content_version_key": { "type": "string", "minLength": 1 },
+        "min_supported_content_version_key": { "type": "string", "minLength": 1 },
+        "update_feed_url": { "type": ["string", "null"] }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime_host",
+        "window_mode",
+        "isometric_projection",
+        "tile_width",
+        "tile_height",
+        "default_zoom",
+        "zoom_min",
+        "zoom_max"
+      ],
+      "properties": {
+        "runtime_host": {
+          "type": "string",
+          "enum": ["launcher_legacy", "godot"]
+        },
+        "window_mode": {
+          "type": "string",
+          "enum": ["borderless_fullscreen", "windowed"]
+        },
+        "isometric_projection": {
+          "type": "string",
+          "const": "2:1_dimetric"
+        },
+        "tile_width": { "type": "integer", "const": 64 },
+        "tile_height": { "type": "integer", "const": 32 },
+        "default_zoom": { "type": "number", "const": 0.8 },
+        "zoom_min": { "type": "number", "const": 0.7 },
+        "zoom_max": { "type": "number", "const": 1.1 }
+      }
+    }
+  }
+}

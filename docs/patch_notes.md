@@ -1,1 +1,1 @@
-- Completed `GOK-MMO-176`: delivered and locked the engine migration spike in `docs/ENGINE_SPIKE_GOK_MMO_176.md`, selecting Godot 4.x as runtime/editor host with a formal Godot-vs-Unity evaluation, risk matrix, phased cutover plan, and rollback strategy.
+- Completed `GOK-MMO-234`: started Godot migration implementation by adding the `game-client/` scaffold, locking `gok_runtime_bootstrap_v1` contract files, and introducing launcher bootstrap codec/tests for deterministic runtime handoff payload serialization.

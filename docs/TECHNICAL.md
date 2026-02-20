@@ -5,6 +5,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 
 ## Runtime and Service Stack
 - Launcher/runtime UI: Kotlin (JVM) Swing launcher module (`launcher/`).
+- Game runtime/editor host (migration target): Godot 4.x module (`game-client/`).
 - Backend services: Python FastAPI (`backend/`).
 - Database: PostgreSQL (Cloud SQL), database name `karaxas`.
 - Migrations: Alembic.
@@ -25,9 +26,17 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `GOK-MMO-176` is completed and locked via `docs/ENGINE_SPIKE_GOK_MMO_176.md`.
 - Runtime/editor host stack decision:
   - Keep `launcher/` (Kotlin Swing) as auth/update shell and process orchestrator.
-  - Adopt `Godot 4.x` as authoritative gameplay runtime and world/editor host (`game-client/` planned module).
+  - Adopt `Godot 4.x` as authoritative gameplay runtime and world/editor host (`game-client/` module scaffolded).
   - Keep `backend/` (FastAPI) as authoritative service/data layer.
 - Migration is phased and reversible with a temporary dual-path runtime flag (`launcher_legacy` vs `godot`) until hardening exit criteria are met.
+
+## Godot Phase 0 Scaffold (Implemented)
+- `game-client/` now exists as a Godot 4.x project scaffold with bootstrap scene/script.
+- Launcher-to-game handoff contract is now versioned as `gok_runtime_bootstrap_v1`:
+  - schema: `game-client/contracts/bootstrap.schema.json`
+  - sample payload: `game-client/contracts/bootstrap.example.json`
+  - launcher codec/models: `launcher/src/main/kotlin/com/gok/launcher/GameRuntimeBootstrap.kt`
+- This phase does not yet replace current in-launcher gameplay flow; it adds the safe integration seam for phased cutover.
 
 ## Isometric Visual Direction (Locked)
 - Reference board: `docs/ART_DIRECTION_BOARD.md`.

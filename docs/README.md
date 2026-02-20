@@ -10,6 +10,7 @@ Read both before implementing changes.
 
 ## Project Structure
 - `launcher/` - Kotlin launcher UI with login/lobby screens and updater integration.
+- `game-client/` - Godot 4.x gameplay/editor host scaffold and runtime bootstrap contract files.
 - `backend/` - FastAPI backend services (auth, lobby/social, characters, chat, release ops).
 - `assets/` - shared visual/icon assets.
 - `docs/` - canonical and supporting documentation.

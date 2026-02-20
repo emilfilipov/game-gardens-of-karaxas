@@ -71,11 +71,12 @@
 - Current repo structure:
   - `docs/` - repository documentation (canonical + supporting docs).
   - `launcher/` - Windows launcher/updater module (Gradle).
+  - `game-client/` - Godot 4.x runtime/editor host scaffold and bootstrap contract.
   - `assets/` - shared content/data.
   - `scripts/` and `.github/workflows/` - packaging/release automation.
   - `tools/` - setup wrapper and update helper tooling.
   - `build.gradle.kts`, `settings.gradle.kts`, `gradlew`, `gradle/` - Gradle build system scaffold.
 - Planned modules (not scaffolded yet):
   - `sim/` - pure gameplay/simulation logic.
-  - `game/` - gameplay orchestration and presentation.
-  - `desktop/` - standalone runtime for Windows/Linux/Steam.
+  - `game/` - gameplay orchestration and presentation (engine-agnostic domain layer target).
+  - `desktop/` - standalone runtime shell for Windows/Linux/Steam (beyond launcher shell flow).

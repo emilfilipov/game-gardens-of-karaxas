@@ -19,6 +19,8 @@ releases/
 .DS_Store
 Thumbs.db
 *.log
+.godot/
+game-client/.godot/
 
 # Python backend
 backend/.venv/
