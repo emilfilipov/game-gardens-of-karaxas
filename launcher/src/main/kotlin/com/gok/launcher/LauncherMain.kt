@@ -559,13 +559,19 @@ object LauncherMain {
         var lastAccountCard = "select_character"
 
         val clientVersion = defaultClientVersion().ifBlank { "0.0.0" }
-        val configuredRuntimeHost = GameRuntimeHostBridge.configuredRuntimeHost()
+        val payloadRootPath = payloadRoot()
+        val installRootPath = installRoot(payloadRootPath)
+        val runtimeHostSettings = GameRuntimeHostBridge.resolveRuntimeHostSettings(
+            payloadRoot = payloadRootPath,
+            installRoot = installRootPath,
+        )
+        val configuredRuntimeHost = runtimeHostSettings.runtimeHost
         var authSession: AuthSession? = null
         var realtimeEventClient: RealtimeEventClient? = null
         var activeExternalRuntimeProcess: Process? = null
         var releaseFeedUrlOverride: String? = null
         var remoteAuthReleaseNotesMarkdown: String? = null
-        log("Configured runtime host: $configuredRuntimeHost")
+        log("Configured runtime host: $configuredRuntimeHost (source=${runtimeHostSettings.source})")
         fun applyWindowMode(mode: String) {
             val normalized = normalizeScreenMode(mode)
             val borderless = normalized == "borderless_fullscreen"
@@ -3573,8 +3579,6 @@ object LauncherMain {
                                     log("Godot runtime requested but no level data available for bootstrap. Falling back to launcher runtime.")
                                     selectStatus.text = "No level data found for external runtime. Falling back to launcher runtime."
                                 } else {
-                                    val payloadRootPath = payloadRoot()
-                                    val installRootPath = installRoot(payloadRootPath)
                                     val bootstrapPayload = GameRuntimeHostBridge.buildBootstrap(
                                         session = session,
                                         character = gameplayCharacter,
@@ -3592,6 +3596,7 @@ object LauncherMain {
                                         payloadRoot = payloadRootPath,
                                         installRoot = installRootPath,
                                         bootstrapPath = bootstrapPath,
+                                        settings = runtimeHostSettings,
                                     )
                                     if (launch.launched) {
                                         val process = launch.process

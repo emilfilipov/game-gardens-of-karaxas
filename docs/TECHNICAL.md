@@ -45,6 +45,14 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Optional runtime path overrides:
   - `GOK_GODOT_EXECUTABLE` (defaults to `godot4`),
   - `GOK_GODOT_PROJECT_PATH` (defaults to discovered `game-client/` roots).
+- Packaged default runtime settings are now emitted into payload as `runtime_host.properties`:
+  - `runtime_host`,
+  - `godot_executable`,
+  - `godot_project_path`.
+- Runtime setting precedence is now:
+  - process environment variables (`GOK_*`) first,
+  - packaged `runtime_host.properties` second,
+  - launcher defaults (`launcher_legacy`, `godot4`) last.
 - On `godot` mode:
   - launcher writes per-character bootstrap payload to `install_root/runtime/runtime_bootstrap_<character_id>.json`,
   - launches Godot with `--bootstrap=<path>`,
@@ -158,6 +166,10 @@ This is the single source of truth for technical architecture, stack decisions, 
   - ignores backend path changes so backend-only commits do not ship a launcher release.
   - prefetches prior Velopack packages from GCS feed path before `vpk pack` so delta generation remains available across skipped versions.
   - uploads feed artifacts (`RELEASES`, `.nupkg`, setup exe) to GCS feed path and versioned archive path.
+  - passes runtime-host default config into packaging via:
+    - `KARAXAS_RUNTIME_HOST`,
+    - `KARAXAS_GODOT_EXECUTABLE`,
+    - `KARAXAS_GODOT_PROJECT_PATH`.
   - applies `Cache-Control: no-cache, max-age=0` metadata to mutable feed files (`RELEASES`, setup exe, portable zip, and feed JSON manifests) to prevent stale client/browser caching.
   - notifies backend release activation endpoint with new build/feed/notes metadata.
 - Backend deploy workflow (`.github/workflows/deploy-backend.yml`):

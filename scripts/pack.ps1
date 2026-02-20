@@ -98,6 +98,33 @@ if (Test-Path $tileAssetsDir) {
   Copy-Item -Path (Join-Path $tileAssetsDir "*") -Destination $payloadTileDir -Recurse -Force
 }
 
+$gameClientDir = Join-Path $root "game-client"
+if (Test-Path $gameClientDir) {
+  $payloadGameClientDir = Join-Path $payloadDir "game-client"
+  New-Item -ItemType Directory -Path $payloadGameClientDir -Force | Out-Null
+  Copy-Item -Path (Join-Path $gameClientDir "*") -Destination $payloadGameClientDir -Recurse -Force
+  $godotCacheDir = Join-Path $payloadGameClientDir ".godot"
+  if (Test-Path $godotCacheDir) {
+    Remove-Item -Path $godotCacheDir -Recurse -Force
+  }
+}
+
+$runtimeHostDefault = $env:GOK_RUNTIME_HOST_DEFAULT
+if (-not $runtimeHostDefault -or $runtimeHostDefault.Trim().Length -eq 0) {
+  $runtimeHostDefault = "launcher_legacy"
+}
+$godotExecutableDefault = $env:GOK_GODOT_EXECUTABLE_DEFAULT
+$godotProjectPathDefault = $env:GOK_GODOT_PROJECT_PATH_DEFAULT
+$runtimeSettingsPath = Join-Path $payloadDir "runtime_host.properties"
+$runtimeSettingsLines = @("runtime_host=$runtimeHostDefault")
+if ($godotExecutableDefault -and $godotExecutableDefault.Trim().Length -gt 0) {
+  $runtimeSettingsLines += "godot_executable=$($godotExecutableDefault.Trim())"
+}
+if ($godotProjectPathDefault -and $godotProjectPathDefault.Trim().Length -gt 0) {
+  $runtimeSettingsLines += "godot_project_path=$($godotProjectPathDefault.Trim())"
+}
+Set-Content -Path $runtimeSettingsPath -Value ($runtimeSettingsLines -join "`n") -Encoding ascii
+
 if (Test-Path $updateHelperProject) {
   dotnet publish $updateHelperProject -c Release -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true -p:PublishReadyToRun=true -o $updateHelperOutDir
   $updateHelperExe = Join-Path $updateHelperOutDir "UpdateHelper.exe"

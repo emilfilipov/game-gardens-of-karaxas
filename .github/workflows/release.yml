@@ -139,6 +139,9 @@ jobs:
         env:
           GOK_GCS_RELEASE_FEED_URL: ${{ steps.preflight.outputs.feed_url }}
           GOK_UPDATE_REPO: ${{ steps.preflight.outputs.feed_url }}
+          GOK_RUNTIME_HOST_DEFAULT: ${{ secrets.KARAXAS_RUNTIME_HOST || vars.KARAXAS_RUNTIME_HOST }}
+          GOK_GODOT_EXECUTABLE_DEFAULT: ${{ secrets.KARAXAS_GODOT_EXECUTABLE || vars.KARAXAS_GODOT_EXECUTABLE }}
+          GOK_GODOT_PROJECT_PATH_DEFAULT: ${{ secrets.KARAXAS_GODOT_PROJECT_PATH || vars.KARAXAS_GODOT_PROJECT_PATH }}
         run: |
           $args = @("-Version", "${{ steps.get-version.outputs.version }}")
           if ("${{ steps.release-mode.outputs.runtime_ready }}" -ne "true") {

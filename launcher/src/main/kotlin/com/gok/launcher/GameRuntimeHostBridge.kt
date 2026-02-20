@@ -4,6 +4,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Instant
+import java.util.Properties
 
 data class RuntimeLaunchResult(
     val launched: Boolean,
@@ -11,18 +12,48 @@ data class RuntimeLaunchResult(
     val message: String,
 )
 
+data class RuntimeHostSettings(
+    val runtimeHost: RuntimeHost,
+    val godotExecutable: String,
+    val godotProjectPath: String?,
+    val source: String,
+)
+
 object GameRuntimeHostBridge {
     private const val RUNTIME_HOST_ENV = "GOK_RUNTIME_HOST"
     private const val GODOT_EXECUTABLE_ENV = "GOK_GODOT_EXECUTABLE"
     private const val GODOT_PROJECT_ENV = "GOK_GODOT_PROJECT_PATH"
+    private const val RUNTIME_SETTINGS_FILE = "runtime_host.properties"
     private const val LEGACY_WORLD_TILE_SIZE = 32.0
 
-    fun configuredRuntimeHost(env: Map<String, String> = System.getenv()): RuntimeHost {
-        val raw = env[RUNTIME_HOST_ENV]?.trim()?.lowercase()
-        return when (raw) {
+    fun resolveRuntimeHostSettings(
+        payloadRoot: Path,
+        installRoot: Path,
+        env: Map<String, String> = System.getenv(),
+    ): RuntimeHostSettings {
+        val fileProps = loadRuntimeProperties(payloadRoot, installRoot)
+        val rawHost = env[RUNTIME_HOST_ENV]?.trim()?.ifBlank { null }
+            ?: fileProps?.getProperty("runtime_host")?.trim()?.ifBlank { null }
+        val runtimeHost = when (rawHost?.lowercase()) {
             RuntimeHost.godot.name -> RuntimeHost.godot
             else -> RuntimeHost.launcher_legacy
         }
+        val godotExecutable = env[GODOT_EXECUTABLE_ENV]?.trim()?.ifBlank { null }
+            ?: fileProps?.getProperty("godot_executable")?.trim()?.ifBlank { null }
+            ?: "godot4"
+        val godotProjectPath = env[GODOT_PROJECT_ENV]?.trim()?.ifBlank { null }
+            ?: fileProps?.getProperty("godot_project_path")?.trim()?.ifBlank { null }
+        val source = when {
+            env.containsKey(RUNTIME_HOST_ENV) || env.containsKey(GODOT_EXECUTABLE_ENV) || env.containsKey(GODOT_PROJECT_ENV) -> "environment"
+            fileProps != null -> "runtime_host.properties"
+            else -> "default"
+        }
+        return RuntimeHostSettings(
+            runtimeHost = runtimeHost,
+            godotExecutable = godotExecutable,
+            godotProjectPath = godotProjectPath,
+            source = source,
+        )
     }
 
     fun buildBootstrap(
@@ -110,15 +141,16 @@ object GameRuntimeHostBridge {
         payloadRoot: Path,
         installRoot: Path,
         bootstrapPath: Path,
+        settings: RuntimeHostSettings,
         env: Map<String, String> = System.getenv(),
     ): RuntimeLaunchResult {
-        val executable = resolveGodotExecutable(env)
+        val executable = resolveGodotExecutable(settings, env)
             ?: return RuntimeLaunchResult(
                 launched = false,
                 process = null,
                 message = "Godot runtime requested but executable is not configured. Set $GODOT_EXECUTABLE_ENV.",
             )
-        val projectPath = resolveGodotProjectPath(payloadRoot, installRoot, env)
+        val projectPath = resolveGodotProjectPath(payloadRoot, installRoot, settings, env)
             ?: return RuntimeLaunchResult(
                 launched = false,
                 process = null,
@@ -150,19 +182,29 @@ object GameRuntimeHostBridge {
         }
     }
 
-    private fun resolveGodotExecutable(env: Map<String, String>): String? {
+    private fun resolveGodotExecutable(settings: RuntimeHostSettings, env: Map<String, String>): String? {
         val fromEnv = env[GODOT_EXECUTABLE_ENV]?.trim()?.takeIf { it.isNotBlank() }
         if (fromEnv != null) return fromEnv
-        return "godot4"
+        return settings.godotExecutable.takeIf { it.isNotBlank() }
     }
 
     private fun resolveGodotProjectPath(
         payloadRoot: Path,
         installRoot: Path,
+        settings: RuntimeHostSettings,
         env: Map<String, String>,
     ): Path? {
         val explicit = env[GODOT_PROJECT_ENV]?.trim()?.takeIf { it.isNotBlank() }?.let { Paths.get(it).toAbsolutePath().normalize() }
         if (explicit != null && Files.exists(explicit.resolve("project.godot"))) return explicit
+        val fromSettings = settings.godotProjectPath?.trim()?.takeIf { it.isNotBlank() }?.let { raw ->
+            val candidate = Paths.get(raw)
+            if (candidate.isAbsolute) {
+                candidate.toAbsolutePath().normalize()
+            } else {
+                installRoot.resolve(raw).toAbsolutePath().normalize()
+            }
+        }
+        if (fromSettings != null && Files.exists(fromSettings.resolve("project.godot"))) return fromSettings
 
         val userDir = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize()
         val candidates = listOf(
@@ -173,5 +215,20 @@ object GameRuntimeHostBridge {
         ).filterNotNull().map { it.toAbsolutePath().normalize() }
 
         return candidates.firstOrNull { Files.exists(it.resolve("project.godot")) }
+    }
+
+    private fun loadRuntimeProperties(payloadRoot: Path, installRoot: Path): Properties? {
+        val candidates = listOf(
+            installRoot.resolve(RUNTIME_SETTINGS_FILE),
+            payloadRoot.resolve(RUNTIME_SETTINGS_FILE),
+        )
+        val source = candidates.firstOrNull { Files.exists(it) } ?: return null
+        return try {
+            val props = Properties()
+            Files.newInputStream(source).use { props.load(it) }
+            props
+        } catch (_: Exception) {
+            null
+        }
     }
 }

@@ -17,6 +17,11 @@ This produces installer/update artifacts under `releases/windows/`.
 - Launcher hosts account/auth/lobby screens.
 - Launcher keeps updater tools available from the Update screen/card.
 - Updates are downloaded and applied through Velopack package flow from configured feed URL (`update_repo.txt` or backend release summary feed).
+- Runtime host defaults can be shipped via `runtime_host.properties` in payload:
+  - `runtime_host=launcher_legacy|godot`
+  - `godot_executable=<path-or-command>`
+  - `godot_project_path=<project-dir>`
+- Runtime host values from process environment (`GOK_RUNTIME_HOST`, `GOK_GODOT_EXECUTABLE`, `GOK_GODOT_PROJECT_PATH`) override packaged defaults.
 
 ## Local install path
 Default install root:

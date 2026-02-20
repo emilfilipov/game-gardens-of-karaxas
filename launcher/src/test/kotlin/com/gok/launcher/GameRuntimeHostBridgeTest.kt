@@ -2,18 +2,48 @@ package com.gok.launcher
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.nio.file.Files
 
 class GameRuntimeHostBridgeTest {
     @Test
-    fun `configuredRuntimeHost defaults to launcher legacy`() {
-        val host = GameRuntimeHostBridge.configuredRuntimeHost(emptyMap())
-        assertEquals(RuntimeHost.launcher_legacy, host)
+    fun `resolveRuntimeHostSettings defaults to launcher legacy`() {
+        val root = Files.createTempDirectory("gok-runtime-host-default")
+        val settings = GameRuntimeHostBridge.resolveRuntimeHostSettings(root, root, emptyMap())
+        assertEquals(RuntimeHost.launcher_legacy, settings.runtimeHost)
+        assertEquals("godot4", settings.godotExecutable)
     }
 
     @Test
-    fun `configuredRuntimeHost honors godot env value`() {
-        val host = GameRuntimeHostBridge.configuredRuntimeHost(mapOf("GOK_RUNTIME_HOST" to "godot"))
-        assertEquals(RuntimeHost.godot, host)
+    fun `resolveRuntimeHostSettings honors godot env value`() {
+        val root = Files.createTempDirectory("gok-runtime-host-env")
+        val settings = GameRuntimeHostBridge.resolveRuntimeHostSettings(
+            payloadRoot = root,
+            installRoot = root,
+            env = mapOf("GOK_RUNTIME_HOST" to "godot"),
+        )
+        assertEquals(RuntimeHost.godot, settings.runtimeHost)
+    }
+
+    @Test
+    fun `resolveRuntimeHostSettings reads packaged runtime_host properties`() {
+        val root = Files.createTempDirectory("gok-runtime-host-props")
+        val props = root.resolve("runtime_host.properties")
+        Files.writeString(
+            props,
+            """
+            runtime_host=godot
+            godot_executable=custom-godot
+            godot_project_path=game-client
+            """.trimIndent()
+        )
+        val settings = GameRuntimeHostBridge.resolveRuntimeHostSettings(
+            payloadRoot = root,
+            installRoot = root,
+            env = emptyMap(),
+        )
+        assertEquals(RuntimeHost.godot, settings.runtimeHost)
+        assertEquals("custom-godot", settings.godotExecutable)
+        assertEquals("game-client", settings.godotProjectPath)
     }
 
     @Test
