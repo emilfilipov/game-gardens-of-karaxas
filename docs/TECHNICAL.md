@@ -21,6 +21,14 @@ This is the single source of truth for technical architecture, stack decisions, 
    - `launcher/` for desktop launcher UI and updater integration.
    - `backend/` for API/realtime/auth/social data services.
 
+## Engine Host Stack Decision (Locked)
+- `GOK-MMO-176` is completed and locked via `docs/ENGINE_SPIKE_GOK_MMO_176.md`.
+- Runtime/editor host stack decision:
+  - Keep `launcher/` (Kotlin Swing) as auth/update shell and process orchestrator.
+  - Adopt `Godot 4.x` as authoritative gameplay runtime and world/editor host (`game-client/` planned module).
+  - Keep `backend/` (FastAPI) as authoritative service/data layer.
+- Migration is phased and reversible with a temporary dual-path runtime flag (`launcher_legacy` vs `godot`) until hardening exit criteria are met.
+
 ## Isometric Visual Direction (Locked)
 - Reference board: `docs/ART_DIRECTION_BOARD.md`.
 - Projection decision: `2:1` isometric (dimetric).

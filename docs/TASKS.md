@@ -5,7 +5,6 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-176 | ⬜ | 4 | Run engine migration spike (Godot vs Unity) against project constraints (Windows-first launcher, backend APIs, data-driven model) and lock runtime/editor host stack with risk matrix and cutover plan. |
 | GOK-MMO-177 | ⬜ | 3 | Define `Level Schema v3` for hybrid placement: preserve logical grid data while adding freeform prop transforms (`x/y/z`, rotation, scale, pivot) and stable IDs for per-object editing/versioning. |
 | GOK-MMO-178 | ⬜ | 3 | Design backward-compatible migration path from current layered level payloads to `v3` hybrid payloads, including validation/fallback adapters and reversible migration scripts for staged rollout. |
 | GOK-MMO-179 | ⬜ | 3 | Establish production art pipeline contract (source formats, export profiles, naming standards, atlas grouping, compression policy, color-space, outline/contrast guidelines, and per-asset metadata requirements). |
@@ -184,5 +183,6 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-173 | ✅ | 2 | Completed UX validation pass for tower navigation flow by hard-gating gameplay loop updates to gameplay scene visibility, clearing gameplay scope on character logout, and documenting an admin two-level linking validation checklist for repeatable QA. |
 | GOK-MMO-174 | ✅ | 3 | Locked isometric visual direction and produced approved art/tech reference board in `docs/ART_DIRECTION_BOARD.md`; fixed projection choice (`2:1`), scale targets (`64x32` tiles, `128x128` character frames), camera defaults (`0.80x`, range `0.70x-1.10x`), warm/soft lighting baseline, readability constraints, and UI-over-world composition rules. |
 | GOK-MMO-175 | ✅ | 3 | Produced and locked formal isometric coordinate contract in `docs/ISOMETRIC_COORDINATE_SPEC.md` covering world<->screen transforms, tile ownership/origin conventions, pivot rules, stable draw-order tie breakers, and deterministic rounding for movement/collision/editor picking. |
+| GOK-MMO-176 | ✅ | 4 | Completed engine migration spike in `docs/ENGINE_SPIKE_GOK_MMO_176.md` with Godot-vs-Unity evaluation matrix, risk matrix, locked runtime/editor host decision (Godot 4.x), phased cutover plan, and reversible rollback strategy. |
 | GOK-MMO-229 | ✅ | 3 | Implemented 8-direction sprite runtime scaffolding in launcher: character art discovery now supports 4-dir and 8-dir sheet metadata, and movement-facing now resolves to 8-way directions when available with automatic 4-way fallback. |
 | GOK-MMO-230 | ✅ | 3 | Implemented modular equipment data foundations: assets content domain now supports equipment slots/visual definitions with validation, character records persist equipment loadout JSON, and launcher content bootstrap parsing now ingests equipment slot/visual metadata. |

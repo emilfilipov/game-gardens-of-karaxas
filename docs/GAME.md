@@ -157,6 +157,7 @@ create/select characters, and enter gameplay sessions.
 ## Release Intent
 - Launcher-first distribution (Windows first).
 - Keep architecture portable for Linux/Steam/Android later, but Steam-specific distribution is not a current dependency.
+- Runtime host direction is now locked: launcher stays the account/update shell, while gameplay/world/editor runtime migrates to Godot 4.x.
 
 ## Live Content Model (Implemented Baseline)
 - Non-logic gameplay content is now delivered through database-managed configuration snapshots:

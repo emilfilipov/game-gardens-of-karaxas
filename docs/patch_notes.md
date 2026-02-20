@@ -1,1 +1,1 @@
-- Completed `GOK-MMO-175`: locked the canonical isometric coordinate contract in `docs/ISOMETRIC_COORDINATE_SPEC.md`, including transform formulas, tile ownership/origin rules, pivot contract, deterministic draw sorting, and rounding behavior for movement/collision/editor picking.
+- Completed `GOK-MMO-176`: delivered and locked the engine migration spike in `docs/ENGINE_SPIKE_GOK_MMO_176.md`, selecting Godot 4.x as runtime/editor host with a formal Godot-vs-Unity evaluation, risk matrix, phased cutover plan, and rollback strategy.
