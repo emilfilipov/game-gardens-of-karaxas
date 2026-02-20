@@ -1,1 +1,1 @@
-- Completed `GOK-MMO-234`: started Godot migration implementation by adding the `game-client/` scaffold, locking `gok_runtime_bootstrap_v1` contract files, and introducing launcher bootstrap codec/tests for deterministic runtime handoff payload serialization.
+- Completed `GOK-MMO-235`: wired character `Play` to optional Godot runtime host mode (`GOK_RUNTIME_HOST=godot`) with bootstrap payload emission, external process launch monitoring, launcher minimize/restore behavior, and fallback to legacy runtime when Godot launch prerequisites are unavailable.

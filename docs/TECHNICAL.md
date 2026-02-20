@@ -38,6 +38,20 @@ This is the single source of truth for technical architecture, stack decisions, 
   - launcher codec/models: `launcher/src/main/kotlin/com/gok/launcher/GameRuntimeBootstrap.kt`
 - This phase does not yet replace current in-launcher gameplay flow; it adds the safe integration seam for phased cutover.
 
+## Godot Runtime Handoff (Implemented)
+- Launcher now supports a runtime-host switch:
+  - `GOK_RUNTIME_HOST=launcher_legacy` (default): keep in-launcher gameplay scene.
+  - `GOK_RUNTIME_HOST=godot`: launch external Godot runtime on character `Play`.
+- Optional runtime path overrides:
+  - `GOK_GODOT_EXECUTABLE` (defaults to `godot4`),
+  - `GOK_GODOT_PROJECT_PATH` (defaults to discovered `game-client/` roots).
+- On `godot` mode:
+  - launcher writes per-character bootstrap payload to `install_root/runtime/runtime_bootstrap_<character_id>.json`,
+  - launches Godot with `--bootstrap=<path>`,
+  - minimizes launcher while external runtime is active,
+  - restores launcher focus when external runtime exits.
+- If Godot launch prerequisites fail, launcher logs the reason and falls back to legacy in-launcher gameplay for continuity.
+
 ## Isometric Visual Direction (Locked)
 - Reference board: `docs/ART_DIRECTION_BOARD.md`.
 - Projection decision: `2:1` isometric (dimetric).

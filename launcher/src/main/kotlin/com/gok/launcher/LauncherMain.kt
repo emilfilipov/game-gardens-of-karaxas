@@ -559,10 +559,13 @@ object LauncherMain {
         var lastAccountCard = "select_character"
 
         val clientVersion = defaultClientVersion().ifBlank { "0.0.0" }
+        val configuredRuntimeHost = GameRuntimeHostBridge.configuredRuntimeHost()
         var authSession: AuthSession? = null
         var realtimeEventClient: RealtimeEventClient? = null
+        var activeExternalRuntimeProcess: Process? = null
         var releaseFeedUrlOverride: String? = null
         var remoteAuthReleaseNotesMarkdown: String? = null
+        log("Configured runtime host: $configuredRuntimeHost")
         fun applyWindowMode(mode: String) {
             val normalized = normalizeScreenMode(mode)
             val borderless = normalized == "borderless_fullscreen"
@@ -3556,11 +3559,75 @@ object LauncherMain {
                             character
                         }
                         javax.swing.SwingUtilities.invokeLater {
+                            selectedCharacterId = gameplayCharacter.id
+                            selectedCharacterView = gameplayCharacter
+                            if (configuredRuntimeHost == RuntimeHost.godot) {
+                                val alreadyRunning = activeExternalRuntimeProcess?.takeIf { it.isAlive }
+                                if (alreadyRunning != null) {
+                                    selectStatus.text = "Game client is already running."
+                                    return@invokeLater
+                                }
+                                val levelForBootstrap = selectedLevel
+                                    ?: gameplayCharacter.levelId?.let { levelDetailsById[it] }
+                                if (levelForBootstrap == null) {
+                                    log("Godot runtime requested but no level data available for bootstrap. Falling back to launcher runtime.")
+                                    selectStatus.text = "No level data found for external runtime. Falling back to launcher runtime."
+                                } else {
+                                    val payloadRootPath = payloadRoot()
+                                    val installRootPath = installRoot(payloadRootPath)
+                                    val bootstrapPayload = GameRuntimeHostBridge.buildBootstrap(
+                                        session = session,
+                                        character = gameplayCharacter,
+                                        level = levelForBootstrap,
+                                        overrideLevelId = overrideLevelId,
+                                        content = runtimeContent,
+                                        clientVersion = clientVersion,
+                                        windowMode = screenModeSetting,
+                                    )
+                                    val bootstrapPath = GameRuntimeHostBridge.writeBootstrap(
+                                        installRoot = installRootPath,
+                                        payload = bootstrapPayload,
+                                    )
+                                    val launch = GameRuntimeHostBridge.launchGodot(
+                                        payloadRoot = payloadRootPath,
+                                        installRoot = installRootPath,
+                                        bootstrapPath = bootstrapPath,
+                                    )
+                                    if (launch.launched) {
+                                        val process = launch.process
+                                        activeExternalRuntimeProcess = process
+                                        selectStatus.text = "Launched game client for ${gameplayCharacter.name}."
+                                        log(launch.message)
+                                        frame.extendedState = frame.extendedState or JFrame.ICONIFIED
+                                        if (process != null) {
+                                            Thread {
+                                                val exitCode = try {
+                                                    process.waitFor()
+                                                } catch (_: InterruptedException) {
+                                                    -1
+                                                }
+                                                javax.swing.SwingUtilities.invokeLater {
+                                                    if (activeExternalRuntimeProcess === process) {
+                                                        activeExternalRuntimeProcess = null
+                                                    }
+                                                    if (authSession != null) {
+                                                        frame.extendedState = JFrame.NORMAL
+                                                        frame.toFront()
+                                                        frame.repaint()
+                                                        selectStatus.text = "Game client closed (exit code $exitCode)."
+                                                    }
+                                                }
+                                            }.start()
+                                        }
+                                        return@invokeLater
+                                    }
+                                    log(launch.message)
+                                    selectStatus.text = "${launch.message} Falling back to launcher runtime."
+                                }
+                            }
                             if (selectedLevel != null) {
                                 activeGameLevelId = selectedLevel.id
                             }
-                            selectedCharacterId = gameplayCharacter.id
-                            selectedCharacterView = gameplayCharacter
                             enterGameWithCharacter(gameplayCharacter, selectedLevel, forceSpawn = overrideLevelId != null)
                             showCard("play")
                         }
@@ -6440,6 +6507,12 @@ object LauncherMain {
         }
 
         fun performLogout() {
+            activeExternalRuntimeProcess?.let { process ->
+                if (process.isAlive) {
+                    process.destroy()
+                }
+            }
+            activeExternalRuntimeProcess = null
             if (gameSceneContainer.isVisible) {
                 persistCurrentCharacterLocation()
             }
@@ -6459,6 +6532,12 @@ object LauncherMain {
             clearSessionToAuth()
         }
         fun performCharacterLogout() {
+            activeExternalRuntimeProcess?.let { process ->
+                if (process.isAlive) {
+                    process.destroy()
+                }
+            }
+            activeExternalRuntimeProcess = null
             if (gameSceneContainer.isVisible) {
                 persistCurrentCharacterLocation()
             }
@@ -6502,6 +6581,12 @@ object LauncherMain {
 
         frame.addWindowListener(object : WindowAdapter() {
             override fun windowClosing(e: WindowEvent?) {
+                activeExternalRuntimeProcess?.let { process ->
+                    if (process.isAlive) {
+                        process.destroy()
+                    }
+                }
+                activeExternalRuntimeProcess = null
                 if (gameSceneContainer.isVisible) {
                     persistCurrentCharacterLocation()
                 }
