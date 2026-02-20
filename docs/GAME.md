@@ -40,6 +40,7 @@ create/select characters, and enter gameplay sessions.
 5. Enter gameplay session from the chosen character row (`Play` action on that row only).
    - World/session opens in a dedicated gameplay scene (separate from lobby/select cards).
    - Runtime host switch now exists: default flow uses the in-launcher gameplay scene; Godot host mode can launch external game runtime for the same character handoff.
+   - In launcher-hosted gameplay, launcher title art/chrome is hidden so the world scene uses the full client area.
    - If the character has a map assignment, the session loads that level/floor layout and spawn.
    - New characters now start on the first tower floor (lowest configured floor order) at that floor's spawn point.
    - Returning characters resume from their persisted location (floor + coordinates).

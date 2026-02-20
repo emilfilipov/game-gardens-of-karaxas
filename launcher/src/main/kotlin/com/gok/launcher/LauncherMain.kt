@@ -238,9 +238,10 @@ object LauncherMain {
         val rectangularButtonImage: BufferedImage? = null
         val textColor = THEME_TEXT_COLOR
 
+        val rootPanelDefaultBorder = BorderFactory.createEmptyBorder(8, 12, 8, 12)
         val rootPanel = BackgroundPanel(backgroundImage).apply {
             layout = BorderLayout()
-            border = BorderFactory.createEmptyBorder(8, 12, 8, 12)
+            border = rootPanelDefaultBorder
         }
 
         val screenTitle = JLabel("Gardens of Karaxas", SwingConstants.CENTER).apply {
@@ -459,7 +460,7 @@ object LauncherMain {
             isOpaque = true
             background = Color(12, 10, 9)
             isVisible = false
-            border = BorderFactory.createEmptyBorder(20, 20, 20, 20)
+            border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         }
         val levelSceneContainer = JPanel(BorderLayout()).apply {
             isOpaque = true
@@ -480,10 +481,21 @@ object LauncherMain {
             isOpaque = false
             isVisible = false
         }
-        centeredContent.add(shellPanel)
-        centeredContent.add(gameSceneContainer)
-        centeredContent.add(levelSceneContainer)
-        centeredContent.add(authStandaloneContainer)
+        fun fullscreenCardConstraints(): GridBagConstraints {
+            return GridBagConstraints().apply {
+                gridx = 0
+                gridy = 0
+                weightx = 1.0
+                weighty = 1.0
+                fill = GridBagConstraints.BOTH
+                anchor = GridBagConstraints.CENTER
+                insets = Insets(0, 0, 0, 0)
+            }
+        }
+        centeredContent.add(shellPanel, fullscreenCardConstraints())
+        centeredContent.add(gameSceneContainer, fullscreenCardConstraints())
+        centeredContent.add(levelSceneContainer, fullscreenCardConstraints())
+        centeredContent.add(authStandaloneContainer, fullscreenCardConstraints())
         rootPanel.add(centeredContent, BorderLayout.CENTER)
 
         val patchNotesPane = JEditorPane().apply {
@@ -5921,9 +5933,9 @@ object LauncherMain {
             }, BorderLayout.CENTER)
         }
 
-        val playPanel = UiScaffold.contentPanel().apply {
-            layout = BorderLayout(8, 8)
-            add(UiScaffold.sectionLabel("Game World"), BorderLayout.NORTH)
+        val playPanel = JPanel(BorderLayout(0, 0)).apply {
+            isOpaque = true
+            background = Color(10, 9, 8)
             add(gameWorldPanel, BorderLayout.CENTER)
             add(JPanel(BorderLayout(6, 0)).apply {
                 isOpaque = true
@@ -6021,6 +6033,10 @@ object LauncherMain {
             }
             if (card == "auth") {
                 settingsButton.isVisible = false
+                rootPanel.showBackground = true
+                rootPanel.border = rootPanelDefaultBorder
+                screenTitle.isVisible = true
+                footerVersionLabel.isVisible = true
                 shellPanel.isVisible = false
                 gameSceneContainer.isVisible = false
                 levelSceneContainer.isVisible = false
@@ -6040,6 +6056,11 @@ object LauncherMain {
             }
             settingsButton.isVisible = true
             authStandaloneContainer.isVisible = false
+            val gameplayVisible = card == "play"
+            rootPanel.showBackground = !gameplayVisible
+            rootPanel.border = if (gameplayVisible) BorderFactory.createEmptyBorder(0, 0, 0, 0) else rootPanelDefaultBorder
+            screenTitle.isVisible = !gameplayVisible
+            footerVersionLabel.isVisible = !gameplayVisible
             if (card == "play") {
                 shellPanel.isVisible = false
                 gameSceneContainer.isVisible = true
@@ -6745,11 +6766,13 @@ object LauncherMain {
     }
 
     private class BackgroundPanel(private val background: BufferedImage?) : JPanel() {
+        var showBackground: Boolean = true
+
         override fun paintComponent(graphics: Graphics) {
             super.paintComponent(graphics)
             val g2 = graphics.create() as Graphics2D
             try {
-                if (background == null) {
+                if (!showBackground || background == null) {
                     g2.color = Color(16, 20, 28)
                     g2.fillRect(0, 0, width, height)
                     return

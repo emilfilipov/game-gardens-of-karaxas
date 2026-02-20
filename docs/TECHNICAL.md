@@ -270,7 +270,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Admin editor scene/panel sizing is expanded toward near full-screen usage, and Asset Editor side rails (left card list + right pending list) are compacted with smaller asset icons to prioritize the central edit pane.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
 - Gameplay world is hosted in a dedicated scene container separate from account-card rendering; it is entered from character-row `Play` only.
+- Scene card containers are now pinned to full client bounds (single fullscreen card cell) so gameplay/editor/auth shells do not inherit small preferred-size layout behavior.
 - `play` scene is currently an empty-world prototype with in-launcher gameplay handoff and WASD movement.
+- While launcher-hosted gameplay is active, root launcher background art/title/footer are disabled so world rendering uses full client area.
 - World prototype enforces border collision at the edge of the playable area to prevent out-of-bounds movement.
 - When a character has an assigned `level_id`, gameplay loads layered level data and renders deterministic layer order (`0 -> 1 -> player -> 2`).
 - If a character has no `level_id`, launcher falls back to backend `GET /levels/first` and enters the first ordered tower floor.
