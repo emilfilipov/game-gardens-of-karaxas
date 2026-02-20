@@ -1,1 +1,1 @@
-- Completed `GOK-MMO-174`: locked the isometric visual direction and published `docs/ART_DIRECTION_BOARD.md` with fixed projection/scale/camera choices, warm-soft lighting baseline, readability constraints, and UI-over-world composition rules.
+- Completed `GOK-MMO-175`: locked the canonical isometric coordinate contract in `docs/ISOMETRIC_COORDINATE_SPEC.md`, including transform formulas, tile ownership/origin rules, pivot contract, deterministic draw sorting, and rounding behavior for movement/collision/editor picking.

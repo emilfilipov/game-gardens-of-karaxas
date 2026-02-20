@@ -37,6 +37,21 @@ This is the single source of truth for technical architecture, stack decisions, 
   - preserve top and bottom safe bands,
   - maintain unobstructed central gameplay region by default.
 
+## Isometric Coordinate Contract (Locked)
+- Canonical spec: `docs/ISOMETRIC_COORDINATE_SPEC.md` (`GOK-MMO-175`).
+- Locked transform constants:
+  - `TILE_W=64`, `TILE_H=32`, `HALF_W=32`, `HALF_H=16`.
+  - world->screen: `sx=(wx-wy)*HALF_W`, `sy=(wx+wy)*HALF_H`.
+  - screen->world is the exact algebraic inverse after camera/zoom removal.
+- Locked ownership/rounding behavior:
+  - tile ownership is half-open and resolved with mathematical `floor` + `EPS`.
+  - persisted world coordinates are quantized to fixed precision (`FP=1024`).
+- Locked pivot/sorting behavior:
+  - floor tiles anchor at tile center projection point.
+  - characters/props anchor on ground-contact pivots (default normalized `(0.5,1.0)` with data-driven offsets).
+  - runtime/editor draw ordering must use the same stable tuple (`floor_order`, `render_layer`, `sort_y_fp`, `sort_x_fp`, `stable_id`).
+- Collision and editor picking must use the same inverse transform + tile ownership rules from the canonical spec.
+
 ## Backend Service Shape (Current)
 - Single FastAPI service (modular monolith) with:
   - REST APIs for auth, lobby, characters, levels, chat, content, and ops.
