@@ -11,6 +11,7 @@ create/select characters, and enter gameplay sessions.
 - Flexible character identity via point distribution into stats and skills.
 - Live-service readiness through version-gated updates and controlled rollout windows.
 - Launcher-driven desktop distribution and patching.
+- Visual direction baseline: warm/vibrant color palette with soft global lighting; mood can be shifted per item/character/zone via effects toward darker grim-themed presentation.
 
 ## Account and Menu Loop
 1. Open launcher and authenticate (register or login).

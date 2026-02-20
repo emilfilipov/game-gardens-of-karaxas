@@ -234,6 +234,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character art integration now supports both 4-direction and 8-direction walk/run sheets (auto-detected from filenames/sheet metadata) with deterministic runtime fallback to 4-direction behavior.
 - Isometric migration target keeps full 8-direction action coverage (`N`,`NE`,`E`,`SE`,`S`,`SW`,`W`,`NW`) as the primary runtime direction contract.
 - Assets content domain now includes modular equipment slot/visual metadata (`equipment_slots`, `equipment_visuals`) with backend validation and launcher bootstrap parsing for paperdoll rollout.
+- Rendering mood baseline targets warm/vibrant palette + soft lighting, while data-driven effect layers are expected to support per-item/per-character/per-zone overrides for darker/grim presentation without replacing base assets.
 - Character creation and deletion both perform immediate character-list reloads and UI refreshes to avoid stale list state.
 - Account cards now render on opaque themed surfaces to prevent visual overlap artifacts when switching tabs.
 - Updater is accessible directly on auth (embedded panel) and through cog menu / updater card for authenticated flows; it remains removed from lobby tab navigation.
