@@ -13,6 +13,11 @@ create/select characters, and enter gameplay sessions.
 - Launcher-driven desktop distribution and patching.
 - Visual direction baseline: warm/vibrant color palette with soft global lighting; mood can be shifted per item/character/zone via effects toward darker grim-themed presentation.
 
+## Isometric Direction Lock
+- `GOK-MMO-174` is approved and locked through `docs/ART_DIRECTION_BOARD.md`.
+- Projection choice is locked to `2:1` isometric (dimetric) with MMO-friendly slightly zoomed-out camera baseline.
+- Baseline look stays warm/vibrant and readable; mood darkening is handled through effect layers (per-zone/per-item/per-character), not by replacing global base style.
+
 ## Account and Menu Loop
 1. Open launcher and authenticate (register or login).
    - Login form remembers and pre-fills the last successfully authenticated email.

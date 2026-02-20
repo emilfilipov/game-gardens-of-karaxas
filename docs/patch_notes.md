@@ -1,3 +1,1 @@
-- Added 8-direction sprite runtime scaffolding: launcher now auto-detects 4-dir/8-dir walk-run sheets and uses 8-way facing when available with 4-way fallback.
-- Added modular equipment data foundations: new validated content payload sections (`equipment_slots`, `equipment_visuals`) and persisted character equipment loadouts.
-- Added blocked input ticket for art production requirements (style refs, resolution/zoom, slot list, v1 item list, and frame-count contract) so remaining art-heavy implementation can proceed deterministically.
+- Completed `GOK-MMO-174`: locked the isometric visual direction and published `docs/ART_DIRECTION_BOARD.md` with fixed projection/scale/camera choices, warm-soft lighting baseline, readability constraints, and UI-over-world composition rules.

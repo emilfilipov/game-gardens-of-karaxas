@@ -21,6 +21,22 @@ This is the single source of truth for technical architecture, stack decisions, 
    - `launcher/` for desktop launcher UI and updater integration.
    - `backend/` for API/realtime/auth/social data services.
 
+## Isometric Visual Direction (Locked)
+- Reference board: `docs/ART_DIRECTION_BOARD.md`.
+- Projection decision: `2:1` isometric (dimetric).
+- Scale decisions:
+  - logical tile footprint target: `64x32`,
+  - character frame authoring target: `128x128`.
+- Camera decisions:
+  - default zoom `0.80x`,
+  - allowed runtime range `0.70x-1.10x`.
+- Lighting decisions:
+  - warm/vibrant soft global baseline,
+  - data-driven per-zone/per-item/per-character effect overrides for grim-dark shifts.
+- UI composition decisions:
+  - preserve top and bottom safe bands,
+  - maintain unobstructed central gameplay region by default.
+
 ## Backend Service Shape (Current)
 - Single FastAPI service (modular monolith) with:
   - REST APIs for auth, lobby, characters, levels, chat, content, and ops.
