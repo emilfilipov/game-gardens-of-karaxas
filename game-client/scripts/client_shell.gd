@@ -42,7 +42,7 @@ var header_title: Label
 var menu_button: Button
 var menu_popup: PopupMenu
 var footer_status: Label
-var main_stack: StackContainer
+var main_stack: Control
 
 var auth_container: VBoxContainer
 var auth_email_input: LineEdit
@@ -156,21 +156,22 @@ func _build_ui() -> void:
 	add_child(menu_popup)
 	menu_popup.id_pressed.connect(_on_menu_item_pressed)
 
-	main_stack = StackContainer.new()
+	main_stack = Control.new()
 	main_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	main_stack.set_anchors_preset(Control.PRESET_FULL_RECT)
 	layout.add_child(main_stack)
 
 	auth_container = _build_auth_screen()
-	main_stack.add_child(auth_container)
+	_mount_screen(auth_container)
 
 	account_container = _build_account_screen()
-	main_stack.add_child(account_container)
+	_mount_screen(account_container)
 
 	world_container = _build_world_screen()
-	main_stack.add_child(world_container)
+	_mount_screen(world_container)
 
 	log_container = _build_log_screen()
-	main_stack.add_child(log_container)
+	_mount_screen(log_container)
 
 	footer_status = Label.new()
 	footer_status.text = " "
@@ -391,6 +392,14 @@ func _build_log_screen() -> VBoxContainer:
 	wrap.add_child(log_text_view)
 
 	return wrap
+
+func _mount_screen(screen: Control) -> void:
+	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.offset_left = 0
+	screen.offset_top = 0
+	screen.offset_right = 0
+	screen.offset_bottom = 0
+	main_stack.add_child(screen)
 
 func _line_edit(placeholder: String, secret := false) -> LineEdit:
 	var input := LineEdit.new()
@@ -888,7 +897,7 @@ func _api_request(method: int, path: String, payload: Variant, requires_auth: bo
 			"status": 0,
 			"message": "Request start failed: %s" % error,
 		}
-	var completed := await request.request_completed
+	var completed: Array = await request.request_completed
 	request.queue_free()
 	var status_code: int = completed[1]
 	var raw_body: PackedByteArray = completed[3]
@@ -910,7 +919,7 @@ func _api_request(method: int, path: String, payload: Variant, requires_auth: bo
 
 func _friendly_error(response: Dictionary) -> String:
 	var code := int(response.get("status", 0))
-	var payload := response.get("json", {})
+	var payload: Variant = response.get("json", {})
 	var detail: Variant = null
 	if payload is Dictionary:
 		detail = payload.get("detail", null)

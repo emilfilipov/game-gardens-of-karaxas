@@ -35,6 +35,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 ## Godot-First Unified Shell (Active)
 - Auth, register, account lobby, character list/create, world runtime, updater, and admin log viewer are implemented in `game-client/scripts/client_shell.gd`.
 - Godot shell defaults to borderless fullscreen startup.
+- Screen switching in the Godot shell now uses a generic `Control` stack container for Godot 4.3 compatibility (no `StackContainer` dependency).
 - Top-right menu is hidden on auth screen; auth screen carries direct `Update & Restart` and `Exit`.
 - Launcher startup now probes configured runtime host and directly launches Godot shell when host is `godot`.
 - If configured host is `godot` and launch fails, startup aborts with a themed error dialog instead of silently dropping into the old Swing account UI.

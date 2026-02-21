@@ -1,1 +1,1 @@
-- Completed `GOK-MMO-241`: switched to a Godot-first unified client shell (auth/account/world/update/log-viewer in `game-client`), made packaged runtime defaults Godot, and hardened startup to stop with a clear error if configured Godot runtime launch fails.
+- Completed `GOK-MMO-244`: fixed Godot gray-screen startup parse errors by replacing unsupported `StackContainer` usage with a `Control` screen stack and tightening GDScript type declarations in async HTTP/error paths.
