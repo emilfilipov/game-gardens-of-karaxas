@@ -1,1 +1,4 @@
-- Completed `GOK-MMO-244`: fixed Godot gray-screen startup parse errors by replacing unsupported `StackContainer` usage with a `Control` screen stack and tightening GDScript type declarations in async HTTP/error paths.
+- Completed `GOK-MMO-245`: hardened the Godot unified shell to restore missing parity surfaces and stability-critical helpers.
+- Added themed Godot admin `Level Order` flow and wired it into the authenticated cog menu.
+- Restored persistent helper infrastructure in Godot client (`launcher_prefs.properties` map read/write, local draft JSON persistence, runtime log writer, packaged-install path resolution).
+- Updated Godot UI polish and behavior: shared themed controls (dropdowns/popups/buttons), branded background/icon support, world-screen chrome suppression, and in-game cog menu scope alignment.

@@ -58,7 +58,7 @@ create/select characters, and enter gameplay sessions.
    - `Audio` includes mute toggle and master volume slider.
    - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
    - MFA toggle is applied with a single on/off control plus adjacent authenticator code field.
-   - MFA setup displays a scannable QR code (plus copy secret/URI actions) in a fully themed enrollment popup with no placeholder/system dialog chrome.
+   - MFA setup currently exposes generated secret + provisioning URI in themed UI for authenticator enrollment.
    - Once MFA secret enrollment exists for an account, login requires a valid MFA code (password-only login is blocked).
 
 ## Required Frontend Screens (Godot)
@@ -70,7 +70,7 @@ create/select characters, and enter gameplay sessions.
 - In-game world screen.
 - Authenticated settings screen (sidebar tabs + central settings panel + explicit save/cancel confirmation flow).
 - Admin-only level builder screen (load named layered levels, stage local drafts, and publish queued level changes with spawn + tile/object layout).
-- Admin-only level-order screen (drag/drop floor cards to reorder tower progression and publish order).
+- Admin-only level-order screen (reorder floor list and publish order updates).
 - Admin-only asset editor screen (searchable editable-content cards + large item editor panel + right-side staged-change queue with `Save Local` and `Publish Changes`).
 - Admin-only content versions screen (version history cards, active-version highlight, publish/revert controls, and side-by-side compare).
 - Shared menu/form controls use a consistent thin-border panel/button style over the same background key art, all rendered in the Godot UI layer.
@@ -151,6 +151,7 @@ create/select characters, and enter gameplay sessions.
 - Level builder includes a right-side pending-drafts panel so admins can review staged changes before publishing.
 - Staged level drafts persist across launcher restarts until published.
 - In-game cog menu is now minimized to gameplay actions only: `Settings`, `Logout Character`, `Logout Account`, `Exit Game`.
+- While in gameplay, non-essential shell chrome is hidden so the world viewport is effectively full-screen.
 - Admin tower-floor QA checklist for linked-level validation is maintained in `docs/TOWER_ADMIN_CHECKLIST.md`.
 - Level builder supports explicit rendering layers with active-layer editing and visibility toggles:
   - Layer 0: ground/foliage (`grass` tile scaffold).

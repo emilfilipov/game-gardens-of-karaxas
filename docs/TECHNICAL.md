@@ -37,6 +37,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Godot shell defaults to borderless fullscreen startup.
 - Screen switching in the Godot shell now uses a generic `Control` stack container for Godot 4.3 compatibility (no `StackContainer` dependency).
 - Top-right menu is hidden on auth screen; auth screen carries direct `Update & Restart` and `Exit`.
+- Gameplay screen now hides non-essential shell chrome/background layers so world rendering gets near full-screen viewport usage.
+- Godot shell restores the branded app icon from packaged assets (`res://assets/game_icon.png`) for runtime window/taskbar identity.
 - Launcher startup now probes configured runtime host and directly launches Godot shell when host is `godot`.
 - If configured host is `godot` and launch fails, startup aborts with a themed error dialog instead of silently dropping into the old Swing account UI.
 
@@ -238,8 +240,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Authenticated settings now open as a full in-launcher screen (not a popup) with a sidebar tab layout (`Video`, `Audio`, `Security`), a large section panel, and explicit `Save`/`Cancel` confirmation flows.
 - Video settings support `Borderless Fullscreen` and `Windowed` modes and apply immediately after save.
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
-- Security settings expose MFA status, QR enrollment, and a single toggle-based enable/disable flow with OTP confirmation.
-- MFA setup now renders an in-launcher QR from backend `provisioning_uri` (ZXing) in a fully themed dialog and provides copy actions for secret/URI fallback flows.
+- Security settings expose MFA status plus a single toggle-based enable/disable flow with OTP confirmation.
+- MFA setup currently surfaces secret + provisioning URI in themed in-client controls for authenticator enrollment.
 - Settings save/discard confirmations now use themed in-launcher modal dialogs (no system-default placeholder confirm popups).
 - Login MFA challenge now triggers when MFA is either enabled or configured with a secret, preventing password-only login after QR enrollment.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.
@@ -286,7 +288,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Level-builder grid is now virtualized/pannable and supports up to `100000x100000` logical dimensions without allocating a full pixel canvas of that size.
 - Level-builder canvas now renders a radar-ping spawn marker placeholder rather than character art for clearer spawn-point editing.
 - Level-builder save/load payload uses explicit layered schema (`schema_version=2`) and keeps backward compatibility with legacy wall-only payloads.
-- Admin `Level Order` scene provides drag/drop floor reordering and publishes ordering to backend via `POST /levels/order`.
+- Admin `Level Order` scene provides explicit reorder controls (move up/down) and publishes ordering to backend via `POST /levels/order`.
 - Admin `Level Editor` and `Asset Editor` panels now use larger near-full-height content layouts to maximize vertical workspace within the launcher shell.
 - Admin editor scene/panel sizing is expanded toward near full-screen usage, and Asset Editor side rails (left card list + right pending list) are compacted with smaller asset icons to prioritize the central edit pane.
 - Manual refresh buttons were removed from authenticated screens; character data now refreshes automatically on relevant transitions and mutations (post-login routing, show select, create, delete).
