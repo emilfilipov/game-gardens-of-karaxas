@@ -109,12 +109,26 @@ if (Test-Path $gameClientDir) {
   }
 }
 
+$bundledGodotSource = $env:GOK_GODOT_BUNDLED_EXE_SOURCE
+$bundledGodotCopied = $false
+if ($bundledGodotSource -and $bundledGodotSource.Trim().Length -gt 0 -and (Test-Path $bundledGodotSource)) {
+  $payloadBundledGodotDir = Join-Path $payloadDir "game-client\\runtime\\windows"
+  New-Item -ItemType Directory -Path $payloadBundledGodotDir -Force | Out-Null
+  $payloadBundledGodotExe = Join-Path $payloadBundledGodotDir "godot4.exe"
+  Copy-Item -Path $bundledGodotSource -Destination $payloadBundledGodotExe -Force
+  $bundledGodotCopied = $true
+}
+
 $runtimeHostDefault = $env:GOK_RUNTIME_HOST_DEFAULT
 if (-not $runtimeHostDefault -or $runtimeHostDefault.Trim().Length -eq 0) {
   $runtimeHostDefault = "launcher_legacy"
 }
 $godotExecutableDefault = $env:GOK_GODOT_EXECUTABLE_DEFAULT
 $godotProjectPathDefault = $env:GOK_GODOT_PROJECT_PATH_DEFAULT
+$runtimeHostLower = $runtimeHostDefault.Trim().ToLowerInvariant()
+if ($bundledGodotCopied -and $runtimeHostLower -eq "godot") {
+  $godotExecutableDefault = "game-client/runtime/windows/godot4.exe"
+}
 $runtimeSettingsPath = Join-Path $payloadDir "runtime_host.properties"
 $runtimeSettingsLines = @("runtime_host=$runtimeHostDefault")
 if ($godotExecutableDefault -and $godotExecutableDefault.Trim().Length -gt 0) {

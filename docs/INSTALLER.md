@@ -22,6 +22,10 @@ This produces installer/update artifacts under `releases/windows/`.
   - `godot_executable=<path-or-command>`
   - `godot_project_path=<project-dir>`
 - Runtime host values from process environment (`GOK_RUNTIME_HOST`, `GOK_GODOT_EXECUTABLE`, `GOK_GODOT_PROJECT_PATH`) override packaged defaults.
+- Release CI now bundles a Windows Godot executable into payload when runtime host is `godot` (`game-client/runtime/windows/godot4.exe`) and sets `godot_executable` to this relative path by default.
+- Optional release variables for bundled runtime source integrity:
+  - `KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL` (override default official Godot zip URL)
+  - `KARAXAS_GODOT_WINDOWS_SHA256` (recommended; verifies downloaded runtime archive hash during CI)
 
 ## Local install path
 Default install root:

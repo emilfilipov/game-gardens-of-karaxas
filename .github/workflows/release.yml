@@ -89,6 +89,71 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Bundle Godot Runtime (Windows)
+        id: bundle-godot
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        env:
+          RUNTIME_HOST_DEFAULT: ${{ secrets.KARAXAS_RUNTIME_HOST || vars.KARAXAS_RUNTIME_HOST }}
+          CONFIGURED_GODOT_EXECUTABLE: ${{ secrets.KARAXAS_GODOT_EXECUTABLE || vars.KARAXAS_GODOT_EXECUTABLE }}
+          GODOT_WINDOWS_DOWNLOAD_URL: ${{ secrets.KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL || vars.KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL }}
+          GODOT_WINDOWS_SHA256: ${{ secrets.KARAXAS_GODOT_WINDOWS_SHA256 || vars.KARAXAS_GODOT_WINDOWS_SHA256 }}
+        run: |
+          $runtimeHost = if ([string]::IsNullOrWhiteSpace($env:RUNTIME_HOST_DEFAULT)) { "launcher_legacy" } else { $env:RUNTIME_HOST_DEFAULT.Trim().ToLowerInvariant() }
+          $configuredExecutable = if ([string]::IsNullOrWhiteSpace($env:CONFIGURED_GODOT_EXECUTABLE)) { "godot4" } else { $env:CONFIGURED_GODOT_EXECUTABLE.Trim() }
+          $bundleSource = ""
+          $effectiveExecutable = $configuredExecutable
+
+          if ($runtimeHost -eq "godot") {
+            $downloadUrl = if ([string]::IsNullOrWhiteSpace($env:GODOT_WINDOWS_DOWNLOAD_URL)) {
+              "https://github.com/godotengine/godot-builds/releases/download/4.3-stable/Godot_v4.3-stable_win64.exe.zip"
+            } else {
+              $env:GODOT_WINDOWS_DOWNLOAD_URL.Trim()
+            }
+            Write-Host "Bundling Godot runtime from $downloadUrl"
+
+            $bundleRoot = Join-Path $PWD "build\godot-runtime"
+            $downloadZip = Join-Path $bundleRoot "godot.zip"
+            $extractDir = Join-Path $bundleRoot "extract"
+            $stagingDir = Join-Path $bundleRoot "windows"
+            $bundledExe = Join-Path $stagingDir "godot4.exe"
+            if (Test-Path $bundleRoot) {
+              Remove-Item -Path $bundleRoot -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+            New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadZip
+            $expectedSha = $env:GODOT_WINDOWS_SHA256
+            if (-not [string]::IsNullOrWhiteSpace($expectedSha)) {
+              $actualSha = (Get-FileHash -Path $downloadZip -Algorithm SHA256).Hash.ToLowerInvariant()
+              $targetSha = $expectedSha.Trim().ToLowerInvariant()
+              if ($actualSha -ne $targetSha) {
+                throw "Godot runtime SHA256 mismatch. Expected=$targetSha Actual=$actualSha"
+              }
+              Write-Host "Godot runtime SHA256 verification passed."
+            } else {
+              Write-Host "GODOT_WINDOWS_SHA256 not configured; SHA verification skipped."
+            }
+
+            Expand-Archive -Path $downloadZip -DestinationPath $extractDir -Force
+            $exe = Get-ChildItem -Path $extractDir -Recurse -Filter "*.exe" |
+              Where-Object { $_.Name -notmatch "console" } |
+              Select-Object -First 1
+            if (-not $exe) {
+              throw "Unable to locate Godot executable in downloaded archive."
+            }
+            Copy-Item -Path $exe.FullName -Destination $bundledExe -Force
+            $bundleSource = $bundledExe
+            $effectiveExecutable = "game-client/runtime/windows/godot4.exe"
+            Write-Host "Bundled Godot runtime executable: $bundleSource"
+          } else {
+            Write-Host "Runtime host is '$runtimeHost'; skipping Godot runtime bundle."
+          }
+
+          "bundle_source=$bundleSource" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "effective_exec_default=$effectiveExecutable" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - name: Determine Release Mode
         id: release-mode
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
@@ -140,8 +205,9 @@ jobs:
           GOK_GCS_RELEASE_FEED_URL: ${{ steps.preflight.outputs.feed_url }}
           GOK_UPDATE_REPO: ${{ steps.preflight.outputs.feed_url }}
           GOK_RUNTIME_HOST_DEFAULT: ${{ secrets.KARAXAS_RUNTIME_HOST || vars.KARAXAS_RUNTIME_HOST }}
-          GOK_GODOT_EXECUTABLE_DEFAULT: ${{ secrets.KARAXAS_GODOT_EXECUTABLE || vars.KARAXAS_GODOT_EXECUTABLE }}
+          GOK_GODOT_EXECUTABLE_DEFAULT: ${{ steps.bundle-godot.outputs.effective_exec_default }}
           GOK_GODOT_PROJECT_PATH_DEFAULT: ${{ secrets.KARAXAS_GODOT_PROJECT_PATH || vars.KARAXAS_GODOT_PROJECT_PATH }}
+          GOK_GODOT_BUNDLED_EXE_SOURCE: ${{ steps.bundle-godot.outputs.bundle_source }}
         run: |
           $args = @("-Version", "${{ steps.get-version.outputs.version }}")
           if ("${{ steps.release-mode.outputs.runtime_ready }}" -ne "true") {

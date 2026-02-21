@@ -1,6 +1,7 @@
 package com.gok.launcher
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 
@@ -129,5 +130,58 @@ class GameRuntimeHostBridgeTest {
         assertEquals(SpawnSource.admin_level_override_spawn, payload.spawn.source)
         assertEquals(RuntimeHost.godot, payload.runtime.runtimeHost)
         assertEquals("gok_runtime_bootstrap_v1", payload.schemaVersion)
+    }
+
+    @Test
+    fun `resolveGodotExecutableCommand prefers bundled runtime under install root`() {
+        val root = Files.createTempDirectory("gok-runtime-bundled")
+        val projectPath = root.resolve("game-client")
+        Files.createDirectories(projectPath)
+        Files.writeString(projectPath.resolve("project.godot"), "[gd_project]\n")
+        val bundledExe = root.resolve("game-client/runtime/windows/godot4.exe")
+        Files.createDirectories(bundledExe.parent)
+        Files.writeString(bundledExe, "stub")
+
+        val command = GameRuntimeHostBridge.resolveGodotExecutableCommand(
+            payloadRoot = root,
+            installRoot = root,
+            projectPath = projectPath,
+            settings = RuntimeHostSettings(
+                runtimeHost = RuntimeHost.godot,
+                godotExecutable = "godot4",
+                godotProjectPath = "game-client",
+                source = "test",
+            ),
+            env = emptyMap(),
+        )
+
+        assertEquals(bundledExe.toAbsolutePath().normalize().toString(), command)
+    }
+
+    @Test
+    fun `resolveGodotExecutableCommand resolves configured relative executable path`() {
+        val root = Files.createTempDirectory("gok-runtime-relative-exe")
+        val projectPath = root.resolve("game-client")
+        Files.createDirectories(projectPath)
+        Files.writeString(projectPath.resolve("project.godot"), "[gd_project]\n")
+        val configuredExe = root.resolve("runtime/bin/custom-godot.exe")
+        Files.createDirectories(configuredExe.parent)
+        Files.writeString(configuredExe, "stub")
+
+        val command = GameRuntimeHostBridge.resolveGodotExecutableCommand(
+            payloadRoot = root,
+            installRoot = root,
+            projectPath = projectPath,
+            settings = RuntimeHostSettings(
+                runtimeHost = RuntimeHost.godot,
+                godotExecutable = "runtime/bin/custom-godot.exe",
+                godotProjectPath = "game-client",
+                source = "test",
+            ),
+            env = emptyMap(),
+        )
+
+        assertTrue(command?.endsWith("custom-godot.exe") == true)
+        assertEquals(configuredExe.toAbsolutePath().normalize().toString(), command)
     }
 }

@@ -45,6 +45,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Optional runtime path overrides:
   - `GOK_GODOT_EXECUTABLE` (defaults to `godot4`),
   - `GOK_GODOT_PROJECT_PATH` (defaults to discovered `game-client/` roots).
+- Godot executable resolution now prefers bundled runtime binaries in release payload (`game-client/runtime/windows/godot4.exe`) before falling back to configured command names.
 - Packaged default runtime settings are now emitted into payload as `runtime_host.properties`:
   - `runtime_host`,
   - `godot_executable`,
@@ -170,6 +171,10 @@ This is the single source of truth for technical architecture, stack decisions, 
     - `KARAXAS_RUNTIME_HOST`,
     - `KARAXAS_GODOT_EXECUTABLE`,
     - `KARAXAS_GODOT_PROJECT_PATH`.
+  - when runtime host is `godot`, downloads a Windows Godot runtime archive during CI, optionally verifies SHA256, bundles executable into payload (`game-client/runtime/windows/godot4.exe`), and writes packaged default executable path so users do not require local Godot installation.
+  - supports optional Godot bundle inputs:
+    - `KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL`,
+    - `KARAXAS_GODOT_WINDOWS_SHA256`.
   - applies `Cache-Control: no-cache, max-age=0` metadata to mutable feed files (`RELEASES`, setup exe, portable zip, and feed JSON manifests) to prevent stale client/browser caching.
   - notifies backend release activation endpoint with new build/feed/notes metadata.
 - Backend deploy workflow (`.github/workflows/deploy-backend.yml`):

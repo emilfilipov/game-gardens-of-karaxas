@@ -144,18 +144,23 @@ object GameRuntimeHostBridge {
         settings: RuntimeHostSettings,
         env: Map<String, String> = System.getenv(),
     ): RuntimeLaunchResult {
-        val executable = resolveGodotExecutable(settings, env)
-            ?: return RuntimeLaunchResult(
-                launched = false,
-                process = null,
-                message = "Godot runtime requested but executable is not configured. Set $GODOT_EXECUTABLE_ENV.",
-            )
         val projectPath = resolveGodotProjectPath(payloadRoot, installRoot, settings, env)
             ?: return RuntimeLaunchResult(
                 launched = false,
                 process = null,
                 message = "Godot runtime requested but game-client project was not found. Set $GODOT_PROJECT_ENV.",
             )
+        val executable = resolveGodotExecutableCommand(
+            payloadRoot = payloadRoot,
+            installRoot = installRoot,
+            projectPath = projectPath,
+            settings = settings,
+            env = env,
+        ) ?: return RuntimeLaunchResult(
+            launched = false,
+            process = null,
+            message = "Godot runtime requested but executable is not configured. Set $GODOT_EXECUTABLE_ENV or ship bundled runtime.",
+        )
 
         return try {
             val process = ProcessBuilder(
@@ -171,7 +176,7 @@ object GameRuntimeHostBridge {
             RuntimeLaunchResult(
                 launched = true,
                 process = process,
-                message = "Launched Godot runtime with project ${projectPath.toAbsolutePath()}",
+                message = "Launched Godot runtime executable '$executable' with project ${projectPath.toAbsolutePath()}",
             )
         } catch (ex: Exception) {
             RuntimeLaunchResult(
@@ -182,10 +187,74 @@ object GameRuntimeHostBridge {
         }
     }
 
-    private fun resolveGodotExecutable(settings: RuntimeHostSettings, env: Map<String, String>): String? {
-        val fromEnv = env[GODOT_EXECUTABLE_ENV]?.trim()?.takeIf { it.isNotBlank() }
-        if (fromEnv != null) return fromEnv
-        return settings.godotExecutable.takeIf { it.isNotBlank() }
+    internal fun resolveGodotExecutableCommand(
+        payloadRoot: Path,
+        installRoot: Path,
+        projectPath: Path,
+        settings: RuntimeHostSettings,
+        env: Map<String, String> = System.getenv(),
+    ): String? {
+        val commandCandidates = mutableListOf<String>()
+        val configuredTokens = listOf(
+            env[GODOT_EXECUTABLE_ENV]?.trim(),
+            settings.godotExecutable.trim(),
+        )
+            .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+            .distinct()
+        configuredTokens.forEach { token ->
+            val pathCandidate = resolveExecutablePathToken(token, payloadRoot, installRoot, projectPath)
+            if (pathCandidate != null) {
+                return pathCandidate.toString()
+            }
+            if (!looksLikePathToken(token)) {
+                commandCandidates.add(token)
+            }
+        }
+
+        val bundledCandidates = listOf(
+            projectPath.resolve("runtime/windows/godot4.exe"),
+            installRoot.resolve("game-client/runtime/windows/godot4.exe"),
+            payloadRoot.resolve("game-client/runtime/windows/godot4.exe"),
+            projectPath.resolve("godot4.exe"),
+        ).map { it.toAbsolutePath().normalize() }
+        bundledCandidates.firstOrNull { Files.exists(it) }?.let { return it.toString() }
+
+        val fallbackCommands = listOf("godot4.exe", "godot4", "godot.exe", "godot")
+        val combined = (commandCandidates + fallbackCommands).distinct()
+        return combined.firstOrNull()
+    }
+
+    private fun resolveExecutablePathToken(
+        token: String,
+        payloadRoot: Path,
+        installRoot: Path,
+        projectPath: Path,
+    ): Path? {
+        val raw = token.trim().trim('"')
+        if (raw.isBlank()) return null
+        val path = Paths.get(raw)
+        val candidates = if (path.isAbsolute) {
+            listOf(path)
+        } else {
+            listOf(
+                projectPath.resolve(path),
+                installRoot.resolve(path),
+                payloadRoot.resolve(path),
+                Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize().resolve(path),
+            )
+        }
+        return candidates
+            .map { it.toAbsolutePath().normalize() }
+            .firstOrNull { Files.exists(it) }
+    }
+
+    private fun looksLikePathToken(token: String): Boolean {
+        val normalized = token.trim()
+        if (normalized.isBlank()) return false
+        return normalized.contains("/") ||
+            normalized.contains("\\") ||
+            normalized.contains(":") ||
+            normalized.lowercase().endsWith(".exe")
     }
 
     private fun resolveGodotProjectPath(

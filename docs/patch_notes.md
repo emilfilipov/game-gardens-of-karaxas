@@ -1,1 +1,1 @@
-- Completed `GOK-MMO-237`: fixed in-launcher gameplay viewport sizing and chrome separation by forcing scene cards to fill the full client area, removing in-game panel title/chrome, and disabling launcher background/title/footer while gameplay is active.
+- Completed `GOK-MMO-238`: fixed Godot runtime launch reliability by bundling a Windows Godot executable in release payloads, wiring CI download + optional SHA verification, and updating launcher executable resolution to prefer bundled runtime paths over local PATH-only commands.
