@@ -69,7 +69,7 @@ create/select characters, and enter gameplay sessions.
 - MFA toggle is applied with a single on/off control plus adjacent authenticator code field.
 - Toggling MFA now immediately attempts enable/disable using the entered authenticator code and auto-reverts the toggle state if verification fails.
 - MFA setup displays a fully themed QR enrollment popup and also exposes secret + provisioning URI copy actions for fallback enrollment.
-   - Once MFA secret enrollment exists for an account, login requires a valid MFA code (password-only login is blocked).
+   - Login requires MFA code only when the account's MFA toggle is enabled; rotating or retaining a secret while MFA is OFF must not block password-only login.
 
 ## Required Frontend Screens (Godot)
 - Combined authentication screen (login/register toggle in a single centered block) with integrated updater/release-notes panel.

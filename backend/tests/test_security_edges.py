@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from fastapi import HTTPException
 
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("OPS_API_TOKEN", "test-ops")
@@ -13,6 +14,7 @@ os.environ.setdefault("DB_PASSWORD", "test")
 from app.db.base import Base  # noqa: E402
 from app.models.session import UserSession  # noqa: E402
 from app.models.user import User  # noqa: E402
+from app.api.routes.auth import _assert_user_mfa  # noqa: E402
 from app.services.ws_ticket import WsTicketError, consume_ws_ticket, issue_ws_ticket  # noqa: E402
 
 
@@ -53,3 +55,32 @@ def test_ws_ticket_is_one_time_use() -> None:
     else:
         assert False, "Expected WsTicketError for replayed ticket"
 
+
+def test_mfa_disabled_does_not_require_otp_even_if_secret_exists() -> None:
+    user = User(
+        email="mfa@test.com",
+        display_name="MFA",
+        password_hash="x",
+        is_admin=False,
+        mfa_enabled=False,
+        mfa_totp_secret="ABCDEF123456",
+    )
+    _assert_user_mfa(user, None)
+
+
+def test_mfa_enabled_requires_valid_otp() -> None:
+    user = User(
+        email="mfa_enabled@test.com",
+        display_name="MFA Enabled",
+        password_hash="x",
+        is_admin=False,
+        mfa_enabled=True,
+        mfa_totp_secret="ABCDEF123456",
+    )
+    try:
+        _assert_user_mfa(user, None)
+    except HTTPException as exc:
+        assert exc.status_code == 401
+        assert exc.detail["code"] == "invalid_mfa_code"
+    else:
+        assert False, "Expected HTTPException for missing OTP when MFA is enabled"

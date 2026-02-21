@@ -270,7 +270,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - MFA setup now renders a themed QR enrollment popup in Godot from backend-provided SVG data and keeps secret/URI copy fallbacks.
 - MFA settings toggle now executes enable/disable directly (OTP-verified), automatically reverts visual toggle state on API failure, and refreshes status from `/auth/mfa/status` after each successful toggle.
 - Settings save/discard confirmations now use themed in-launcher modal dialogs (no system-default placeholder confirm popups).
-- Login MFA challenge now triggers when MFA is either enabled or configured with a secret, preventing password-only login after QR enrollment.
+- Login MFA challenge now triggers only when `mfa_enabled=true`; accounts with a configured secret but MFA toggled OFF must be able to authenticate without OTP.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.
 - Stored auto-login refresh tokens are only used after an authenticated session updates settings, and are not consumed during app startup.
 - Cog dropdown also exposes a logged-in-only `Logout` action.

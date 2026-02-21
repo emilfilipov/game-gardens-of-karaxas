@@ -100,7 +100,7 @@ def _refresh_ttl_days(user: User) -> int:
 
 def _assert_user_mfa(user: User, otp_code: str | None) -> None:
     secret = (user.mfa_totp_secret or "").strip()
-    if not user.mfa_enabled and not secret:
+    if not user.mfa_enabled:
         return
     if not secret or not verify_totp_code(secret, otp_code):
         raise HTTPException(
