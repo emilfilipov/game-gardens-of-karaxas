@@ -241,7 +241,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Video settings support `Borderless Fullscreen` and `Windowed` modes and apply immediately after save.
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
 - Security settings expose MFA status plus a single toggle-based enable/disable flow with OTP confirmation.
-- MFA setup currently surfaces secret + provisioning URI in themed in-client controls for authenticator enrollment.
+- MFA setup now renders a themed QR enrollment popup in Godot from backend-provided SVG data and keeps secret/URI copy fallbacks.
 - Settings save/discard confirmations now use themed in-launcher modal dialogs (no system-default placeholder confirm popups).
 - Login MFA challenge now triggers when MFA is either enabled or configured with a secret, preventing password-only login after QR enrollment.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.

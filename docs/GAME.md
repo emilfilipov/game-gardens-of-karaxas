@@ -58,7 +58,7 @@ create/select characters, and enter gameplay sessions.
    - `Audio` includes mute toggle and master volume slider.
    - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
    - MFA toggle is applied with a single on/off control plus adjacent authenticator code field.
-   - MFA setup currently exposes generated secret + provisioning URI in themed UI for authenticator enrollment.
+   - MFA setup displays a fully themed QR enrollment popup and also exposes secret + provisioning URI copy actions for fallback enrollment.
    - Once MFA secret enrollment exists for an account, login requires a valid MFA code (password-only login is blocked).
 
 ## Required Frontend Screens (Godot)

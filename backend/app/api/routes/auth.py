@@ -17,6 +17,7 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.security import (
+    build_totp_qr_svg,
     build_totp_provisioning_uri,
     create_access_token,
     create_refresh_token,
@@ -640,10 +641,12 @@ def mfa_setup(context: AuthContext = Depends(get_auth_context), db: Session = De
         detail={"email": user.email},
     )
     db.commit()
+    provisioning_uri = build_totp_provisioning_uri(secret=secret, account_name=user.email)
     return MfaSetupResponse(
         enabled=False,
         secret=secret,
-        provisioning_uri=build_totp_provisioning_uri(secret=secret, account_name=user.email),
+        provisioning_uri=provisioning_uri,
+        qr_svg=build_totp_qr_svg(provisioning_uri),
     )
 
 

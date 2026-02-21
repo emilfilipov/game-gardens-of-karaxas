@@ -108,6 +108,9 @@ var settings_mfa_secret_output: TextEdit
 var settings_mfa_generate_button: Button
 var settings_save_button: Button
 var settings_cancel_button: Button
+var settings_mfa_last_secret = ""
+var settings_mfa_last_uri = ""
+var settings_mfa_last_qr_svg = ""
 
 var level_editor_container: VBoxContainer
 var level_editor_status: Label
@@ -659,6 +662,9 @@ func _build_settings_screen() -> VBoxContainer:
 	settings_mfa_generate_button = _button("Generate/Rotate Secret")
 	settings_mfa_generate_button.pressed.connect(_generate_settings_mfa_secret)
 	mfa_button_row.add_child(settings_mfa_generate_button)
+	var mfa_show_qr = _button("Show QR")
+	mfa_show_qr.pressed.connect(_show_settings_mfa_qr)
+	mfa_button_row.add_child(mfa_show_qr)
 	var mfa_apply = _button("Apply MFA")
 	mfa_apply.pressed.connect(_apply_settings_mfa_toggle)
 	mfa_button_row.add_child(mfa_apply)
@@ -1190,6 +1196,9 @@ func _logout_session_local() -> void:
 	character_details_label.text = "Choose a character from the list."
 	auth_password_input.clear()
 	auth_otp_input.clear()
+	settings_mfa_last_secret = ""
+	settings_mfa_last_uri = ""
+	settings_mfa_last_qr_svg = ""
 
 func _logout_account() -> void:
 	await _persist_active_character_location()
@@ -1561,9 +1570,97 @@ func _generate_settings_mfa_secret() -> void:
 	var body = response.get("json", {})
 	var secret = str(body.get("secret", ""))
 	var uri = str(body.get("provisioning_uri", ""))
+	var qr_svg = str(body.get("qr_svg", ""))
+	settings_mfa_last_secret = secret
+	settings_mfa_last_uri = uri
+	settings_mfa_last_qr_svg = qr_svg
 	settings_mfa_secret_output.text = "Secret:\n%s\n\nProvisioning URI:\n%s" % [secret, uri]
 	settings_status_label.text = "MFA secret generated."
+	_show_settings_mfa_qr()
 	await _refresh_settings_mfa_status()
+
+func _show_settings_mfa_qr() -> void:
+	if settings_mfa_last_uri.strip_edges().is_empty():
+		settings_status_label.text = "Generate MFA secret first."
+		return
+	var dialog = AcceptDialog.new()
+	dialog.title = "MFA Setup"
+	dialog.theme = ui_theme
+	add_child(dialog)
+
+	var panel = PanelContainer.new()
+	panel.custom_minimum_size = Vector2(700, 560)
+	dialog.add_child(panel)
+
+	var root = VBoxContainer.new()
+	root.add_theme_constant_override("separation", 10)
+	panel.add_child(root)
+
+	var title = _label("Scan this QR code with your authenticator app")
+	title.add_theme_font_size_override("font_size", 18)
+	root.add_child(title)
+
+	var qr_box = PanelContainer.new()
+	qr_box.custom_minimum_size = Vector2(300, 300)
+	root.add_child(qr_box)
+	var qr_texture = TextureRect.new()
+	qr_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	qr_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	qr_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	qr_box.add_child(qr_texture)
+
+	var image = Image.new()
+	var svg_error = ERR_INVALID_DATA
+	if not settings_mfa_last_qr_svg.strip_edges().is_empty():
+		svg_error = image.load_svg_from_string(settings_mfa_last_qr_svg)
+	if svg_error == OK:
+		var texture = ImageTexture.create_from_image(image)
+		qr_texture.texture = texture
+	else:
+		var fallback = _label("QR unavailable")
+		fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fallback.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		fallback.set_anchors_preset(Control.PRESET_FULL_RECT)
+		qr_box.add_child(fallback)
+
+	var secret_label = _label("Secret: " + settings_mfa_last_secret)
+	secret_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(secret_label)
+	var uri_view = TextEdit.new()
+	uri_view.editable = false
+	uri_view.custom_minimum_size = Vector2(640, 90)
+	uri_view.text = settings_mfa_last_uri
+	root.add_child(uri_view)
+
+	var actions = HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	root.add_child(actions)
+	var copy_secret = _button("Copy Secret")
+	copy_secret.pressed.connect(func() -> void:
+		DisplayServer.clipboard_set(settings_mfa_last_secret)
+	)
+	actions.add_child(copy_secret)
+	var copy_uri = _button("Copy URI")
+	copy_uri.pressed.connect(func() -> void:
+		DisplayServer.clipboard_set(settings_mfa_last_uri)
+	)
+	actions.add_child(copy_uri)
+	var close_btn = _button("Close")
+	close_btn.pressed.connect(func() -> void:
+		dialog.queue_free()
+	)
+	actions.add_child(close_btn)
+
+	dialog.confirmed.connect(func() -> void:
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func() -> void:
+		dialog.queue_free()
+	)
+	dialog.close_requested.connect(func() -> void:
+		dialog.queue_free()
+	)
+	dialog.popup_centered(Vector2i(760, 620))
 
 func _apply_settings_mfa_toggle() -> void:
 	if access_token.is_empty():

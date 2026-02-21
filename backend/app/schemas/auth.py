@@ -48,6 +48,7 @@ class MfaSetupResponse(BaseModel):
     enabled: bool
     secret: str
     provisioning_uri: str
+    qr_svg: str | None = None
 
 
 class MfaStatusResponse(BaseModel):

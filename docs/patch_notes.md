@@ -1,4 +1,3 @@
-- Completed `GOK-MMO-245`: hardened the Godot unified shell to restore missing parity surfaces and stability-critical helpers.
-- Added themed Godot admin `Level Order` flow and wired it into the authenticated cog menu.
-- Restored persistent helper infrastructure in Godot client (`launcher_prefs.properties` map read/write, local draft JSON persistence, runtime log writer, packaged-install path resolution).
-- Updated Godot UI polish and behavior: shared themed controls (dropdowns/popups/buttons), branded background/icon support, world-screen chrome suppression, and in-game cog menu scope alignment.
+- Completed `GOK-MMO-246`: restored full MFA QR parity in Godot settings.
+- Backend `/auth/mfa/setup` now returns a `qr_svg` field generated from the provisioning URI.
+- Godot settings now opens a fully themed QR enrollment popup with `Copy Secret` and `Copy URI` fallback actions.

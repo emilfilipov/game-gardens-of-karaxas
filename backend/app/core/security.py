@@ -2,11 +2,14 @@ from datetime import UTC, datetime, timedelta
 import hashlib
 import secrets
 from uuid import uuid4
+from io import BytesIO
 
 from passlib.context import CryptContext
 import pyotp
 import jwt
 from jwt import InvalidTokenError
+import qrcode
+from qrcode.image.svg import SvgPathImage
 
 from app.core.config import settings
 
@@ -71,6 +74,21 @@ def create_totp_secret() -> str:
 def build_totp_provisioning_uri(*, secret: str, account_name: str) -> str:
     issuer = (settings.jwt_issuer or "Gardens of Karaxas").strip() or "Gardens of Karaxas"
     return pyotp.TOTP(secret).provisioning_uri(name=account_name, issuer_name=issuer)
+
+
+def build_totp_qr_svg(provisioning_uri: str) -> str:
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=8,
+        border=2,
+    )
+    qr.add_data(provisioning_uri)
+    qr.make(fit=True)
+    image = qr.make_image(image_factory=SvgPathImage)
+    buffer = BytesIO()
+    image.save(buffer)
+    return buffer.getvalue().decode("utf-8")
 
 
 def verify_totp_code(secret: str, code: str | None) -> bool:
