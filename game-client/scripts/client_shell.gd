@@ -1,7 +1,8 @@
 extends Control
 
 const WORLD_CANVAS_SCENE = preload("res://scripts/world_canvas.gd")
-const LEVEL_EDITOR_CANVAS_SCENE = preload("res://scripts/level_editor_canvas.gd")
+const MAIN_MENU_BG_RESOURCE = preload("res://assets/main_menu_background.png")
+const GAME_ICON_RESOURCE = preload("res://assets/game_icon.png")
 
 const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
@@ -306,9 +307,15 @@ func _build_ui() -> void:
 	background_art.set_anchors_preset(Control.PRESET_FULL_RECT)
 	background_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	background_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	var bg_texture = load("res://assets/main_menu_background.png")
-	if bg_texture is Texture2D:
-		background_art.texture = bg_texture
+	background_art.texture = MAIN_MENU_BG_RESOURCE
+	if background_art.texture == null:
+		var fallback_bg = _load_texture_from_path(_path_join(install_root_path, "game-client/assets/main_menu_background.png"))
+		if fallback_bg == null:
+			fallback_bg = _load_texture_from_path(_path_join(install_root_path, "assets/main_menu_background.png"))
+		if fallback_bg != null:
+			background_art.texture = fallback_bg
+		else:
+			_append_log("Background art could not be loaded from bundled or install paths.")
 	add_child(background_art)
 
 	background_veil = ColorRect.new()
@@ -1513,7 +1520,8 @@ func _show_screen(name: String) -> void:
 		var node = screen_nodes.get(key)
 		if node is Control:
 			node.visible = str(key) == name
-	world_canvas.call("set_active", name == "world")
+	if world_canvas != null and world_canvas.has_method("set_active"):
+		world_canvas.call("set_active", name == "world")
 	menu_button.visible = name != "auth"
 	footer_status.visible = not in_world
 	if name == "auth":
@@ -2781,12 +2789,11 @@ func _resolve_paths() -> void:
 
 func _apply_window_icon() -> void:
 	var candidates: Array[String] = []
-	var configured_icon = str(ProjectSettings.get_setting("application/config/icon", "")).strip_edges()
-	if not configured_icon.is_empty():
-		if configured_icon.begins_with("res://"):
-			candidates.append(ProjectSettings.globalize_path(configured_icon))
-		else:
-			candidates.append(configured_icon)
+	if GAME_ICON_RESOURCE != null:
+		var res_image = GAME_ICON_RESOURCE.get_image()
+		if res_image != null and DisplayServer.has_method("set_icon"):
+			DisplayServer.call("set_icon", res_image)
+			return
 	candidates.append(_path_join(install_root_path, "assets/icons/game_icon.png"))
 	candidates.append(_path_join(install_root_path, "game-client/assets/game_icon.png"))
 	candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "assets/game_icon.png"))

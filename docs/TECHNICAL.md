@@ -39,6 +39,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Top-right menu is hidden on auth screen; auth screen carries direct `Update & Restart` and `Exit`.
 - Gameplay screen now hides non-essential shell chrome/background layers so world rendering gets near full-screen viewport usage.
 - Godot shell restores the branded app icon from packaged assets (`res://assets/game_icon.png`) for runtime window/taskbar identity.
+- Godot shell startup hardening now avoids stale script preloads, guards optional world-canvas method calls (`set_active`), and falls back to install-path background assets when bundled art is unavailable.
 - Launcher startup now probes configured runtime host and directly launches Godot shell when host is `godot`.
 - If configured host is `godot` and launch fails, startup aborts with a themed error dialog instead of silently dropping into the old Swing account UI.
 
