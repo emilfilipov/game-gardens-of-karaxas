@@ -125,6 +125,7 @@ create/select characters, and enter gameplay sessions.
 - Startup always opens on the authentication screen; players must explicitly log in each launch.
 - Pre-login updater access is embedded directly in the authentication screen (`Update & Restart` + compact release notes).
 - Updater access is no longer a lobby tab; authenticated users can still access updater from the top-right menu.
+- Admin users now also get a separate top-right `Log Viewer` action that opens launcher logs without triggering update checks.
 - Updater progression is shown through status text messages in the update screen (no progress bar widget).
 - When no update is available, updater status reads `Game is up to date.`.
 - Release metadata and release notes are sourced from backend database records (not launcher-bundled static notes only).

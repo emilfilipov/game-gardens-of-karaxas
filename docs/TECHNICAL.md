@@ -202,6 +202,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Auth updater panel now hydrates release notes/feed metadata from backend DB-backed release summary when reachable, with local patch-note fallback.
 - Cog menu is hidden on the auth screen and remains available only after login.
 - Cog dropdown still includes updater entry for authenticated flows.
+- Updater and log-viewer actions are now decoupled in the cog dropdown:
+  - all authenticated users keep `Update & Restart`,
+  - admin-only `Log Viewer` opens log surfaces without starting update checks.
 - While gameplay scene is active, cog dropdown is restricted to `Settings`, `Logout Character`, `Logout Account`, and `Exit` only.
 - Cog dropdown styling uses the same launcher theme palette (earth-tone background, gold text, themed borders/hover states).
 - Cog dropdown menu items use a themed basic menu-item UI delegate so hover/selection highlights stay in-theme (no platform-default blue highlight bleed).

@@ -344,6 +344,7 @@ object LauncherMain {
         val settingsPopup = JPopupMenu()
         val welcomeItem = JMenuItem("Welcome Guest.")
         val quickUpdateItem = JMenuItem("Update & Restart")
+        val logViewerItem = JMenuItem("Log Viewer")
         val settingsItem = JMenuItem("Settings")
         val levelEditorMenuItem = JMenuItem("Level Editor")
         val levelOrderMenuItem = JMenuItem("Level Order")
@@ -425,6 +426,7 @@ object LauncherMain {
         settingsPopup.border = BorderFactory.createLineBorder(Color(172, 132, 87), 1)
         stylePopupItem(welcomeItem)
         stylePopupItem(quickUpdateItem)
+        stylePopupItem(logViewerItem)
         stylePopupItem(settingsItem)
         stylePopupItem(levelEditorMenuItem)
         stylePopupItem(levelOrderMenuItem)
@@ -436,6 +438,7 @@ object LauncherMain {
         welcomeItem.isEnabled = false
         settingsPopup.add(welcomeItem)
         settingsPopup.add(quickUpdateItem)
+        settingsPopup.add(logViewerItem)
         settingsPopup.add(settingsItem)
         settingsPopup.add(levelEditorMenuItem)
         settingsPopup.add(levelOrderMenuItem)
@@ -651,6 +654,8 @@ object LauncherMain {
             settingsItem.isEnabled = loggedIn
             quickUpdateItem.isVisible = loggedIn && !inGame
             quickUpdateItem.isEnabled = loggedIn && !inGame
+            logViewerItem.isVisible = adminMode && !inGame
+            logViewerItem.isEnabled = adminMode && !inGame
             levelEditorMenuItem.isVisible = adminMode && !inGame
             levelEditorMenuItem.isEnabled = adminMode && !inGame
             levelOrderMenuItem.isVisible = adminMode && !inGame
@@ -6169,6 +6174,11 @@ object LauncherMain {
                 autoRestartOnSuccess = true,
                 releaseFeedUrl = releaseFeedUrlOverride,
             )
+        }
+        logViewerItem.addActionListener {
+            showCard("update")
+            val target = logsRoot().resolve("launcher.log")
+            activeLog = toggleLogView(activeLog, target, "Launcher Log", patchNotesPane, patchNotes, updateStatus)
         }
         levelEditorMenuItem.addActionListener { showCard("level_tool") }
         levelOrderMenuItem.addActionListener { showCard("level_order") }

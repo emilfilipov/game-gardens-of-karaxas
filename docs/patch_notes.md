@@ -1,1 +1,1 @@
-- Completed `GOK-MMO-238`: fixed Godot runtime launch reliability by bundling a Windows Godot executable in release payloads, wiring CI download + optional SHA verification, and updating launcher executable resolution to prefer bundled runtime paths over local PATH-only commands.
+- Completed `GOK-MMO-239`: decoupled updater/log actions in the cog menu by keeping `Update & Restart` for all authenticated users and adding an admin-only `Log Viewer` entry that opens logs without starting an update check.
