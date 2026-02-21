@@ -37,7 +37,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Shared UI foundation for Godot shell is now split into:
   - `game-client/scripts/ui_tokens.gd` (authoritative palette/spacing/size/radius tokens),
   - `game-client/scripts/ui_components.gd` (shared constructors for labels/buttons/inputs/options and centered shell scaffolds).
-- `ui_components` now also provides reusable primary-action buttons and consistent card-panel styles used by account/settings/auth surfaces.
+- `ui_components` now also provides reusable primary/secondary button variants, consistent card-panel styles, and section/banner helpers used by auth/account/settings/admin surfaces.
 - Godot helper scripts now resolve cross-script dependencies via explicit `preload(...)` constants (instead of relying on global class-name lookup) to avoid parser-order startup failures in packaged builds.
 - Godot shell defaults to borderless fullscreen startup.
 - Screen switching in the Godot shell now uses a generic `Control` stack container for Godot 4.3 compatibility (no `StackContainer` dependency).
@@ -223,9 +223,12 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character List row rendering now uses fixed-height themed cards with:
   - selectable row header button for preview binding,
   - dedicated action row for per-character operations,
-  - explicit container minimum sizing to keep rows visible inside scroll surfaces.
+  - explicit container minimum sizing to keep rows visible inside scroll surfaces,
+  - a separate location metadata line to improve at-a-glance readability.
 - Auth/account/settings surfaces are now rendered inside centered constrained cards to improve hierarchy and reduce full-screen form sprawl.
+- Admin tool screens (`Level Editor`, `Level Order`, `Asset Editor`, `Content Versions`) are now also rendered in centered constrained card shells instead of raw full-bleed debug layouts.
 - Settings `Video`, `Audio`, and `Security` sections are rendered in themed card blocks rather than plain unstructured tab content.
+- Screen switching in `client_shell.gd` now applies short fade-in transitions to improve perceived fluidity while preserving deterministic screen ownership.
 - Footer text is version-only; transient welcome/status chatter is no longer rendered in footer/account surfaces.
 - Dropdown popups are sanitized to non-checkable list behavior (no radio/check glyphs), and skill buttons use a themed custom tooltip popup instead of default tooltip behavior.
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.

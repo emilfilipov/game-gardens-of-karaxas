@@ -29,6 +29,7 @@ create/select characters, and enter gameplay sessions.
    - Top-right menu shows `Welcome username.` and logged-in account actions.
    - Admin-only menus/features are unlocked by the account's backend `is_admin` flag (not by hardcoded email).
    - Authenticated tab order is `Character List` (left) and `Create Character` (right).
+   - Account surfaces now use a modernized card-shell structure with consistent spacing, fixed control heights, and stronger text contrast hierarchy.
    - Admin tools (`Level Editor`, `Asset Editor`, `Content Versions`) are opened from the top-right cog menu.
 3. Default post-login routing:
    - Always open Character List first (even with zero characters).
@@ -83,6 +84,8 @@ create/select characters, and enter gameplay sessions.
 - Admin-only asset editor screen (searchable editable-content cards + large item editor panel + right-side staged-change queue with `Save Local` and `Publish Changes`).
 - Admin-only content versions screen (version history cards, active-version highlight, publish/revert controls, and side-by-side compare).
 - Shared menu/form controls use a consistent thin-border panel/button style over the same background key art, all rendered in the Godot UI layer.
+- Shared controls now follow one modernized token/component system (buttons, tabs, dropdowns, cards, text inputs, dialogs, editor panes) so every screen inherits the same look-and-feel.
+- Screen swaps use subtle fade transitions for smoother flow between auth/account/settings/admin/gameplay surfaces.
 - Footer text is reserved for build/version display only; transient welcome/status text is suppressed.
 
 ## Character Direction

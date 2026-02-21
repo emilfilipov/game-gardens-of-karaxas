@@ -72,6 +72,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-253 | ✅ | 3 | Executed Godot shell modernization pass v2: upgraded global UI tokens, expanded shared component variants, refactored auth/account/settings/admin screens onto consistent card scaffolds, improved character-list row visibility/selection hierarchy, and added subtle screen transition fades for smoother UX flow. |
 | GOK-INIT-001 | ✅ | 2 | Created initial project scaffold with launcher module, build system files, and base documentation. |
 | GOK-INIT-002 | ✅ | 2 | Configured GitHub Actions release workflow for launcher-only scaffold mode. |
 | GOK-INIT-003 | ✅ | 2 | Enabled launcher-only Velopack packaging and published first installer/release artifacts. |

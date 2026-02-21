@@ -221,22 +221,33 @@ func _build_theme() -> void:
 	panel_box.border_width_right = 1
 	panel_box.border_width_bottom = 1
 	panel_box.border_color = UI_TOKENS.color("panel_border")
-	panel_box.corner_radius_top_left = UI_TOKENS.size("radius_lg")
-	panel_box.corner_radius_top_right = UI_TOKENS.size("radius_lg")
-	panel_box.corner_radius_bottom_left = UI_TOKENS.size("radius_lg")
-	panel_box.corner_radius_bottom_right = UI_TOKENS.size("radius_lg")
+	panel_box.corner_radius_top_left = UI_TOKENS.size("radius_xl")
+	panel_box.corner_radius_top_right = UI_TOKENS.size("radius_xl")
+	panel_box.corner_radius_bottom_left = UI_TOKENS.size("radius_xl")
+	panel_box.corner_radius_bottom_right = UI_TOKENS.size("radius_xl")
 
 	var panel_box_alt = panel_box.duplicate()
 	panel_box_alt.bg_color = UI_TOKENS.color("panel_bg_alt")
 
 	var button_normal = panel_box_alt.duplicate()
-	var button_hover = panel_box_alt.duplicate()
+	button_normal.corner_radius_top_left = UI_TOKENS.size("radius")
+	button_normal.corner_radius_top_right = UI_TOKENS.size("radius")
+	button_normal.corner_radius_bottom_left = UI_TOKENS.size("radius")
+	button_normal.corner_radius_bottom_right = UI_TOKENS.size("radius")
+	var button_hover = button_normal.duplicate()
 	button_hover.bg_color = UI_TOKENS.color("button_hover")
-	var button_pressed = panel_box_alt.duplicate()
+	var button_pressed = button_normal.duplicate()
 	button_pressed.bg_color = UI_TOKENS.color("button_pressed")
 
 	var input_box = panel_box.duplicate()
 	input_box.bg_color = UI_TOKENS.color("panel_bg_deep")
+	input_box.border_color = UI_TOKENS.color("panel_border_soft")
+	input_box.corner_radius_top_left = UI_TOKENS.size("radius")
+	input_box.corner_radius_top_right = UI_TOKENS.size("radius")
+	input_box.corner_radius_bottom_left = UI_TOKENS.size("radius")
+	input_box.corner_radius_bottom_right = UI_TOKENS.size("radius")
+	var input_focus = input_box.duplicate()
+	input_focus.border_color = UI_TOKENS.color("panel_border")
 
 	ui_theme.set_stylebox("panel", "PanelContainer", panel_box)
 	ui_theme.set_stylebox("panel", "PopupPanel", panel_box_alt)
@@ -252,17 +263,20 @@ func _build_theme() -> void:
 	ui_theme.set_constant("outline_size", "Button", 0)
 
 	ui_theme.set_stylebox("normal", "LineEdit", input_box)
-	ui_theme.set_stylebox("focus", "LineEdit", input_box)
+	ui_theme.set_stylebox("focus", "LineEdit", input_focus)
 	ui_theme.set_stylebox("read_only", "LineEdit", input_box)
 	ui_theme.set_color("font_color", "LineEdit", UI_TOKENS.color("text_primary"))
 	ui_theme.set_color("font_placeholder_color", "LineEdit", UI_TOKENS.color("text_muted"))
+	ui_theme.set_color("selection_color", "LineEdit", UI_TOKENS.color("selection_fill"))
+	ui_theme.set_constant("outline_size", "LineEdit", 0)
 
 	ui_theme.set_stylebox("normal", "TextEdit", input_box)
-	ui_theme.set_stylebox("focus", "TextEdit", input_box)
+	ui_theme.set_stylebox("focus", "TextEdit", input_focus)
 	ui_theme.set_color("font_color", "TextEdit", UI_TOKENS.color("text_primary"))
+	ui_theme.set_constant("outline_size", "TextEdit", 0)
 
 	ui_theme.set_stylebox("normal", "ItemList", input_box)
-	ui_theme.set_stylebox("focus", "ItemList", input_box)
+	ui_theme.set_stylebox("focus", "ItemList", input_focus)
 	ui_theme.set_color("font_color", "ItemList", UI_TOKENS.color("text_primary"))
 	ui_theme.set_color("font_selected_color", "ItemList", UI_TOKENS.color("selection_text"))
 	ui_theme.set_color("background", "ItemList", UI_TOKENS.color("panel_bg_deep"))
@@ -271,19 +285,25 @@ func _build_theme() -> void:
 
 	ui_theme.set_stylebox("panel", "TabContainer", panel_box)
 	ui_theme.set_stylebox("tab_unselected", "TabBar", button_normal)
+	ui_theme.set_stylebox("tab_hovered", "TabBar", button_hover)
 	ui_theme.set_stylebox("tab_selected", "TabBar", button_pressed)
+	ui_theme.set_stylebox("tab_disabled", "TabBar", button_normal)
 	ui_theme.set_color("font_selected_color", "TabBar", UI_TOKENS.color("text_primary"))
-	ui_theme.set_color("font_unselected_color", "TabBar", UI_TOKENS.color("text_secondary"))
+	ui_theme.set_color("font_unselected_color", "TabBar", UI_TOKENS.color("text_muted"))
+	ui_theme.set_constant("outline_size", "TabBar", 0)
+	ui_theme.set_constant("top_margin", "TabContainer", UI_TOKENS.spacing("sm"))
 	ui_theme.set_constant("h_separation", "TabBar", UI_TOKENS.spacing("xs"))
-	ui_theme.set_constant("v_separation", "TabBar", UI_TOKENS.spacing("xs"))
+	ui_theme.set_constant("v_separation", "TabBar", UI_TOKENS.spacing("sm"))
 
 	ui_theme.set_stylebox("normal", "OptionButton", button_normal)
 	ui_theme.set_stylebox("hover", "OptionButton", button_hover)
 	ui_theme.set_stylebox("pressed", "OptionButton", button_pressed)
-	ui_theme.set_stylebox("focus", "OptionButton", button_normal)
+	ui_theme.set_stylebox("focus", "OptionButton", button_pressed)
+	ui_theme.set_stylebox("disabled", "OptionButton", button_normal)
 	ui_theme.set_color("font_color", "OptionButton", UI_TOKENS.color("text_primary"))
 	ui_theme.set_color("font_hover_color", "OptionButton", UI_TOKENS.color("text_primary"))
 	ui_theme.set_color("font_pressed_color", "OptionButton", UI_TOKENS.color("text_primary"))
+	ui_theme.set_constant("outline_size", "OptionButton", 0)
 
 	ui_theme.set_stylebox("panel", "PopupMenu", panel_box_alt)
 	ui_theme.set_stylebox("hover", "PopupMenu", button_pressed)
@@ -294,12 +314,14 @@ func _build_theme() -> void:
 	ui_theme.set_stylebox("normal", "CheckBox", button_normal)
 	ui_theme.set_stylebox("hover", "CheckBox", button_hover)
 	ui_theme.set_stylebox("pressed", "CheckBox", button_pressed)
-	ui_theme.set_stylebox("focus", "CheckBox", button_normal)
+	ui_theme.set_stylebox("focus", "CheckBox", button_pressed)
 	ui_theme.set_color("font_color", "CheckBox", UI_TOKENS.color("text_primary"))
-	ui_theme.set_stylebox("slider", "HSlider", button_normal)
+	ui_theme.set_constant("outline_size", "CheckBox", 0)
+	ui_theme.set_stylebox("slider", "HSlider", button_pressed)
 	ui_theme.set_stylebox("grabber_area", "HSlider", input_box)
-	ui_theme.set_stylebox("grabber_area_highlight", "HSlider", input_box)
+	ui_theme.set_stylebox("grabber_area_highlight", "HSlider", input_focus)
 	ui_theme.set_color("font_color", "Label", UI_TOKENS.color("text_primary"))
+	ui_theme.set_color("font_color", "RichTextLabel", UI_TOKENS.color("text_primary"))
 
 	theme = ui_theme
 
@@ -329,33 +351,33 @@ func _build_ui() -> void:
 
 	var root = MarginContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_theme_constant_override("margin_left", 18)
-	root.add_theme_constant_override("margin_top", 14)
-	root.add_theme_constant_override("margin_right", 18)
-	root.add_theme_constant_override("margin_bottom", 14)
+	root.add_theme_constant_override("margin_left", 24)
+	root.add_theme_constant_override("margin_top", 18)
+	root.add_theme_constant_override("margin_right", 24)
+	root.add_theme_constant_override("margin_bottom", 18)
 	add_child(root)
 
 	var layout = VBoxContainer.new()
 	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	layout.add_theme_constant_override("separation", 10)
+	layout.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	root.add_child(layout)
 
 	var header = HBoxContainer.new()
-	header.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	header.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	layout.add_child(header)
 
 	header_title = Label.new()
 	header_title.text = "Gardens of Karaxas"
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_title.add_theme_font_size_override("font_size", 34)
+	header_title.add_theme_font_size_override("font_size", 52)
 	header_title.add_theme_color_override("font_color", Color(0.95, 0.90, 0.79))
 	header.add_child(header_title)
 
 	menu_button = Button.new()
 	menu_button.text = "..."
 	menu_button.custom_minimum_size = Vector2(UI_TOKENS.size("menu_square"), UI_TOKENS.size("menu_square"))
-	menu_button.focus_mode = Control.FOCUS_NONE
+	menu_button.focus_mode = Control.FOCUS_CLICK
 	menu_button.pressed.connect(_on_menu_button_pressed)
 	header.add_child(menu_button)
 
@@ -399,7 +421,7 @@ func _build_ui() -> void:
 	footer_status.text = footer_version_text
 	footer_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	footer_status.add_theme_font_size_override("font_size", 12)
-	footer_status.add_theme_color_override("font_color", UI_TOKENS.color("text_secondary"))
+	footer_status.add_theme_color_override("font_color", UI_TOKENS.color("text_muted"))
 	layout.add_child(footer_status)
 
 	skill_tooltip_popup = PopupPanel.new()
@@ -419,93 +441,101 @@ func _build_ui() -> void:
 func _build_auth_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
 		Vector2(UI_TOKENS.size("shell_auth_w"), UI_TOKENS.size("shell_auth_h")),
-		UI_TOKENS.spacing("lg")
+		UI_TOKENS.spacing("xl")
 	)
 	var wrap = shell["wrap"] as VBoxContainer
-	var body = HBoxContainer.new()
-	body.add_theme_constant_override("separation", UI_TOKENS.spacing("lg"))
+	var body = HSplitContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var shell_content = shell["content"] as VBoxContainer
+	shell_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shell_content.add_child(body)
 
-	var auth_panel = PanelContainer.new()
-	auth_panel.custom_minimum_size = Vector2(360, 500)
+	var auth_panel = UI_COMPONENTS.panel_card(Vector2(430, 560), false)
+	auth_panel.size_flags_stretch_ratio = 0.42
 	body.add_child(auth_panel)
 
 	var auth_inner = VBoxContainer.new()
-	auth_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	auth_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	auth_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	auth_panel.add_child(auth_inner)
 
-	var auth_title = Label.new()
-	auth_title.text = "Account"
-	auth_title.add_theme_font_size_override("font_size", 24)
-	auth_title.add_theme_color_override("font_color", UI_TOKENS.color("text_primary"))
+	var auth_title = _label("Account", 28)
 	auth_inner.add_child(auth_title)
-	var auth_subtitle = _label("Login or create an account to enter Karaxas.")
+	var auth_subtitle = _label("Login or create an account to enter Karaxas.", -1, "text_secondary")
 	auth_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	auth_inner.add_child(auth_subtitle)
 
 	auth_display_name_input = _line_edit("Display Name")
+	auth_display_name_input.custom_minimum_size = Vector2(0, 42)
 	auth_display_name_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_display_name_input)
 	auth_email_input = _line_edit("Email")
+	auth_email_input.custom_minimum_size = Vector2(0, 42)
 	auth_email_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_email_input)
 	auth_password_input = _line_edit("Password", true)
+	auth_password_input.custom_minimum_size = Vector2(0, 42)
 	auth_password_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_password_input)
 	auth_otp_input = _line_edit("MFA Code (if enabled)")
+	auth_otp_input.custom_minimum_size = Vector2(0, 42)
 	auth_otp_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_otp_input)
 
 	var auth_button_row = HBoxContainer.new()
-	auth_button_row.add_theme_constant_override("separation", 8)
+	auth_button_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	auth_inner.add_child(auth_button_row)
-	auth_submit_button = UI_COMPONENTS.button_primary("Login")
+	auth_submit_button = UI_COMPONENTS.button_primary("Login", Vector2(0, 42))
+	auth_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_submit_button.pressed.connect(_on_auth_submit)
 	auth_button_row.add_child(auth_submit_button)
 	auth_toggle_button = _button("Create Account")
+	auth_toggle_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_toggle_button.pressed.connect(_on_auth_toggle_mode)
 	auth_button_row.add_child(auth_toggle_button)
 	var auth_exit_button = _button("Exit")
+	auth_exit_button.custom_minimum_size = Vector2(110, 42)
 	auth_exit_button.pressed.connect(_handle_exit_request)
 	auth_button_row.add_child(auth_exit_button)
 
-	auth_status_label = Label.new()
+	auth_status_label = _label(" ")
 	auth_status_label.text = " "
 	auth_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	auth_status_label.add_theme_color_override("font_color", UI_TOKENS.color("text_secondary"))
 	auth_inner.add_child(auth_status_label)
+	auth_inner.add_spacer(true)
 
-	var update_panel = PanelContainer.new()
-	update_panel.custom_minimum_size = Vector2(500, 500)
+	var update_panel = UI_COMPONENTS.panel_card(Vector2(640, 560), false)
 	update_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	update_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	update_panel.size_flags_stretch_ratio = 0.58
 	body.add_child(update_panel)
 	var update_inner = VBoxContainer.new()
 	update_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	update_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	update_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	update_panel.add_child(update_inner)
-	var update_title = Label.new()
-	update_title.text = "Release Notes"
-	update_title.add_theme_font_size_override("font_size", 24)
-	update_title.add_theme_color_override("font_color", UI_TOKENS.color("text_primary"))
+	var update_title = _label("Release Notes", 28)
 	update_inner.add_child(update_title)
+	var update_subtitle = _label("Latest player-facing changes and build notes.", -1, "text_secondary")
+	update_inner.add_child(update_subtitle)
 	auth_release_notes = RichTextLabel.new()
 	auth_release_notes.fit_content = false
 	auth_release_notes.scroll_active = true
 	auth_release_notes.bbcode_enabled = false
 	auth_release_notes.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	auth_release_notes.custom_minimum_size = Vector2(470, 372)
+	auth_release_notes.custom_minimum_size = Vector2(0, 400)
 	auth_release_notes.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	update_inner.add_child(auth_release_notes)
 	auth_update_button = UI_COMPONENTS.button_primary("Update & Restart")
+	auth_update_button.custom_minimum_size = Vector2(220, 44)
 	auth_update_button.pressed.connect(_on_update_and_restart_pressed)
 	update_inner.add_child(auth_update_button)
 
@@ -515,15 +545,13 @@ func _build_auth_screen() -> VBoxContainer:
 func _build_account_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
 		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_wide_h")),
-		UI_TOKENS.spacing("md")
+		UI_TOKENS.spacing("lg")
 	)
 	var wrap = shell["wrap"] as VBoxContainer
 	var content_root = shell["content"] as VBoxContainer
 
-	account_status_label = Label.new()
+	account_status_label = _label(" ", -1, "text_secondary")
 	account_status_label.text = " "
-	account_status_label.add_theme_color_override("font_color", UI_TOKENS.color("text_secondary"))
-	account_status_label.visible = true
 	content_root.add_child(account_status_label)
 
 	character_tabs = TabContainer.new()
@@ -533,30 +561,36 @@ func _build_account_screen() -> VBoxContainer:
 
 	var list_tab = VBoxContainer.new()
 	list_tab.name = "Character List"
-	list_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	list_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	character_tabs.add_child(list_tab)
+
+	var list_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	list_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_tab.add_child(list_shell)
+	var list_shell_inner = VBoxContainer.new()
+	list_shell_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	list_shell_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_shell.add_child(list_shell_inner)
 
 	var list_split = HSplitContainer.new()
 	list_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_tab.add_child(list_split)
+	list_shell_inner.add_child(list_split)
 
-	var list_left = PanelContainer.new()
+	var list_left = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	list_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_left.size_flags_stretch_ratio = 0.73
+	list_left.size_flags_stretch_ratio = 0.72
 	list_split.add_child(list_left)
 	var list_left_inner = VBoxContainer.new()
-	list_left_inner.add_theme_constant_override("separation", 8)
+	list_left_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	list_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_left.add_child(list_left_inner)
 	var list_header = HBoxContainer.new()
-	list_header.add_theme_constant_override("separation", 8)
+	list_header.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	list_left_inner.add_child(list_header)
-	character_list_title_label = _label("Character List")
-	character_list_title_label.add_theme_font_size_override("font_size", 22)
+	character_list_title_label = _label("Character List", 24)
 	character_list_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_header.add_child(character_list_title_label)
-	character_refresh_button = _button("Refresh")
-	character_refresh_button.custom_minimum_size = Vector2(120, 34)
+	character_refresh_button = UI_COMPONENTS.button_primary("Refresh", Vector2(124, 38))
 	character_refresh_button.pressed.connect(_on_character_refresh_pressed)
 	list_header.add_child(character_refresh_button)
 	character_rows_scroll = ScrollContainer.new()
@@ -570,55 +604,53 @@ func _build_account_screen() -> VBoxContainer:
 	character_rows_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.add_child(character_rows_container)
 
-	var list_right = PanelContainer.new()
-	list_right.custom_minimum_size = Vector2(340, 420)
+	var list_right = UI_COMPONENTS.panel_card(Vector2(360, 420), false)
 	list_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_right.size_flags_stretch_ratio = 0.28
 	list_split.add_child(list_right)
 	var list_right_inner = VBoxContainer.new()
-	list_right_inner.add_theme_constant_override("separation", 8)
+	list_right_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	list_right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_right.add_child(list_right_inner)
-	var preview_title = _label("Character Preview")
-	preview_title.add_theme_font_size_override("font_size", 16)
+	var preview_title = _label("Character Preview", 18, "text_secondary")
 	list_right_inner.add_child(preview_title)
-	var preview_panel = PanelContainer.new()
-	preview_panel.custom_minimum_size = Vector2(320, 220)
+	var preview_panel = UI_COMPONENTS.panel_card(Vector2(320, 240), false)
+	preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_right_inner.add_child(preview_panel)
 	character_preview_texture = TextureRect.new()
 	character_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
 	character_preview_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	character_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview_panel.add_child(character_preview_texture)
-	var details_title = _label("Character Details")
-	details_title.add_theme_font_size_override("font_size", 16)
+	var details_title = _label("Character Details", 18, "text_secondary")
 	list_right_inner.add_child(details_title)
 	character_details_label = RichTextLabel.new()
 	character_details_label.fit_content = false
 	character_details_label.bbcode_enabled = false
 	character_details_label.custom_minimum_size = Vector2(320, 220)
 	character_details_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	character_details_label.add_theme_color_override("default_color", Color(0.94, 0.84, 0.69))
+	character_details_label.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	list_right_inner.add_child(character_details_label)
 
 	var create_tab = VBoxContainer.new()
 	create_tab.name = "Create Character"
-	create_tab.add_theme_constant_override("separation", 8)
+	create_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	character_tabs.add_child(create_tab)
 
-	var create_shell = PanelContainer.new()
+	var create_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	create_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_tab.add_child(create_shell)
 	var create_root = VBoxContainer.new()
-	create_root.add_theme_constant_override("separation", 10)
+	create_root.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	create_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_shell.add_child(create_root)
 
-	var create_body = HBoxContainer.new()
-	create_body.add_theme_constant_override("separation", 10)
+	var create_body = HSplitContainer.new()
 	create_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_root.add_child(create_body)
 
-	var create_preview_panel = PanelContainer.new()
-	create_preview_panel.custom_minimum_size = Vector2(170, 420)
+	var create_preview_panel = UI_COMPONENTS.panel_card(Vector2(220, 460), false)
+	create_preview_panel.size_flags_stretch_ratio = 0.23
 	create_body.add_child(create_preview_panel)
 	create_preview_texture = TextureRect.new()
 	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -627,75 +659,77 @@ func _build_account_screen() -> VBoxContainer:
 	create_preview_panel.add_child(create_preview_texture)
 
 	var create_right = VBoxContainer.new()
-	create_right.add_theme_constant_override("separation", 10)
+	create_right.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	create_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_right.size_flags_stretch_ratio = 0.77
 	create_body.add_child(create_right)
 
 	var identity_row = HBoxContainer.new()
-	identity_row.add_theme_constant_override("separation", 8)
+	identity_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	create_right.add_child(identity_row)
 	create_name_input = _line_edit("Character Name")
-	create_name_input.custom_minimum_size = Vector2(150, 32)
+	create_name_input.custom_minimum_size = Vector2(120, 36)
 	identity_row.add_child(_labeled_control("Name", create_name_input))
 	create_sex_option = _option(["Male", "Female"])
-	create_sex_option.custom_minimum_size = Vector2(150, 32)
+	create_sex_option.custom_minimum_size = Vector2(120, 36)
 	create_sex_option.item_selected.connect(func(_index: int) -> void:
 		_refresh_create_character_preview()
 	)
 	identity_row.add_child(_labeled_control("Sex", create_sex_option))
 	create_race_option = _option(["Human"])
-	create_race_option.custom_minimum_size = Vector2(150, 32)
+	create_race_option.custom_minimum_size = Vector2(120, 36)
 	identity_row.add_child(_labeled_control("Race", create_race_option))
 	create_background_option = _option(["Drifter"])
-	create_background_option.custom_minimum_size = Vector2(150, 32)
+	create_background_option.custom_minimum_size = Vector2(120, 36)
 	identity_row.add_child(_labeled_control("Background", create_background_option))
 	create_affiliation_option = _option(["Unaffiliated"])
-	create_affiliation_option.custom_minimum_size = Vector2(150, 32)
+	create_affiliation_option.custom_minimum_size = Vector2(120, 36)
 	identity_row.add_child(_labeled_control("Affiliation", create_affiliation_option))
 
-	var create_tables = HBoxContainer.new()
-	create_tables.add_theme_constant_override("separation", 8)
+	var create_tables = HSplitContainer.new()
 	create_tables.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_right.add_child(create_tables)
 
-	var stats_panel = PanelContainer.new()
+	var stats_panel = UI_COMPONENTS.panel_card(Vector2(510, 360), false)
 	stats_panel.custom_minimum_size = Vector2(490, 320)
 	stats_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stats_panel.size_flags_stretch_ratio = 0.48
 	create_tables.add_child(stats_panel)
 	var stats_inner = VBoxContainer.new()
-	stats_inner.add_theme_constant_override("separation", 8)
+	stats_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	stats_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stats_panel.add_child(stats_inner)
-	var stats_title = _label("Stats")
-	stats_title.add_theme_font_size_override("font_size", 18)
+	var stats_title = _label("Stats", 20, "text_secondary")
 	stats_inner.add_child(stats_title)
 	create_stats_grid = GridContainer.new()
 	create_stats_grid.columns = 5
 	create_stats_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_stats_grid.add_theme_constant_override("h_separation", 6)
-	create_stats_grid.add_theme_constant_override("v_separation", 6)
+	create_stats_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("xs"))
+	create_stats_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("xs"))
 	stats_inner.add_child(create_stats_grid)
 
-	var skills_panel = PanelContainer.new()
+	var skills_panel = UI_COMPONENTS.panel_card(Vector2(560, 360), false)
 	skills_panel.custom_minimum_size = Vector2(560, 320)
 	skills_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	skills_panel.size_flags_stretch_ratio = 0.52
 	create_tables.add_child(skills_panel)
 	var skills_inner = VBoxContainer.new()
-	skills_inner.add_theme_constant_override("separation", 8)
+	skills_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	skills_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	skills_panel.add_child(skills_inner)
-	var skills_title = _label("Skills")
-	skills_title.add_theme_font_size_override("font_size", 18)
+	var skills_title = _label("Skills", 20, "text_secondary")
 	skills_inner.add_child(skills_title)
 	create_skills_grid = GridContainer.new()
 	create_skills_grid.columns = 6
 	create_skills_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_skills_grid.add_theme_constant_override("h_separation", 6)
-	create_skills_grid.add_theme_constant_override("v_separation", 6)
+	create_skills_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("xs"))
+	create_skills_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("xs"))
 	skills_inner.add_child(create_skills_grid)
 
 	var footer_row = HBoxContainer.new()
-	footer_row.add_theme_constant_override("separation", 10)
+	footer_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	create_right.add_child(footer_row)
-	create_points_left_label = _label("10/10 points left")
+	create_points_left_label = _label("10/10 points left", 16, "text_secondary")
 	footer_row.add_child(create_points_left_label)
 	footer_row.add_spacer(false)
 	create_submit_button = UI_COMPONENTS.button_primary("Create Character")
@@ -703,10 +737,9 @@ func _build_account_screen() -> VBoxContainer:
 	create_submit_button.pressed.connect(_on_create_character_pressed)
 	footer_row.add_child(create_submit_button)
 
-	create_status_label = Label.new()
+	create_status_label = _label(" ", -1, "text_secondary")
 	create_status_label.text = " "
-	create_status_label.add_theme_color_override("font_color", Color(0.94, 0.83, 0.68))
-	create_status_label.visible = false
+	create_status_label.visible = true
 	create_root.add_child(create_status_label)
 	_populate_character_creation_tables(content_domains.get("character_options", {}))
 	_refresh_create_character_preview()
@@ -715,32 +748,34 @@ func _build_account_screen() -> VBoxContainer:
 
 func _build_world_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 8)
+	wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 
-	world_status_label = Label.new()
+	world_status_label = _label("WASD to move.", -1, "text_secondary")
 	world_status_label.text = "WASD to move."
-	world_status_label.add_theme_color_override("font_color", Color(0.94, 0.83, 0.68))
 	wrap.add_child(world_status_label)
 
+	var world_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	world_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_child(world_shell)
 	world_canvas = Control.new()
 	world_canvas.set_script(WORLD_CANVAS_SCENE)
 	world_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	world_canvas.custom_minimum_size = Vector2(800, 460)
 	world_canvas.connect("player_position_changed", _on_world_position_changed)
-	wrap.add_child(world_canvas)
+	world_shell.add_child(world_canvas)
 	return wrap
 
 func _build_log_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 8)
+	wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 
 	var row = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	wrap.add_child(row)
 
 	log_file_option = _option(["launcher.log", "game.log", "velopack.log", "godot.log"])
 	row.add_child(log_file_option)
-	var refresh = _button("Reload")
+	var refresh = UI_COMPONENTS.button_primary("Reload")
 	refresh.pressed.connect(_reload_log_view)
 	row.add_child(refresh)
 	log_back_button = _button("Back")
@@ -749,15 +784,17 @@ func _build_log_screen() -> VBoxContainer:
 	)
 	row.add_child(log_back_button)
 
-	log_status_label = Label.new()
+	log_status_label = _label(" ", -1, "text_secondary")
 	log_status_label.text = " "
-	log_status_label.add_theme_color_override("font_color", Color(0.94, 0.83, 0.68))
 	wrap.add_child(log_status_label)
 
+	var log_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	log_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_child(log_panel)
 	log_text_view = TextEdit.new()
 	log_text_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	log_text_view.editable = false
-	wrap.add_child(log_text_view)
+	log_panel.add_child(log_text_view)
 
 	return wrap
 
@@ -773,16 +810,14 @@ func _register_screen(name: String, screen: Control) -> void:
 func _build_settings_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
 		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_wide_h")),
-		UI_TOKENS.spacing("md")
+		UI_TOKENS.spacing("lg")
 	)
 	var wrap = shell["wrap"] as VBoxContainer
 	var content = shell["content"] as VBoxContainer
 
-	var title = Label.new()
-	title.text = "Settings"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", UI_TOKENS.color("text_primary"))
+	var title = _label("Settings", 30)
 	content.add_child(title)
+	content.add_child(_label("Video, audio, and account security preferences.", -1, "text_secondary"))
 
 	var tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -791,29 +826,33 @@ func _build_settings_screen() -> VBoxContainer:
 
 	var video_tab = VBoxContainer.new()
 	video_tab.name = "Video"
-	video_tab.add_theme_constant_override("separation", 8)
+	video_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	tabs.add_child(video_tab)
 	var video_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	video_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	video_tab.add_child(video_card)
 	var video_inner = VBoxContainer.new()
-	video_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	video_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	video_card.add_child(video_inner)
-	video_inner.add_child(_label("Screen Mode"))
+	video_inner.add_child(_label("Screen Mode", 20, "text_secondary"))
 	settings_screen_mode = _option(["Borderless Fullscreen", "Windowed"])
 	settings_screen_mode.item_selected.connect(func(_index: int) -> void:
 		_mark_settings_dirty()
 	)
 	video_inner.add_child(settings_screen_mode)
+	video_inner.add_spacer(true)
 
 	var audio_tab = VBoxContainer.new()
 	audio_tab.name = "Audio"
-	audio_tab.add_theme_constant_override("separation", 8)
+	audio_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	tabs.add_child(audio_tab)
 	var audio_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	audio_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	audio_tab.add_child(audio_card)
 	var audio_inner = VBoxContainer.new()
-	audio_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	audio_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	audio_card.add_child(audio_inner)
+	audio_inner.add_child(_label("Audio Output", 20, "text_secondary"))
 	settings_audio_mute = _button("Muted: OFF")
 	settings_audio_mute.toggle_mode = true
 	settings_audio_mute.toggled.connect(func(_checked: bool) -> void:
@@ -828,20 +867,22 @@ func _build_settings_screen() -> VBoxContainer:
 	settings_audio_volume.value_changed.connect(func(_value: float) -> void:
 		_mark_settings_dirty()
 	)
-	audio_inner.add_child(_label("Master Volume"))
+	audio_inner.add_child(_label("Master Volume", -1, "text_secondary"))
 	audio_inner.add_child(settings_audio_volume)
+	audio_inner.add_spacer(true)
 
 	var security_tab = VBoxContainer.new()
 	security_tab.name = "Security"
-	security_tab.add_theme_constant_override("separation", 8)
+	security_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	tabs.add_child(security_tab)
 	var security_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	security_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	security_tab.add_child(security_card)
 	var security_inner = VBoxContainer.new()
-	security_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	security_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	security_card.add_child(security_inner)
-	security_inner.add_child(_label("Multi-factor Authentication"))
-	settings_mfa_status_label = _label("MFA: Loading...")
+	security_inner.add_child(_label("Multi-factor Authentication", 20, "text_secondary"))
+	settings_mfa_status_label = _label("MFA: Loading...", -1, "text_secondary")
 	security_inner.add_child(settings_mfa_status_label)
 
 	var mfa_toggle_row = HBoxContainer.new()
@@ -866,7 +907,7 @@ func _build_settings_screen() -> VBoxContainer:
 	settings_mfa_generate_button = _button("Generate/Rotate Secret")
 	settings_mfa_generate_button.pressed.connect(_generate_settings_mfa_secret)
 	mfa_button_row.add_child(settings_mfa_generate_button)
-	var mfa_show_qr = _button("Show QR")
+	var mfa_show_qr = UI_COMPONENTS.button_primary("Show QR")
 	mfa_show_qr.pressed.connect(_show_settings_mfa_qr)
 	mfa_button_row.add_child(mfa_show_qr)
 	settings_mfa_secret_output = TextEdit.new()
@@ -876,7 +917,7 @@ func _build_settings_screen() -> VBoxContainer:
 	security_inner.add_child(settings_mfa_secret_output)
 
 	var action_row = HBoxContainer.new()
-	action_row.add_theme_constant_override("separation", 8)
+	action_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	content.add_child(action_row)
 	settings_save_button = UI_COMPONENTS.button_primary("Save")
 	settings_save_button.pressed.connect(_on_settings_save_pressed)
@@ -890,21 +931,30 @@ func _build_settings_screen() -> VBoxContainer:
 	)
 	action_row.add_child(back_button)
 
-	settings_status_label = _label(" ")
+	settings_status_label = _label(" ", -1, "text_secondary")
 	settings_status_label.visible = true
 	content.add_child(settings_status_label)
 	return wrap
 
 func _build_level_editor_screen() -> VBoxContainer:
-	var wrap = VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 8)
-	var title = _label("Level Editor (Admin)")
-	title.add_theme_font_size_override("font_size", 24)
-	wrap.add_child(title)
+	var shell: Dictionary = UI_COMPONENTS.centered_shell(
+		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_wide_h")),
+		UI_TOKENS.spacing("lg")
+	)
+	var wrap = shell["wrap"] as VBoxContainer
+	var content = shell["content"] as VBoxContainer
+	content.add_child(_label("Level Editor (Admin)", 30))
+	content.add_child(_label("Author levels, stage local drafts, then publish as a batch.", -1, "text_secondary"))
+
+	var top_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	content.add_child(top_shell)
+	var top_wrap = VBoxContainer.new()
+	top_wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	top_shell.add_child(top_wrap)
 
 	var top_row_1 = HBoxContainer.new()
-	top_row_1.add_theme_constant_override("separation", 8)
-	wrap.add_child(top_row_1)
+	top_row_1.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	top_wrap.add_child(top_row_1)
 	top_row_1.add_child(_label("Load Existing"))
 	level_editor_level_option = _option(["No levels"])
 	level_editor_level_option.custom_minimum_size = Vector2(220, 34)
@@ -946,8 +996,8 @@ func _build_level_editor_screen() -> VBoxContainer:
 	top_row_1.add_child(back)
 
 	var top_row_2 = HBoxContainer.new()
-	top_row_2.add_theme_constant_override("separation", 8)
-	wrap.add_child(top_row_2)
+	top_row_2.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	top_wrap.add_child(top_row_2)
 	top_row_2.add_child(_label("Width"))
 	level_editor_width_input = _line_edit("80")
 	level_editor_width_input.custom_minimum_size = Vector2(82, 34)
@@ -965,11 +1015,14 @@ func _build_level_editor_screen() -> VBoxContainer:
 	level_editor_spawn_y_input.custom_minimum_size = Vector2(82, 34)
 	top_row_2.add_child(level_editor_spawn_y_input)
 
+	var split_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	split_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(split_shell)
 	var split = HSplitContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wrap.add_child(split)
+	split_shell.add_child(split)
 	var left = VBoxContainer.new()
-	left.add_theme_constant_override("separation", 8)
+	left.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	split.add_child(left)
 	left.add_child(_label("Layers JSON"))
 	level_editor_layers_input = TextEdit.new()
@@ -984,32 +1037,38 @@ func _build_level_editor_screen() -> VBoxContainer:
 	left.add_child(level_editor_transitions_input)
 
 	var right = VBoxContainer.new()
-	right.add_theme_constant_override("separation", 8)
+	right.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	split.add_child(right)
 	right.add_child(_label("Local Draft Queue"))
 	level_editor_pending_list = ItemList.new()
 	level_editor_pending_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_child(level_editor_pending_list)
 
-	level_editor_status = _label(" ")
-	wrap.add_child(level_editor_status)
+	level_editor_status = _label(" ", -1, "text_secondary")
+	content.add_child(level_editor_status)
 	return wrap
 
 func _build_level_order_screen() -> VBoxContainer:
-	var wrap = VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 8)
-	var title = _label("Level Order (Admin)")
-	title.add_theme_font_size_override("font_size", 24)
-	wrap.add_child(title)
+	var shell: Dictionary = UI_COMPONENTS.centered_shell(
+		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_wide_h")),
+		UI_TOKENS.spacing("lg")
+	)
+	var wrap = shell["wrap"] as VBoxContainer
+	var content = shell["content"] as VBoxContainer
+	content.add_child(_label("Level Order (Admin)", 30))
+	content.add_child(_label("Reorder tower floors and publish progression order.", -1, "text_secondary"))
 
+	var list_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	list_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(list_shell)
 	level_order_list = ItemList.new()
 	level_order_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	level_order_list.custom_minimum_size = Vector2(520, 520)
-	wrap.add_child(level_order_list)
+	list_shell.add_child(level_order_list)
 
 	var actions = HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 8)
-	wrap.add_child(actions)
+	actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	content.add_child(actions)
 	var move_up = _button("Move Up")
 	move_up.pressed.connect(func() -> void:
 		_move_level_order(-1)
@@ -1032,20 +1091,23 @@ func _build_level_order_screen() -> VBoxContainer:
 	)
 	actions.add_child(back)
 
-	level_order_status = _label(" ")
-	wrap.add_child(level_order_status)
+	level_order_status = _label(" ", -1, "text_secondary")
+	content.add_child(level_order_status)
 	return wrap
 
 func _build_asset_editor_screen() -> VBoxContainer:
-	var wrap = VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 8)
-	var title = _label("Asset Editor (Admin)")
-	title.add_theme_font_size_override("font_size", 24)
-	wrap.add_child(title)
+	var shell: Dictionary = UI_COMPONENTS.centered_shell(
+		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_wide_h")),
+		UI_TOKENS.spacing("lg")
+	)
+	var wrap = shell["wrap"] as VBoxContainer
+	var content = shell["content"] as VBoxContainer
+	content.add_child(_label("Asset Editor (Admin)", 30))
+	content.add_child(_label("Edit active content domains, queue local drafts, then publish.", -1, "text_secondary"))
 
 	var top = HBoxContainer.new()
-	top.add_theme_constant_override("separation", 8)
-	wrap.add_child(top)
+	top.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	content.add_child(top)
 	asset_editor_version_option = _option(["No versions"])
 	asset_editor_version_option.custom_minimum_size = Vector2(260, 34)
 	asset_editor_version_option.item_selected.connect(func(_index: int) -> void:
@@ -1067,15 +1129,18 @@ func _build_asset_editor_screen() -> VBoxContainer:
 	)
 	top.add_child(back)
 
+	var split_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	split_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(split_shell)
 	var split = HSplitContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wrap.add_child(split)
+	split_shell.add_child(split)
 	asset_editor_payload_input = TextEdit.new()
 	asset_editor_payload_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	asset_editor_payload_input.custom_minimum_size = Vector2(860, 520)
 	split.add_child(asset_editor_payload_input)
 	var pending_wrap = VBoxContainer.new()
-	pending_wrap.add_theme_constant_override("separation", 8)
+	pending_wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	pending_wrap.custom_minimum_size = Vector2(280, 520)
 	split.add_child(pending_wrap)
 	pending_wrap.add_child(_label("Pending Local Changes"))
@@ -1084,28 +1149,34 @@ func _build_asset_editor_screen() -> VBoxContainer:
 	pending_wrap.add_child(asset_editor_pending_list)
 
 	var actions = HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 8)
-	wrap.add_child(actions)
+	actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	content.add_child(actions)
 	var save_local = _button("Save Local")
 	save_local.pressed.connect(_save_asset_editor_local_draft)
 	actions.add_child(save_local)
 	var publish = _button("Publish Changes")
 	publish.pressed.connect(_publish_asset_editor_drafts)
 	actions.add_child(publish)
-	asset_editor_status = _label(" ")
-	wrap.add_child(asset_editor_status)
+	asset_editor_status = _label(" ", -1, "text_secondary")
+	content.add_child(asset_editor_status)
 	return wrap
 
 func _build_content_versions_screen() -> VBoxContainer:
-	var wrap = VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 8)
-	var title = _label("Content Versions (Admin)")
-	title.add_theme_font_size_override("font_size", 24)
-	wrap.add_child(title)
+	var shell: Dictionary = UI_COMPONENTS.centered_shell(
+		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_wide_h")),
+		UI_TOKENS.spacing("lg")
+	)
+	var wrap = shell["wrap"] as VBoxContainer
+	var content = shell["content"] as VBoxContainer
+	content.add_child(_label("Content Versions (Admin)", 30))
+	content.add_child(_label("Compare, validate, activate, and rollback content snapshots.", -1, "text_secondary"))
 
+	var split_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	split_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(split_shell)
 	var split = HSplitContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wrap.add_child(split)
+	split_shell.add_child(split)
 	versions_list = ItemList.new()
 	versions_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	versions_list.custom_minimum_size = Vector2(360, 420)
@@ -1117,8 +1188,8 @@ func _build_content_versions_screen() -> VBoxContainer:
 	split.add_child(versions_details)
 
 	var compare_row = HBoxContainer.new()
-	compare_row.add_theme_constant_override("separation", 8)
-	wrap.add_child(compare_row)
+	compare_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	content.add_child(compare_row)
 	versions_compare_a = _option(["A"])
 	compare_row.add_child(versions_compare_a)
 	versions_compare_b = _option(["B"])
@@ -1147,23 +1218,25 @@ func _build_content_versions_screen() -> VBoxContainer:
 	)
 	compare_row.add_child(back)
 
+	var compare_shell = UI_COMPONENTS.panel_card(Vector2(0, 200), false)
+	content.add_child(compare_shell)
 	versions_compare_output = TextEdit.new()
 	versions_compare_output.editable = false
 	versions_compare_output.custom_minimum_size = Vector2(960, 180)
-	wrap.add_child(versions_compare_output)
+	compare_shell.add_child(versions_compare_output)
 
-	versions_status = _label(" ")
-	wrap.add_child(versions_status)
+	versions_status = _label(" ", -1, "text_secondary")
+	content.add_child(versions_status)
 	return wrap
 
 func _line_edit(placeholder: String, secret = false) -> LineEdit:
 	return UI_COMPONENTS.line_edit(placeholder, secret)
 
-func _label(text_value: String) -> Label:
-	return UI_COMPONENTS.label(text_value)
+func _label(text_value: String, font_size: int = -1, color_name: String = "text_primary") -> Label:
+	return UI_COMPONENTS.label(text_value, font_size, color_name)
 
 func _button(text_value: String) -> Button:
-	return UI_COMPONENTS.button(text_value)
+	return UI_COMPONENTS.button_secondary(text_value)
 
 func _option(items: Array) -> OptionButton:
 	return UI_COMPONENTS.option(items)
@@ -1184,6 +1257,7 @@ func _clear_children(node: Node) -> void:
 	if node == null:
 		return
 	for child in node.get_children():
+		node.remove_child(child)
 		child.queue_free()
 
 func _refresh_create_character_preview() -> void:
@@ -1272,7 +1346,7 @@ func _render_character_rows() -> void:
 	_clear_children(character_rows_container)
 	character_rows_container.custom_minimum_size = Vector2.ZERO
 	if characters.is_empty():
-		var empty_card = UI_COMPONENTS.panel_card(Vector2(0, 110), false)
+		var empty_card = UI_COMPONENTS.panel_card(Vector2(0, 140), false)
 		empty_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var empty_pad = MarginContainer.new()
 		empty_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("md"))
@@ -1280,36 +1354,35 @@ func _render_character_rows() -> void:
 		empty_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("md"))
 		empty_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("md"))
 		empty_card.add_child(empty_pad)
-		var empty_label = _label("No characters yet. Open Create Character to make your first hero.")
+		var empty_label = _label("No characters yet. Open Create Character to make your first hero.", -1, "text_secondary")
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		empty_pad.add_child(empty_label)
 		character_rows_container.add_child(empty_card)
 		return
-	character_rows_container.custom_minimum_size = Vector2(0, float(characters.size() * 106))
+	character_rows_container.custom_minimum_size = Vector2(0, float(characters.size() * 126))
 	for index in range(characters.size()):
 		var row: Dictionary = characters[index]
 		var row_index = index
 		var row_character_id = int(row.get("id", -1))
-		var card = UI_COMPONENTS.panel_card(Vector2(0, 98), index == selected_character_index)
+		var card = UI_COMPONENTS.panel_card(Vector2(0, 116), index == selected_character_index)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var card_pad = MarginContainer.new()
 		card_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("sm"))
-		card_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("sm"))
+		card_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("xs"))
 		card_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("sm"))
-		card_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("sm"))
+		card_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("xs"))
 		card.add_child(card_pad)
 		var card_inner = VBoxContainer.new()
 		card_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 		card_pad.add_child(card_inner)
 
-		var summary_button = UI_COMPONENTS.button_primary(
-			"%s  |  Lv.%s  |  XP %s (next %s)  |  %s"
+		var summary_button = UI_COMPONENTS.button_secondary(
+			"%s  |  Lv.%s  |  XP %s (next %s)"
 			% [
 				str(row.get("name", "Unnamed")),
 				str(row.get("level", 1)),
 				str(row.get("experience", 0)),
 				str(row.get("experience_to_next_level", 100)),
-				_character_location_text(row),
 			],
 			Vector2(0, UI_TOKENS.size("button_h_lg"))
 		)
@@ -1320,6 +1393,8 @@ func _render_character_rows() -> void:
 			_set_selected_character(row_index)
 		)
 		card_inner.add_child(summary_button)
+		var location_label = _label("Location: " + _character_location_text(row), -1, "text_muted")
+		card_inner.add_child(location_label)
 
 		var actions = HBoxContainer.new()
 		actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
@@ -1623,7 +1698,16 @@ func _show_screen(name: String) -> void:
 	for key in screen_nodes.keys():
 		var node = screen_nodes.get(key)
 		if node is Control:
-			node.visible = str(key) == name
+			var is_target = str(key) == name
+			if is_target:
+				node.visible = true
+				node.modulate = Color(1.0, 1.0, 1.0, 0.0)
+				var fade_in = create_tween()
+				fade_in.set_trans(Tween.TRANS_SINE)
+				fade_in.set_ease(Tween.EASE_OUT)
+				fade_in.tween_property(node, "modulate:a", 1.0, 0.16)
+			else:
+				node.visible = false
 	if world_canvas != null and world_canvas.has_method("set_active"):
 		world_canvas.call("set_active", name == "world")
 	menu_button.visible = name != "auth"
@@ -1805,7 +1889,7 @@ func _load_characters() -> void:
 		_render_character_details(selected_index)
 	_refresh_create_character_preview()
 	_render_character_rows()
-	account_status_label.text = "%d character(s) loaded." % characters.size()
+	account_status_label.text = " "
 
 func _refresh_admin_levels_cache() -> void:
 	admin_levels_cache.clear()
@@ -1821,7 +1905,7 @@ func _on_character_refresh_pressed() -> void:
 	if access_token == "":
 		return
 	await _load_characters()
-	account_status_label.text = "Character list refreshed."
+	account_status_label.text = " "
 
 func _on_character_selected(index: int) -> void:
 	_set_selected_character(index)
@@ -1890,7 +1974,7 @@ func _on_create_character_pressed() -> void:
 		if button is Button:
 			button.button_pressed = false
 	_populate_character_creation_tables(content_domains.get("character_options", {}))
-	create_status_label.text = "Character created."
+	create_status_label.text = " "
 	await _load_characters()
 	character_tabs.current_tab = 0
 
@@ -1910,7 +1994,7 @@ func _on_character_delete_pressed() -> void:
 		account_status_label.text = _friendly_error(response)
 		return
 	await _load_characters()
-	account_status_label.text = "Character deleted."
+	account_status_label.text = " "
 
 func _on_character_play_pressed() -> void:
 	if selected_character_index < 0 or selected_character_index >= characters.size():
@@ -2139,7 +2223,7 @@ func _show_confirm_dialog(title: String, text_value: String) -> bool:
 	dialog.theme = ui_theme
 	add_child(dialog)
 
-	var panel = PanelContainer.new()
+	var panel = UI_COMPONENTS.panel_card(Vector2(560, 220), false)
 	panel.custom_minimum_size = Vector2(560, 220)
 	dialog.add_child(panel)
 
@@ -2147,18 +2231,17 @@ func _show_confirm_dialog(title: String, text_value: String) -> bool:
 	root.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	panel.add_child(root)
 
-	var title_label = _label(title)
-	title_label.add_theme_font_size_override("font_size", 22)
+	var title_label = _label(title, 24)
 	root.add_child(title_label)
 
-	var body_label = _label(text_value)
+	var body_label = _label(text_value, -1, "text_secondary")
 	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(body_label)
 
 	var actions = HBoxContainer.new()
 	actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	root.add_child(actions)
-	var confirm_button = _button("Yes")
+	var confirm_button = UI_COMPONENTS.button_primary("Yes")
 	var cancel_button = _button("No")
 	actions.add_child(confirm_button)
 	actions.add_child(cancel_button)
@@ -2199,11 +2282,13 @@ func _refresh_settings_mfa_status() -> void:
 	var enabled = bool(body.get("enabled", false))
 	var configured = bool(body.get("configured", false))
 	settings_mfa_enabled_state = enabled
-	settings_mfa_status_label.text = "MFA: " + ("Enabled" if enabled else ("Configured (off)" if configured else "Not configured"))
+	settings_mfa_status_label.text = "MFA: " + ("ON" if enabled else ("Configured (OFF)" if configured else "Not Configured"))
 	suppress_settings_events = true
 	settings_mfa_toggle.button_pressed = enabled
 	settings_mfa_toggle.text = "MFA: ON" if enabled else "MFA: OFF"
 	suppress_settings_events = false
+	if not configured:
+		settings_mfa_secret_output.text = "Generate secret to show setup details."
 
 func _generate_settings_mfa_secret() -> void:
 	if access_token.is_empty():
@@ -2232,18 +2317,17 @@ func _show_settings_mfa_qr() -> void:
 	var popup = PopupPanel.new()
 	popup.theme = ui_theme
 	add_child(popup)
-	var panel = PanelContainer.new()
+	var panel = UI_COMPONENTS.panel_card(Vector2(700, 560), false)
 	panel.custom_minimum_size = Vector2(700, 560)
 	popup.add_child(panel)
 	var root = VBoxContainer.new()
-	root.add_theme_constant_override("separation", 10)
+	root.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	panel.add_child(root)
 
-	var title = _label("Scan this QR code with your authenticator app")
-	title.add_theme_font_size_override("font_size", 18)
+	var title = _label("Scan this QR code with your authenticator app", 20)
 	root.add_child(title)
 
-	var qr_box = PanelContainer.new()
+	var qr_box = UI_COMPONENTS.panel_card(Vector2(300, 300), false)
 	qr_box.custom_minimum_size = Vector2(300, 300)
 	root.add_child(qr_box)
 	var qr_texture = TextureRect.new()
