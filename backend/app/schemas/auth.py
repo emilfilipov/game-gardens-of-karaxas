@@ -57,7 +57,7 @@ class MfaStatusResponse(BaseModel):
 
 
 class MfaToggleRequest(BaseModel):
-    otp_code: str = Field(min_length=6, max_length=16)
+    otp_code: str | None = Field(default=None, min_length=6, max_length=16)
 
 
 # Backward-compatible aliases while clients migrate to non-admin naming.

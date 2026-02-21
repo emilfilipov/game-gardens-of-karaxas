@@ -60,15 +60,14 @@ create/select characters, and enter gameplay sessions.
    - Runtime renders only the active floor scene; adjacent floors are preload-only until transition handoff.
 7. Authenticated players can open a full Settings screen from the top-right menu.
    - Settings screen uses sidebar tabs: `Video`, `Audio`, `Security`.
-   - `Save` prompts with a themed confirmation modal when changes exist and keeps edits if user chooses `No`.
-   - `Cancel` prompts with a themed confirmation modal when unsaved changes exist before leaving settings.
+   - Settings are applied immediately on change (no save/cancel workflow).
    - `Video` includes screen mode (`Borderless Fullscreen` / `Windowed`).
    - `Audio` includes mute toggle and master volume slider.
    - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
    - Settings tabs now render inside themed section cards for consistent visual structure (Video, Audio, Security).
-- MFA toggle is applied with a single on/off control plus adjacent authenticator code field.
-- Toggling MFA now immediately attempts enable/disable using the entered authenticator code and auto-reverts the toggle state if verification fails.
-- MFA setup displays a fully themed QR enrollment popup and also exposes secret + provisioning URI copy actions for fallback enrollment.
+- MFA toggle is now a single ON/OFF control with no OTP entry requirement in settings.
+- When MFA is ON, QR enrollment is rendered inline inside the Security panel (not a popup).
+- Security panel exposes `Refresh QR` and `Copy URI` actions for re-enrollment/recovery.
    - Login requires MFA code only when the account's MFA toggle is enabled; rotating or retaining a secret while MFA is OFF must not block password-only login.
 
 ## Required Frontend Screens (Godot)
@@ -78,7 +77,7 @@ create/select characters, and enter gameplay sessions.
 - Character creation screen.
 - Character selection screen.
 - In-game world screen.
-- Authenticated settings screen (sidebar tabs + central settings panel + explicit save/cancel confirmation flow).
+- Authenticated settings screen (sidebar tabs + central settings panel + immediate apply behavior).
 - Admin-only level builder screen (load named layered levels, stage local drafts, and publish queued level changes with spawn + tile/object layout).
 - Admin-only level-order screen (reorder floor list and publish order updates).
 - Admin-only asset editor screen (searchable editable-content cards + large item editor panel + right-side staged-change queue with `Save Local` and `Publish Changes`).

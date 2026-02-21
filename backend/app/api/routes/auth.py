@@ -629,8 +629,6 @@ def mfa_setup(context: AuthContext = Depends(get_auth_context), db: Session = De
     user = _load_context_user(context, db)
     secret = create_totp_secret()
     user.mfa_totp_secret = secret
-    user.mfa_enabled = False
-    user.mfa_enabled_at = None
     db.add(user)
     write_security_event(
         db,
@@ -643,7 +641,34 @@ def mfa_setup(context: AuthContext = Depends(get_auth_context), db: Session = De
     db.commit()
     provisioning_uri = build_totp_provisioning_uri(secret=secret, account_name=user.email)
     return MfaSetupResponse(
-        enabled=False,
+        enabled=user.mfa_enabled,
+        secret=secret,
+        provisioning_uri=provisioning_uri,
+        qr_svg=build_totp_qr_svg(provisioning_uri),
+    )
+
+
+@router.get("/mfa/qr", response_model=MfaSetupResponse)
+@router.get("/admin/mfa/qr", response_model=MfaSetupResponse, include_in_schema=False)
+def mfa_qr(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+    user = _load_context_user(context, db)
+    secret = (user.mfa_totp_secret or "").strip()
+    if not secret:
+        secret = create_totp_secret()
+        user.mfa_totp_secret = secret
+        db.add(user)
+        write_security_event(
+            db,
+            event_type="mfa_secret_generated",
+            severity="warning",
+            actor_user_id=user.id,
+            session_id=context.session.id,
+            detail={"email": user.email},
+        )
+        db.commit()
+    provisioning_uri = build_totp_provisioning_uri(secret=secret, account_name=user.email)
+    return MfaSetupResponse(
+        enabled=user.mfa_enabled,
         secret=secret,
         provisioning_uri=provisioning_uri,
         qr_svg=build_totp_qr_svg(provisioning_uri),
@@ -653,31 +678,15 @@ def mfa_setup(context: AuthContext = Depends(get_auth_context), db: Session = De
 @router.post("/mfa/enable", response_model=MfaStatusResponse)
 @router.post("/admin/mfa/enable", response_model=MfaStatusResponse, include_in_schema=False)
 def mfa_enable(
-    payload: MfaToggleRequest,
+    _payload: MfaToggleRequest | None = None,
     context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
     user = _load_context_user(context, db)
     secret = (user.mfa_totp_secret or "").strip()
     if not secret:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"message": "MFA secret is not configured", "code": "mfa_secret_missing"},
-        )
-    if not verify_totp_code(secret, payload.otp_code):
-        write_security_event(
-            db,
-            event_type="mfa_enable_failed",
-            severity="warning",
-            actor_user_id=user.id,
-            session_id=context.session.id,
-            detail="invalid setup verification code",
-            commit=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"message": "Invalid MFA code", "code": "invalid_mfa_code"},
-        )
+        secret = create_totp_secret()
+        user.mfa_totp_secret = secret
     user.mfa_enabled = True
     user.mfa_enabled_at = datetime.now(UTC)
     db.add(user)
@@ -696,26 +705,12 @@ def mfa_enable(
 @router.post("/mfa/disable", response_model=MfaStatusResponse)
 @router.post("/admin/mfa/disable", response_model=MfaStatusResponse, include_in_schema=False)
 def mfa_disable(
-    payload: MfaToggleRequest,
+    _payload: MfaToggleRequest | None = None,
     context: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
     user = _load_context_user(context, db)
     secret = (user.mfa_totp_secret or "").strip()
-    if not secret or not verify_totp_code(secret, payload.otp_code):
-        write_security_event(
-            db,
-            event_type="mfa_disable_failed",
-            severity="warning",
-            actor_user_id=user.id,
-            session_id=context.session.id,
-            detail="invalid disable verification code",
-            commit=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"message": "Invalid MFA code", "code": "invalid_mfa_code"},
-        )
     user.mfa_enabled = False
     db.add(user)
     write_security_event(
@@ -727,4 +722,4 @@ def mfa_disable(
         detail={"email": user.email},
     )
     db.commit()
-    return MfaStatusResponse(enabled=False, configured=True)
+    return MfaStatusResponse(enabled=False, configured=bool(secret))

@@ -119,12 +119,11 @@ var settings_screen_mode: OptionButton
 var settings_audio_mute: Button
 var settings_audio_volume: HSlider
 var settings_mfa_status_label: Label
-var settings_mfa_otp_input: LineEdit
 var settings_mfa_toggle: Button
+var settings_mfa_qr_texture: TextureRect
+var settings_mfa_qr_placeholder: Label
 var settings_mfa_secret_output: TextEdit
-var settings_mfa_generate_button: Button
-var settings_save_button: Button
-var settings_cancel_button: Button
+var settings_mfa_refresh_button: Button
 var settings_mfa_enabled_state = false
 var settings_mfa_last_secret = ""
 var settings_mfa_last_uri = ""
@@ -837,7 +836,7 @@ func _build_settings_screen() -> VBoxContainer:
 	video_inner.add_child(_label("Screen Mode", 20, "text_secondary"))
 	settings_screen_mode = _option(["Borderless Fullscreen", "Windowed"])
 	settings_screen_mode.item_selected.connect(func(_index: int) -> void:
-		_mark_settings_dirty()
+		_apply_settings_preferences()
 	)
 	video_inner.add_child(settings_screen_mode)
 	video_inner.add_spacer(true)
@@ -857,7 +856,7 @@ func _build_settings_screen() -> VBoxContainer:
 	settings_audio_mute.toggle_mode = true
 	settings_audio_mute.toggled.connect(func(_checked: bool) -> void:
 		settings_audio_mute.text = "Muted: ON" if settings_audio_mute.button_pressed else "Muted: OFF"
-		_mark_settings_dirty()
+		_apply_settings_preferences()
 	)
 	audio_inner.add_child(settings_audio_mute)
 	settings_audio_volume = HSlider.new()
@@ -865,7 +864,7 @@ func _build_settings_screen() -> VBoxContainer:
 	settings_audio_volume.max_value = 100
 	settings_audio_volume.step = 1
 	settings_audio_volume.value_changed.connect(func(_value: float) -> void:
-		_mark_settings_dirty()
+		_apply_settings_preferences()
 	)
 	audio_inner.add_child(_label("Master Volume", -1, "text_secondary"))
 	audio_inner.add_child(settings_audio_volume)
@@ -897,34 +896,52 @@ func _build_settings_screen() -> VBoxContainer:
 		call_deferred("_on_settings_mfa_toggle_requested", pressed)
 	)
 	mfa_toggle_row.add_child(settings_mfa_toggle)
-	settings_mfa_otp_input = _line_edit("Authenticator code")
-	settings_mfa_otp_input.custom_minimum_size = Vector2(280, 36)
-	mfa_toggle_row.add_child(settings_mfa_otp_input)
+	var toggle_help = _label("Toggle ON to enforce authenticator codes on login.", -1, "text_muted")
+	toggle_help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toggle_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mfa_toggle_row.add_child(toggle_help)
 
 	var mfa_button_row = HBoxContainer.new()
 	mfa_button_row.add_theme_constant_override("separation", 8)
 	security_inner.add_child(mfa_button_row)
-	settings_mfa_generate_button = _button("Generate/Rotate Secret")
-	settings_mfa_generate_button.pressed.connect(_generate_settings_mfa_secret)
-	mfa_button_row.add_child(settings_mfa_generate_button)
-	var mfa_show_qr = UI_COMPONENTS.button_primary("Show QR")
-	mfa_show_qr.pressed.connect(_show_settings_mfa_qr)
-	mfa_button_row.add_child(mfa_show_qr)
+	settings_mfa_refresh_button = UI_COMPONENTS.button_primary("Refresh QR")
+	settings_mfa_refresh_button.disabled = true
+	settings_mfa_refresh_button.pressed.connect(func() -> void:
+		await _generate_settings_mfa_secret()
+	)
+	mfa_button_row.add_child(settings_mfa_refresh_button)
+	var copy_uri = _button("Copy URI")
+	copy_uri.pressed.connect(func() -> void:
+		if settings_mfa_last_uri.strip_edges().is_empty():
+			settings_status_label.text = "No provisioning URI available yet."
+			return
+		DisplayServer.clipboard_set(settings_mfa_last_uri)
+		settings_status_label.text = "Provisioning URI copied."
+	)
+	mfa_button_row.add_child(copy_uri)
+
+	var qr_panel = UI_COMPONENTS.panel_card(Vector2(260, 260), false)
+	security_inner.add_child(qr_panel)
+	settings_mfa_qr_texture = TextureRect.new()
+	settings_mfa_qr_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	settings_mfa_qr_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	settings_mfa_qr_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	qr_panel.add_child(settings_mfa_qr_texture)
+	settings_mfa_qr_placeholder = _label("Enable MFA to generate QR.", -1, "text_muted")
+	settings_mfa_qr_placeholder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	settings_mfa_qr_placeholder.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	settings_mfa_qr_placeholder.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	qr_panel.add_child(settings_mfa_qr_placeholder)
+
 	settings_mfa_secret_output = TextEdit.new()
 	settings_mfa_secret_output.editable = false
-	settings_mfa_secret_output.custom_minimum_size = Vector2(640, 92)
-	settings_mfa_secret_output.text = "Generate secret to show setup details."
+	settings_mfa_secret_output.custom_minimum_size = Vector2(640, 120)
+	settings_mfa_secret_output.text = "MFA is OFF. Toggle ON to generate setup details."
 	security_inner.add_child(settings_mfa_secret_output)
 
 	var action_row = HBoxContainer.new()
 	action_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	content.add_child(action_row)
-	settings_save_button = UI_COMPONENTS.button_primary("Save")
-	settings_save_button.pressed.connect(_on_settings_save_pressed)
-	action_row.add_child(settings_save_button)
-	settings_cancel_button = _button("Cancel")
-	settings_cancel_button.pressed.connect(_on_settings_cancel_pressed)
-	action_row.add_child(settings_cancel_button)
 	var back_button = _button("Back to Account")
 	back_button.pressed.connect(func() -> void:
 		_show_screen("account")
@@ -2183,19 +2200,18 @@ func _load_settings_preferences() -> void:
 	settings_dirty = false
 	suppress_settings_events = false
 	settings_status_label.text = " "
+	_apply_window_preferences()
 
-func _mark_settings_dirty() -> void:
+func _apply_window_preferences() -> void:
+	if settings_screen_mode.selected == 1:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+
+func _apply_settings_preferences() -> void:
 	if suppress_settings_events:
-		return
-	settings_dirty = true
-
-func _on_settings_save_pressed() -> void:
-	if not settings_dirty:
-		settings_status_label.text = "No changes to save."
-		return
-	var confirmed = await _show_confirm_dialog("Save Settings", "Save your settings changes?")
-	if not confirmed:
-		settings_status_label.text = "Save canceled."
 		return
 	var prefs = _read_preferences()
 	prefs["screen_mode"] = "windowed" if settings_screen_mode.selected == 1 else "borderless_fullscreen"
@@ -2203,20 +2219,8 @@ func _on_settings_save_pressed() -> void:
 	prefs["audio_volume"] = str(int(round(settings_audio_volume.value)))
 	_write_preferences(prefs)
 	settings_dirty = false
-	_apply_default_window_mode()
-	if settings_screen_mode.selected == 1:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
-	settings_status_label.text = "Settings saved."
-
-func _on_settings_cancel_pressed() -> void:
-	if settings_dirty:
-		var confirmed = await _show_confirm_dialog("Discard Changes", "You have unsaved changes. Exit settings?")
-		if not confirmed:
-			settings_status_label.text = "Cancel aborted."
-			return
-	_load_settings_preferences()
-	_show_screen("account")
+	_apply_window_preferences()
+	settings_status_label.text = "Settings auto-applied."
 
 func _show_confirm_dialog(title: String, text_value: String) -> bool:
 	var dialog = PopupPanel.new()
@@ -2287,14 +2291,49 @@ func _refresh_settings_mfa_status() -> void:
 	settings_mfa_toggle.button_pressed = enabled
 	settings_mfa_toggle.text = "MFA: ON" if enabled else "MFA: OFF"
 	suppress_settings_events = false
-	if not configured:
-		settings_mfa_secret_output.text = "Generate secret to show setup details."
+	if settings_mfa_refresh_button != null:
+		settings_mfa_refresh_button.disabled = not enabled
+	if enabled:
+		await _fetch_settings_mfa_qr(false)
+		return
+	settings_mfa_secret_output.text = "MFA is OFF. Toggle ON to generate setup details."
+	_clear_settings_mfa_qr_preview("MFA is OFF. Toggle ON to generate QR.")
 
-func _generate_settings_mfa_secret() -> void:
+func _clear_settings_mfa_qr_preview(message: String) -> void:
+	if settings_mfa_qr_texture != null:
+		settings_mfa_qr_texture.texture = null
+	if settings_mfa_qr_placeholder != null:
+		settings_mfa_qr_placeholder.text = message
+		settings_mfa_qr_placeholder.visible = true
+
+func _apply_settings_mfa_qr(secret: String, uri: String, qr_svg: String) -> void:
+	settings_mfa_last_secret = secret
+	settings_mfa_last_uri = uri
+	settings_mfa_last_qr_svg = qr_svg
+	settings_mfa_secret_output.text = "Secret:\n%s\n\nProvisioning URI:\n%s" % [secret, uri]
+	if settings_mfa_qr_texture == null:
+		return
+	var image = Image.new()
+	var svg_error = ERR_INVALID_DATA
+	if not qr_svg.strip_edges().is_empty():
+		svg_error = image.load_svg_from_string(qr_svg)
+	if svg_error == OK:
+		settings_mfa_qr_texture.texture = ImageTexture.create_from_image(image)
+		if settings_mfa_qr_placeholder != null:
+			settings_mfa_qr_placeholder.visible = false
+	else:
+		_clear_settings_mfa_qr_preview("QR unavailable. Press Refresh QR.")
+
+func _fetch_settings_mfa_qr(rotate: bool) -> void:
 	if access_token.is_empty():
 		return
-	settings_status_label.text = "Generating MFA secret..."
-	var response = await _api_request(HTTPClient.METHOD_POST, "/auth/mfa/setup", {}, true)
+	if not settings_mfa_enabled_state and not rotate:
+		return
+	settings_status_label.text = "Refreshing MFA QR..." if rotate else "Loading MFA QR..."
+	var method = HTTPClient.METHOD_POST if rotate else HTTPClient.METHOD_GET
+	var endpoint = "/auth/mfa/setup" if rotate else "/auth/mfa/qr"
+	var payload = {} if rotate else null
+	var response = await _api_request(method, endpoint, payload, true)
 	if not response.get("ok", false):
 		settings_status_label.text = _friendly_error(response)
 		return
@@ -2302,85 +2341,14 @@ func _generate_settings_mfa_secret() -> void:
 	var secret = str(body.get("secret", ""))
 	var uri = str(body.get("provisioning_uri", ""))
 	var qr_svg = str(body.get("qr_svg", ""))
-	settings_mfa_last_secret = secret
-	settings_mfa_last_uri = uri
-	settings_mfa_last_qr_svg = qr_svg
-	settings_mfa_secret_output.text = "Secret:\n%s\n\nProvisioning URI:\n%s" % [secret, uri]
-	settings_status_label.text = "MFA secret generated."
-	_show_settings_mfa_qr()
-	await _refresh_settings_mfa_status()
+	_apply_settings_mfa_qr(secret, uri, qr_svg)
+	settings_status_label.text = "MFA QR refreshed." if rotate else "MFA QR ready."
 
-func _show_settings_mfa_qr() -> void:
-	if settings_mfa_last_uri.strip_edges().is_empty():
-		settings_status_label.text = "Generate MFA secret first."
+func _generate_settings_mfa_secret() -> void:
+	if not settings_mfa_enabled_state:
+		settings_status_label.text = "Enable MFA before refreshing QR."
 		return
-	var popup = PopupPanel.new()
-	popup.theme = ui_theme
-	add_child(popup)
-	var panel = UI_COMPONENTS.panel_card(Vector2(700, 560), false)
-	panel.custom_minimum_size = Vector2(700, 560)
-	popup.add_child(panel)
-	var root = VBoxContainer.new()
-	root.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	panel.add_child(root)
-
-	var title = _label("Scan this QR code with your authenticator app", 20)
-	root.add_child(title)
-
-	var qr_box = UI_COMPONENTS.panel_card(Vector2(300, 300), false)
-	qr_box.custom_minimum_size = Vector2(300, 300)
-	root.add_child(qr_box)
-	var qr_texture = TextureRect.new()
-	qr_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	qr_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	qr_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	qr_box.add_child(qr_texture)
-
-	var image = Image.new()
-	var svg_error = ERR_INVALID_DATA
-	if not settings_mfa_last_qr_svg.strip_edges().is_empty():
-		svg_error = image.load_svg_from_string(settings_mfa_last_qr_svg)
-	if svg_error == OK:
-		var texture = ImageTexture.create_from_image(image)
-		qr_texture.texture = texture
-	else:
-		var fallback = _label("QR unavailable")
-		fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		fallback.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		fallback.set_anchors_preset(Control.PRESET_FULL_RECT)
-		qr_box.add_child(fallback)
-
-	var secret_label = _label("Secret: " + settings_mfa_last_secret)
-	secret_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root.add_child(secret_label)
-	var uri_view = TextEdit.new()
-	uri_view.editable = false
-	uri_view.custom_minimum_size = Vector2(640, 90)
-	uri_view.text = settings_mfa_last_uri
-	root.add_child(uri_view)
-
-	var actions = HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 8)
-	root.add_child(actions)
-	var copy_secret = _button("Copy Secret")
-	copy_secret.pressed.connect(func() -> void:
-		DisplayServer.clipboard_set(settings_mfa_last_secret)
-		settings_status_label.text = "Secret copied."
-	)
-	actions.add_child(copy_secret)
-	var copy_uri = _button("Copy URI")
-	copy_uri.pressed.connect(func() -> void:
-		DisplayServer.clipboard_set(settings_mfa_last_uri)
-		settings_status_label.text = "URI copied."
-	)
-	actions.add_child(copy_uri)
-	var close_btn = _button("Close")
-	close_btn.pressed.connect(func() -> void:
-		popup.hide()
-		popup.queue_free()
-	)
-	actions.add_child(close_btn)
-	popup.popup_centered(Vector2i(760, 620))
+	await _fetch_settings_mfa_qr(true)
 
 func _on_settings_mfa_toggle_requested(requested_enabled: bool) -> void:
 	if access_token.is_empty():
@@ -2388,20 +2356,12 @@ func _on_settings_mfa_toggle_requested(requested_enabled: bool) -> void:
 	if requested_enabled == settings_mfa_enabled_state:
 		settings_mfa_toggle.text = "MFA: ON" if requested_enabled else "MFA: OFF"
 		return
-	var otp = settings_mfa_otp_input.text.strip_edges()
-	if otp.length() < 6:
-		settings_status_label.text = "Enter a valid MFA code."
-		suppress_settings_events = true
-		settings_mfa_toggle.button_pressed = settings_mfa_enabled_state
-		settings_mfa_toggle.text = "MFA: ON" if settings_mfa_enabled_state else "MFA: OFF"
-		suppress_settings_events = false
-		return
 	var endpoint = "/auth/mfa/enable" if requested_enabled else "/auth/mfa/disable"
 	settings_status_label.text = "Updating MFA..."
 	var response = await _api_request(
 		HTTPClient.METHOD_POST,
 		endpoint,
-		{"otp_code": otp},
+		{},
 		true
 	)
 	if not response.get("ok", false):
@@ -2411,13 +2371,8 @@ func _on_settings_mfa_toggle_requested(requested_enabled: bool) -> void:
 		settings_mfa_toggle.text = "MFA: ON" if settings_mfa_enabled_state else "MFA: OFF"
 		suppress_settings_events = false
 		return
-	settings_mfa_enabled_state = requested_enabled
-	settings_mfa_otp_input.clear()
 	settings_status_label.text = "MFA " + ("enabled." if requested_enabled else "disabled.")
 	await _refresh_settings_mfa_status()
-
-func _apply_settings_mfa_toggle() -> void:
-	await _on_settings_mfa_toggle_requested(settings_mfa_toggle.button_pressed)
 
 func _refresh_level_editor_levels() -> void:
 	if access_token.is_empty() or not session_is_admin:

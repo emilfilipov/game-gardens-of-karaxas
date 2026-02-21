@@ -263,13 +263,12 @@ This is the single source of truth for technical architecture, stack decisions, 
   - `auto_login_refresh_token` for startup refresh-auth.
 - Login mode pre-fills `last_email`, while register mode is always reset to empty inputs so hint text remains visible.
 - Settings menu item in the cog dropdown is only available when authenticated.
-- Authenticated settings now open as a full in-launcher screen (not a popup) with a sidebar tab layout (`Video`, `Audio`, `Security`), a large section panel, and explicit `Save`/`Cancel` confirmation flows.
-- Video settings support `Borderless Fullscreen` and `Windowed` modes and apply immediately after save.
+- Authenticated settings now open as a full in-launcher screen (not a popup) with a sidebar tab layout (`Video`, `Audio`, `Security`) and a large section panel.
+- Video settings support `Borderless Fullscreen` and `Windowed` modes and apply immediately on change.
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
-- Security settings expose MFA status plus a single toggle-based enable/disable flow with OTP confirmation.
-- MFA setup now renders a themed QR enrollment popup in Godot from backend-provided SVG data and keeps secret/URI copy fallbacks.
-- MFA settings toggle now executes enable/disable directly (OTP-verified), automatically reverts visual toggle state on API failure, and refreshes status from `/auth/mfa/status` after each successful toggle.
-- Settings save/discard confirmations now use themed in-launcher modal dialogs (no system-default placeholder confirm popups).
+- Security settings expose MFA status plus a single toggle-based enable/disable flow that does not require OTP entry in settings.
+- MFA setup/enrollment QR now renders inline in the Security panel (backend-provided SVG), with `Refresh QR` and `Copy URI` helpers.
+- MFA settings toggle executes enable/disable directly, automatically reverts visual toggle state on API failure, and refreshes status from `/auth/mfa/status` after each successful toggle.
 - Login MFA challenge now triggers only when `mfa_enabled=true`; accounts with a configured secret but MFA toggled OFF must be able to authenticate without OTP.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.
 - Stored auto-login refresh tokens are only used after an authenticated session updates settings, and are not consumed during app startup.
