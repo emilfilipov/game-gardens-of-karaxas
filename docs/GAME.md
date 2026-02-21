@@ -21,6 +21,7 @@ create/select characters, and enter gameplay sessions.
 
 ## Account and Menu Loop
 1. Open the game client and authenticate (register or login).
+   - Auth screen is rendered as a compact centered card (not a full-screen input surface).
    - Login form remembers and pre-fills the last successfully authenticated email.
    - Register form always opens clean with hint text visible.
    - Register mode actions are `Register` and `Back` (returns to login mode).
@@ -35,6 +36,8 @@ create/select characters, and enter gameplay sessions.
 4. On character selection, each row includes direct `Play` and `Delete` actions.
    - Character preview/details update only when the character card row itself is clicked.
    - Action buttons do not change the current preview selection.
+   - Character list auto-refreshes after create/delete events.
+   - Character list includes a manual `Refresh` action for explicit reloads.
    - Admin accounts also get a per-character level override dropdown in each row; choosing a level there forces spawn at that level's spawn point for that play launch.
    - Character rows show current location (area + coordinates when known).
 5. Character creation persists selected identity and allocated points:
@@ -77,6 +80,7 @@ create/select characters, and enter gameplay sessions.
 - Admin-only asset editor screen (searchable editable-content cards + large item editor panel + right-side staged-change queue with `Save Local` and `Publish Changes`).
 - Admin-only content versions screen (version history cards, active-version highlight, publish/revert controls, and side-by-side compare).
 - Shared menu/form controls use a consistent thin-border panel/button style over the same background key art, all rendered in the Godot UI layer.
+- Footer text is reserved for build/version display only; transient welcome/status text is suppressed.
 
 ## Character Direction
 - No predefined classes.

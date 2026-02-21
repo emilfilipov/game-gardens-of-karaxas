@@ -80,6 +80,7 @@ var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
 var character_preview_texture: TextureRect
 var character_list_title_label: Label
+var character_refresh_button: Button
 
 var create_name_input: LineEdit
 var create_sex_option: OptionButton
@@ -175,6 +176,9 @@ var versions_compare_b: OptionButton
 var versions_compare_output: TextEdit
 var versions_compare_left: TextEdit
 var versions_compare_right: TextEdit
+var skill_tooltip_popup: PopupPanel
+var skill_tooltip_label: RichTextLabel
+var footer_version_text = ""
 
 func _ready() -> void:
 	_resolve_paths()
@@ -231,17 +235,13 @@ func _build_theme() -> void:
 	var input_box = panel_box.duplicate()
 	input_box.bg_color = Color(0.13, 0.10, 0.08, 0.98)
 	var input_focus = input_box.duplicate()
-	input_focus.border_color = Color(0.88, 0.72, 0.47, 1.0)
-	input_focus.border_width_left = 2
-	input_focus.border_width_top = 2
-	input_focus.border_width_right = 2
-	input_focus.border_width_bottom = 2
+	input_focus.border_color = Color(0.73, 0.57, 0.38, 1.0)
 
 	ui_theme.set_stylebox("panel", "PanelContainer", panel_box)
 	ui_theme.set_stylebox("normal", "Button", button_normal)
 	ui_theme.set_stylebox("hover", "Button", button_hover)
 	ui_theme.set_stylebox("pressed", "Button", button_pressed)
-	ui_theme.set_stylebox("focus", "Button", button_hover)
+	ui_theme.set_stylebox("focus", "Button", button_normal)
 	ui_theme.set_color("font_color", "Button", Color(0.95, 0.89, 0.77))
 	ui_theme.set_color("font_focus_color", "Button", Color(0.98, 0.92, 0.80))
 	ui_theme.set_color("font_hover_color", "Button", Color(0.98, 0.92, 0.80))
@@ -274,7 +274,7 @@ func _build_theme() -> void:
 	ui_theme.set_stylebox("normal", "OptionButton", button_normal)
 	ui_theme.set_stylebox("hover", "OptionButton", button_hover)
 	ui_theme.set_stylebox("pressed", "OptionButton", button_pressed)
-	ui_theme.set_stylebox("focus", "OptionButton", button_hover)
+	ui_theme.set_stylebox("focus", "OptionButton", button_normal)
 	ui_theme.set_color("font_color", "OptionButton", Color(0.95, 0.89, 0.77))
 	ui_theme.set_color("font_hover_color", "OptionButton", Color(0.98, 0.92, 0.80))
 	ui_theme.set_color("font_pressed_color", "OptionButton", Color(0.98, 0.92, 0.80))
@@ -349,6 +349,7 @@ func _build_ui() -> void:
 	menu_button = Button.new()
 	menu_button.text = "..."
 	menu_button.custom_minimum_size = Vector2(44, 44)
+	menu_button.focus_mode = Control.FOCUS_NONE
 	menu_button.pressed.connect(_on_menu_button_pressed)
 	header.add_child(menu_button)
 
@@ -389,31 +390,56 @@ func _build_ui() -> void:
 	_register_screen("content_versions", versions_container)
 
 	footer_status = Label.new()
-	footer_status.text = " "
-	footer_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	footer_status.add_theme_font_size_override("font_size", 14)
+	footer_status.text = footer_version_text
+	footer_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	footer_status.add_theme_font_size_override("font_size", 12)
 	footer_status.add_theme_color_override("font_color", Color(0.94, 0.84, 0.69))
 	layout.add_child(footer_status)
+
+	skill_tooltip_popup = PopupPanel.new()
+	skill_tooltip_popup.theme = ui_theme
+	skill_tooltip_popup.visible = false
+	skill_tooltip_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(skill_tooltip_popup)
+	skill_tooltip_label = RichTextLabel.new()
+	skill_tooltip_label.fit_content = true
+	skill_tooltip_label.custom_minimum_size = Vector2(280, 120)
+	skill_tooltip_label.scroll_active = false
+	skill_tooltip_label.bbcode_enabled = false
+	skill_tooltip_label.add_theme_color_override("default_color", Color(0.95, 0.89, 0.77))
+	skill_tooltip_popup.add_child(skill_tooltip_label)
 
 	_show_screen("auth")
 
 func _build_auth_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 10)
+	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	var center = CenterContainer.new()
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_child(center)
+
+	var card = PanelContainer.new()
+	card.custom_minimum_size = Vector2(980, 560)
+	center.add_child(card)
+
+	var card_pad = MarginContainer.new()
+	card_pad.add_theme_constant_override("margin_left", 12)
+	card_pad.add_theme_constant_override("margin_top", 12)
+	card_pad.add_theme_constant_override("margin_right", 12)
+	card_pad.add_theme_constant_override("margin_bottom", 12)
+	card.add_child(card_pad)
 
 	var body = HBoxContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 12)
-	wrap.add_child(body)
+	card_pad.add_child(body)
 
 	var auth_panel = PanelContainer.new()
-	auth_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	auth_panel.size_flags_stretch_ratio = 0.5
+	auth_panel.custom_minimum_size = Vector2(410, 520)
 	body.add_child(auth_panel)
 
 	var auth_inner = VBoxContainer.new()
 	auth_inner.add_theme_constant_override("separation", 8)
-	auth_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	auth_panel.add_child(auth_inner)
 
 	var auth_title = Label.new()
@@ -463,8 +489,8 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_inner.add_child(auth_status_label)
 
 	var update_panel = PanelContainer.new()
+	update_panel.custom_minimum_size = Vector2(530, 520)
 	update_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	update_panel.size_flags_stretch_ratio = 0.5
 	body.add_child(update_panel)
 	var update_inner = VBoxContainer.new()
 	update_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -480,7 +506,7 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_release_notes.scroll_active = true
 	auth_release_notes.bbcode_enabled = false
 	auth_release_notes.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	auth_release_notes.custom_minimum_size = Vector2(420, 360)
+	auth_release_notes.custom_minimum_size = Vector2(500, 390)
 	auth_release_notes.add_theme_color_override("default_color", Color(0.94, 0.85, 0.71))
 	update_inner.add_child(auth_release_notes)
 	auth_update_button = _button("Update & Restart")
@@ -492,16 +518,37 @@ func _build_auth_screen() -> VBoxContainer:
 
 func _build_account_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 8)
+	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	var center = CenterContainer.new()
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_child(center)
+
+	var shell = PanelContainer.new()
+	shell.custom_minimum_size = Vector2(1360, 760)
+	center.add_child(shell)
+
+	var shell_pad = MarginContainer.new()
+	shell_pad.add_theme_constant_override("margin_left", 10)
+	shell_pad.add_theme_constant_override("margin_top", 10)
+	shell_pad.add_theme_constant_override("margin_right", 10)
+	shell_pad.add_theme_constant_override("margin_bottom", 10)
+	shell.add_child(shell_pad)
+
+	var content_root = VBoxContainer.new()
+	content_root.add_theme_constant_override("separation", 8)
+	shell_pad.add_child(content_root)
 
 	account_status_label = Label.new()
 	account_status_label.text = " "
 	account_status_label.add_theme_color_override("font_color", Color(0.94, 0.83, 0.68))
-	wrap.add_child(account_status_label)
+	account_status_label.visible = false
+	content_root.add_child(account_status_label)
 
 	character_tabs = TabContainer.new()
 	character_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wrap.add_child(character_tabs)
+	character_tabs.focus_mode = Control.FOCUS_NONE
+	content_root.add_child(character_tabs)
 
 	var list_tab = VBoxContainer.new()
 	list_tab.name = "Character List"
@@ -520,9 +567,17 @@ func _build_account_screen() -> VBoxContainer:
 	list_left_inner.add_theme_constant_override("separation", 8)
 	list_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_left.add_child(list_left_inner)
+	var list_header = HBoxContainer.new()
+	list_header.add_theme_constant_override("separation", 8)
+	list_left_inner.add_child(list_header)
 	character_list_title_label = _label("Character List")
 	character_list_title_label.add_theme_font_size_override("font_size", 22)
-	list_left_inner.add_child(character_list_title_label)
+	character_list_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_header.add_child(character_list_title_label)
+	character_refresh_button = _button("Refresh")
+	character_refresh_button.custom_minimum_size = Vector2(120, 34)
+	character_refresh_button.pressed.connect(_on_character_refresh_pressed)
+	list_header.add_child(character_refresh_button)
 	character_rows_scroll = ScrollContainer.new()
 	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -530,7 +585,7 @@ func _build_account_screen() -> VBoxContainer:
 	character_rows_container = VBoxContainer.new()
 	character_rows_container.add_theme_constant_override("separation", 6)
 	character_rows_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	character_rows_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	character_rows_container.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	character_rows_scroll.add_child(character_rows_container)
 
 	var list_right = PanelContainer.new()
@@ -575,7 +630,7 @@ func _build_account_screen() -> VBoxContainer:
 	create_root.add_child(create_body)
 
 	var create_preview_panel = PanelContainer.new()
-	create_preview_panel.custom_minimum_size = Vector2(230, 420)
+	create_preview_panel.custom_minimum_size = Vector2(160, 420)
 	create_body.add_child(create_preview_panel)
 	create_preview_texture = TextureRect.new()
 	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -592,30 +647,32 @@ func _build_account_screen() -> VBoxContainer:
 	identity_row.add_theme_constant_override("separation", 8)
 	create_right.add_child(identity_row)
 	create_name_input = _line_edit("Character Name")
-	create_name_input.custom_minimum_size = Vector2(190, 36)
+	create_name_input.custom_minimum_size = Vector2(110, 32)
 	identity_row.add_child(_labeled_control("Name", create_name_input))
 	create_sex_option = _option(["Male", "Female"])
-	create_sex_option.custom_minimum_size = Vector2(190, 36)
+	create_sex_option.custom_minimum_size = Vector2(110, 32)
 	create_sex_option.item_selected.connect(func(_index: int) -> void:
 		_refresh_create_character_preview()
 	)
 	identity_row.add_child(_labeled_control("Sex", create_sex_option))
 	create_race_option = _option(["Human"])
-	create_race_option.custom_minimum_size = Vector2(190, 36)
+	create_race_option.custom_minimum_size = Vector2(110, 32)
 	identity_row.add_child(_labeled_control("Race", create_race_option))
 	create_background_option = _option(["Drifter"])
-	create_background_option.custom_minimum_size = Vector2(190, 36)
+	create_background_option.custom_minimum_size = Vector2(110, 32)
 	identity_row.add_child(_labeled_control("Background", create_background_option))
 	create_affiliation_option = _option(["Unaffiliated"])
-	create_affiliation_option.custom_minimum_size = Vector2(190, 36)
+	create_affiliation_option.custom_minimum_size = Vector2(110, 32)
 	identity_row.add_child(_labeled_control("Affiliation", create_affiliation_option))
 
-	var create_tables = HSplitContainer.new()
+	var create_tables = HBoxContainer.new()
+	create_tables.add_theme_constant_override("separation", 8)
 	create_tables.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_right.add_child(create_tables)
 
 	var stats_panel = PanelContainer.new()
-	stats_panel.custom_minimum_size = Vector2(570, 320)
+	stats_panel.custom_minimum_size = Vector2(420, 320)
+	stats_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	create_tables.add_child(stats_panel)
 	var stats_inner = VBoxContainer.new()
 	stats_inner.add_theme_constant_override("separation", 8)
@@ -631,7 +688,8 @@ func _build_account_screen() -> VBoxContainer:
 	stats_inner.add_child(create_stats_grid)
 
 	var skills_panel = PanelContainer.new()
-	skills_panel.custom_minimum_size = Vector2(570, 320)
+	skills_panel.custom_minimum_size = Vector2(420, 320)
+	skills_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	create_tables.add_child(skills_panel)
 	var skills_inner = VBoxContainer.new()
 	skills_inner.add_theme_constant_override("separation", 8)
@@ -660,6 +718,7 @@ func _build_account_screen() -> VBoxContainer:
 	create_status_label = Label.new()
 	create_status_label.text = " "
 	create_status_label.add_theme_color_override("font_color", Color(0.94, 0.83, 0.68))
+	create_status_label.visible = false
 	create_root.add_child(create_status_label)
 	_populate_character_creation_tables(content_domains.get("character_options", {}))
 	_refresh_create_character_preview()
@@ -725,16 +784,38 @@ func _register_screen(name: String, screen: Control) -> void:
 
 func _build_settings_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 8)
+	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	var center = CenterContainer.new()
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_child(center)
+
+	var shell = PanelContainer.new()
+	shell.custom_minimum_size = Vector2(1360, 760)
+	center.add_child(shell)
+
+	var shell_pad = MarginContainer.new()
+	shell_pad.add_theme_constant_override("margin_left", 10)
+	shell_pad.add_theme_constant_override("margin_top", 10)
+	shell_pad.add_theme_constant_override("margin_right", 10)
+	shell_pad.add_theme_constant_override("margin_bottom", 10)
+	shell.add_child(shell_pad)
+
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 8)
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	shell_pad.add_child(content)
+
 	var title = Label.new()
 	title.text = "Settings"
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", Color(0.95, 0.89, 0.77))
-	wrap.add_child(title)
+	content.add_child(title)
 
 	var tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wrap.add_child(tabs)
+	tabs.focus_mode = Control.FOCUS_NONE
+	content.add_child(tabs)
 
 	var video_tab = VBoxContainer.new()
 	video_tab.name = "Video"
@@ -808,7 +889,7 @@ func _build_settings_screen() -> VBoxContainer:
 
 	var action_row = HBoxContainer.new()
 	action_row.add_theme_constant_override("separation", 8)
-	wrap.add_child(action_row)
+	content.add_child(action_row)
 	settings_save_button = _button("Save")
 	settings_save_button.pressed.connect(_on_settings_save_pressed)
 	action_row.add_child(settings_save_button)
@@ -822,7 +903,8 @@ func _build_settings_screen() -> VBoxContainer:
 	action_row.add_child(back_button)
 
 	settings_status_label = _label(" ")
-	wrap.add_child(settings_status_label)
+	settings_status_label.visible = false
+	content.add_child(settings_status_label)
 	return wrap
 
 func _build_level_editor_screen() -> VBoxContainer:
@@ -1091,6 +1173,7 @@ func _line_edit(placeholder: String, secret = false) -> LineEdit:
 	input.placeholder_text = placeholder
 	input.secret = secret
 	input.custom_minimum_size = Vector2(200, 34)
+	input.focus_mode = Control.FOCUS_CLICK
 	return input
 
 func _label(text_value: String) -> Label:
@@ -1103,14 +1186,27 @@ func _button(text_value: String) -> Button:
 	var b = Button.new()
 	b.text = text_value
 	b.custom_minimum_size = Vector2(140, 36)
+	b.focus_mode = Control.FOCUS_NONE
 	return b
 
 func _option(items: Array) -> OptionButton:
 	var option = OptionButton.new()
 	option.custom_minimum_size = Vector2(220, 34)
+	option.focus_mode = Control.FOCUS_NONE
 	for item in items:
 		option.add_item(str(item))
+	_sanitize_option_popup(option)
 	return option
+
+func _sanitize_option_popup(option: OptionButton) -> void:
+	if option == null:
+		return
+	var popup = option.get_popup()
+	if popup == null:
+		return
+	for idx in range(popup.get_item_count()):
+		popup.set_item_as_radio_checkable(idx, false)
+		popup.set_item_as_checkable(idx, false)
 
 func _labeled_control(label_text: String, control: Control) -> Control:
 	var wrap = VBoxContainer.new()
@@ -1223,6 +1319,18 @@ func _render_character_rows() -> void:
 		var card = PanelContainer.new()
 		card.custom_minimum_size = Vector2(0, 84)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var card_style = StyleBoxFlat.new()
+		card_style.bg_color = Color(0.16, 0.12, 0.09, 0.98)
+		card_style.border_width_left = 1
+		card_style.border_width_top = 1
+		card_style.border_width_right = 1
+		card_style.border_width_bottom = 1
+		card_style.border_color = Color(0.66, 0.51, 0.33, 1.0)
+		card_style.corner_radius_top_left = 2
+		card_style.corner_radius_top_right = 2
+		card_style.corner_radius_bottom_left = 2
+		card_style.corner_radius_bottom_right = 2
+		card.add_theme_stylebox_override("panel", card_style)
 		if index == selected_character_index:
 			card.self_modulate = Color(1.08, 1.08, 1.08, 1.0)
 		var card_inner = HBoxContainer.new()
@@ -1250,6 +1358,7 @@ func _render_character_rows() -> void:
 		if session_is_admin:
 			var level_option = OptionButton.new()
 			level_option.custom_minimum_size = Vector2(200, 36)
+			level_option.focus_mode = Control.FOCUS_NONE
 			level_option.add_item("Current location", -1)
 			for level in admin_levels_cache:
 				var level_label = str(level.get("descriptive_name", level.get("name", "Level")))
@@ -1267,6 +1376,7 @@ func _render_character_rows() -> void:
 				else:
 					character_row_level_overrides[row_character_id] = selected_level_id
 			)
+			_sanitize_option_popup(level_option)
 			card_inner.add_child(level_option)
 
 		var play_button = _button("Play")
@@ -1338,6 +1448,23 @@ func _skill_tooltip(entry: Dictionary) -> String:
 		]
 	)
 
+func _show_skill_tooltip(text_value: String, source: Control) -> void:
+	if skill_tooltip_popup == null or skill_tooltip_label == null:
+		return
+	skill_tooltip_label.text = text_value
+	var popup_size: Vector2 = Vector2(340.0, 170.0)
+	var screen_size: Vector2 = get_viewport_rect().size
+	var source_pos: Vector2 = source.global_position + Vector2(source.size.x + 12.0, 0.0)
+	var final_x = int(minf(source_pos.x, screen_size.x - popup_size.x - 14.0))
+	var final_y = int(minf(source_pos.y, screen_size.y - popup_size.y - 14.0))
+	skill_tooltip_popup.position = Vector2i(max(8, final_x), max(8, final_y))
+	skill_tooltip_popup.size = popup_size
+	skill_tooltip_popup.popup()
+
+func _hide_skill_tooltip() -> void:
+	if skill_tooltip_popup != null:
+		skill_tooltip_popup.hide()
+
 func _populate_character_creation_tables(options: Dictionary) -> void:
 	if create_stats_grid == null or create_skills_grid == null:
 		return
@@ -1375,24 +1502,24 @@ func _populate_character_creation_tables(options: Dictionary) -> void:
 		create_stat_values[stat_key] = 0
 
 		var stat_label = _label(str(entry.get("label", key.capitalize())))
-		stat_label.custom_minimum_size = Vector2(130, 40)
+		stat_label.custom_minimum_size = Vector2(108, 40)
 		create_stats_grid.add_child(stat_label)
 
 		var minus = _button("-")
-		minus.custom_minimum_size = Vector2(38, 38)
+		minus.custom_minimum_size = Vector2(32, 32)
 		create_stats_grid.add_child(minus)
 
 		var value_label = _label("0")
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		value_label.custom_minimum_size = Vector2(44, 38)
+		value_label.custom_minimum_size = Vector2(32, 32)
 		create_stats_grid.add_child(value_label)
 
 		var plus = _button("+")
-		plus.custom_minimum_size = Vector2(38, 38)
+		plus.custom_minimum_size = Vector2(32, 32)
 		create_stats_grid.add_child(plus)
 
 		var description = _label(str(entry.get("description", "Placeholder description.")))
-		description.custom_minimum_size = Vector2(220, 40)
+		description.custom_minimum_size = Vector2(132, 40)
 		description.clip_text = true
 		description.tooltip_text = str(entry.get("tooltip", entry.get("description", "Placeholder tooltip.")))
 		create_stats_grid.add_child(description)
@@ -1425,10 +1552,15 @@ func _populate_character_creation_tables(options: Dictionary) -> void:
 		var skill_button = _button(str(entry.get("label", skill_key)))
 		skill_button.toggle_mode = true
 		skill_button.custom_minimum_size = Vector2(74, 74)
-		skill_button.tooltip_text = _skill_tooltip(entry)
+		var tooltip_text = _skill_tooltip(entry)
+		skill_button.tooltip_text = ""
 		skill_button.toggled.connect(func(pressed: bool) -> void:
 			_toggle_create_skill(skill_key, pressed)
 		)
+		skill_button.mouse_entered.connect(func() -> void:
+			_show_skill_tooltip(tooltip_text, skill_button)
+		)
+		skill_button.mouse_exited.connect(_hide_skill_tooltip)
 		create_skill_buttons[skill_key] = skill_button
 		create_skills_grid.add_child(skill_button)
 
@@ -1510,6 +1642,7 @@ func _on_menu_item_pressed(item_id: int) -> void:
 			get_tree().quit()
 
 func _show_screen(name: String) -> void:
+	_hide_skill_tooltip()
 	current_screen_name = name
 	var in_world = name == "world"
 	if background_art != null:
@@ -1524,6 +1657,8 @@ func _show_screen(name: String) -> void:
 		world_canvas.call("set_active", name == "world")
 	menu_button.visible = name != "auth"
 	footer_status.visible = not in_world
+	if name == "account" and access_token != "":
+		call_deferred("_refresh_account_screen_deferred")
 	if name == "auth":
 		header_title.text = "Gardens of Karaxas"
 	elif name == "world":
@@ -1567,8 +1702,13 @@ func _apply_auth_mode() -> void:
 func _set_auth_status(message: String) -> void:
 	auth_status_label.text = message
 
-func _set_footer_status(message: String) -> void:
-	footer_status.text = message
+func _set_footer_status(_message: String) -> void:
+	footer_status.text = footer_version_text
+
+func _refresh_account_screen_deferred() -> void:
+	if access_token == "":
+		return
+	await _load_characters()
 
 func _on_auth_toggle_mode() -> void:
 	register_mode = not register_mode
@@ -1705,6 +1845,11 @@ func _refresh_admin_levels_cache() -> void:
 		return
 	var payload = response.get("json", [])
 	admin_levels_cache = payload if payload is Array else []
+
+func _on_character_refresh_pressed() -> void:
+	if access_token == "":
+		return
+	await _load_characters()
 
 func _on_character_selected(index: int) -> void:
 	_set_selected_character(index)
@@ -2670,6 +2815,7 @@ func _fill_option(option: OptionButton, values: Array) -> void:
 	option.clear()
 	for value in values:
 		option.add_item(str(value))
+	_sanitize_option_popup(option)
 	option.selected = 0 if option.get_item_count() > 0 else -1
 
 func _api_request(method: int, path: String, payload: Variant, requires_auth: bool) -> Dictionary:
@@ -2813,9 +2959,11 @@ func _resolve_update_helper_path() -> String:
 func _load_client_version() -> void:
 	var meta_path = _path_join(install_root_path, "patch_notes_meta.txt")
 	if not FileAccess.file_exists(meta_path):
+		footer_version_text = "v" + client_version
 		return
 	var file = FileAccess.open(meta_path, FileAccess.READ)
 	if file == null:
+		footer_version_text = "v" + client_version
 		return
 	while not file.eof_reached():
 		var line = file.get_line().strip_edges()
@@ -2823,6 +2971,7 @@ func _load_client_version() -> void:
 			client_version = line.trim_prefix("version=").strip_edges()
 			break
 	file.close()
+	footer_version_text = "v" + client_version
 
 func _path_join(a: String, b: String) -> String:
 	if a.is_empty():

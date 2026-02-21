@@ -208,6 +208,10 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Screens are card-based (combined auth, character creation, character selection, update, play) instead of one-off ad hoc layouts.
 - Post-login routing now always lands on `Character List`; empty accounts remain on that tab and show empty-state guidance instead of auto-switching to `Create Character`.
 - Character creation tables are content-driven (`character_options`, `stats`, `skills`) and submit allocated stat/skill payloads directly to `/characters`.
+- Character List now exposes both auto-refresh (after create/delete) and an explicit manual `Refresh` action.
+- Auth/account/settings surfaces are now rendered inside centered constrained cards to improve hierarchy and reduce full-screen form sprawl.
+- Footer text is version-only; transient welcome/status chatter is no longer rendered in footer/account surfaces.
+- Dropdown popups are sanitized to non-checkable list behavior (no radio/check glyphs), and skill buttons use a themed custom tooltip popup instead of default tooltip behavior.
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Startup window-mode application now guards undecorated-frame transitions to avoid `IllegalComponentStateException` on already-displayable windows.
 - Launcher keeps the same full-screen background art image, but interactive UI chrome now uses lightweight shape-based rendering (thin borders + painted fills/gradients) instead of PNG-framed button/panel surfaces.
