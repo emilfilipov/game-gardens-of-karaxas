@@ -37,6 +37,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Shared UI foundation for Godot shell is now split into:
   - `game-client/scripts/ui_tokens.gd` (authoritative palette/spacing/size/radius tokens),
   - `game-client/scripts/ui_components.gd` (shared constructors for labels/buttons/inputs/options and centered shell scaffolds).
+- `ui_components` now also provides reusable primary-action buttons and consistent card-panel styles used by account/settings/auth surfaces.
 - Godot helper scripts now resolve cross-script dependencies via explicit `preload(...)` constants (instead of relying on global class-name lookup) to avoid parser-order startup failures in packaged builds.
 - Godot shell defaults to borderless fullscreen startup.
 - Screen switching in the Godot shell now uses a generic `Control` stack container for Godot 4.3 compatibility (no `StackContainer` dependency).
@@ -219,7 +220,12 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Post-login routing now always lands on `Character List`; empty accounts remain on that tab and show empty-state guidance instead of auto-switching to `Create Character`.
 - Character creation tables are content-driven (`character_options`, `stats`, `skills`) and submit allocated stat/skill payloads directly to `/characters`.
 - Character List now exposes both auto-refresh (after create/delete) and an explicit manual `Refresh` action.
+- Character List row rendering now uses fixed-height themed cards with:
+  - selectable row header button for preview binding,
+  - dedicated action row for per-character operations,
+  - explicit container minimum sizing to keep rows visible inside scroll surfaces.
 - Auth/account/settings surfaces are now rendered inside centered constrained cards to improve hierarchy and reduce full-screen form sprawl.
+- Settings `Video`, `Audio`, and `Security` sections are rendered in themed card blocks rather than plain unstructured tab content.
 - Footer text is version-only; transient welcome/status chatter is no longer rendered in footer/account surfaces.
 - Dropdown popups are sanitized to non-checkable list behavior (no radio/check glyphs), and skill buttons use a themed custom tooltip popup instead of default tooltip behavior.
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.

@@ -221,10 +221,10 @@ func _build_theme() -> void:
 	panel_box.border_width_right = 1
 	panel_box.border_width_bottom = 1
 	panel_box.border_color = UI_TOKENS.color("panel_border")
-	panel_box.corner_radius_top_left = UI_TOKENS.size("radius")
-	panel_box.corner_radius_top_right = UI_TOKENS.size("radius")
-	panel_box.corner_radius_bottom_left = UI_TOKENS.size("radius")
-	panel_box.corner_radius_bottom_right = UI_TOKENS.size("radius")
+	panel_box.corner_radius_top_left = UI_TOKENS.size("radius_lg")
+	panel_box.corner_radius_top_right = UI_TOKENS.size("radius_lg")
+	panel_box.corner_radius_bottom_left = UI_TOKENS.size("radius_lg")
+	panel_box.corner_radius_bottom_right = UI_TOKENS.size("radius_lg")
 
 	var panel_box_alt = panel_box.duplicate()
 	panel_box_alt.bg_color = UI_TOKENS.color("panel_bg_alt")
@@ -249,6 +249,7 @@ func _build_theme() -> void:
 	ui_theme.set_color("font_focus_color", "Button", UI_TOKENS.color("text_primary"))
 	ui_theme.set_color("font_hover_color", "Button", UI_TOKENS.color("text_primary"))
 	ui_theme.set_color("font_pressed_color", "Button", UI_TOKENS.color("text_primary"))
+	ui_theme.set_constant("outline_size", "Button", 0)
 
 	ui_theme.set_stylebox("normal", "LineEdit", input_box)
 	ui_theme.set_stylebox("focus", "LineEdit", input_box)
@@ -273,6 +274,8 @@ func _build_theme() -> void:
 	ui_theme.set_stylebox("tab_selected", "TabBar", button_pressed)
 	ui_theme.set_color("font_selected_color", "TabBar", UI_TOKENS.color("text_primary"))
 	ui_theme.set_color("font_unselected_color", "TabBar", UI_TOKENS.color("text_secondary"))
+	ui_theme.set_constant("h_separation", "TabBar", UI_TOKENS.spacing("xs"))
+	ui_theme.set_constant("v_separation", "TabBar", UI_TOKENS.spacing("xs"))
 
 	ui_theme.set_stylebox("normal", "OptionButton", button_normal)
 	ui_theme.set_stylebox("hover", "OptionButton", button_hover)
@@ -338,14 +341,14 @@ func _build_ui() -> void:
 	root.add_child(layout)
 
 	var header = HBoxContainer.new()
-	header.add_theme_constant_override("separation", 10)
+	header.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	layout.add_child(header)
 
 	header_title = Label.new()
 	header_title.text = "Gardens of Karaxas"
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_title.add_theme_font_size_override("font_size", 36)
+	header_title.add_theme_font_size_override("font_size", 34)
 	header_title.add_theme_color_override("font_color", Color(0.95, 0.90, 0.79))
 	header.add_child(header_title)
 
@@ -429,7 +432,7 @@ func _build_auth_screen() -> VBoxContainer:
 	body.add_child(auth_panel)
 
 	var auth_inner = VBoxContainer.new()
-	auth_inner.add_theme_constant_override("separation", 8)
+	auth_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	auth_panel.add_child(auth_inner)
 
 	var auth_title = Label.new()
@@ -437,6 +440,9 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_title.add_theme_font_size_override("font_size", 24)
 	auth_title.add_theme_color_override("font_color", UI_TOKENS.color("text_primary"))
 	auth_inner.add_child(auth_title)
+	var auth_subtitle = _label("Login or create an account to enter Karaxas.")
+	auth_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	auth_inner.add_child(auth_subtitle)
 
 	auth_display_name_input = _line_edit("Display Name")
 	auth_display_name_input.text_submitted.connect(func(_text: String) -> void:
@@ -462,7 +468,7 @@ func _build_auth_screen() -> VBoxContainer:
 	var auth_button_row = HBoxContainer.new()
 	auth_button_row.add_theme_constant_override("separation", 8)
 	auth_inner.add_child(auth_button_row)
-	auth_submit_button = _button("Login")
+	auth_submit_button = UI_COMPONENTS.button_primary("Login")
 	auth_submit_button.pressed.connect(_on_auth_submit)
 	auth_button_row.add_child(auth_submit_button)
 	auth_toggle_button = _button("Create Account")
@@ -484,7 +490,7 @@ func _build_auth_screen() -> VBoxContainer:
 	body.add_child(update_panel)
 	var update_inner = VBoxContainer.new()
 	update_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	update_inner.add_theme_constant_override("separation", 8)
+	update_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	update_panel.add_child(update_inner)
 	var update_title = Label.new()
 	update_title.text = "Release Notes"
@@ -499,7 +505,7 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_release_notes.custom_minimum_size = Vector2(470, 372)
 	auth_release_notes.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	update_inner.add_child(auth_release_notes)
-	auth_update_button = _button("Update & Restart")
+	auth_update_button = UI_COMPONENTS.button_primary("Update & Restart")
 	auth_update_button.pressed.connect(_on_update_and_restart_pressed)
 	update_inner.add_child(auth_update_button)
 
@@ -516,8 +522,8 @@ func _build_account_screen() -> VBoxContainer:
 
 	account_status_label = Label.new()
 	account_status_label.text = " "
-	account_status_label.add_theme_color_override("font_color", Color(0.94, 0.83, 0.68))
-	account_status_label.visible = false
+	account_status_label.add_theme_color_override("font_color", UI_TOKENS.color("text_secondary"))
+	account_status_label.visible = true
 	content_root.add_child(account_status_label)
 
 	character_tabs = TabContainer.new()
@@ -527,7 +533,7 @@ func _build_account_screen() -> VBoxContainer:
 
 	var list_tab = VBoxContainer.new()
 	list_tab.name = "Character List"
-	list_tab.add_theme_constant_override("separation", 8)
+	list_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	character_tabs.add_child(list_tab)
 
 	var list_split = HSplitContainer.new()
@@ -556,6 +562,7 @@ func _build_account_screen() -> VBoxContainer:
 	character_rows_scroll = ScrollContainer.new()
 	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	character_rows_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	list_left_inner.add_child(character_rows_scroll)
 	character_rows_container = VBoxContainer.new()
 	character_rows_container.add_theme_constant_override("separation", 8)
@@ -570,6 +577,9 @@ func _build_account_screen() -> VBoxContainer:
 	var list_right_inner = VBoxContainer.new()
 	list_right_inner.add_theme_constant_override("separation", 8)
 	list_right.add_child(list_right_inner)
+	var preview_title = _label("Character Preview")
+	preview_title.add_theme_font_size_override("font_size", 16)
+	list_right_inner.add_child(preview_title)
 	var preview_panel = PanelContainer.new()
 	preview_panel.custom_minimum_size = Vector2(320, 220)
 	list_right_inner.add_child(preview_panel)
@@ -578,6 +588,9 @@ func _build_account_screen() -> VBoxContainer:
 	character_preview_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	character_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview_panel.add_child(character_preview_texture)
+	var details_title = _label("Character Details")
+	details_title.add_theme_font_size_override("font_size", 16)
+	list_right_inner.add_child(details_title)
 	character_details_label = RichTextLabel.new()
 	character_details_label.fit_content = false
 	character_details_label.bbcode_enabled = false
@@ -685,7 +698,7 @@ func _build_account_screen() -> VBoxContainer:
 	create_points_left_label = _label("10/10 points left")
 	footer_row.add_child(create_points_left_label)
 	footer_row.add_spacer(false)
-	create_submit_button = _button("Create Character")
+	create_submit_button = UI_COMPONENTS.button_primary("Create Character")
 	create_submit_button.custom_minimum_size = Vector2(220, 42)
 	create_submit_button.pressed.connect(_on_create_character_pressed)
 	footer_row.add_child(create_submit_button)
@@ -780,24 +793,34 @@ func _build_settings_screen() -> VBoxContainer:
 	video_tab.name = "Video"
 	video_tab.add_theme_constant_override("separation", 8)
 	tabs.add_child(video_tab)
-	video_tab.add_child(_label("Screen Mode"))
+	var video_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	video_tab.add_child(video_card)
+	var video_inner = VBoxContainer.new()
+	video_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	video_card.add_child(video_inner)
+	video_inner.add_child(_label("Screen Mode"))
 	settings_screen_mode = _option(["Borderless Fullscreen", "Windowed"])
 	settings_screen_mode.item_selected.connect(func(_index: int) -> void:
 		_mark_settings_dirty()
 	)
-	video_tab.add_child(settings_screen_mode)
+	video_inner.add_child(settings_screen_mode)
 
 	var audio_tab = VBoxContainer.new()
 	audio_tab.name = "Audio"
 	audio_tab.add_theme_constant_override("separation", 8)
 	tabs.add_child(audio_tab)
+	var audio_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	audio_tab.add_child(audio_card)
+	var audio_inner = VBoxContainer.new()
+	audio_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	audio_card.add_child(audio_inner)
 	settings_audio_mute = _button("Muted: OFF")
 	settings_audio_mute.toggle_mode = true
 	settings_audio_mute.toggled.connect(func(_checked: bool) -> void:
 		settings_audio_mute.text = "Muted: ON" if settings_audio_mute.button_pressed else "Muted: OFF"
 		_mark_settings_dirty()
 	)
-	audio_tab.add_child(settings_audio_mute)
+	audio_inner.add_child(settings_audio_mute)
 	settings_audio_volume = HSlider.new()
 	settings_audio_volume.min_value = 0
 	settings_audio_volume.max_value = 100
@@ -805,18 +828,25 @@ func _build_settings_screen() -> VBoxContainer:
 	settings_audio_volume.value_changed.connect(func(_value: float) -> void:
 		_mark_settings_dirty()
 	)
-	audio_tab.add_child(settings_audio_volume)
+	audio_inner.add_child(_label("Master Volume"))
+	audio_inner.add_child(settings_audio_volume)
 
 	var security_tab = VBoxContainer.new()
 	security_tab.name = "Security"
 	security_tab.add_theme_constant_override("separation", 8)
 	tabs.add_child(security_tab)
+	var security_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	security_tab.add_child(security_card)
+	var security_inner = VBoxContainer.new()
+	security_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	security_card.add_child(security_inner)
+	security_inner.add_child(_label("Multi-factor Authentication"))
 	settings_mfa_status_label = _label("MFA: Loading...")
-	security_tab.add_child(settings_mfa_status_label)
+	security_inner.add_child(settings_mfa_status_label)
 
 	var mfa_toggle_row = HBoxContainer.new()
 	mfa_toggle_row.add_theme_constant_override("separation", 8)
-	security_tab.add_child(mfa_toggle_row)
+	security_inner.add_child(mfa_toggle_row)
 	settings_mfa_toggle = _button("MFA: OFF")
 	settings_mfa_toggle.toggle_mode = true
 	settings_mfa_toggle.custom_minimum_size = Vector2(160, 36)
@@ -832,7 +862,7 @@ func _build_settings_screen() -> VBoxContainer:
 
 	var mfa_button_row = HBoxContainer.new()
 	mfa_button_row.add_theme_constant_override("separation", 8)
-	security_tab.add_child(mfa_button_row)
+	security_inner.add_child(mfa_button_row)
 	settings_mfa_generate_button = _button("Generate/Rotate Secret")
 	settings_mfa_generate_button.pressed.connect(_generate_settings_mfa_secret)
 	mfa_button_row.add_child(settings_mfa_generate_button)
@@ -843,12 +873,12 @@ func _build_settings_screen() -> VBoxContainer:
 	settings_mfa_secret_output.editable = false
 	settings_mfa_secret_output.custom_minimum_size = Vector2(640, 92)
 	settings_mfa_secret_output.text = "Generate secret to show setup details."
-	security_tab.add_child(settings_mfa_secret_output)
+	security_inner.add_child(settings_mfa_secret_output)
 
 	var action_row = HBoxContainer.new()
 	action_row.add_theme_constant_override("separation", 8)
 	content.add_child(action_row)
-	settings_save_button = _button("Save")
+	settings_save_button = UI_COMPONENTS.button_primary("Save")
 	settings_save_button.pressed.connect(_on_settings_save_pressed)
 	action_row.add_child(settings_save_button)
 	settings_cancel_button = _button("Cancel")
@@ -1240,45 +1270,48 @@ func _render_character_rows() -> void:
 	if character_rows_container == null:
 		return
 	_clear_children(character_rows_container)
+	character_rows_container.custom_minimum_size = Vector2.ZERO
 	if characters.is_empty():
-		var empty_label = _label("No characters yet. Create your first character.")
+		var empty_card = UI_COMPONENTS.panel_card(Vector2(0, 110), false)
+		empty_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var empty_pad = MarginContainer.new()
+		empty_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("md"))
+		empty_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("md"))
+		empty_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("md"))
+		empty_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("md"))
+		empty_card.add_child(empty_pad)
+		var empty_label = _label("No characters yet. Open Create Character to make your first hero.")
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		character_rows_container.add_child(empty_label)
+		empty_pad.add_child(empty_label)
+		character_rows_container.add_child(empty_card)
 		return
+	character_rows_container.custom_minimum_size = Vector2(0, float(characters.size() * 106))
 	for index in range(characters.size()):
 		var row: Dictionary = characters[index]
 		var row_index = index
 		var row_character_id = int(row.get("id", -1))
-		var card = PanelContainer.new()
-		card.custom_minimum_size = Vector2(0, 84)
+		var card = UI_COMPONENTS.panel_card(Vector2(0, 98), index == selected_character_index)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var card_style = StyleBoxFlat.new()
-		card_style.bg_color = Color(0.16, 0.12, 0.09, 0.98)
-		card_style.border_width_left = 1
-		card_style.border_width_top = 1
-		card_style.border_width_right = 1
-		card_style.border_width_bottom = 1
-		card_style.border_color = Color(0.66, 0.51, 0.33, 1.0)
-		card_style.corner_radius_top_left = 2
-		card_style.corner_radius_top_right = 2
-		card_style.corner_radius_bottom_left = 2
-		card_style.corner_radius_bottom_right = 2
-		card.add_theme_stylebox_override("panel", card_style)
-		if index == selected_character_index:
-			card.self_modulate = Color(1.08, 1.08, 1.08, 1.0)
-		var card_inner = HBoxContainer.new()
-		card_inner.add_theme_constant_override("separation", 8)
-		card.add_child(card_inner)
+		var card_pad = MarginContainer.new()
+		card_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("sm"))
+		card_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("sm"))
+		card_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("sm"))
+		card_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("sm"))
+		card.add_child(card_pad)
+		var card_inner = VBoxContainer.new()
+		card_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+		card_pad.add_child(card_inner)
 
-		var summary_button = _button(
-			"%s | Level %s | XP %s (next %s) | Location: %s"
+		var summary_button = UI_COMPONENTS.button_primary(
+			"%s  |  Lv.%s  |  XP %s (next %s)  |  %s"
 			% [
 				str(row.get("name", "Unnamed")),
 				str(row.get("level", 1)),
 				str(row.get("experience", 0)),
 				str(row.get("experience_to_next_level", 100)),
 				_character_location_text(row),
-			]
+			],
+			Vector2(0, UI_TOKENS.size("button_h_lg"))
 		)
 		summary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		summary_button.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -1288,9 +1321,13 @@ func _render_character_rows() -> void:
 		)
 		card_inner.add_child(summary_button)
 
+		var actions = HBoxContainer.new()
+		actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+		card_inner.add_child(actions)
+
 		if session_is_admin:
 			var level_option = OptionButton.new()
-			level_option.custom_minimum_size = Vector2(200, 36)
+			level_option.custom_minimum_size = Vector2(220, 36)
 			level_option.focus_mode = Control.FOCUS_NONE
 			level_option.add_item("Current location", -1)
 			for level in admin_levels_cache:
@@ -1310,15 +1347,17 @@ func _render_character_rows() -> void:
 					character_row_level_overrides[row_character_id] = selected_level_id
 			)
 			_sanitize_option_popup(level_option)
-			card_inner.add_child(level_option)
+			actions.add_child(level_option)
 
-		var play_button = _button("Play")
+		actions.add_spacer(false)
+
+		var play_button = UI_COMPONENTS.button_primary("Play", Vector2(110, 36))
 		play_button.custom_minimum_size = Vector2(110, 36)
 		play_button.pressed.connect(func() -> void:
 			_set_selected_character(row_index)
 			_on_character_play_pressed()
 		)
-		card_inner.add_child(play_button)
+		actions.add_child(play_button)
 
 		var delete_button = _button("Delete")
 		delete_button.custom_minimum_size = Vector2(110, 36)
@@ -1326,7 +1365,7 @@ func _render_character_rows() -> void:
 			_set_selected_character(row_index)
 			_on_character_delete_pressed()
 		)
-		card_inner.add_child(delete_button)
+		actions.add_child(delete_button)
 
 		character_rows_container.add_child(card)
 
@@ -1766,7 +1805,7 @@ func _load_characters() -> void:
 		_render_character_details(selected_index)
 	_refresh_create_character_preview()
 	_render_character_rows()
-	account_status_label.text = " "
+	account_status_label.text = "%d character(s) loaded." % characters.size()
 
 func _refresh_admin_levels_cache() -> void:
 	admin_levels_cache.clear()
@@ -1782,6 +1821,7 @@ func _on_character_refresh_pressed() -> void:
 	if access_token == "":
 		return
 	await _load_characters()
+	account_status_label.text = "Character list refreshed."
 
 func _on_character_selected(index: int) -> void:
 	_set_selected_character(index)
@@ -1794,7 +1834,7 @@ func _render_character_details(index: int) -> void:
 	var row: Dictionary = characters[index]
 	var location_text = _character_location_text(row)
 	character_details_label.text = (
-		"Name: %s\nLevel: %s\nXP: %s (next %s)\nAppearance: %s\nRace: %s\nBackground: %s\nAffiliation: %s\nLocation: %s"
+		"[Character Details]\n\nName: %s\nLevel: %s\nXP: %s (next %s)\nAppearance: %s\nRace: %s\nBackground: %s\nAffiliation: %s\nLocation: %s"
 		% [
 			str(row.get("name", "")),
 			str(row.get("level", 1)),

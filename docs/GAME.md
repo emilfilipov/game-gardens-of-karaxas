@@ -36,6 +36,7 @@ create/select characters, and enter gameplay sessions.
 4. On character selection, each row includes direct `Play` and `Delete` actions.
    - Character preview/details update only when the character card row itself is clicked.
    - Action buttons do not change the current preview selection.
+   - Character list rows render as fixed-size cards with a dedicated selection surface and a separate action row for `Play`/`Delete` (plus admin level override when applicable).
    - Character list auto-refreshes after create/delete events.
    - Character list includes a manual `Refresh` action for explicit reloads.
    - Admin accounts also get a per-character level override dropdown in each row; choosing a level there forces spawn at that level's spawn point for that play launch.
@@ -62,7 +63,8 @@ create/select characters, and enter gameplay sessions.
    - `Cancel` prompts with a themed confirmation modal when unsaved changes exist before leaving settings.
    - `Video` includes screen mode (`Borderless Fullscreen` / `Windowed`).
    - `Audio` includes mute toggle and master volume slider.
-- `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
+   - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
+   - Settings tabs now render inside themed section cards for consistent visual structure (Video, Audio, Security).
 - MFA toggle is applied with a single on/off control plus adjacent authenticator code field.
 - Toggling MFA now immediately attempts enable/disable using the entered authenticator code and auto-reverts the toggle state if verification fails.
 - MFA setup displays a fully themed QR enrollment popup and also exposes secret + provisioning URI copy actions for fallback enrollment.

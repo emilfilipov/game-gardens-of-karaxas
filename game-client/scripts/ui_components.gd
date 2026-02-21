@@ -36,6 +36,49 @@ static func button(text_value: String, min_size: Vector2 = Vector2(0, 0), focus_
 	return node
 
 
+static func button_primary(text_value: String, min_size: Vector2 = Vector2(0, 0)) -> Button:
+	var node = button(text_value, min_size)
+	var normal = StyleBoxFlat.new()
+	normal.bg_color = UI_TOKENS.color("button_primary")
+	normal.border_width_left = 1
+	normal.border_width_top = 1
+	normal.border_width_right = 1
+	normal.border_width_bottom = 1
+	normal.border_color = UI_TOKENS.color("panel_border")
+	normal.corner_radius_top_left = UI_TOKENS.size("radius")
+	normal.corner_radius_top_right = UI_TOKENS.size("radius")
+	normal.corner_radius_bottom_left = UI_TOKENS.size("radius")
+	normal.corner_radius_bottom_right = UI_TOKENS.size("radius")
+	var hover = normal.duplicate()
+	hover.bg_color = UI_TOKENS.color("button_primary_hover")
+	var pressed = normal.duplicate()
+	pressed.bg_color = UI_TOKENS.color("button_primary_pressed")
+	node.add_theme_stylebox_override("normal", normal)
+	node.add_theme_stylebox_override("hover", hover)
+	node.add_theme_stylebox_override("pressed", pressed)
+	node.add_theme_stylebox_override("focus", normal)
+	return node
+
+
+static func panel_card(min_size: Vector2 = Vector2(0, 0), selected: bool = false) -> PanelContainer:
+	var card = PanelContainer.new()
+	if min_size != Vector2.ZERO:
+		card.custom_minimum_size = min_size
+	var style = StyleBoxFlat.new()
+	style.bg_color = UI_TOKENS.color("row_bg_selected") if selected else UI_TOKENS.color("row_bg")
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = UI_TOKENS.color("panel_border") if selected else UI_TOKENS.color("panel_border_soft")
+	style.corner_radius_top_left = UI_TOKENS.size("radius_lg")
+	style.corner_radius_top_right = UI_TOKENS.size("radius_lg")
+	style.corner_radius_bottom_left = UI_TOKENS.size("radius_lg")
+	style.corner_radius_bottom_right = UI_TOKENS.size("radius_lg")
+	card.add_theme_stylebox_override("panel", style)
+	return card
+
+
 static func option(items: Array, min_size: Vector2 = Vector2(0, 0)) -> OptionButton:
 	var node = OptionButton.new()
 	if min_size == Vector2.ZERO:

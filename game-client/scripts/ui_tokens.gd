@@ -5,12 +5,19 @@ const COLORS: Dictionary = {
 	"panel_bg": Color(0.14, 0.10, 0.08, 0.96),
 	"panel_bg_alt": Color(0.18, 0.13, 0.10, 0.98),
 	"panel_bg_deep": Color(0.13, 0.10, 0.08, 0.98),
+	"panel_bg_soft": Color(0.20, 0.15, 0.11, 0.96),
+	"row_bg": Color(0.19, 0.14, 0.10, 0.98),
+	"row_bg_selected": Color(0.24, 0.18, 0.13, 1.0),
 	"panel_border": Color(0.68, 0.52, 0.34, 1.0),
+	"panel_border_soft": Color(0.50, 0.38, 0.24, 1.0),
 	"text_primary": Color(0.95, 0.89, 0.77),
 	"text_secondary": Color(0.94, 0.83, 0.68),
 	"text_muted": Color(0.72, 0.62, 0.49),
 	"button_hover": Color(0.24, 0.18, 0.13, 1.0),
 	"button_pressed": Color(0.29, 0.21, 0.15, 1.0),
+	"button_primary": Color(0.46, 0.32, 0.20, 1.0),
+	"button_primary_hover": Color(0.53, 0.37, 0.23, 1.0),
+	"button_primary_pressed": Color(0.38, 0.27, 0.17, 1.0),
 	"selection_fill": Color(0.56, 0.43, 0.27, 1.0),
 	"selection_text": Color(0.96, 0.90, 0.80),
 	"veil": Color(0.03, 0.02, 0.02, 0.30),
@@ -19,6 +26,7 @@ const COLORS: Dictionary = {
 const SIZES: Dictionary = {
 	"button_w": 140,
 	"button_h": 36,
+	"button_h_lg": 42,
 	"input_w": 220,
 	"input_h": 34,
 	"menu_square": 44,
@@ -27,6 +35,7 @@ const SIZES: Dictionary = {
 	"shell_auth_w": 930,
 	"shell_auth_h": 560,
 	"radius": 2,
+	"radius_lg": 4,
 }
 
 const SPACING: Dictionary = {
