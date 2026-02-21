@@ -4,8 +4,8 @@
 This is the single source of truth for technical architecture, stack decisions, module boundaries, deployment, and CI/CD behavior.
 
 ## Runtime and Service Stack
-- Launcher/runtime UI: Kotlin (JVM) Swing launcher module (`launcher/`).
-- Game runtime/editor host (migration target): Godot 4.x module (`game-client/`).
+- Bootstrap/orchestration shell: Kotlin (JVM) module (`launcher/`).
+- Unified game UI/runtime/editor host: Godot 4.x module (`game-client/`).
 - Backend services: Python FastAPI (`backend/`).
 - Database: PostgreSQL (Cloud SQL), database name `karaxas`.
 - Migrations: Alembic.
@@ -16,19 +16,28 @@ This is the single source of truth for technical architecture, stack decisions, 
 
 ## Architecture Rules (Must Hold)
 1. Gameplay/runtime logic remains decoupled from launcher/updater internals.
-2. Launcher can host account/lobby UX and updater UX, but backend remains authority for auth/session/version-gating.
+2. Godot client hosts account/lobby/gameplay/editor UX; backend remains authority for auth/session/version-gating.
 3. Backend services must be deployable independently from launcher releases.
 4. Module boundaries remain explicit:
-   - `launcher/` for desktop launcher UI and updater integration.
+   - `launcher/` for bootstrap/update orchestration and runtime process handoff.
+   - `game-client/` for all player/admin UI surfaces and gameplay runtime.
    - `backend/` for API/realtime/auth/social data services.
 
 ## Engine Host Stack Decision (Locked)
 - `GOK-MMO-176` is completed and locked via `docs/ENGINE_SPIKE_GOK_MMO_176.md`.
 - Runtime/editor host stack decision:
-  - Keep `launcher/` (Kotlin Swing) as auth/update shell and process orchestrator.
+  - Keep `launcher/` (Kotlin) as thin process/update orchestrator.
   - Adopt `Godot 4.x` as authoritative gameplay runtime and world/editor host (`game-client/` module scaffolded).
   - Keep `backend/` (FastAPI) as authoritative service/data layer.
-- Migration is phased and reversible with a temporary dual-path runtime flag (`launcher_legacy` vs `godot`) until hardening exit criteria are met.
+- Migration is now in Godot-first mode: packaged default runtime host is `godot`.
+- `launcher_legacy` mode remains for local diagnostic fallback only and is not the default release path.
+
+## Godot-First Unified Shell (Active)
+- Auth, register, account lobby, character list/create, world runtime, updater, and admin log viewer are implemented in `game-client/scripts/client_shell.gd`.
+- Godot shell defaults to borderless fullscreen startup.
+- Top-right menu is hidden on auth screen; auth screen carries direct `Update & Restart` and `Exit`.
+- Launcher startup now probes configured runtime host and directly launches Godot shell when host is `godot`.
+- If configured host is `godot` and launch fails, startup aborts with a themed error dialog instead of silently dropping into the old Swing account UI.
 
 ## Godot Phase 0 Scaffold (Implemented)
 - `game-client/` now exists as a Godot 4.x project scaffold with bootstrap scene/script.
@@ -176,6 +185,7 @@ This is the single source of truth for technical architecture, stack decisions, 
     - `KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL`,
     - `KARAXAS_GODOT_WINDOWS_SHA256`.
   - applies `Cache-Control: no-cache, max-age=0` metadata to mutable feed files (`RELEASES`, setup exe, portable zip, and feed JSON manifests) to prevent stale client/browser caching.
+  - defaults runtime host packaging to `godot` when runtime-host env vars are unset.
   - notifies backend release activation endpoint with new build/feed/notes metadata.
 - Backend deploy workflow (`.github/workflows/deploy-backend.yml`):
   - triggers on backend non-markdown changes.
@@ -187,7 +197,9 @@ This is the single source of truth for technical architecture, stack decisions, 
   - scans backend dependencies with `pip-audit`.
   - runs Trivy fs scan (vuln/misconfig/secret) and fails on high/critical findings, including Dockerfile root-user misconfiguration.
 
-## Launcher UI Structure Strategy
+## Client UI Structure Strategy
+- Active path: Godot unified shell (`game-client/scripts/client_shell.gd`) owns auth/account/world/editor/update/log-viewer surfaces.
+- Legacy Swing bullets below remain as migration reference until `GOK-MMO-242` removes deprecated launcher UI code paths.
 - UI is organized with reusable screen scaffolds and layout tokens (`UiScaffold`) to keep alignment consistent across screens.
 - Screens are card-based (combined auth, character creation, character selection, update, play) instead of one-off ad hoc layouts.
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.

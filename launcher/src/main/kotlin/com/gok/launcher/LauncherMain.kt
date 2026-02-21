@@ -204,6 +204,12 @@ object LauncherMain {
         val pendingChanges: List<PendingLevelChange>,
     )
 
+    private enum class StandaloneGodotLaunchState {
+        NOT_REQUESTED,
+        LAUNCHED,
+        FAILED,
+    }
+
     @JvmStatic
     fun main(args: Array<String>) {
         Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
@@ -215,6 +221,23 @@ object LauncherMain {
             log("Detected Velopack hook args. Exiting after logging.")
             return
         }
+        when (tryLaunchStandaloneGodotShell()) {
+            StandaloneGodotLaunchState.LAUNCHED -> return
+            StandaloneGodotLaunchState.FAILED -> {
+                EventQueue.invokeLater {
+                    JOptionPane.showMessageDialog(
+                        null,
+                        "Unable to launch the Godot game runtime.\nPlease run Update or reinstall the client.",
+                        "Gardens of Karaxas",
+                        JOptionPane.ERROR_MESSAGE,
+                    )
+                }
+                return
+            }
+            StandaloneGodotLaunchState.NOT_REQUESTED -> {
+                // Continue to legacy Swing shell when runtime host is explicitly set to launcher_legacy.
+            }
+        }
         EventQueue.invokeLater {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
@@ -224,6 +247,32 @@ object LauncherMain {
                 log("Failed to start launcher UI.", ex)
                 throw ex
             }
+        }
+    }
+
+    private fun tryLaunchStandaloneGodotShell(): StandaloneGodotLaunchState {
+        return try {
+            val payloadRoot = payloadRoot()
+            val installRoot = installRoot(payloadRoot)
+            val settings = GameRuntimeHostBridge.resolveRuntimeHostSettings(payloadRoot, installRoot)
+            if (settings.runtimeHost != RuntimeHost.godot) {
+                return StandaloneGodotLaunchState.NOT_REQUESTED
+            }
+            val launch = GameRuntimeHostBridge.launchGodotShell(
+                payloadRoot = payloadRoot,
+                installRoot = installRoot,
+                settings = settings,
+            )
+            if (launch.launched) {
+                log(launch.message)
+                StandaloneGodotLaunchState.LAUNCHED
+            } else {
+                log("${launch.message} Startup aborted because runtime host is godot.")
+                StandaloneGodotLaunchState.FAILED
+            }
+        } catch (ex: Exception) {
+            log("Standalone Godot shell launch probe failed. Startup aborted because runtime host is godot.", ex)
+            StandaloneGodotLaunchState.FAILED
         }
     }
 

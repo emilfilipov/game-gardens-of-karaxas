@@ -35,8 +35,9 @@ object GameRuntimeHostBridge {
         val rawHost = env[RUNTIME_HOST_ENV]?.trim()?.ifBlank { null }
             ?: fileProps?.getProperty("runtime_host")?.trim()?.ifBlank { null }
         val runtimeHost = when (rawHost?.lowercase()) {
+            RuntimeHost.launcher_legacy.name -> RuntimeHost.launcher_legacy
             RuntimeHost.godot.name -> RuntimeHost.godot
-            else -> RuntimeHost.launcher_legacy
+            else -> RuntimeHost.godot
         }
         val godotExecutable = env[GODOT_EXECUTABLE_ENV]?.trim()?.ifBlank { null }
             ?: fileProps?.getProperty("godot_executable")?.trim()?.ifBlank { null }
@@ -183,6 +184,53 @@ object GameRuntimeHostBridge {
                 launched = false,
                 process = null,
                 message = "Failed to launch Godot runtime: ${ex.message ?: ex::class.java.simpleName}",
+            )
+        }
+    }
+
+    fun launchGodotShell(
+        payloadRoot: Path,
+        installRoot: Path,
+        settings: RuntimeHostSettings,
+        env: Map<String, String> = System.getenv(),
+    ): RuntimeLaunchResult {
+        val projectPath = resolveGodotProjectPath(payloadRoot, installRoot, settings, env)
+            ?: return RuntimeLaunchResult(
+                launched = false,
+                process = null,
+                message = "Godot runtime requested but game-client project was not found. Set $GODOT_PROJECT_ENV.",
+            )
+        val executable = resolveGodotExecutableCommand(
+            payloadRoot = payloadRoot,
+            installRoot = installRoot,
+            projectPath = projectPath,
+            settings = settings,
+            env = env,
+        ) ?: return RuntimeLaunchResult(
+            launched = false,
+            process = null,
+            message = "Godot runtime requested but executable is not configured. Set $GODOT_EXECUTABLE_ENV or ship bundled runtime.",
+        )
+
+        return try {
+            val process = ProcessBuilder(
+                executable,
+                "--path",
+                projectPath.toString(),
+            )
+                .directory(projectPath.toFile())
+                .redirectErrorStream(true)
+                .start()
+            RuntimeLaunchResult(
+                launched = true,
+                process = process,
+                message = "Launched standalone Godot shell executable '$executable' with project ${projectPath.toAbsolutePath()}",
+            )
+        } catch (ex: Exception) {
+            RuntimeLaunchResult(
+                launched = false,
+                process = null,
+                message = "Failed to launch standalone Godot shell: ${ex.message ?: ex::class.java.simpleName}",
             )
         }
     }

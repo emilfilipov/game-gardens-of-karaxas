@@ -7,10 +7,10 @@ import java.nio.file.Files
 
 class GameRuntimeHostBridgeTest {
     @Test
-    fun `resolveRuntimeHostSettings defaults to launcher legacy`() {
+    fun `resolveRuntimeHostSettings defaults to godot`() {
         val root = Files.createTempDirectory("gok-runtime-host-default")
         val settings = GameRuntimeHostBridge.resolveRuntimeHostSettings(root, root, emptyMap())
-        assertEquals(RuntimeHost.launcher_legacy, settings.runtimeHost)
+        assertEquals(RuntimeHost.godot, settings.runtimeHost)
         assertEquals("godot4", settings.godotExecutable)
     }
 

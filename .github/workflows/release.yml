@@ -99,7 +99,7 @@ jobs:
           GODOT_WINDOWS_DOWNLOAD_URL: ${{ secrets.KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL || vars.KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL }}
           GODOT_WINDOWS_SHA256: ${{ secrets.KARAXAS_GODOT_WINDOWS_SHA256 || vars.KARAXAS_GODOT_WINDOWS_SHA256 }}
         run: |
-          $runtimeHost = if ([string]::IsNullOrWhiteSpace($env:RUNTIME_HOST_DEFAULT)) { "launcher_legacy" } else { $env:RUNTIME_HOST_DEFAULT.Trim().ToLowerInvariant() }
+          $runtimeHost = if ([string]::IsNullOrWhiteSpace($env:RUNTIME_HOST_DEFAULT)) { "godot" } else { $env:RUNTIME_HOST_DEFAULT.Trim().ToLowerInvariant() }
           $configuredExecutable = if ([string]::IsNullOrWhiteSpace($env:CONFIGURED_GODOT_EXECUTABLE)) { "godot4" } else { $env:CONFIGURED_GODOT_EXECUTABLE.Trim() }
           $bundleSource = ""
           $effectiveExecutable = $configuredExecutable

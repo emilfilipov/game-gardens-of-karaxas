@@ -1,1 +1,1 @@
-- Completed `GOK-MMO-240`: improved Godot launch clarity by streaming runtime output into launcher logs, removing launcher auto-minimize on runtime launch, and replacing the gray bootstrap scaffold with a visible handoff status panel.
+- Completed `GOK-MMO-241`: switched to a Godot-first unified client shell (auth/account/world/update/log-viewer in `game-client`), made packaged runtime defaults Godot, and hardened startup to stop with a clear error if configured Godot runtime launch fails.

@@ -13,15 +13,17 @@ powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 -Version 1.0.0
 
 This produces installer/update artifacts under `releases/windows/`.
 
-## Launcher runtime behavior
-- Launcher hosts account/auth/lobby screens.
-- Launcher keeps updater tools available from the Update screen/card.
+## Runtime behavior
+- Installed executable launches the Godot client shell for auth/account/game/editor flows.
+- Velopack update flow still runs through the packaged `UpdateHelper.exe`.
+- Updater controls are available from the Godot auth screen (`Update & Restart`) and authenticated top-right menu.
 - Updates are downloaded and applied through Velopack package flow from configured feed URL (`update_repo.txt` or backend release summary feed).
-- Runtime host defaults can be shipped via `runtime_host.properties` in payload:
+- Runtime host defaults are shipped via `runtime_host.properties` in payload:
   - `runtime_host=launcher_legacy|godot`
   - `godot_executable=<path-or-command>`
   - `godot_project_path=<project-dir>`
 - Runtime host values from process environment (`GOK_RUNTIME_HOST`, `GOK_GODOT_EXECUTABLE`, `GOK_GODOT_PROJECT_PATH`) override packaged defaults.
+- Pack/release defaults now target `runtime_host=godot` when no override is provided.
 - Release CI now bundles a Windows Godot executable into payload when runtime host is `godot` (`game-client/runtime/windows/godot4.exe`) and sets `godot_executable` to this relative path by default.
 - Optional release variables for bundled runtime source integrity:
   - `KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL` (override default official Godot zip URL)

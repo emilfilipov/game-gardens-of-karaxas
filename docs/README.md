@@ -1,6 +1,6 @@
 # Gardens of Karaxas
 
-Gardens of Karaxas is an account-based online RPG project with a launcher-first desktop distribution model.
+Gardens of Karaxas is an account-based online RPG project with a Godot-first desktop client and Velopack distribution model.
 
 ## Canonical Documentation
 - `docs/GAME.md` - all game/product information.
@@ -9,8 +9,8 @@ Gardens of Karaxas is an account-based online RPG project with a launcher-first 
 Read both before implementing changes.
 
 ## Project Structure
-- `launcher/` - Kotlin launcher UI with login/lobby screens and updater integration.
-- `game-client/` - Godot 4.x gameplay/editor host scaffold and runtime bootstrap contract files.
+- `launcher/` - Kotlin bootstrap/orchestration module for updater + runtime handoff.
+- `game-client/` - Godot 4.x unified client shell (auth/account/game/editor) and runtime bootstrap contract files.
 - `backend/` - FastAPI backend services (auth, lobby/social, characters, chat, release ops).
 - `assets/` - shared visual/icon assets.
 - `docs/` - canonical and supporting documentation.

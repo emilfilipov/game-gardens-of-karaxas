@@ -1,11 +1,11 @@
 # Gardens of Karaxas - Godot Game Client
 
-This module is the runtime/editor host scaffold introduced by `GOK-MMO-176`.
+This module is the unified Godot client shell for Gardens of Karaxas.
 
-## Current Scope (Phase 0)
-- Holds the Godot project scaffold.
-- Defines the launcher-to-game bootstrap contract under `contracts/`.
-- Provides a minimal bootstrap scene/script to validate startup wiring.
+## Current Scope
+- Hosts auth/account/world/admin UI flows in one Godot runtime surface.
+- Defines the launcher/bootstrap contract under `contracts/`.
+- Provides runtime world scaffold (`world_canvas.gd`) and update/log tooling entry points.
 
 ## Contract
 - JSON schema: `contracts/bootstrap.schema.json`
@@ -14,5 +14,3 @@ This module is the runtime/editor host scaffold introduced by `GOK-MMO-176`.
 ## Local Start (when Godot is installed)
 - Open this folder in Godot 4.x.
 - Run default scene (`res://scenes/bootstrap.tscn`).
-- Optional bootstrap handoff:
-  - pass launcher-style argument `--bootstrap=<absolute-path-to-json>`.

@@ -121,7 +121,7 @@ if ($bundledGodotSource -and $bundledGodotSource.Trim().Length -gt 0 -and (Test-
 
 $runtimeHostDefault = $env:GOK_RUNTIME_HOST_DEFAULT
 if (-not $runtimeHostDefault -or $runtimeHostDefault.Trim().Length -eq 0) {
-  $runtimeHostDefault = "launcher_legacy"
+  $runtimeHostDefault = "godot"
 }
 $godotExecutableDefault = $env:GOK_GODOT_EXECUTABLE_DEFAULT
 $godotProjectPathDefault = $env:GOK_GODOT_PROJECT_PATH_DEFAULT

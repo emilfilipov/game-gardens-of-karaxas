@@ -20,7 +20,7 @@ create/select characters, and enter gameplay sessions.
 - Baseline look stays warm/vibrant and readable; mood darkening is handled through effect layers (per-zone/per-item/per-character), not by replacing global base style.
 
 ## Account and Menu Loop
-1. Open launcher and authenticate (register or login).
+1. Open the game client and authenticate (register or login).
    - Login form remembers and pre-fills the last successfully authenticated email.
    - Register form always opens clean with hint text visible.
    - Register mode actions are `Register` and `Back` (returns to login mode).
@@ -38,11 +38,9 @@ create/select characters, and enter gameplay sessions.
    - Admin accounts also get a per-character level override dropdown in each row; choosing a level there forces spawn at that level's spawn point for that play launch.
    - Character rows show current location (area + coordinates when known).
 5. Enter gameplay session from the chosen character row (`Play` action on that row only).
-   - World/session opens in a dedicated gameplay scene (separate from lobby/select cards).
-   - Runtime host switch now exists: default flow uses the in-launcher gameplay scene; Godot host mode can launch external game runtime for the same character handoff.
-   - When release runtime host is set to `godot`, launcher builds now ship a bundled Windows Godot executable so players do not need a local Godot install.
-   - Godot bootstrap now renders an explicit handoff/status panel (instead of blank gray scaffold) so runtime launch success is visible immediately.
-   - In launcher-hosted gameplay, launcher title art/chrome is hidden so the world scene uses the full client area.
+   - World/session opens in a dedicated gameplay scene (separate from account cards).
+   - Auth, account, editor, and gameplay flows are now hosted in one Godot client shell (no separate Swing launcher UI flow).
+   - Windows builds ship a bundled Godot runtime so players do not need a local Godot install.
    - If the character has a map assignment, the session loads that level/floor layout and spawn.
    - New characters now start on the first tower floor (lowest configured floor order) at that floor's spawn point.
    - Returning characters resume from their persisted location (floor + coordinates).
@@ -63,7 +61,7 @@ create/select characters, and enter gameplay sessions.
    - MFA setup displays a scannable QR code (plus copy secret/URI actions) in a fully themed enrollment popup with no placeholder/system dialog chrome.
    - Once MFA secret enrollment exists for an account, login requires a valid MFA code (password-only login is blocked).
 
-## Required Frontend Screens
+## Required Frontend Screens (Godot)
 - Combined authentication screen (login/register toggle in a single centered block) with integrated updater/release-notes panel.
   - Auth panel includes a direct `Exit` action so players can close the game without authenticating.
 - Account menu shell screen (Create/Select tabs).
@@ -75,7 +73,7 @@ create/select characters, and enter gameplay sessions.
 - Admin-only level-order screen (drag/drop floor cards to reorder tower progression and publish order).
 - Admin-only asset editor screen (searchable editable-content cards + large item editor panel + right-side staged-change queue with `Save Local` and `Publish Changes`).
 - Admin-only content versions screen (version history cards, active-version highlight, publish/revert controls, and side-by-side compare).
-- Shared menu/form controls use a consistent thin-border panel/button style over the same background key art.
+- Shared menu/form controls use a consistent thin-border panel/button style over the same background key art, all rendered in the Godot UI layer.
 
 ## Character Direction
 - No predefined classes.
@@ -119,13 +117,13 @@ create/select characters, and enter gameplay sessions.
 - Guild management remains planned as a dedicated in-game follow-up menu/screen.
 
 ## Update Policy
-- Launcher/updater remains the distribution and update authority.
+- Velopack/GCS updater remains the distribution and update authority.
 - Backend enforces release policy for both build version and content version with a grace window.
 - Current grace window target: 5 minutes before forced update lockout.
 - Optional automatic login is configured from in-session settings only (not from pre-login auth screen).
 - Startup always opens on the authentication screen; players must explicitly log in each launch.
 - Pre-login updater access is embedded directly in the authentication screen (`Update & Restart` + compact release notes).
-- Updater access is no longer a lobby tab; authenticated users can still access updater from the top-right menu.
+- Authenticated users can still access updater from the top-right menu.
 - Admin users now also get a separate top-right `Log Viewer` action that opens launcher logs without triggering update checks.
 - Updater progression is shown through status text messages in the update screen (no progress bar widget).
 - When no update is available, updater status reads `Game is up to date.`.
@@ -135,7 +133,7 @@ create/select characters, and enter gameplay sessions.
 - Login is also blocked for non-admin users when client/backend content contract signatures diverge, preventing incompatible live-data schemas.
 - On publish, non-admin players are forced out after grace window and returned to login, where they can choose when to click `Update & Restart`.
 - Publish-triggered drain warnings are delivered live during active sessions and end in forced return to login for non-admin users at cutoff.
-- When `Update & Restart` finds no binary package delta, launcher still restarts in admin-publish flows to re-sync content snapshot and complete relog/update gating.
+- When `Update & Restart` finds no binary package delta, the client stays open and reports `Game is up to date.`.
 - Update feed source is GCS-backed Velopack hosting.
 - Admin level editor now uses a larger, zoomed-out grid and shows a radar-ping marker at spawn position.
 - Admin `Level Editor` and `Asset Editor` now occupy a larger near full-screen workspace; Asset Editor side columns/icons are reduced to give more room to the main edit surface.
@@ -160,9 +158,9 @@ create/select characters, and enter gameplay sessions.
   - Layer 2: weather/ambient overlays (`cloud` scaffold).
 
 ## Release Intent
-- Launcher-first distribution (Windows first).
+- Godot client-first distribution (Windows first) with Velopack installer/update delivery.
 - Keep architecture portable for Linux/Steam/Android later, but Steam-specific distribution is not a current dependency.
-- Runtime host direction is now locked: launcher stays the account/update shell, while gameplay/world/editor runtime migrates to Godot 4.x.
+- Runtime host direction is now locked: Godot hosts account/update/game/editor UX; the Kotlin module remains a thin bootstrap/update orchestrator.
 
 ## Live Content Model (Implemented Baseline)
 - Non-logic gameplay content is now delivered through database-managed configuration snapshots:
