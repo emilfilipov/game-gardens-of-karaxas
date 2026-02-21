@@ -1,8 +1,6 @@
 extends Control
 
 const WORLD_CANVAS_SCENE = preload("res://scripts/world_canvas.gd")
-const MAIN_MENU_BG_RESOURCE = preload("res://assets/main_menu_background.png")
-const GAME_ICON_RESOURCE = preload("res://assets/game_icon.png")
 
 const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
@@ -307,7 +305,7 @@ func _build_ui() -> void:
 	background_art.set_anchors_preset(Control.PRESET_FULL_RECT)
 	background_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	background_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background_art.texture = MAIN_MENU_BG_RESOURCE
+	background_art.texture = _load_texture_from_path("res://assets/main_menu_background.png")
 	if background_art.texture == null:
 		var fallback_bg = _load_texture_from_path(_path_join(install_root_path, "game-client/assets/main_menu_background.png"))
 		if fallback_bg == null:
@@ -1173,14 +1171,16 @@ func _resolve_character_texture(appearance_key: String):
 func _load_texture_from_path(path: String):
 	if path.is_empty():
 		return null
+	var image = Image.new()
 	if path.begins_with("res://"):
+		if image.load(path) == OK:
+			return ImageTexture.create_from_image(image)
 		var resource = load(path)
 		if resource is Texture2D:
 			return resource
 		return null
 	if not FileAccess.file_exists(path):
 		return null
-	var image = Image.new()
 	if image.load(path) != OK:
 		return null
 	return ImageTexture.create_from_image(image)
@@ -2789,16 +2789,12 @@ func _resolve_paths() -> void:
 
 func _apply_window_icon() -> void:
 	var candidates: Array[String] = []
-	if GAME_ICON_RESOURCE != null:
-		var res_image = GAME_ICON_RESOURCE.get_image()
-		if res_image != null and DisplayServer.has_method("set_icon"):
-			DisplayServer.call("set_icon", res_image)
-			return
+	candidates.append("res://assets/game_icon.png")
 	candidates.append(_path_join(install_root_path, "assets/icons/game_icon.png"))
 	candidates.append(_path_join(install_root_path, "game-client/assets/game_icon.png"))
 	candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "assets/game_icon.png"))
 	for path in candidates:
-		if path.is_empty() or not FileAccess.file_exists(path):
+		if path.is_empty():
 			continue
 		var image = Image.new()
 		var error = image.load(path)
