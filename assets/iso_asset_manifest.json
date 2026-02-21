@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "key": "human_male_idle",
+      "path": "assets/characters/karaxas_human_male_idle_32.png",
+      "category": "character",
+      "width": 32,
+      "height": 32,
+      "pivot_x": 0.5,
+      "pivot_y": 1.0,
+      "frame_count": 1
+    },
+    {
+      "key": "human_female_idle",
+      "path": "assets/characters/karaxas_human_female_idle_32.png",
+      "category": "character",
+      "width": 32,
+      "height": 32,
+      "pivot_x": 0.5,
+      "pivot_y": 1.0,
+      "frame_count": 1
+    },
+    {
+      "key": "grass_tile",
+      "path": "assets/tiles/karaxas_grass_tile_32.png",
+      "category": "tile",
+      "width": 32,
+      "height": 32,
+      "pivot_x": 0.5,
+      "pivot_y": 1.0,
+      "frame_count": 1
+    },
+    {
+      "key": "tree_oak",
+      "path": "assets/tiles/karaxas_tree_oak_32.png",
+      "category": "tile",
+      "width": 32,
+      "height": 32,
+      "pivot_x": 0.5,
+      "pivot_y": 1.0,
+      "frame_count": 1
+    }
+  ]
+}

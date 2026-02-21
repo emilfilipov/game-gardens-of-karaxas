@@ -83,6 +83,12 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Validate Asset Ingest Manifest
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          python tools/validate_asset_ingest.py --manifest assets/iso_asset_manifest.json
+
       - name: Setup .NET
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         uses: actions/setup-dotnet@v4

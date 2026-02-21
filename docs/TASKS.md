@@ -5,11 +5,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-177 | ⬜ | 3 | Define `Level Schema v3` for hybrid placement: preserve logical grid data while adding freeform prop transforms (`x/y/z`, rotation, scale, pivot) and stable IDs for per-object editing/versioning. |
-| GOK-MMO-178 | ⬜ | 3 | Design backward-compatible migration path from current layered level payloads to `v3` hybrid payloads, including validation/fallback adapters and reversible migration scripts for staged rollout. |
-| GOK-MMO-179 | ⬜ | 3 | Establish production art pipeline contract (source formats, export profiles, naming standards, atlas grouping, compression policy, color-space, outline/contrast guidelines, and per-asset metadata requirements). |
-| GOK-MMO-180 | ⬜ | 2 | Build automated asset ingest checks (naming/dimensions/pivot/frame-count consistency) to reject invalid art imports before runtime/editor consumption. |
-| GOK-MMO-181 | ⬜ | 2 | Define milestone gates for isometric vertical slice: technical completion criteria, visual quality criteria, performance budgets, and explicit go/no-go checkpoints per phase. |
+| GOK-MMO-177 | ✅ | 3 | Define `Level Schema v3` for hybrid placement: preserve logical grid data while adding freeform prop transforms (`x/y/z`, rotation, scale, pivot) and stable IDs for per-object editing/versioning. |
+| GOK-MMO-178 | ✅ | 3 | Design backward-compatible migration path from current layered level payloads to `v3` hybrid payloads, including validation/fallback adapters and reversible migration scripts for staged rollout. |
+| GOK-MMO-179 | ✅ | 3 | Establish production art pipeline contract (source formats, export profiles, naming standards, atlas grouping, compression policy, color-space, outline/contrast guidelines, and per-asset metadata requirements). |
+| GOK-MMO-180 | ✅ | 2 | Build automated asset ingest checks (naming/dimensions/pivot/frame-count consistency) to reject invalid art imports before runtime/editor consumption. |
+| GOK-MMO-181 | ✅ | 2 | Define milestone gates for isometric vertical slice: technical completion criteria, visual quality criteria, performance budgets, and explicit go/no-go checkpoints per phase. |
 | GOK-MMO-182 | ⬜ | 4 | Implement shared isometric math module in Godot (plus mirrored backend/unit-test fixtures) for coordinate transforms, tile picking, camera offsets, and depth-sort keys; wire it as authoritative math layer for game + editor. |
 | GOK-MMO-183 | ⬜ | 4 | Refactor Godot gameplay renderer from top-down layering to isometric draw pipeline with stable Y-sort buckets, object pivot-aware depth ordering, and deterministic layer overrides for effects/foreground occluders. |
 | GOK-MMO-184 | ⬜ | 3 | Upgrade Godot movement stack to 8-direction isometric locomotion (input remap, normalized diagonals, animation direction selection) while preserving authoritative location persistence and transition triggers. |
@@ -62,11 +62,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-MMO-223 | ⬜ | 2 | Prepare post-vertical-slice stabilization sprint plan: bug triage buckets, polish priorities, and explicit handoff from infrastructure/editor upgrade work back to gameplay systems development. |
 | GOK-MMO-242 | ⬜ | 2 | Remove deprecated Swing auth/account/world screens and their stale state paths from `launcher/` after Godot shell parity validation to reduce dual-path maintenance risk. |
 | GOK-MMO-243 | ⬜ | 3 | Add Godot-shell parity integration tests (auth/update/account/world/admin flows) to CI so future runtime changes cannot silently regress launcher-era features. |
-| GOK-MMO-247 | ⬜ | 3 | Build a Godot UI design-token system (`colors`, `spacing`, `radius`, `font scales`, `component heights`, `panel widths`) as a single authoritative source used by all screens, so visual adjustments happen in one place instead of per-control tuning. |
-| GOK-MMO-248 | ⬜ | 4 | Implement a reusable component library for the shell (`PrimaryButton`, `SecondaryButton`, `GhostButton`, `InputField`, `Dropdown`, `TabStrip`, `CardPanel`, `StatusBanner`, `Modal`) with shared constructors/helpers and remove ad-hoc per-screen style duplication. |
-| GOK-MMO-249 | ⬜ | 3 | Refactor auth/account/settings/admin screens onto standardized layout scaffolds (centered card shell + header/body/footer regions + split panes) with responsive breakpoints for 16:9, 16:10, ultrawide, and smaller windowed modes. |
-| GOK-MMO-250 | ⬜ | 3 | Implement interaction consistency pass: deterministic focus behavior, keyboard navigation contract, standardized dropdown behavior, tooltip framework, hover/pressed/disabled states, and removal of all platform-default UI artifacts. |
-| GOK-MMO-251 | ⬜ | 3 | Add modern visual polish layer for shell UX (subtle panel depth, consistent iconography, spacing rhythm, readable typography hierarchy, and restrained motion transitions) while keeping performance safe for always-on MMO shell usage. |
+| GOK-MMO-247 | ✅ | 3 | Build a Godot UI design-token system (`colors`, `spacing`, `radius`, `font scales`, `component heights`, `panel widths`) as a single authoritative source used by all screens, so visual adjustments happen in one place instead of per-control tuning. |
+| GOK-MMO-248 | ✅ | 4 | Implement a reusable component library for the shell (`PrimaryButton`, `SecondaryButton`, `GhostButton`, `InputField`, `Dropdown`, `TabStrip`, `CardPanel`, `StatusBanner`, `Modal`) with shared constructors/helpers and remove ad-hoc per-screen style duplication. |
+| GOK-MMO-249 | ⏳ | 3 | Refactor auth/account/settings/admin screens onto standardized layout scaffolds (centered card shell + header/body/footer regions + split panes) with responsive breakpoints for 16:9, 16:10, ultrawide, and smaller windowed modes. |
+| GOK-MMO-250 | ⏳ | 3 | Implement interaction consistency pass: deterministic focus behavior, keyboard navigation contract, standardized dropdown behavior, tooltip framework, hover/pressed/disabled states, and removal of all platform-default UI artifacts. |
+| GOK-MMO-251 | ⏳ | 3 | Add modern visual polish layer for shell UX (subtle panel depth, consistent iconography, spacing rhythm, readable typography hierarchy, and restrained motion transitions) while keeping performance safe for always-on MMO shell usage. |
 | GOK-MMO-252 | ⬜ | 2 | Add UI regression harness for Godot shell: golden screenshots for major screens/states, layout overflow checks, and visual-diff CI gate to prevent future regressions in alignment/theming/component consistency. |
 
 ## Completed Tasks

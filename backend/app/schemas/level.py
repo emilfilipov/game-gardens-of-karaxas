@@ -31,6 +31,24 @@ class LevelTransition(BaseModel):
     destination_level_id: int = Field(ge=1)
 
 
+class LevelObjectTransform(BaseModel):
+    x: float = Field(ge=0, le=100_000)
+    y: float = Field(ge=0, le=100_000)
+    z: float = Field(default=0.0, ge=-100_000, le=100_000)
+    rotation_deg: float = Field(default=0.0, ge=-360.0, le=360.0)
+    scale_x: float = Field(default=1.0, gt=0.0, le=16.0)
+    scale_y: float = Field(default=1.0, gt=0.0, le=16.0)
+    pivot_x: float = Field(default=0.5, ge=0.0, le=1.0)
+    pivot_y: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class LevelObjectPlacement(BaseModel):
+    object_id: str = Field(min_length=3, max_length=96, pattern=r"^[a-z0-9_\\-]+$")
+    asset_key: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9_]+$")
+    layer_id: int = Field(default=0, ge=0, le=32)
+    transform: LevelObjectTransform = Field(default_factory=LevelObjectTransform)
+
+
 class LevelResponse(BaseModel):
     id: int
     name: str
@@ -42,6 +60,7 @@ class LevelResponse(BaseModel):
     spawn_x: int
     spawn_y: int
     layers: dict[int, list[LevelLayerCell]]
+    objects: list[LevelObjectPlacement]
     transitions: list[LevelTransition]
     wall_cells: list[LevelGridPoint]
     created_by_user_id: int | None
@@ -59,6 +78,7 @@ class LevelSaveRequest(BaseModel):
     spawn_x: int = Field(default=1, ge=0, le=100_000)
     spawn_y: int = Field(default=1, ge=0, le=100_000)
     layers: dict[int, list[LevelLayerCell]] = Field(default_factory=dict)
+    objects: list[LevelObjectPlacement] = Field(default_factory=list)
     transitions: list[LevelTransition] = Field(default_factory=list)
     wall_cells: list[LevelGridPoint] = Field(default_factory=list)
 

@@ -33,3 +33,9 @@ Read both before implementing changes.
 ## Operations and Security
 - Operations runbook and rollout checklist: `docs/OPERATIONS.md`
 - Security hardening, incident runbooks, and readiness checklist: `docs/SECURITY.md`
+
+## Isometric and Content Authoring References
+- Level schema v3 contract: `docs/LEVEL_SCHEMA_V3.md`
+- Level schema v3 migration path: `docs/LEVEL_SCHEMA_V3_MIGRATION.md`
+- Art pipeline/export contract: `docs/ART_PIPELINE_CONTRACT.md`
+- Isometric vertical-slice quality gates: `docs/ISOMETRIC_VERTICAL_SLICE_GATES.md`

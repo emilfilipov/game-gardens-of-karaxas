@@ -20,6 +20,7 @@ class Level(Base):
     spawn_y: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     wall_cells: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     layer_cells: Mapped[dict[str, list[dict]]] = mapped_column(JSON, nullable=False, default=dict)
+    object_placements: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     transitions: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

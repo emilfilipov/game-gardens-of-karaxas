@@ -34,6 +34,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 
 ## Godot-First Unified Shell (Active)
 - Auth, register, account lobby, character list/create, world runtime, updater, and admin log viewer are implemented in `game-client/scripts/client_shell.gd`.
+- Shared UI foundation for Godot shell is now split into:
+  - `game-client/scripts/ui_tokens.gd` (authoritative palette/spacing/size/radius tokens),
+  - `game-client/scripts/ui_components.gd` (shared constructors for labels/buttons/inputs/options and centered shell scaffolds).
 - Godot shell defaults to borderless fullscreen startup.
 - Screen switching in the Godot shell now uses a generic `Control` stack container for Godot 4.3 compatibility (no `StackContainer` dependency).
 - Top-right menu is hidden on auth screen; auth screen carries direct `Update & Restart` and `Exit`.
@@ -104,6 +107,10 @@ This is the single source of truth for technical architecture, stack decisions, 
   - characters/props anchor on ground-contact pivots (default normalized `(0.5,1.0)` with data-driven offsets).
   - runtime/editor draw ordering must use the same stable tuple (`floor_order`, `render_layer`, `sort_y_fp`, `sort_x_fp`, `stable_id`).
 - Collision and editor picking must use the same inverse transform + tile ownership rules from the canonical spec.
+- Hybrid level payload contract and migration documents are now:
+  - `docs/LEVEL_SCHEMA_V3.md`
+  - `docs/LEVEL_SCHEMA_V3_MIGRATION.md`
+- Vertical-slice go/no-go gates are now documented in `docs/ISOMETRIC_VERTICAL_SLICE_GATES.md`.
 
 ## Backend Service Shape (Current)
 - Single FastAPI service (modular monolith) with:
@@ -131,6 +138,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - Includes nullable `location_x`/`location_y` for persisted world coordinates.
   - Character names are globally unique (case-insensitive unique index on `lower(name)`).
 - `levels`: named level layouts with schema-versioned layered tile payloads (`layer_cells`) plus legacy-compatible derived `wall_cells` for collision fallback.
+  - Includes `object_placements` for `schema_version >= 3` hybrid freeform object transforms with stable IDs.
   - Includes `descriptive_name` (player-facing floor label), `order_index` (tower progression ordering), and `transitions` (stairs/ladder/elevator destination links).
   - Planned extension: per-level lighting profile/cycle config for configurable day-night behavior (speed multiplier, start phase/time, and forward/reversed direction).
 - `content_versions`: immutable content snapshot headers with lifecycle state (`draft`, `validated`, `active`, `retired`).
@@ -188,6 +196,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - supports optional Godot bundle inputs:
     - `KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL`,
     - `KARAXAS_GODOT_WINDOWS_SHA256`.
+  - validates runtime asset ingest metadata with `tools/validate_asset_ingest.py --manifest assets/iso_asset_manifest.json` and fails release on invalid entries.
   - applies `Cache-Control: no-cache, max-age=0` metadata to mutable feed files (`RELEASES`, setup exe, portable zip, and feed JSON manifests) to prevent stale client/browser caching.
   - defaults runtime host packaging to `godot` when runtime-host env vars are unset.
   - notifies backend release activation endpoint with new build/feed/notes metadata.
@@ -249,6 +258,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
 - Security settings expose MFA status plus a single toggle-based enable/disable flow with OTP confirmation.
 - MFA setup now renders a themed QR enrollment popup in Godot from backend-provided SVG data and keeps secret/URI copy fallbacks.
+- MFA settings toggle now executes enable/disable directly (OTP-verified), automatically reverts visual toggle state on API failure, and refreshes status from `/auth/mfa/status` after each successful toggle.
 - Settings save/discard confirmations now use themed in-launcher modal dialogs (no system-default placeholder confirm popups).
 - Login MFA challenge now triggers when MFA is either enabled or configured with a secret, preventing password-only login after QR enrollment.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.

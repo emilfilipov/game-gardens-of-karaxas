@@ -62,9 +62,10 @@ create/select characters, and enter gameplay sessions.
    - `Cancel` prompts with a themed confirmation modal when unsaved changes exist before leaving settings.
    - `Video` includes screen mode (`Borderless Fullscreen` / `Windowed`).
    - `Audio` includes mute toggle and master volume slider.
-   - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
-   - MFA toggle is applied with a single on/off control plus adjacent authenticator code field.
-   - MFA setup displays a fully themed QR enrollment popup and also exposes secret + provisioning URI copy actions for fallback enrollment.
+- `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
+- MFA toggle is applied with a single on/off control plus adjacent authenticator code field.
+- Toggling MFA now immediately attempts enable/disable using the entered authenticator code and auto-reverts the toggle state if verification fails.
+- MFA setup displays a fully themed QR enrollment popup and also exposes secret + provisioning URI copy actions for fallback enrollment.
    - Once MFA secret enrollment exists for an account, login requires a valid MFA code (password-only login is blocked).
 
 ## Required Frontend Screens (Godot)

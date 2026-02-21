@@ -9,6 +9,8 @@ from app.models.level import Level
 from app.schemas.level import (
     LevelGridPoint,
     LevelLayerCell,
+    LevelObjectPlacement,
+    LevelObjectTransform,
     LevelOrderSaveRequest,
     LevelResponse,
     LevelSaveRequest,
@@ -19,8 +21,10 @@ from app.schemas.level import (
 router = APIRouter(prefix="/levels", tags=["levels"])
 
 SCHEMA_VERSION_LAYERED = 2
+SCHEMA_VERSION_HYBRID = 3
 LAYER_ID_MIN = 0
 LAYER_ID_MAX = 32
+MAX_OBJECT_PLACEMENTS = 100_000
 DEFAULT_LAYER_BY_ASSET = {
     "grass_tile": 0,
     "wall_block": 1,
@@ -116,6 +120,58 @@ def _parse_stored_transitions(level: Level) -> list[dict]:
                 "y": y,
                 "transition_type": transition_type,
                 "destination_level_id": destination_level_id,
+            }
+        )
+    return parsed
+
+
+def _parse_stored_objects(level: Level) -> list[dict]:
+    raw_objects = level.object_placements if isinstance(level.object_placements, list) else []
+    parsed: list[dict] = []
+    seen_ids: set[str] = set()
+    for item in raw_objects:
+        if not isinstance(item, dict):
+            continue
+        object_id = str(item.get("object_id", "")).strip().lower()
+        if not object_id or object_id in seen_ids:
+            continue
+        seen_ids.add(object_id)
+        asset_key = str(item.get("asset_key", "")).strip().lower()
+        if not asset_key:
+            continue
+        try:
+            layer_id = int(item.get("layer_id", 0))
+        except (TypeError, ValueError):
+            layer_id = 0
+        if layer_id < LAYER_ID_MIN or layer_id > LAYER_ID_MAX:
+            continue
+        transform_raw = item.get("transform", {}) if isinstance(item.get("transform", {}), dict) else {}
+        try:
+            x = float(transform_raw.get("x", 0.0))
+            y = float(transform_raw.get("y", 0.0))
+            z = float(transform_raw.get("z", 0.0))
+            rotation_deg = float(transform_raw.get("rotation_deg", 0.0))
+            scale_x = float(transform_raw.get("scale_x", 1.0))
+            scale_y = float(transform_raw.get("scale_y", 1.0))
+            pivot_x = float(transform_raw.get("pivot_x", 0.5))
+            pivot_y = float(transform_raw.get("pivot_y", 1.0))
+        except (TypeError, ValueError):
+            continue
+        parsed.append(
+            {
+                "object_id": object_id,
+                "asset_key": asset_key,
+                "layer_id": layer_id,
+                "transform": {
+                    "x": x,
+                    "y": y,
+                    "z": z,
+                    "rotation_deg": rotation_deg,
+                    "scale_x": scale_x,
+                    "scale_y": scale_y,
+                    "pivot_x": pivot_x,
+                    "pivot_y": pivot_y,
+                },
             }
         )
     return parsed
@@ -219,6 +275,70 @@ def _normalize_layers_from_payload(payload: LevelSaveRequest) -> dict[int, list[
     return normalized
 
 
+def _normalize_objects_from_payload(payload: LevelSaveRequest) -> list[dict]:
+    if not payload.objects:
+        return []
+    if int(payload.schema_version) < SCHEMA_VERSION_HYBRID:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "message": "Object placements require schema_version >= 3",
+                "code": "invalid_schema_version_for_objects",
+            },
+        )
+    if len(payload.objects) > MAX_OBJECT_PLACEMENTS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "message": f"Object placements exceed max of {MAX_OBJECT_PLACEMENTS}",
+                "code": "too_many_object_placements",
+            },
+        )
+
+    normalized: list[dict] = []
+    seen_ids: set[str] = set()
+    for item in payload.objects:
+        object_id = item.object_id.strip().lower()
+        if object_id in seen_ids:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": f"Duplicate object_id '{object_id}' in payload",
+                    "code": "duplicate_object_id",
+                },
+            )
+        seen_ids.add(object_id)
+
+        transform = item.transform
+        if transform.x >= payload.width or transform.y >= payload.height:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": "Object transform must be inside level bounds",
+                    "code": "object_out_of_bounds",
+                },
+            )
+
+        normalized.append(
+            {
+                "object_id": object_id,
+                "asset_key": item.asset_key.strip().lower(),
+                "layer_id": int(item.layer_id),
+                "transform": {
+                    "x": float(transform.x),
+                    "y": float(transform.y),
+                    "z": float(transform.z),
+                    "rotation_deg": float(transform.rotation_deg),
+                    "scale_x": float(transform.scale_x),
+                    "scale_y": float(transform.scale_y),
+                    "pivot_x": float(transform.pivot_x),
+                    "pivot_y": float(transform.pivot_y),
+                },
+            }
+        )
+    return normalized
+
+
 def _normalize_transitions_from_payload(payload: LevelSaveRequest, db: Session) -> list[dict]:
     normalized: list[dict] = []
     seen: set[tuple[int, int, str, int]] = set()
@@ -298,6 +418,7 @@ def _to_summary(level: Level) -> LevelSummaryResponse:
 def _to_response(level: Level) -> LevelResponse:
     transitions = _parse_stored_transitions(level)
     layer_cells = _assign_transition_assets(_parse_stored_layers(level), transitions)
+    objects = _parse_stored_objects(level)
     wall_cells = _derive_wall_cells(
         layer_cells,
         width=level.width,
@@ -326,6 +447,24 @@ def _to_response(level: Level) -> LevelResponse:
             ]
             for layer_id in sorted(layer_cells.keys())
         },
+        objects=[
+            LevelObjectPlacement(
+                object_id=str(item.get("object_id", "")),
+                asset_key=str(item.get("asset_key", "")).strip().lower(),
+                layer_id=int(item.get("layer_id", 0)),
+                transform=LevelObjectTransform(
+                    x=float(item.get("transform", {}).get("x", 0.0)),
+                    y=float(item.get("transform", {}).get("y", 0.0)),
+                    z=float(item.get("transform", {}).get("z", 0.0)),
+                    rotation_deg=float(item.get("transform", {}).get("rotation_deg", 0.0)),
+                    scale_x=float(item.get("transform", {}).get("scale_x", 1.0)),
+                    scale_y=float(item.get("transform", {}).get("scale_y", 1.0)),
+                    pivot_x=float(item.get("transform", {}).get("pivot_x", 0.5)),
+                    pivot_y=float(item.get("transform", {}).get("pivot_y", 1.0)),
+                ),
+            )
+            for item in objects
+        ],
         transitions=[
             LevelTransition(
                 x=int(item["x"]),
@@ -426,6 +565,7 @@ def save_level(
         )
 
     layer_cells = _normalize_layers_from_payload(payload)
+    object_placements = _normalize_objects_from_payload(payload)
     transitions = _normalize_transitions_from_payload(payload, db)
     layer_cells = _assign_transition_assets(layer_cells, transitions)
     wall_cells = _derive_wall_cells(
@@ -436,6 +576,7 @@ def save_level(
         spawn_y=payload.spawn_y,
     )
     layer_cells_for_storage = {str(layer_id): cells for layer_id, cells in layer_cells.items()}
+    schema_version = max(int(payload.schema_version), SCHEMA_VERSION_HYBRID if object_placements else SCHEMA_VERSION_LAYERED)
     existing = db.execute(select(Level).where(func.lower(Level.name) == normalized_name.lower())).scalar_one_or_none()
     requested_order = payload.order_index
     max_order = db.execute(select(func.max(Level.order_index))).scalar_one_or_none() or 0
@@ -445,13 +586,14 @@ def save_level(
             name=normalized_name,
             descriptive_name=normalized_descriptive_name,
             order_index=order_index,
-            schema_version=SCHEMA_VERSION_LAYERED,
+            schema_version=schema_version,
             width=payload.width,
             height=payload.height,
             spawn_x=payload.spawn_x,
             spawn_y=payload.spawn_y,
             wall_cells=wall_cells,
             layer_cells=layer_cells_for_storage,
+            object_placements=object_placements,
             transitions=transitions,
             created_by_user_id=context.user.id,
         )
@@ -461,13 +603,14 @@ def save_level(
         existing.descriptive_name = normalized_descriptive_name
         if requested_order is not None:
             existing.order_index = requested_order
-        existing.schema_version = SCHEMA_VERSION_LAYERED
+        existing.schema_version = schema_version
         existing.width = payload.width
         existing.height = payload.height
         existing.spawn_x = payload.spawn_x
         existing.spawn_y = payload.spawn_y
         existing.wall_cells = wall_cells
         existing.layer_cells = layer_cells_for_storage
+        existing.object_placements = object_placements
         existing.transitions = transitions
         existing.created_by_user_id = context.user.id
         db.add(existing)
