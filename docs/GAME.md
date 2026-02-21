@@ -41,6 +41,7 @@ create/select characters, and enter gameplay sessions.
    - World/session opens in a dedicated gameplay scene (separate from lobby/select cards).
    - Runtime host switch now exists: default flow uses the in-launcher gameplay scene; Godot host mode can launch external game runtime for the same character handoff.
    - When release runtime host is set to `godot`, launcher builds now ship a bundled Windows Godot executable so players do not need a local Godot install.
+   - Godot bootstrap now renders an explicit handoff/status panel (instead of blank gray scaffold) so runtime launch success is visible immediately.
    - In launcher-hosted gameplay, launcher title art/chrome is hidden so the world scene uses the full client area.
    - If the character has a map assignment, the session loads that level/floor layout and spawn.
    - New characters now start on the first tower floor (lowest configured floor order) at that floor's spawn point.

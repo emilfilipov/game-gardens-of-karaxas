@@ -3546,6 +3546,27 @@ object LauncherMain {
         lateinit var showCard: (String) -> Unit
         lateinit var populateCharacterViewsFn: (List<CharacterView>) -> Unit
 
+        fun streamExternalRuntimeOutput(process: Process, prefix: String) {
+            Thread {
+                try {
+                    process.inputStream.bufferedReader().useLines { lines ->
+                        lines.forEach { raw ->
+                            val line = raw.trim()
+                            if (line.isNotBlank()) {
+                                log("$prefix: $line")
+                            }
+                        }
+                    }
+                } catch (ex: Exception) {
+                    log("$prefix output reader failed.", ex)
+                }
+            }.apply {
+                isDaemon = true
+                name = "gok-runtime-log-stream"
+                start()
+            }
+        }
+
         fun playWithCharacter(character: CharacterView, overrideLevelId: Int? = null) {
             if (!hasValidContentSnapshot) {
                 selectStatus.text = contentText(
@@ -3587,7 +3608,7 @@ object LauncherMain {
                             if (configuredRuntimeHost == RuntimeHost.godot) {
                                 val alreadyRunning = activeExternalRuntimeProcess?.takeIf { it.isAlive }
                                 if (alreadyRunning != null) {
-                                    selectStatus.text = "Game client is already running."
+                                    selectStatus.text = "Game client is already running. Close it before launching again."
                                     return@invokeLater
                                 }
                                 val levelForBootstrap = selectedLevel
@@ -3620,8 +3641,8 @@ object LauncherMain {
                                         activeExternalRuntimeProcess = process
                                         selectStatus.text = "Launched game client for ${gameplayCharacter.name}."
                                         log(launch.message)
-                                        frame.extendedState = frame.extendedState or JFrame.ICONIFIED
                                         if (process != null) {
+                                            streamExternalRuntimeOutput(process, "Godot runtime")
                                             Thread {
                                                 val exitCode = try {
                                                     process.waitFor()
@@ -3633,9 +3654,6 @@ object LauncherMain {
                                                         activeExternalRuntimeProcess = null
                                                     }
                                                     if (authSession != null) {
-                                                        frame.extendedState = JFrame.NORMAL
-                                                        frame.toFront()
-                                                        frame.repaint()
                                                         selectStatus.text = "Game client closed (exit code $exitCode)."
                                                     }
                                                 }

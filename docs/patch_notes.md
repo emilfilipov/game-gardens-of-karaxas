@@ -1,1 +1,1 @@
-- Completed `GOK-MMO-239`: decoupled updater/log actions in the cog menu by keeping `Update & Restart` for all authenticated users and adding an admin-only `Log Viewer` entry that opens logs without starting an update check.
+- Completed `GOK-MMO-240`: improved Godot launch clarity by streaming runtime output into launcher logs, removing launcher auto-minimize on runtime launch, and replacing the gray bootstrap scaffold with a visible handoff status panel.

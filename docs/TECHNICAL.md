@@ -57,8 +57,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - On `godot` mode:
   - launcher writes per-character bootstrap payload to `install_root/runtime/runtime_bootstrap_<character_id>.json`,
   - launches Godot with `--bootstrap=<path>`,
-  - minimizes launcher while external runtime is active,
-  - restores launcher focus when external runtime exits.
+  - streams runtime stdout/stderr into launcher log for handoff diagnostics,
+  - keeps launcher window visible during launch to avoid hidden-window confusion while runtime integration is in progress.
 - If Godot launch prerequisites fail, launcher logs the reason and falls back to legacy in-launcher gameplay for continuity.
 
 ## Isometric Visual Direction (Locked)
