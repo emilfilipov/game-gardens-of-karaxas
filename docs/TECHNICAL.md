@@ -205,6 +205,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Legacy Swing bullets below remain as migration reference until `GOK-MMO-242` removes deprecated launcher UI code paths.
 - UI is organized with reusable screen scaffolds and layout tokens (`UiScaffold`) to keep alignment consistent across screens.
 - Screens are card-based (combined auth, character creation, character selection, update, play) instead of one-off ad hoc layouts.
+- Post-login routing now always lands on `Character List`; empty accounts remain on that tab and show empty-state guidance instead of auto-switching to `Create Character`.
+- Character creation tables are content-driven (`character_options`, `stats`, `skills`) and submit allocated stat/skill payloads directly to `/characters`.
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Startup window-mode application now guards undecorated-frame transitions to avoid `IllegalComponentStateException` on already-displayable windows.
 - Launcher keeps the same full-screen background art image, but interactive UI chrome now uses lightweight shape-based rendering (thin borders + painted fills/gradients) instead of PNG-framed button/panel surfaces.

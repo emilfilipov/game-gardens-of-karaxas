@@ -1,6 +1,7 @@
 extends Control
 
 const WORLD_CANVAS_SCENE = preload("res://scripts/world_canvas.gd")
+const LEVEL_EDITOR_CANVAS_SCENE = preload("res://scripts/level_editor_canvas.gd")
 
 const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
@@ -45,6 +46,9 @@ var level_draft_path = ""
 var asset_draft_path = ""
 var settings_dirty = false
 var suppress_settings_events = false
+var character_texture_cache: Dictionary = {}
+var admin_levels_cache: Array = []
+var character_row_level_overrides: Dictionary = {}
 
 var register_mode = false
 var current_screen_name = "auth"
@@ -72,19 +76,30 @@ var auth_update_button: Button
 var account_container: VBoxContainer
 var account_status_label: Label
 var character_tabs: TabContainer
-var character_list_widget: ItemList
+var character_rows_scroll: ScrollContainer
+var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
-var character_play_button: Button
-var character_delete_button: Button
-var character_refresh_button: Button
+var character_preview_texture: TextureRect
+var character_list_title_label: Label
 
 var create_name_input: LineEdit
 var create_sex_option: OptionButton
 var create_race_option: OptionButton
 var create_background_option: OptionButton
 var create_affiliation_option: OptionButton
+var create_preview_texture: TextureRect
+var create_points_left_label: Label
+var create_stats_grid: GridContainer
+var create_skills_grid: GridContainer
 var create_status_label: Label
 var create_submit_button: Button
+var create_stat_keys: Array[String] = []
+var create_skill_keys: Array[String] = []
+var create_stat_values: Dictionary = {}
+var create_skill_values: Dictionary = {}
+var create_skill_buttons: Dictionary = {}
+var create_point_budget: int = 10
+var create_stat_max_per_entry: int = 10
 
 var world_container: VBoxContainer
 var world_status_label: Label
@@ -122,6 +137,11 @@ var level_editor_width_input: LineEdit
 var level_editor_height_input: LineEdit
 var level_editor_spawn_x_input: LineEdit
 var level_editor_spawn_y_input: LineEdit
+var level_editor_asset_option: OptionButton
+var level_editor_layer_option: OptionButton
+var level_editor_show_layer_checks: Dictionary = {}
+var level_editor_canvas_scroll: ScrollContainer
+var level_editor_canvas: Control
 var level_editor_layers_input: TextEdit
 var level_editor_transitions_input: TextEdit
 var level_editor_pending_list: ItemList
@@ -137,11 +157,15 @@ var asset_editor_container: VBoxContainer
 var asset_editor_status: Label
 var asset_editor_version_option: OptionButton
 var asset_editor_domain_option: OptionButton
+var asset_editor_search_input: LineEdit
+var asset_editor_card_list: ItemList
 var asset_editor_payload_input: TextEdit
 var asset_editor_pending_list: ItemList
 var asset_editor_local_drafts: Array = []
 var asset_editor_versions_cache: Array = []
 var asset_editor_active_domains: Dictionary = {}
+var asset_editor_cards: Array = []
+var asset_editor_selected_card_index: int = -1
 
 var versions_container: VBoxContainer
 var versions_status: Label
@@ -150,6 +174,8 @@ var versions_details: TextEdit
 var versions_compare_a: OptionButton
 var versions_compare_b: OptionButton
 var versions_compare_output: TextEdit
+var versions_compare_left: TextEdit
+var versions_compare_right: TextEdit
 
 func _ready() -> void:
 	_resolve_paths()
@@ -481,56 +507,157 @@ func _build_account_screen() -> VBoxContainer:
 	list_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_tab.add_child(list_split)
 
-	character_list_widget = ItemList.new()
-	character_list_widget.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	character_list_widget.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	character_list_widget.select_mode = ItemList.SELECT_SINGLE
-	character_list_widget.item_selected.connect(_on_character_selected)
-	list_split.add_child(character_list_widget)
+	var list_left = PanelContainer.new()
+	list_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_left.size_flags_stretch_ratio = 0.73
+	list_split.add_child(list_left)
+	var list_left_inner = VBoxContainer.new()
+	list_left_inner.add_theme_constant_override("separation", 8)
+	list_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_left.add_child(list_left_inner)
+	character_list_title_label = _label("Character List")
+	character_list_title_label.add_theme_font_size_override("font_size", 22)
+	list_left_inner.add_child(character_list_title_label)
+	character_rows_scroll = ScrollContainer.new()
+	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	character_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	list_left_inner.add_child(character_rows_scroll)
+	character_rows_container = VBoxContainer.new()
+	character_rows_container.add_theme_constant_override("separation", 6)
+	character_rows_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	character_rows_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	character_rows_scroll.add_child(character_rows_container)
 
+	var list_right = PanelContainer.new()
+	list_right.custom_minimum_size = Vector2(340, 420)
+	list_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_split.add_child(list_right)
+	var list_right_inner = VBoxContainer.new()
+	list_right_inner.add_theme_constant_override("separation", 8)
+	list_right.add_child(list_right_inner)
+	var preview_panel = PanelContainer.new()
+	preview_panel.custom_minimum_size = Vector2(320, 220)
+	list_right_inner.add_child(preview_panel)
+	character_preview_texture = TextureRect.new()
+	character_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	character_preview_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	character_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview_panel.add_child(character_preview_texture)
 	character_details_label = RichTextLabel.new()
 	character_details_label.fit_content = false
 	character_details_label.bbcode_enabled = false
-	character_details_label.custom_minimum_size = Vector2(320, 260)
+	character_details_label.custom_minimum_size = Vector2(320, 220)
 	character_details_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_details_label.add_theme_color_override("default_color", Color(0.94, 0.84, 0.69))
-	list_split.add_child(character_details_label)
-
-	var list_buttons = HBoxContainer.new()
-	list_buttons.add_theme_constant_override("separation", 8)
-	list_tab.add_child(list_buttons)
-	character_play_button = _button("Play")
-	character_play_button.pressed.connect(_on_character_play_pressed)
-	list_buttons.add_child(character_play_button)
-	character_delete_button = _button("Delete")
-	character_delete_button.pressed.connect(_on_character_delete_pressed)
-	list_buttons.add_child(character_delete_button)
-	character_refresh_button = _button("Refresh")
-	character_refresh_button.pressed.connect(_load_characters)
-	list_buttons.add_child(character_refresh_button)
+	list_right_inner.add_child(character_details_label)
 
 	var create_tab = VBoxContainer.new()
 	create_tab.name = "Create Character"
 	create_tab.add_theme_constant_override("separation", 8)
 	character_tabs.add_child(create_tab)
 
+	var create_shell = PanelContainer.new()
+	create_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_tab.add_child(create_shell)
+	var create_root = VBoxContainer.new()
+	create_root.add_theme_constant_override("separation", 10)
+	create_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_shell.add_child(create_root)
+
+	var create_body = HBoxContainer.new()
+	create_body.add_theme_constant_override("separation", 10)
+	create_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_root.add_child(create_body)
+
+	var create_preview_panel = PanelContainer.new()
+	create_preview_panel.custom_minimum_size = Vector2(230, 420)
+	create_body.add_child(create_preview_panel)
+	create_preview_texture = TextureRect.new()
+	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	create_preview_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	create_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	create_preview_panel.add_child(create_preview_texture)
+
+	var create_right = VBoxContainer.new()
+	create_right.add_theme_constant_override("separation", 10)
+	create_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_body.add_child(create_right)
+
+	var identity_row = HBoxContainer.new()
+	identity_row.add_theme_constant_override("separation", 8)
+	create_right.add_child(identity_row)
 	create_name_input = _line_edit("Character Name")
-	create_tab.add_child(create_name_input)
+	create_name_input.custom_minimum_size = Vector2(190, 36)
+	identity_row.add_child(_labeled_control("Name", create_name_input))
 	create_sex_option = _option(["Male", "Female"])
-	create_tab.add_child(create_sex_option)
+	create_sex_option.custom_minimum_size = Vector2(190, 36)
+	create_sex_option.item_selected.connect(func(_index: int) -> void:
+		_refresh_create_character_preview()
+	)
+	identity_row.add_child(_labeled_control("Sex", create_sex_option))
 	create_race_option = _option(["Human"])
-	create_tab.add_child(create_race_option)
+	create_race_option.custom_minimum_size = Vector2(190, 36)
+	identity_row.add_child(_labeled_control("Race", create_race_option))
 	create_background_option = _option(["Drifter"])
-	create_tab.add_child(create_background_option)
+	create_background_option.custom_minimum_size = Vector2(190, 36)
+	identity_row.add_child(_labeled_control("Background", create_background_option))
 	create_affiliation_option = _option(["Unaffiliated"])
-	create_tab.add_child(create_affiliation_option)
+	create_affiliation_option.custom_minimum_size = Vector2(190, 36)
+	identity_row.add_child(_labeled_control("Affiliation", create_affiliation_option))
+
+	var create_tables = HSplitContainer.new()
+	create_tables.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_right.add_child(create_tables)
+
+	var stats_panel = PanelContainer.new()
+	stats_panel.custom_minimum_size = Vector2(570, 320)
+	create_tables.add_child(stats_panel)
+	var stats_inner = VBoxContainer.new()
+	stats_inner.add_theme_constant_override("separation", 8)
+	stats_panel.add_child(stats_inner)
+	var stats_title = _label("Stats")
+	stats_title.add_theme_font_size_override("font_size", 18)
+	stats_inner.add_child(stats_title)
+	create_stats_grid = GridContainer.new()
+	create_stats_grid.columns = 5
+	create_stats_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_stats_grid.add_theme_constant_override("h_separation", 6)
+	create_stats_grid.add_theme_constant_override("v_separation", 6)
+	stats_inner.add_child(create_stats_grid)
+
+	var skills_panel = PanelContainer.new()
+	skills_panel.custom_minimum_size = Vector2(570, 320)
+	create_tables.add_child(skills_panel)
+	var skills_inner = VBoxContainer.new()
+	skills_inner.add_theme_constant_override("separation", 8)
+	skills_panel.add_child(skills_inner)
+	var skills_title = _label("Skills")
+	skills_title.add_theme_font_size_override("font_size", 18)
+	skills_inner.add_child(skills_title)
+	create_skills_grid = GridContainer.new()
+	create_skills_grid.columns = 6
+	create_skills_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_skills_grid.add_theme_constant_override("h_separation", 6)
+	create_skills_grid.add_theme_constant_override("v_separation", 6)
+	skills_inner.add_child(create_skills_grid)
+
+	var footer_row = HBoxContainer.new()
+	footer_row.add_theme_constant_override("separation", 10)
+	create_right.add_child(footer_row)
+	create_points_left_label = _label("10/10 points left")
+	footer_row.add_child(create_points_left_label)
+	footer_row.add_spacer(false)
 	create_submit_button = _button("Create Character")
+	create_submit_button.custom_minimum_size = Vector2(220, 42)
 	create_submit_button.pressed.connect(_on_create_character_pressed)
-	create_tab.add_child(create_submit_button)
+	footer_row.add_child(create_submit_button)
+
 	create_status_label = Label.new()
 	create_status_label.text = " "
 	create_status_label.add_theme_color_override("font_color", Color(0.94, 0.83, 0.68))
-	create_tab.add_child(create_status_label)
+	create_root.add_child(create_status_label)
+	_populate_character_creation_tables(content_domains.get("character_options", {}))
+	_refresh_create_character_preview()
 
 	return wrap
 
@@ -980,6 +1107,332 @@ func _option(items: Array) -> OptionButton:
 		option.add_item(str(item))
 	return option
 
+func _labeled_control(label_text: String, control: Control) -> Control:
+	var wrap = VBoxContainer.new()
+	wrap.add_theme_constant_override("separation", 4)
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var label = _label(label_text)
+	wrap.add_child(label)
+	wrap.add_child(control)
+	return wrap
+
+func _clear_children(node: Node) -> void:
+	if node == null:
+		return
+	for child in node.get_children():
+		child.queue_free()
+
+func _refresh_create_character_preview() -> void:
+	if create_preview_texture == null:
+		return
+	var appearance_key = "human_male"
+	if create_sex_option != null and create_sex_option.selected == 1:
+		appearance_key = "human_female"
+	create_preview_texture.texture = _resolve_character_texture(appearance_key)
+
+func _refresh_selected_character_preview() -> void:
+	if character_preview_texture == null:
+		return
+	if selected_character_index < 0 or selected_character_index >= characters.size():
+		character_preview_texture.texture = null
+		return
+	var row: Dictionary = characters[selected_character_index]
+	var appearance_key = str(row.get("appearance_key", "human_male"))
+	character_preview_texture.texture = _resolve_character_texture(appearance_key)
+
+func _resolve_character_texture(appearance_key: String):
+	var key = appearance_key.strip_edges().to_lower()
+	if key.is_empty():
+		key = "human_male"
+	if character_texture_cache.has(key):
+		var cached = character_texture_cache.get(key)
+		if cached is Texture2D:
+			return cached
+
+	var file_name = "karaxas_human_female_idle_32.png" if key == "human_female" else "karaxas_human_male_idle_32.png"
+	var candidates: Array[String] = []
+	candidates.append("res://assets/characters/" + file_name)
+	candidates.append(_path_join(install_root_path, "assets/characters/" + file_name))
+	candidates.append(_path_join(install_root_path, "game-client/assets/characters/" + file_name))
+	candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "assets/characters/" + file_name))
+
+	for path in candidates:
+		var texture = _load_texture_from_path(path)
+		if texture != null:
+			character_texture_cache[key] = texture
+			return texture
+	return null
+
+func _load_texture_from_path(path: String):
+	if path.is_empty():
+		return null
+	if path.begins_with("res://"):
+		var resource = load(path)
+		if resource is Texture2D:
+			return resource
+		return null
+	if not FileAccess.file_exists(path):
+		return null
+	var image = Image.new()
+	if image.load(path) != OK:
+		return null
+	return ImageTexture.create_from_image(image)
+
+func _character_location_text(row: Dictionary) -> String:
+	var level_name = "Default"
+	if row.get("level_name", null) != null:
+		level_name = str(row.get("level_name"))
+	elif row.get("level_id", null) != null:
+		level_name = "Level #" + str(row.get("level_id"))
+	var x = row.get("location_x", null)
+	var y = row.get("location_y", null)
+	if x != null and y != null:
+		return "%s (%s, %s)" % [level_name, str(x), str(y)]
+	return level_name
+
+func _set_selected_character(index: int) -> void:
+	if index < 0 or index >= characters.size():
+		selected_character_index = -1
+		_render_character_details(-1)
+		_render_character_rows()
+		return
+	selected_character_index = index
+	_render_character_details(index)
+	_render_character_rows()
+
+func _render_character_rows() -> void:
+	if character_rows_container == null:
+		return
+	_clear_children(character_rows_container)
+	if characters.is_empty():
+		var empty_label = _label("No characters yet. Create your first character.")
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		character_rows_container.add_child(empty_label)
+		return
+	for index in range(characters.size()):
+		var row: Dictionary = characters[index]
+		var row_index = index
+		var row_character_id = int(row.get("id", -1))
+		var card = PanelContainer.new()
+		card.custom_minimum_size = Vector2(0, 84)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if index == selected_character_index:
+			card.self_modulate = Color(1.08, 1.08, 1.08, 1.0)
+		var card_inner = HBoxContainer.new()
+		card_inner.add_theme_constant_override("separation", 8)
+		card.add_child(card_inner)
+
+		var summary_button = _button(
+			"%s | Level %s | XP %s (next %s) | Location: %s"
+			% [
+				str(row.get("name", "Unnamed")),
+				str(row.get("level", 1)),
+				str(row.get("experience", 0)),
+				str(row.get("experience_to_next_level", 100)),
+				_character_location_text(row),
+			]
+		)
+		summary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		summary_button.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		summary_button.clip_text = true
+		summary_button.pressed.connect(func() -> void:
+			_set_selected_character(row_index)
+		)
+		card_inner.add_child(summary_button)
+
+		if session_is_admin:
+			var level_option = OptionButton.new()
+			level_option.custom_minimum_size = Vector2(200, 36)
+			level_option.add_item("Current location", -1)
+			for level in admin_levels_cache:
+				var level_label = str(level.get("descriptive_name", level.get("name", "Level")))
+				var level_id = int(level.get("id", -1))
+				level_option.add_item(level_label, level_id)
+			var override_level = int(character_row_level_overrides.get(row_character_id, -1))
+			for item_index in range(level_option.get_item_count()):
+				if level_option.get_item_id(item_index) == override_level:
+					level_option.selected = item_index
+					break
+			level_option.item_selected.connect(func(item_index: int) -> void:
+				var selected_level_id = level_option.get_item_id(item_index)
+				if selected_level_id <= 0:
+					character_row_level_overrides.erase(row_character_id)
+				else:
+					character_row_level_overrides[row_character_id] = selected_level_id
+			)
+			card_inner.add_child(level_option)
+
+		var play_button = _button("Play")
+		play_button.custom_minimum_size = Vector2(110, 36)
+		play_button.pressed.connect(func() -> void:
+			_set_selected_character(row_index)
+			_on_character_play_pressed()
+		)
+		card_inner.add_child(play_button)
+
+		var delete_button = _button("Delete")
+		delete_button.custom_minimum_size = Vector2(110, 36)
+		delete_button.pressed.connect(func() -> void:
+			_set_selected_character(row_index)
+			_on_character_delete_pressed()
+		)
+		card_inner.add_child(delete_button)
+
+		character_rows_container.add_child(card)
+
+func _remaining_create_points() -> int:
+	var used = 0
+	for value in create_stat_values.values():
+		used += int(value)
+	for value in create_skill_values.values():
+		if int(value) > 0:
+			used += 1
+	return max(0, create_point_budget - used)
+
+func _refresh_create_points_label() -> void:
+	if create_points_left_label == null:
+		return
+	create_points_left_label.text = "%d/%d points left" % [_remaining_create_points(), create_point_budget]
+
+func _adjust_create_stat(stat_key: String, delta: int, value_label: Label) -> void:
+	var current = int(create_stat_values.get(stat_key, 0))
+	if delta > 0 and _remaining_create_points() <= 0:
+		return
+	var next_value = clampi(current + delta, 0, create_stat_max_per_entry)
+	if next_value == current:
+		return
+	create_stat_values[stat_key] = next_value
+	value_label.text = str(next_value)
+	_refresh_create_points_label()
+
+func _toggle_create_skill(skill_key: String, enabled: bool) -> void:
+	var current = int(create_skill_values.get(skill_key, 0))
+	if enabled and current == 0 and _remaining_create_points() <= 0:
+		var button = create_skill_buttons.get(skill_key)
+		if button is Button:
+			button.button_pressed = false
+		return
+	create_skill_values[skill_key] = 1 if enabled else 0
+	_refresh_create_points_label()
+
+func _skill_tooltip(entry: Dictionary) -> String:
+	return (
+		"Name: %s\nType: %s\nMana: %s  Energy: %s  Life: %s\nEffects: %s\nDamage: %s\nCooldown: %ss\nDescription: %s"
+		% [
+			str(entry.get("label", entry.get("key", "Skill"))),
+			str(entry.get("skill_type", "Unknown")),
+			str(entry.get("mana_cost", 0)),
+			str(entry.get("energy_cost", 0)),
+			str(entry.get("life_cost", 0)),
+			str(entry.get("effects", "Placeholder effect.")),
+			str(entry.get("damage_text", "Placeholder damage.")),
+			str(entry.get("cooldown_seconds", 0)),
+			str(entry.get("description", "Placeholder description.")),
+		]
+	)
+
+func _populate_character_creation_tables(options: Dictionary) -> void:
+	if create_stats_grid == null or create_skills_grid == null:
+		return
+	create_point_budget = max(1, int(options.get("point_budget", 10)))
+	create_stat_max_per_entry = max(1, int(content_domains.get("stats", {}).get("max_per_stat", 10)))
+	create_stat_values.clear()
+	create_skill_values.clear()
+	create_skill_buttons.clear()
+	create_stat_keys.clear()
+	create_skill_keys.clear()
+	_clear_children(create_stats_grid)
+	_clear_children(create_skills_grid)
+
+	var stat_entries: Array = content_domains.get("stats", {}).get("entries", [])
+	if stat_entries.is_empty():
+		stat_entries = [
+			{"key": "strength", "label": "Strength", "description": "Power for heavy melee attacks."},
+			{"key": "agility", "label": "Agility", "description": "Speed for movement and recovery."},
+			{"key": "intellect", "label": "Intellect", "description": "Arcane output and spell control."},
+			{"key": "vitality", "label": "Vitality", "description": "Base health and toughness."},
+			{"key": "resolve", "label": "Resolve", "description": "Resistance against control effects."},
+			{"key": "endurance", "label": "Endurance", "description": "Stamina and sustained effort."},
+			{"key": "dexterity", "label": "Dexterity", "description": "Precision for weapons and tools."},
+			{"key": "willpower", "label": "Willpower", "description": "Mental focus and channeling."},
+		]
+
+	for entry in stat_entries:
+		if not (entry is Dictionary):
+			continue
+		var key = str(entry.get("key", "")).strip_edges().to_lower()
+		if key.is_empty():
+			continue
+		var stat_key = key
+		create_stat_keys.append(stat_key)
+		create_stat_values[stat_key] = 0
+
+		var stat_label = _label(str(entry.get("label", key.capitalize())))
+		stat_label.custom_minimum_size = Vector2(130, 40)
+		create_stats_grid.add_child(stat_label)
+
+		var minus = _button("-")
+		minus.custom_minimum_size = Vector2(38, 38)
+		create_stats_grid.add_child(minus)
+
+		var value_label = _label("0")
+		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		value_label.custom_minimum_size = Vector2(44, 38)
+		create_stats_grid.add_child(value_label)
+
+		var plus = _button("+")
+		plus.custom_minimum_size = Vector2(38, 38)
+		create_stats_grid.add_child(plus)
+
+		var description = _label(str(entry.get("description", "Placeholder description.")))
+		description.custom_minimum_size = Vector2(220, 40)
+		description.clip_text = true
+		description.tooltip_text = str(entry.get("tooltip", entry.get("description", "Placeholder tooltip.")))
+		create_stats_grid.add_child(description)
+
+		minus.pressed.connect(func() -> void:
+			_adjust_create_stat(stat_key, -1, value_label)
+		)
+		plus.pressed.connect(func() -> void:
+			_adjust_create_stat(stat_key, 1, value_label)
+		)
+
+	var skill_entries: Array = content_domains.get("skills", {}).get("entries", [])
+	if skill_entries.is_empty():
+		skill_entries = [
+			{"key": "ember", "label": "Ember"},
+			{"key": "cleave", "label": "Cleave"},
+			{"key": "quick_strike", "label": "Quick Strike"},
+			{"key": "bandage", "label": "Bandage"},
+		]
+
+	for entry in skill_entries:
+		if not (entry is Dictionary):
+			continue
+		var key = str(entry.get("key", "")).strip_edges().to_lower()
+		if key.is_empty():
+			continue
+		var skill_key = key
+		create_skill_keys.append(skill_key)
+		create_skill_values[skill_key] = 0
+		var skill_button = _button(str(entry.get("label", skill_key)))
+		skill_button.toggle_mode = true
+		skill_button.custom_minimum_size = Vector2(74, 74)
+		skill_button.tooltip_text = _skill_tooltip(entry)
+		skill_button.toggled.connect(func(pressed: bool) -> void:
+			_toggle_create_skill(skill_key, pressed)
+		)
+		create_skill_buttons[skill_key] = skill_button
+		create_skills_grid.add_child(skill_button)
+
+	while create_skills_grid.get_child_count() < 24:
+		var placeholder = PanelContainer.new()
+		placeholder.custom_minimum_size = Vector2(74, 74)
+		create_skills_grid.add_child(placeholder)
+
+	_refresh_create_points_label()
+	_refresh_create_character_preview()
+
 func _on_menu_button_pressed() -> void:
 	_populate_menu()
 	menu_popup.position = Vector2i(
@@ -1165,10 +1618,7 @@ func _on_auth_submit() -> void:
 	_apply_auth_mode()
 	await _load_characters()
 	_show_screen("account")
-	if characters.is_empty():
-		character_tabs.current_tab = 1
-	else:
-		character_tabs.current_tab = 0
+	character_tabs.current_tab = 0
 
 func _apply_session(payload: Dictionary) -> void:
 	access_token = str(payload.get("access_token", ""))
@@ -1192,8 +1642,10 @@ func _logout_session_local() -> void:
 	active_level_id = -1
 	active_level_name = "Default"
 	active_world_ready = false
-	character_list_widget.clear()
+	character_row_level_overrides.clear()
+	_clear_children(character_rows_container)
 	character_details_label.text = "Choose a character from the list."
+	character_preview_texture.texture = null
 	auth_password_input.clear()
 	auth_otp_input.clear()
 	settings_mfa_last_secret = ""
@@ -1212,44 +1664,50 @@ func _load_characters() -> void:
 	if access_token == "":
 		return
 	account_status_label.text = "Loading characters..."
+	if session_is_admin:
+		await _refresh_admin_levels_cache()
 	var response = await _api_request(HTTPClient.METHOD_GET, "/characters", null, true)
 	if not response.get("ok", false):
 		account_status_label.text = _friendly_error(response)
 		return
 	var payload = response.get("json", [])
 	characters = payload if payload is Array else []
-	character_list_widget.clear()
-	for entry in characters:
-		var location = "Default"
-		if entry.get("level_id", null) != null:
-			location = "Level " + str(entry.get("level_id"))
-		if entry.get("location_x", null) != null and entry.get("location_y", null) != null:
-			location += " (" + str(entry.get("location_x")) + ", " + str(entry.get("location_y")) + ")"
-		var row = str(entry.get("name", "Unnamed")) + " | Level " + str(entry.get("level", 1)) + " | " + location
-		character_list_widget.add_item(row)
 	if characters.is_empty():
 		selected_character_index = -1
 		character_details_label.text = "No characters yet. Create your first character."
+		character_preview_texture.texture = null
 	else:
-		selected_character_index = 0
-		character_list_widget.select(0)
-		_render_character_details(0)
+		var selected_index = 0
+		for idx in range(characters.size()):
+			if bool(characters[idx].get("is_selected", false)):
+				selected_index = idx
+				break
+		selected_character_index = selected_index
+		_render_character_details(selected_index)
+	_refresh_create_character_preview()
+	_render_character_rows()
 	account_status_label.text = " "
 
+func _refresh_admin_levels_cache() -> void:
+	admin_levels_cache.clear()
+	if access_token.is_empty() or not session_is_admin:
+		return
+	var response = await _api_request(HTTPClient.METHOD_GET, "/levels", null, true)
+	if not response.get("ok", false):
+		return
+	var payload = response.get("json", [])
+	admin_levels_cache = payload if payload is Array else []
+
 func _on_character_selected(index: int) -> void:
-	selected_character_index = index
-	_render_character_details(index)
+	_set_selected_character(index)
 
 func _render_character_details(index: int) -> void:
 	if index < 0 or index >= characters.size():
 		character_details_label.text = "Choose a character from the list."
+		character_preview_texture.texture = null
 		return
 	var row: Dictionary = characters[index]
-	var location_text = "Default"
-	if row.get("level_id", null) != null:
-		location_text = "Level #" + str(row.get("level_id"))
-	if row.get("location_x", null) != null and row.get("location_y", null) != null:
-		location_text += " (" + str(row.get("location_x")) + ", " + str(row.get("location_y")) + ")"
+	var location_text = _character_location_text(row)
 	character_details_label.text = (
 		"Name: %s\nLevel: %s\nXP: %s (next %s)\nAppearance: %s\nRace: %s\nBackground: %s\nAffiliation: %s\nLocation: %s"
 		% [
@@ -1264,6 +1722,7 @@ func _render_character_details(index: int) -> void:
 			location_text,
 		]
 	)
+	_refresh_selected_character_preview()
 
 func _on_create_character_pressed() -> void:
 	if access_token == "":
@@ -1275,15 +1734,21 @@ func _on_create_character_pressed() -> void:
 		return
 	create_status_label.text = "Creating character..."
 	var appearance_key = "human_male" if create_sex_option.selected == 0 else "human_female"
+	var stats_payload: Dictionary = {}
+	for key in create_stat_keys:
+		stats_payload[key] = int(create_stat_values.get(key, 0))
+	var skills_payload: Dictionary = {}
+	for key in create_skill_keys:
+		skills_payload[key] = int(create_skill_values.get(key, 0))
 	var payload = {
 		"name": name,
 		"appearance_key": appearance_key,
 		"race": create_race_option.get_item_text(create_race_option.selected),
 		"background": create_background_option.get_item_text(create_background_option.selected),
 		"affiliation": create_affiliation_option.get_item_text(create_affiliation_option.selected),
-		"stat_points_total": int(content_domains.get("character_options", {}).get("point_budget", 10)),
-		"stats": {},
-		"skills": {},
+		"stat_points_total": create_point_budget,
+		"stats": stats_payload,
+		"skills": skills_payload,
 		"equipment": {},
 	}
 	var response = await _api_request(HTTPClient.METHOD_POST, "/characters", payload, true)
@@ -1291,6 +1756,15 @@ func _on_create_character_pressed() -> void:
 		create_status_label.text = _friendly_error(response)
 		return
 	create_name_input.clear()
+	for key in create_stat_keys:
+		create_stat_values[key] = 0
+	for key in create_skill_keys:
+		create_skill_values[key] = 0
+	for key in create_skill_buttons.keys():
+		var button = create_skill_buttons.get(key)
+		if button is Button:
+			button.button_pressed = false
+	_populate_character_creation_tables(content_domains.get("character_options", {}))
 	create_status_label.text = "Character created."
 	await _load_characters()
 	character_tabs.current_tab = 0
@@ -1318,11 +1792,15 @@ func _on_character_play_pressed() -> void:
 		account_status_label.text = "Select a character first."
 		return
 	var row: Dictionary = characters[selected_character_index]
+	var character_id = int(row.get("id", -1))
+	if character_id <= 0:
+		account_status_label.text = "Invalid character selection."
+		return
 	account_status_label.text = "Starting session..."
-	active_character_id = int(row.get("id", -1))
+	active_character_id = character_id
 	var select_response = await _api_request(
 		HTTPClient.METHOD_POST,
-		"/characters/%s/select" % str(row.get("id")),
+		"/characters/%s/select" % str(character_id),
 		{},
 		true
 	)
@@ -1331,6 +1809,22 @@ func _on_character_play_pressed() -> void:
 		return
 
 	var level_data: Dictionary = {}
+	var override_level_id = int(character_row_level_overrides.get(character_id, -1))
+	var override_applied = session_is_admin and override_level_id > 0
+	if override_applied:
+		var assign_response = await _api_request(
+			HTTPClient.METHOD_POST,
+			"/characters/%s/level" % str(character_id),
+			{"level_id": override_level_id},
+			true
+		)
+		if not assign_response.get("ok", false):
+			account_status_label.text = _friendly_error(assign_response)
+			return
+		row["level_id"] = override_level_id
+		row["location_x"] = null
+		row["location_y"] = null
+
 	var level_id = row.get("level_id", null)
 	if level_id != null:
 		var level_response = await _api_request(HTTPClient.METHOD_GET, "/levels/%s" % str(level_id), null, true)
@@ -1362,7 +1856,7 @@ func _on_character_play_pressed() -> void:
 		float(spawn_tile_x) * 32.0 + 16.0,
 		float(spawn_tile_y) * 32.0 + 16.0
 	)
-	if row.get("location_x", null) != null and row.get("location_y", null) != null:
+	if not override_applied and row.get("location_x", null) != null and row.get("location_y", null) != null:
 		spawn_world = Vector2(float(row.get("location_x")), float(row.get("location_y")))
 
 	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world)
@@ -2145,9 +2639,12 @@ func _refresh_content_bootstrap() -> void:
 
 func _populate_character_options_from_content() -> void:
 	var options: Dictionary = content_domains.get("character_options", {})
-	_fill_option(create_race_option, _content_labels(options.get("races", []), ["Human"]))
-	_fill_option(create_background_option, _content_labels(options.get("backgrounds", []), ["Drifter"]))
-	_fill_option(create_affiliation_option, _content_labels(options.get("affiliations", []), ["Unaffiliated"]))
+	if create_race_option == null:
+		return
+	_fill_option(create_race_option, _content_labels(options.get("race", options.get("races", [])), ["Human"]))
+	_fill_option(create_background_option, _content_labels(options.get("background", options.get("backgrounds", [])), ["Drifter"]))
+	_fill_option(create_affiliation_option, _content_labels(options.get("affiliation", options.get("affiliations", [])), ["Unaffiliated"]))
+	_populate_character_creation_tables(options)
 
 func _content_labels(source: Variant, fallback: Array) -> Array:
 	if source is Array and not source.is_empty():

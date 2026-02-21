@@ -30,14 +30,17 @@ create/select characters, and enter gameplay sessions.
    - Authenticated tab order is `Character List` (left) and `Create Character` (right).
    - Admin tools (`Level Editor`, `Asset Editor`, `Content Versions`) are opened from the top-right cog menu.
 3. Default post-login routing:
-   - No characters: open Character Creation.
-   - Has characters: open Character Selection.
+   - Always open Character List first (even with zero characters).
+   - If no characters exist, Character List shows an empty-state prompt to create one.
 4. On character selection, each row includes direct `Play` and `Delete` actions.
    - Character preview/details update only when the character card row itself is clicked.
    - Action buttons do not change the current preview selection.
    - Admin accounts also get a per-character level override dropdown in each row; choosing a level there forces spawn at that level's spawn point for that play launch.
    - Character rows show current location (area + coordinates when known).
-5. Enter gameplay session from the chosen character row (`Play` action on that row only).
+5. Character creation persists selected identity and allocated points:
+   - Allocated stat points and selected starter skills are sent in the character create payload.
+   - Point budget is enforced client-side from content domains and validated server-side.
+6. Enter gameplay session from the chosen character row (`Play` action on that row only).
    - World/session opens in a dedicated gameplay scene (separate from account cards).
    - Auth, account, editor, and gameplay flows are now hosted in one Godot client shell (no separate Swing launcher UI flow).
    - Windows builds ship a bundled Godot runtime so players do not need a local Godot install.
