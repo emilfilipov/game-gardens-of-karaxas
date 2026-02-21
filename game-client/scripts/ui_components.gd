@@ -1,11 +1,13 @@
 extends RefCounted
 class_name UiComponents
 
+const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
+
 
 static func label(text_value: String, font_size: int = -1) -> Label:
 	var node = Label.new()
 	node.text = text_value
-	node.add_theme_color_override("font_color", UiTokens.color("text_primary"))
+	node.add_theme_color_override("font_color", UI_TOKENS.color("text_primary"))
 	if font_size > 0:
 		node.add_theme_font_size_override("font_size", font_size)
 	return node
@@ -16,7 +18,7 @@ static func line_edit(placeholder: String, secret: bool = false, min_size: Vecto
 	input.placeholder_text = placeholder
 	input.secret = secret
 	if min_size == Vector2.ZERO:
-		input.custom_minimum_size = Vector2(UiTokens.size("input_w"), UiTokens.size("input_h"))
+		input.custom_minimum_size = Vector2(UI_TOKENS.size("input_w"), UI_TOKENS.size("input_h"))
 	else:
 		input.custom_minimum_size = min_size
 	input.focus_mode = Control.FOCUS_CLICK
@@ -28,7 +30,7 @@ static func button(text_value: String, min_size: Vector2 = Vector2(0, 0), focus_
 	node.text = text_value
 	node.focus_mode = focus_mode
 	if min_size == Vector2.ZERO:
-		node.custom_minimum_size = Vector2(UiTokens.size("button_w"), UiTokens.size("button_h"))
+		node.custom_minimum_size = Vector2(UI_TOKENS.size("button_w"), UI_TOKENS.size("button_h"))
 	else:
 		node.custom_minimum_size = min_size
 	return node
@@ -37,7 +39,7 @@ static func button(text_value: String, min_size: Vector2 = Vector2(0, 0), focus_
 static func option(items: Array, min_size: Vector2 = Vector2(0, 0)) -> OptionButton:
 	var node = OptionButton.new()
 	if min_size == Vector2.ZERO:
-		node.custom_minimum_size = Vector2(UiTokens.size("input_w"), UiTokens.size("input_h"))
+		node.custom_minimum_size = Vector2(UI_TOKENS.size("input_w"), UI_TOKENS.size("input_h"))
 	else:
 		node.custom_minimum_size = min_size
 	node.focus_mode = Control.FOCUS_NONE
@@ -78,7 +80,7 @@ static func centered_shell(min_size: Vector2, padding: int = 10) -> Dictionary:
 	shell.add_child(shell_pad)
 
 	var content = VBoxContainer.new()
-	content.add_theme_constant_override("separation", UiTokens.spacing("sm"))
+	content.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shell_pad.add_child(content)
 

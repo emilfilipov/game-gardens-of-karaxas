@@ -37,6 +37,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Shared UI foundation for Godot shell is now split into:
   - `game-client/scripts/ui_tokens.gd` (authoritative palette/spacing/size/radius tokens),
   - `game-client/scripts/ui_components.gd` (shared constructors for labels/buttons/inputs/options and centered shell scaffolds).
+- Godot helper scripts now resolve cross-script dependencies via explicit `preload(...)` constants (instead of relying on global class-name lookup) to avoid parser-order startup failures in packaged builds.
 - Godot shell defaults to borderless fullscreen startup.
 - Screen switching in the Godot shell now uses a generic `Control` stack container for Godot 4.3 compatibility (no `StackContainer` dependency).
 - Top-right menu is hidden on auth screen; auth screen carries direct `Update & Restart` and `Exit`.

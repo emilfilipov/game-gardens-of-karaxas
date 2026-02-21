@@ -402,7 +402,6 @@ func _build_ui() -> void:
 	skill_tooltip_popup = PopupPanel.new()
 	skill_tooltip_popup.theme = ui_theme
 	skill_tooltip_popup.visible = false
-	skill_tooltip_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(skill_tooltip_popup)
 	skill_tooltip_label = RichTextLabel.new()
 	skill_tooltip_label.fit_content = true
