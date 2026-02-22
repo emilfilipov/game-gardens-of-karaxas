@@ -37,10 +37,11 @@ create/select characters, and enter gameplay sessions.
 4. On character selection, each row includes direct `Play` and `Delete` actions.
    - Character preview/details update only when the character card row itself is clicked.
    - Action buttons do not change the current preview selection.
-   - Character list rows render as fixed-size cards with a dedicated selection surface and a separate action row for `Play`/`Delete` (plus admin level override when applicable).
+   - Character List now uses a 3-column flow: roster rail (left), large selected-character preview/podium (center), and detail/action panel (right).
+   - Character rows render as fixed-size selection cards; `Play` and `Delete` actions are bound to the selected character in the right detail panel.
+   - Admin spawn-level override is now managed on the selected-character detail panel.
    - Character list auto-refreshes after create/delete events.
    - Character list includes a manual `Refresh` action for explicit reloads.
-   - Admin accounts also get a per-character level override dropdown in each row; choosing a level there forces spawn at that level's spawn point for that play launch.
    - Character rows show current location (area + coordinates when known).
 5. Character creation persists selected identity and allocated points:
    - Allocated stat points and selected starter skills are sent in the character create payload.

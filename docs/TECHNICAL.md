@@ -222,7 +222,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character List now exposes both auto-refresh (after create/delete) and an explicit manual `Refresh` action.
 - Character List row rendering now uses fixed-height themed cards with:
   - selectable row header button for preview binding,
-  - dedicated action row for per-character operations,
+  - action controls centralized in the selected-character detail panel,
   - explicit container minimum sizing to keep rows visible inside scroll surfaces,
   - a separate location metadata line to improve at-a-glance readability.
 - Auth/account/settings surfaces are now rendered inside centered constrained cards to improve hierarchy and reduce full-screen form sprawl.
@@ -277,13 +277,13 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Cog dropdown also exposes a logged-in-only `Logout` action.
 - Account menu is account-only (no chat/guild panels).
 - Account shell now keeps a persistent tab bar (Create/Select) visible across authenticated cards.
-- Post-auth default routing is character-count based:
-  - no characters -> `create_character`
-  - one or more characters -> `select_character`
-- Character selection is row-based with per-row `Play` and `Delete` actions (no explicit "Set Active" control in the UI).
-- Character row preview/details selection is driven by card-row clicks only; per-row action buttons do not mutate preview selection.
+- Post-auth default routing always opens `Character List` (including empty accounts).
+- Character List now uses a 3-column shell: roster rail (left), selected character podium preview (center), and detail/action panel (right).
+- Character row preview/details selection is driven by card-row clicks only.
+- `Play` and `Delete` actions are bound to the currently selected character in the right detail panel.
+- Admin spawn-override selection is bound to the selected character in the detail panel.
 - Launcher still syncs backend selected-character state implicitly on `Play` to satisfy character-gated backend features.
-- Character selection uses fixed-size themed character cards with per-row `Play` and `Delete` actions.
+- Character selection uses fixed-size themed character cards in the roster rail with a separate location metadata line.
 - Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
 - Admin-only launcher controls (level-builder tab and per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
 - Cog dropdown admin menu includes `Level Editor`, `Level Order`, `Asset Editor`, and `Content Versions`.

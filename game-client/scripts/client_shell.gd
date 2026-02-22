@@ -70,6 +70,7 @@ var auth_otp_input: LineEdit
 var auth_display_name_input: LineEdit
 var auth_submit_button: Button
 var auth_toggle_button: Button
+var auth_exit_button: Button
 var auth_status_label: Label
 var auth_release_notes: RichTextLabel
 var auth_update_button: Button
@@ -83,6 +84,9 @@ var character_details_label: RichTextLabel
 var character_preview_texture: TextureRect
 var character_list_title_label: Label
 var character_refresh_button: Button
+var character_play_button: Button
+var character_delete_button: Button
+var character_level_override_option: OptionButton
 
 var create_name_input: LineEdit
 var create_sex_option: OptionButton
@@ -501,7 +505,7 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_toggle_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_toggle_button.pressed.connect(_on_auth_toggle_mode)
 	auth_button_row.add_child(auth_toggle_button)
-	var auth_exit_button = _button("Exit")
+	auth_exit_button = _button("Exit")
 	auth_exit_button.focus_mode = Control.FOCUS_ALL
 	auth_exit_button.custom_minimum_size = Vector2(110, 42)
 	auth_exit_button.pressed.connect(_handle_exit_request)
@@ -578,61 +582,91 @@ func _build_account_screen() -> VBoxContainer:
 	list_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_shell_inner.add_child(list_split)
 
-	var list_left = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	list_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_left.size_flags_stretch_ratio = 0.72
-	list_split.add_child(list_left)
-	var list_left_inner = VBoxContainer.new()
-	list_left_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_left.add_child(list_left_inner)
-	var list_header = HBoxContainer.new()
-	list_header.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_left_inner.add_child(list_header)
-	character_list_title_label = _label("Character List", 24)
+	var roster_panel = UI_COMPONENTS.panel_card(Vector2(320, 0), false)
+	roster_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	roster_panel.size_flags_stretch_ratio = 0.30
+	list_split.add_child(roster_panel)
+	var roster_inner = VBoxContainer.new()
+	roster_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	roster_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	roster_panel.add_child(roster_inner)
+	var roster_header = HBoxContainer.new()
+	roster_header.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	roster_inner.add_child(roster_header)
+	character_list_title_label = _label("Character List", 22)
 	character_list_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_header.add_child(character_list_title_label)
+	roster_header.add_child(character_list_title_label)
 	character_refresh_button = UI_COMPONENTS.button_primary("Refresh", Vector2(124, 38))
 	character_refresh_button.pressed.connect(_on_character_refresh_pressed)
-	list_header.add_child(character_refresh_button)
+	roster_header.add_child(character_refresh_button)
 	character_rows_scroll = ScrollContainer.new()
 	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	character_rows_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	list_left_inner.add_child(character_rows_scroll)
+	roster_inner.add_child(character_rows_scroll)
 	character_rows_container = VBoxContainer.new()
 	character_rows_container.add_theme_constant_override("separation", 8)
 	character_rows_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	character_rows_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.add_child(character_rows_container)
 
-	var list_right = UI_COMPONENTS.panel_card(Vector2(360, 420), false)
-	list_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_right.size_flags_stretch_ratio = 0.28
-	list_split.add_child(list_right)
-	var list_right_inner = VBoxContainer.new()
-	list_right_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_right.add_child(list_right_inner)
-	var preview_title = _label("Character Preview", 18, "text_secondary")
-	list_right_inner.add_child(preview_title)
-	var preview_panel = UI_COMPONENTS.panel_card(Vector2(320, 240), false)
+	var podium_panel = UI_COMPONENTS.panel_card(Vector2(420, 0), false)
+	podium_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	podium_panel.size_flags_stretch_ratio = 0.40
+	list_split.add_child(podium_panel)
+	var podium_inner = VBoxContainer.new()
+	podium_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	podium_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	podium_panel.add_child(podium_inner)
+	podium_inner.add_child(_label("Selected Character", 20, "text_secondary"))
+	var preview_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), true)
 	preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_right_inner.add_child(preview_panel)
+	podium_inner.add_child(preview_panel)
 	character_preview_texture = TextureRect.new()
 	character_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
 	character_preview_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	character_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview_panel.add_child(character_preview_texture)
-	var details_title = _label("Character Details", 18, "text_secondary")
-	list_right_inner.add_child(details_title)
+
+	var details_panel = UI_COMPONENTS.panel_card(Vector2(340, 0), false)
+	details_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	details_panel.size_flags_stretch_ratio = 0.30
+	list_split.add_child(details_panel)
+	var details_inner = VBoxContainer.new()
+	details_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	details_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	details_panel.add_child(details_inner)
+	details_inner.add_child(_label("Character Details", 20, "text_secondary"))
 	character_details_label = RichTextLabel.new()
 	character_details_label.fit_content = false
 	character_details_label.bbcode_enabled = false
-	character_details_label.custom_minimum_size = Vector2(320, 220)
 	character_details_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_details_label.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
-	list_right_inner.add_child(character_details_label)
+	details_inner.add_child(character_details_label)
+
+	var override_wrap = VBoxContainer.new()
+	override_wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	override_wrap.visible = false
+	details_inner.add_child(override_wrap)
+	override_wrap.add_child(_label("Spawn Override (Admin)", -1, "text_secondary"))
+	character_level_override_option = _option(["Current location"])
+	character_level_override_option.custom_minimum_size = Vector2(0, 36)
+	character_level_override_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	character_level_override_option.item_selected.connect(_on_character_override_selected)
+	override_wrap.add_child(character_level_override_option)
+
+	var detail_actions = HBoxContainer.new()
+	detail_actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	details_inner.add_child(detail_actions)
+	character_play_button = UI_COMPONENTS.button_primary("Play", Vector2(130, 38))
+	character_play_button.disabled = true
+	character_play_button.pressed.connect(_on_character_play_pressed)
+	detail_actions.add_child(character_play_button)
+	character_delete_button = _button("Delete")
+	character_delete_button.custom_minimum_size = Vector2(130, 38)
+	character_delete_button.disabled = true
+	character_delete_button.pressed.connect(_on_character_delete_pressed)
+	detail_actions.add_child(character_delete_button)
 
 	var create_tab = VBoxContainer.new()
 	create_tab.name = "Create Character"
@@ -1383,12 +1417,15 @@ func _render_character_rows() -> void:
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		empty_pad.add_child(empty_label)
 		character_rows_container.add_child(empty_card)
+		if character_play_button != null:
+			character_play_button.disabled = true
+		if character_delete_button != null:
+			character_delete_button.disabled = true
 		return
 	character_rows_container.custom_minimum_size = Vector2(0, float(characters.size() * 126))
 	for index in range(characters.size()):
 		var row: Dictionary = characters[index]
 		var row_index = index
-		var row_character_id = int(row.get("id", -1))
 		var card = UI_COMPONENTS.panel_card(Vector2(0, 116), index == selected_character_index)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var card_pad = MarginContainer.new()
@@ -1420,53 +1457,6 @@ func _render_character_rows() -> void:
 		card_inner.add_child(summary_button)
 		var location_label = _label("Location: " + _character_location_text(row), -1, "text_muted")
 		card_inner.add_child(location_label)
-
-		var actions = HBoxContainer.new()
-		actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-		card_inner.add_child(actions)
-
-		if session_is_admin:
-			var level_option = OptionButton.new()
-			level_option.custom_minimum_size = Vector2(220, 36)
-			level_option.focus_mode = Control.FOCUS_NONE
-			level_option.add_item("Current location", -1)
-			for level in admin_levels_cache:
-				var level_label = str(level.get("descriptive_name", level.get("name", "Level")))
-				var level_id = int(level.get("id", -1))
-				level_option.add_item(level_label, level_id)
-			var override_level = int(character_row_level_overrides.get(row_character_id, -1))
-			for item_index in range(level_option.get_item_count()):
-				if level_option.get_item_id(item_index) == override_level:
-					level_option.selected = item_index
-					break
-			level_option.item_selected.connect(func(item_index: int) -> void:
-				var selected_level_id = level_option.get_item_id(item_index)
-				if selected_level_id <= 0:
-					character_row_level_overrides.erase(row_character_id)
-				else:
-					character_row_level_overrides[row_character_id] = selected_level_id
-			)
-			_sanitize_option_popup(level_option)
-			actions.add_child(level_option)
-
-		actions.add_spacer(false)
-
-		var play_button = UI_COMPONENTS.button_primary("Play", Vector2(110, 36))
-		play_button.custom_minimum_size = Vector2(110, 36)
-		play_button.pressed.connect(func() -> void:
-			_set_selected_character(row_index)
-			_on_character_play_pressed()
-		)
-		actions.add_child(play_button)
-
-		var delete_button = _button("Delete")
-		delete_button.custom_minimum_size = Vector2(110, 36)
-		delete_button.pressed.connect(func() -> void:
-			_set_selected_character(row_index)
-			_on_character_delete_pressed()
-		)
-		actions.add_child(delete_button)
-
 		character_rows_container.add_child(card)
 
 func _remaining_create_points() -> int:
@@ -1779,6 +1769,11 @@ func _apply_auth_mode() -> void:
 		if auth_email_input.text.strip_edges().is_empty():
 			_load_last_email_pref()
 	_configure_auth_focus_chain()
+	if current_screen_name == "auth":
+		if register_mode:
+			auth_display_name_input.call_deferred("grab_focus")
+		else:
+			auth_email_input.call_deferred("grab_focus")
 
 func _set_focus_link(current: Control, next: Control) -> void:
 	if current == null or next == null:
@@ -1792,8 +1787,16 @@ func _configure_auth_focus_chain() -> void:
 		or auth_password_input == null
 		or auth_submit_button == null
 		or auth_toggle_button == null
+		or auth_exit_button == null
 	):
 		return
+	var focus_controls: Array[Control] = []
+	for maybe_control in [auth_display_name_input, auth_email_input, auth_password_input, auth_otp_input, auth_submit_button, auth_toggle_button, auth_exit_button]:
+		if maybe_control is Control:
+			focus_controls.append(maybe_control)
+	for control: Control in focus_controls:
+		control.focus_next = NodePath("")
+		control.focus_previous = NodePath("")
 	if register_mode:
 		_set_focus_link(auth_display_name_input, auth_email_input)
 		_set_focus_link(auth_email_input, auth_password_input)
@@ -1803,6 +1806,7 @@ func _configure_auth_focus_chain() -> void:
 		_set_focus_link(auth_password_input, auth_otp_input)
 		_set_focus_link(auth_otp_input, auth_submit_button)
 	_set_focus_link(auth_submit_button, auth_toggle_button)
+	_set_focus_link(auth_toggle_button, auth_exit_button)
 
 func _set_auth_status(message: String) -> void:
 	auth_status_label.text = message
@@ -1928,8 +1932,7 @@ func _load_characters() -> void:
 	characters = payload if payload is Array else []
 	if characters.is_empty():
 		selected_character_index = -1
-		character_details_label.text = "No characters yet. Create your first character."
-		character_preview_texture.texture = null
+		_render_character_details(-1)
 	else:
 		var selected_index = 0
 		for idx in range(characters.size()):
@@ -1958,6 +1961,46 @@ func _on_character_refresh_pressed() -> void:
 	await _load_characters()
 	account_status_label.text = " "
 
+func _on_character_override_selected(item_index: int) -> void:
+	if not session_is_admin:
+		return
+	if selected_character_index < 0 or selected_character_index >= characters.size():
+		return
+	if character_level_override_option == null:
+		return
+	var row: Dictionary = characters[selected_character_index]
+	var character_id = int(row.get("id", -1))
+	if character_id <= 0:
+		return
+	var selected_level_id = character_level_override_option.get_item_id(item_index)
+	if selected_level_id <= 0:
+		character_row_level_overrides.erase(character_id)
+	else:
+		character_row_level_overrides[character_id] = selected_level_id
+
+func _refresh_character_override_selector(row: Dictionary) -> void:
+	if character_level_override_option == null:
+		return
+	character_level_override_option.visible = session_is_admin
+	var parent = character_level_override_option.get_parent()
+	if parent is Control:
+		parent.visible = session_is_admin
+	if not session_is_admin:
+		return
+	var character_id = int(row.get("id", -1))
+	character_level_override_option.clear()
+	character_level_override_option.add_item("Current location", -1)
+	for level in admin_levels_cache:
+		var level_label = str(level.get("descriptive_name", level.get("name", "Level")))
+		var level_id = int(level.get("id", -1))
+		character_level_override_option.add_item(level_label, level_id)
+	var override_level = int(character_row_level_overrides.get(character_id, -1))
+	for item_index in range(character_level_override_option.get_item_count()):
+		if character_level_override_option.get_item_id(item_index) == override_level:
+			character_level_override_option.selected = item_index
+			break
+	_sanitize_option_popup(character_level_override_option)
+
 func _on_character_selected(index: int) -> void:
 	_set_selected_character(index)
 
@@ -1965,6 +2008,12 @@ func _render_character_details(index: int) -> void:
 	if index < 0 or index >= characters.size():
 		character_details_label.text = "Choose a character from the list."
 		character_preview_texture.texture = null
+		if character_play_button != null:
+			character_play_button.disabled = true
+		if character_delete_button != null:
+			character_delete_button.disabled = true
+		if character_level_override_option != null:
+			character_level_override_option.visible = false
 		return
 	var row: Dictionary = characters[index]
 	var location_text = _character_location_text(row)
@@ -1982,6 +2031,11 @@ func _render_character_details(index: int) -> void:
 			location_text,
 		]
 	)
+	if character_play_button != null:
+		character_play_button.disabled = false
+	if character_delete_button != null:
+		character_delete_button.disabled = false
+	_refresh_character_override_selector(row)
 	_refresh_selected_character_preview()
 
 func _on_create_character_pressed() -> void:

@@ -5,6 +5,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-280 | ⬜ | 3 | Character List v2 polish pass: add roster search/filter, selected-card highlight animation, and denser card metadata chips while keeping fixed-size row cards and scroll stability. |
+| GOK-MMO-281 | ⬜ | 3 | Character Creator v1 baseline flow hardening: enforce one-preset fallback contract (`human_male`) when content catalogs are unavailable, lock required fields, and guarantee create submission succeeds with minimal data. |
+| GOK-MMO-282 | ⬜ | 3 | Character Creator ergonomics pass: improve section spacing/alignment, tighten stat/skill panel sizing, and add clearer step-like visual grouping without introducing multi-scene complexity yet. |
+| GOK-MMO-283 | ⬜ | 2 | Character flow QA pass: add deterministic refresh hooks after create/delete/play transitions and remove stale status text flashes across account surfaces. |
+| GOK-MMO-284 | ⬜ | 2 | Character flow regression checklist + screenshots: capture login -> list -> create -> play happy path and assert empty-account + one-character + multi-character behavior. |
 | GOK-MMO-254 | ⬜ | 4 | Implement isometric runtime foundation in Godot and make it the authoritative render/movement math path: build shared projection helpers (`world<->iso screen`, tile picking, depth key), integrate into gameplay scene, and add deterministic fixture tests for transform round-trip and depth sorting stability. |
 | GOK-MMO-255 | ⬜ | 4 | Replace top-down world renderer with isometric draw pipeline: floor tile pass, prop pass, actor pass, and foreground/occluder pass with stable ordering (`floor_order`, `render_layer`, `sort_y`, `sort_x`, `stable_id`), plus fallback diagnostics overlay for sorting conflicts. |
 | GOK-MMO-256 | ⬜ | 3 | Upgrade player locomotion to isometric 8-direction behavior: remap WASD to iso vectors, normalize diagonal speed, choose facing buckets (`N`,`NE`,`E`,`SE`,`S`,`SW`,`W`,`NW`), and preserve existing position persistence + transition triggers. |
@@ -39,6 +44,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-279 | ✅ | 2 | Updated canonical docs for the new account-shell behavior: auth focus-chain contract, compact auth shell sizing, simplified MFA settings structure, and selected-character panel action model. |
+| GOK-MMO-278 | ✅ | 3 | Refactored Character List into a 3-column flow (roster rail, center podium preview, right detail/actions) with selected-character bound `Play`/`Delete` controls and admin spawn-override selector on the detail panel. |
+| GOK-MMO-277 | ✅ | 2 | Simplified settings MFA UI: removed redundant hint/status layers, converted to compact toggle row, and switched to inline two-column QR/info enrollment layout with refresh/copy controls. |
+| GOK-MMO-276 | ✅ | 2 | Hardened MFA disable semantics end-to-end: disabling MFA now clears stored TOTP secret and timestamp server-side, and auth login payload now sends `otp_code=null` when blank to avoid malformed optional OTP handling. |
+| GOK-MMO-275 | ✅ | 2 | Fixed auth keyboard flow and compacted login shell: explicit Tab/Shift+Tab focus chain for login/register modes plus reduced auth panel vertical footprint for improved layout density. |
 | GOK-MMO-274 | ✅ | 2 | Fixed MFA disable/login bug: backend login MFA enforcement now checks only `mfa_enabled` (not merely secret presence), so accounts with MFA toggled OFF can log in without OTP; added regression tests for disabled-vs-enabled MFA behavior. |
 | GOK-MMO-253 | ✅ | 3 | Executed Godot shell modernization pass v2: upgraded global UI tokens, expanded shared component variants, refactored auth/account/settings/admin screens onto consistent card scaffolds, improved character-list row visibility/selection hierarchy, and added subtle screen transition fades for smoother UX flow. |
 | GOK-MMO-177 | ✅ | 3 | Defined `Level Schema v3` for hybrid placement with freeform prop transforms (`x/y/z`, rotation, scale, pivot) and stable IDs for per-object editing/versioning. |
