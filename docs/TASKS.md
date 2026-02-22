@@ -5,7 +5,6 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-284 | ⬜ | 2 | Character flow regression checklist + screenshots: capture login -> list -> create -> play happy path and assert empty-account + one-character + multi-character behavior. |
 | GOK-MMO-254 | ⬜ | 4 | Implement isometric runtime foundation in Godot and make it the authoritative render/movement math path: build shared projection helpers (`world<->iso screen`, tile picking, depth key), integrate into gameplay scene, and add deterministic fixture tests for transform round-trip and depth sorting stability. |
 | GOK-MMO-255 | ⬜ | 4 | Replace top-down world renderer with isometric draw pipeline: floor tile pass, prop pass, actor pass, and foreground/occluder pass with stable ordering (`floor_order`, `render_layer`, `sort_y`, `sort_x`, `stable_id`), plus fallback diagnostics overlay for sorting conflicts. |
 | GOK-MMO-256 | ⬜ | 3 | Upgrade player locomotion to isometric 8-direction behavior: remap WASD to iso vectors, normalize diagonal speed, choose facing buckets (`N`,`NE`,`E`,`SE`,`S`,`SW`,`W`,`NW`), and preserve existing position persistence + transition triggers. |
@@ -40,6 +39,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-284 | ✅ | 2 | Added executable character-flow QA checklist in `docs/CHARACTER_FLOW_QA.md` covering empty/single/multi-character, admin override, and MFA/auth focus-path validation. |
 | GOK-MMO-282 | ✅ | 3 | Character Creator ergonomics pass: grouped identity controls into a dedicated panel, tightened control widths, and improved layout consistency without introducing multi-scene flow complexity. |
 | GOK-MMO-280 | ✅ | 3 | Character List v2 polish pass: added roster search/filter and denser metadata presentation while preserving fixed-size row cards and stable scroll behavior. |
 | GOK-MMO-283 | ✅ | 2 | Character flow QA pass: deterministic refresh hooks remain in place after create/delete/play transitions and stale non-error account status flashes were removed from the account shell. |
