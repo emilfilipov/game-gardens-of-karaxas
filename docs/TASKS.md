@@ -39,6 +39,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-290 | ✅ | 2 | Increased shared spacing tokens and applied denser margin rhythm across account/settings shells to reduce edge-clipping and improve visual separation between controls/cards. |
+| GOK-MMO-289 | ✅ | 3 | Refactored Settings screen into a compact 3-column tab layout per section (`Video`, `Audio`, `Security`) so controls no longer consume full-row width and future settings have reserved card space. |
+| GOK-MMO-288 | ✅ | 2 | Added dedicated compact settings shell sizing (`shell_settings_w/h`) so Settings no longer occupies the same near-full-size footprint as account/admin workspaces. |
+| GOK-MMO-287 | ✅ | 3 | Hardened Character List roster rendering with explicit minimum widths for list container/cards/buttons and wrapped location metadata text to prevent blank/zero-width row states. |
+| GOK-MMO-286 | ✅ | 2 | Removed placeholder bracket prefix from Character Details body and aligned details copy to clean production-style text output. |
 | GOK-MMO-285 | ✅ | 2 | Stabilized Character List panel geometry by replacing draggable split columns with fixed side rails + expanding center preview to prevent roster/details collapse and overlap artifacts. |
 | GOK-MMO-284 | ✅ | 2 | Added executable character-flow QA checklist in `docs/CHARACTER_FLOW_QA.md` covering empty/single/multi-character, admin override, and MFA/auth focus-path validation. |
 | GOK-MMO-282 | ✅ | 3 | Character Creator ergonomics pass: grouped identity controls into a dedicated panel, tightened control widths, and improved layout consistency without introducing multi-scene flow complexity. |

@@ -575,7 +575,7 @@ func _build_account_screen() -> VBoxContainer:
 	list_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_tab.add_child(list_shell)
 	var list_shell_inner = VBoxContainer.new()
-	list_shell_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	list_shell_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	list_shell_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_shell.add_child(list_shell_inner)
 
@@ -608,15 +608,17 @@ func _build_account_screen() -> VBoxContainer:
 	)
 	roster_inner.add_child(character_search_input)
 	character_rows_scroll = ScrollContainer.new()
+	character_rows_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	character_rows_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	character_rows_scroll.clip_contents = true
 	roster_inner.add_child(character_rows_scroll)
 	character_rows_container = VBoxContainer.new()
-	character_rows_container.add_theme_constant_override("separation", 8)
+	character_rows_container.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	character_rows_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	character_rows_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	character_rows_container.custom_minimum_size = Vector2(290, 0)
 	character_rows_scroll.add_child(character_rows_container)
 
 	var podium_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
@@ -859,13 +861,13 @@ func _register_screen(name: String, screen: Control) -> void:
 
 func _build_settings_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
-		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_wide_h")),
-		UI_TOKENS.spacing("lg")
+		Vector2(UI_TOKENS.size("shell_settings_w"), UI_TOKENS.size("shell_settings_h")),
+		UI_TOKENS.spacing("md")
 	)
 	var wrap = shell["wrap"] as VBoxContainer
 	var content = shell["content"] as VBoxContainer
 
-	var title = _label("Settings", 30)
+	var title = _label("Settings", 28)
 	content.add_child(title)
 
 	var tabs = TabContainer.new()
@@ -875,67 +877,128 @@ func _build_settings_screen() -> VBoxContainer:
 
 	var video_tab = VBoxContainer.new()
 	video_tab.name = "Video"
-	video_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	video_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	tabs.add_child(video_tab)
-	var video_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	video_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	video_tab.add_child(video_card)
-	var video_inner = VBoxContainer.new()
-	video_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	video_card.add_child(video_inner)
-	video_inner.add_child(_label("Screen Mode", 20, "text_secondary"))
+	var video_row = HBoxContainer.new()
+	video_row.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	video_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	video_tab.add_child(video_row)
+
+	var video_display_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	video_display_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	video_display_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	video_row.add_child(video_display_card)
+	var video_display_inner = VBoxContainer.new()
+	video_display_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	video_display_card.add_child(video_display_inner)
+	video_display_inner.add_child(_label("Display", 18, "text_secondary"))
+	video_display_inner.add_child(_label("Screen Mode", -1, "text_secondary"))
 	settings_screen_mode = _option(["Borderless Fullscreen", "Windowed"])
+	settings_screen_mode.custom_minimum_size = Vector2(0, 34)
 	settings_screen_mode.item_selected.connect(func(_index: int) -> void:
 		_apply_settings_preferences()
 	)
-	video_inner.add_child(settings_screen_mode)
-	video_inner.add_spacer(true)
+	video_display_inner.add_child(settings_screen_mode)
+	video_display_inner.add_spacer(true)
+
+	var video_camera_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	video_camera_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	video_camera_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	video_row.add_child(video_camera_card)
+	var video_camera_inner = VBoxContainer.new()
+	video_camera_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	video_camera_card.add_child(video_camera_inner)
+	video_camera_inner.add_child(_label("Camera", 18, "text_secondary"))
+	video_camera_inner.add_child(_label("Default zoom and camera tuning options will appear here.", -1, "text_muted"))
+	video_camera_inner.add_spacer(true)
+
+	var video_access_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	video_access_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	video_access_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	video_row.add_child(video_access_card)
+	var video_access_inner = VBoxContainer.new()
+	video_access_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	video_access_card.add_child(video_access_inner)
+	video_access_inner.add_child(_label("Accessibility", 18, "text_secondary"))
+	video_access_inner.add_child(_label("Reduced-motion, contrast, and readability controls will appear here.", -1, "text_muted"))
+	video_access_inner.add_spacer(true)
 
 	var audio_tab = VBoxContainer.new()
 	audio_tab.name = "Audio"
-	audio_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	audio_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	tabs.add_child(audio_tab)
-	var audio_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	audio_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	audio_tab.add_child(audio_card)
-	var audio_inner = VBoxContainer.new()
-	audio_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	audio_card.add_child(audio_inner)
-	audio_inner.add_child(_label("Audio Output", 20, "text_secondary"))
+	var audio_row = HBoxContainer.new()
+	audio_row.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	audio_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	audio_tab.add_child(audio_row)
+
+	var audio_output_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	audio_output_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	audio_output_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	audio_row.add_child(audio_output_card)
+	var audio_output_inner = VBoxContainer.new()
+	audio_output_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	audio_output_card.add_child(audio_output_inner)
+	audio_output_inner.add_child(_label("Audio Output", 18, "text_secondary"))
 	settings_audio_mute = _button("Muted: OFF")
+	settings_audio_mute.custom_minimum_size = Vector2(0, 34)
 	settings_audio_mute.toggle_mode = true
 	settings_audio_mute.toggled.connect(func(_checked: bool) -> void:
 		settings_audio_mute.text = "Muted: ON" if settings_audio_mute.button_pressed else "Muted: OFF"
 		_apply_settings_preferences()
 	)
-	audio_inner.add_child(settings_audio_mute)
+	audio_output_inner.add_child(settings_audio_mute)
+	audio_output_inner.add_spacer(true)
+
+	var audio_volume_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	audio_volume_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	audio_volume_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	audio_row.add_child(audio_volume_card)
+	var audio_volume_inner = VBoxContainer.new()
+	audio_volume_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	audio_volume_card.add_child(audio_volume_inner)
+	audio_volume_inner.add_child(_label("Master Volume", 18, "text_secondary"))
 	settings_audio_volume = HSlider.new()
 	settings_audio_volume.min_value = 0
 	settings_audio_volume.max_value = 100
 	settings_audio_volume.step = 1
+	settings_audio_volume.custom_minimum_size = Vector2(0, 30)
 	settings_audio_volume.value_changed.connect(func(_value: float) -> void:
 		_apply_settings_preferences()
 	)
-	audio_inner.add_child(_label("Master Volume", -1, "text_secondary"))
-	audio_inner.add_child(settings_audio_volume)
-	audio_inner.add_spacer(true)
+	audio_volume_inner.add_child(settings_audio_volume)
+	audio_volume_inner.add_spacer(true)
+
+	var audio_fx_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	audio_fx_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	audio_fx_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	audio_row.add_child(audio_fx_card)
+	var audio_fx_inner = VBoxContainer.new()
+	audio_fx_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	audio_fx_card.add_child(audio_fx_inner)
+	audio_fx_inner.add_child(_label("Mixing", 18, "text_secondary"))
+	audio_fx_inner.add_child(_label("Channel balancing and advanced mix controls will appear here.", -1, "text_muted"))
+	audio_fx_inner.add_spacer(true)
 
 	var security_tab = VBoxContainer.new()
 	security_tab.name = "Security"
-	security_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	security_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	tabs.add_child(security_tab)
-	var security_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	security_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	security_tab.add_child(security_card)
-	var security_inner = VBoxContainer.new()
-	security_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	security_card.add_child(security_inner)
-	security_inner.add_child(_label("Multi-factor Authentication", 20, "text_secondary"))
+	var security_row = HBoxContainer.new()
+	security_row.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	security_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	security_tab.add_child(security_row)
 
-	var mfa_toggle_row = HBoxContainer.new()
-	mfa_toggle_row.add_theme_constant_override("separation", 8)
-	security_inner.add_child(mfa_toggle_row)
-	settings_mfa_toggle = UI_COMPONENTS.button_primary("MFA", Vector2(170, 36))
+	var security_controls_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	security_controls_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	security_controls_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	security_row.add_child(security_controls_card)
+	var security_controls_inner = VBoxContainer.new()
+	security_controls_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	security_controls_card.add_child(security_controls_inner)
+	security_controls_inner.add_child(_label("MFA Controls", 18, "text_secondary"))
+
+	settings_mfa_toggle = UI_COMPONENTS.button_primary("MFA: OFF", Vector2(0, 36))
 	settings_mfa_toggle.focus_mode = Control.FOCUS_ALL
 	settings_mfa_toggle.toggle_mode = true
 	settings_mfa_toggle.toggled.connect(func(pressed: bool) -> void:
@@ -943,15 +1006,16 @@ func _build_settings_screen() -> VBoxContainer:
 			return
 		call_deferred("_on_settings_mfa_toggle_requested", pressed)
 	)
-	mfa_toggle_row.add_child(settings_mfa_toggle)
-	mfa_toggle_row.add_spacer(true)
+	security_controls_inner.add_child(settings_mfa_toggle)
 	settings_mfa_refresh_button = UI_COMPONENTS.button_primary("Refresh QR")
+	settings_mfa_refresh_button.custom_minimum_size = Vector2(0, 34)
 	settings_mfa_refresh_button.disabled = true
 	settings_mfa_refresh_button.pressed.connect(func() -> void:
 		await _generate_settings_mfa_secret()
 	)
-	mfa_toggle_row.add_child(settings_mfa_refresh_button)
+	security_controls_inner.add_child(settings_mfa_refresh_button)
 	var copy_uri = _button("Copy URI")
+	copy_uri.custom_minimum_size = Vector2(0, 34)
 	copy_uri.focus_mode = Control.FOCUS_ALL
 	copy_uri.pressed.connect(func() -> void:
 		if settings_mfa_last_uri.strip_edges().is_empty():
@@ -960,17 +1024,13 @@ func _build_settings_screen() -> VBoxContainer:
 		DisplayServer.clipboard_set(settings_mfa_last_uri)
 		settings_status_label.text = "Provisioning URI copied."
 	)
-	mfa_toggle_row.add_child(copy_uri)
+	security_controls_inner.add_child(copy_uri)
+	security_controls_inner.add_spacer(true)
 
-	var mfa_content_row = HBoxContainer.new()
-	mfa_content_row.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	mfa_content_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	security_inner.add_child(mfa_content_row)
-
-	var qr_panel = UI_COMPONENTS.panel_card(Vector2(320, 320), false)
+	var qr_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	qr_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	qr_panel.size_flags_stretch_ratio = 0.46
-	mfa_content_row.add_child(qr_panel)
+	qr_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	security_row.add_child(qr_panel)
 	settings_mfa_qr_texture = TextureRect.new()
 	settings_mfa_qr_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	settings_mfa_qr_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -982,10 +1042,10 @@ func _build_settings_screen() -> VBoxContainer:
 	settings_mfa_qr_placeholder.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	qr_panel.add_child(settings_mfa_qr_placeholder)
 
-	var mfa_info_panel = UI_COMPONENTS.panel_card(Vector2(420, 320), false)
+	var mfa_info_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	mfa_info_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mfa_info_panel.size_flags_stretch_ratio = 0.54
-	mfa_content_row.add_child(mfa_info_panel)
+	mfa_info_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	security_row.add_child(mfa_info_panel)
 	settings_mfa_info_label = RichTextLabel.new()
 	settings_mfa_info_label.bbcode_enabled = false
 	settings_mfa_info_label.scroll_active = true
@@ -1003,6 +1063,7 @@ func _build_settings_screen() -> VBoxContainer:
 		_show_screen("account")
 	)
 	action_row.add_child(back_button)
+	action_row.add_spacer(true)
 
 	settings_status_label = _label(" ", -1, "text_secondary")
 	settings_status_label.visible = true
@@ -1468,10 +1529,13 @@ func _render_character_rows() -> void:
 	if character_rows_container == null:
 		return
 	_clear_children(character_rows_container)
-	character_rows_container.custom_minimum_size = Vector2.ZERO
+	var roster_min_width = 300.0
+	if character_rows_scroll != null:
+		roster_min_width = maxf(300.0, character_rows_scroll.size.x - float(UI_TOKENS.spacing("md") * 2))
+	character_rows_container.custom_minimum_size = Vector2(roster_min_width, 0)
 	var visible_indices = _filtered_character_indices()
 	if visible_indices.is_empty():
-		var empty_card = UI_COMPONENTS.panel_card(Vector2(0, 140), false)
+		var empty_card = UI_COMPONENTS.panel_card(Vector2(roster_min_width, 140), false)
 		empty_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var empty_pad = MarginContainer.new()
 		empty_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("md"))
@@ -1491,19 +1555,19 @@ func _render_character_rows() -> void:
 		if character_delete_button != null:
 			character_delete_button.disabled = true
 		return
-	character_rows_container.custom_minimum_size = Vector2(0, float(visible_indices.size() * 126))
+	character_rows_container.custom_minimum_size = Vector2(roster_min_width, float(visible_indices.size() * 126))
 	for row_index in visible_indices:
 		var row: Dictionary = characters[row_index]
-		var card = UI_COMPONENTS.panel_card(Vector2(0, 116), row_index == selected_character_index)
+		var card = UI_COMPONENTS.panel_card(Vector2(roster_min_width, 116), row_index == selected_character_index)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var card_pad = MarginContainer.new()
-		card_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("sm"))
-		card_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("xs"))
-		card_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("sm"))
-		card_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("xs"))
+		card_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("md"))
+		card_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("sm"))
+		card_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("md"))
+		card_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("sm"))
 		card.add_child(card_pad)
 		var card_inner = VBoxContainer.new()
-		card_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+		card_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
 		card_pad.add_child(card_inner)
 
 		var summary_button = UI_COMPONENTS.button_secondary(
@@ -1514,7 +1578,7 @@ func _render_character_rows() -> void:
 				str(row.get("experience", 0)),
 				str(row.get("experience_to_next_level", 100)),
 			],
-			Vector2(0, UI_TOKENS.size("button_h_lg"))
+			Vector2(maxf(220.0, roster_min_width - float(UI_TOKENS.spacing("lg") * 2)), UI_TOKENS.size("button_h_lg"))
 		)
 		summary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		summary_button.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -1524,6 +1588,7 @@ func _render_character_rows() -> void:
 		)
 		card_inner.add_child(summary_button)
 		var location_label = _label("Location: " + _character_location_text(row), -1, "text_muted")
+		location_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		card_inner.add_child(location_label)
 		character_rows_container.add_child(card)
 
@@ -2085,7 +2150,7 @@ func _render_character_details(index: int) -> void:
 	var row: Dictionary = characters[index]
 	var location_text = _character_location_text(row)
 	character_details_label.text = (
-		"[Character Details]\n\nName: %s\nLevel: %s\nXP: %s (next %s)\nAppearance: %s\nRace: %s\nBackground: %s\nAffiliation: %s\nLocation: %s"
+		"Name: %s\nLevel: %s\nXP: %s (next %s)\nAppearance: %s\nRace: %s\nBackground: %s\nAffiliation: %s\nLocation: %s"
 		% [
 			str(row.get("name", "")),
 			str(row.get("level", 1)),

@@ -37,6 +37,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Shared UI foundation for Godot shell is now split into:
   - `game-client/scripts/ui_tokens.gd` (authoritative palette/spacing/size/radius tokens),
   - `game-client/scripts/ui_components.gd` (shared constructors for labels/buttons/inputs/options and centered shell scaffolds).
+- `ui_tokens` now includes a dedicated compact settings shell size (`shell_settings_w/h`) so settings uses a tighter workspace than account/admin editing screens.
 - `ui_components` now also provides reusable primary/secondary button variants, consistent card-panel styles, and section/banner helpers used by auth/account/settings/admin surfaces.
 - Godot helper scripts now resolve cross-script dependencies via explicit `preload(...)` constants (instead of relying on global class-name lookup) to avoid parser-order startup failures in packaged builds.
 - Godot shell defaults to borderless fullscreen startup.
@@ -227,10 +228,13 @@ This is the single source of truth for technical architecture, stack decisions, 
   - selectable row header button for preview binding,
   - action controls centralized in the selected-character detail panel,
   - explicit container minimum sizing to keep rows visible inside scroll surfaces,
+  - explicit minimum row width sizing to prevent zero-width/invisible roster cards,
   - a separate location metadata line to improve at-a-glance readability.
 - Auth/account/settings surfaces are now rendered inside centered constrained cards to improve hierarchy and reduce full-screen form sprawl.
 - Admin tool screens (`Level Editor`, `Level Order`, `Asset Editor`, `Content Versions`) are now also rendered in centered constrained card shells instead of raw full-bleed debug layouts.
 - Settings `Video`, `Audio`, and `Security` sections are rendered in themed card blocks rather than plain unstructured tab content.
+- Settings tabs now use compact three-column card grids per tab so control density is higher and future options can be added without full-row stretching.
+- Global spacing tokens (`xs..xl`) were increased and re-applied to account/settings rails to reduce control crowding and border clipping.
 - Screen switching in `client_shell.gd` now applies short fade-in transitions to improve perceived fluidity while preserving deterministic screen ownership.
 - Footer text is version-only; transient welcome/status chatter is no longer rendered in footer/account surfaces.
 - Dropdown popups are sanitized to non-checkable list behavior (no radio/check glyphs), and skill buttons use a themed custom tooltip popup instead of default tooltip behavior.

@@ -37,6 +37,8 @@ const SIZES: Dictionary = {
 	"menu_square": 44,
 	"shell_wide_w": 1560,
 	"shell_wide_h": 860,
+	"shell_settings_w": 1320,
+	"shell_settings_h": 720,
 	"shell_auth_w": 1180,
 	"shell_auth_h": 560,
 	"radius": 4,
@@ -45,11 +47,11 @@ const SIZES: Dictionary = {
 }
 
 const SPACING: Dictionary = {
-	"xs": 6,
-	"sm": 10,
-	"md": 14,
-	"lg": 18,
-	"xl": 24,
+	"xs": 8,
+	"sm": 12,
+	"md": 16,
+	"lg": 22,
+	"xl": 28,
 }
 
 static func color(name: String) -> Color:
