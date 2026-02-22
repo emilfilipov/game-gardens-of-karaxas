@@ -11,35 +11,54 @@ From repo root:
 powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 -Version 1.0.0
 ```
 
-This produces installer/update artifacts under `releases/windows/`.
+Artifacts are written to `releases/windows/`.
 
 ## Runtime behavior
-- Installed executable launches the Godot client shell for auth/account/game/editor flows.
-- Velopack update flow still runs through the packaged `UpdateHelper.exe`.
-- Updater controls are available from the Godot auth screen (`Update & Restart`) and authenticated top-right menu.
-- Updates are downloaded and applied through Velopack package flow from configured feed URL (`update_repo.txt` or backend release summary feed).
-- Runtime host defaults are shipped via `runtime_host.properties` in payload:
-  - `runtime_host=launcher_legacy|godot`
-  - `godot_executable=<path-or-command>`
-  - `godot_project_path=<project-dir>`
-- Runtime host values from process environment (`GOK_RUNTIME_HOST`, `GOK_GODOT_EXECUTABLE`, `GOK_GODOT_PROJECT_PATH`) override packaged defaults.
-- Pack/release defaults now target `runtime_host=godot` when no override is provided.
-- Release CI now bundles a Windows Godot executable into payload when runtime host is `godot` (`game-client/runtime/windows/godot4.exe`) and sets `godot_executable` to this relative path by default.
-- Optional release variables for bundled runtime source integrity:
-  - `KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL` (override default official Godot zip URL)
-  - `KARAXAS_GODOT_WINDOWS_SHA256` (recommended; verifies downloaded runtime archive hash during CI)
+- Installed executable launches Godot single-player shell.
+- Update control is available from main menu (`Update`).
+- Updater uses packaged `UpdateHelper.exe`.
+- Feed URL source order:
+  1. `game_config.update.feed_url`
+  2. `GOK_UPDATE_REPO` environment variable
+  3. `update_repo.txt` in packaged payload (release-time value)
 
 ## Local install path
 Default install root:
 `%LOCALAPPDATA%\GardensOfKaraxas`
 
-Logs are stored under `<install_root>\logs` and include launcher/game/update logs.
+Logs:
+- launcher logs: `<install_root>\logs\launcher.log`
+- game logs: `<install_root>\logs\game.log`
+- updater logs: `<install_root>\logs\velopack.log`
 
 ## CI release
 - Workflow: `.github/workflows/release.yml`
-- Trigger: pushes to `main`/`master` excluding markdown-only and backend-only changes.
-- Publishes Velopack feed artifacts to GCS (feed path + version archive) and notifies backend release policy endpoint for forced-update gating (5-minute grace).
-- Release packaging prefetches existing GCS `.nupkg` artifacts so clients can still use delta updates when they skip several versions.
+- Trigger: pushes to `main`/`master` (markdown-only changes ignored)
+- Release uploads Velopack artifacts to GCS feed path and versioned archive path.
+- Mutable feed artifacts receive `Cache-Control: no-cache, max-age=0`.
+- Historical `.nupkg` artifacts are prefetched from feed before packing to preserve delta continuity.
 
-## Notes on update credentials
-Updater flow is designed for public-read GCS feed access and does not require embedding repository tokens in the game client.
+## Runtime host defaults in payload
+`runtime_host.properties` is emitted at package time:
+- `runtime_host`
+- `godot_executable`
+- `godot_project_path`
+
+Environment overrides (launcher process):
+- `GOK_RUNTIME_HOST`
+- `GOK_GODOT_EXECUTABLE`
+- `GOK_GODOT_PROJECT_PATH`
+
+## Release variables/secrets used by workflow
+Required:
+- `KARAXAS_GCS_RELEASE_BUCKET` (variable)
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` (secret)
+- `GCP_SERVICE_ACCOUNT` (secret)
+
+Optional:
+- `KARAXAS_GCS_RELEASE_PREFIX`
+- `KARAXAS_RUNTIME_HOST`
+- `KARAXAS_GODOT_EXECUTABLE`
+- `KARAXAS_GODOT_PROJECT_PATH`
+- `KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL`
+- `KARAXAS_GODOT_WINDOWS_SHA256`

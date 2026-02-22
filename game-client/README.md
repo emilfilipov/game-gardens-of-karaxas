@@ -1,16 +1,18 @@
 # Gardens of Karaxas - Godot Game Client
 
-This module is the unified Godot client shell for Gardens of Karaxas.
+This module is the single-player Godot runtime shell for Gardens of Karaxas.
 
 ## Current Scope
-- Hosts auth/account/world/admin UI flows in one Godot runtime surface.
-- Defines the launcher/bootstrap contract under `contracts/`.
-- Provides runtime world scaffold (`world_canvas.gd`) and update/log tooling entry points.
+- Main menu (`New Game`, `Load Game`, `Settings`, `Update`, `Admin`, `Exit`).
+- Character creation and local save/load loop.
+- In-world runtime surface (`world_canvas.gd`).
+- Admin designer suite (level/asset/config/diagnostics tabs).
+- Local central configuration loading/validation.
 
-## Contract
-- JSON schema: `contracts/bootstrap.schema.json`
-- Version key: `gok_runtime_bootstrap_v1`
+## Entry Scene
+- `res://scenes/bootstrap.tscn`
+- Script: `res://scripts/single_player_shell.gd`
 
 ## Local Start (when Godot is installed)
-- Open this folder in Godot 4.x.
+- Open `game-client/` in Godot 4.x.
 - Run default scene (`res://scenes/bootstrap.tscn`).

@@ -1,0 +1,92 @@
+{
+	"meta": {
+		"revision": 1,
+		"title": "Gardens of Karaxas",
+		"mode": "single_player_arpg"
+	},
+	"update": {
+		"feed_url": ""
+	},
+	"ui": {
+		"tooltips": {
+			"strength": "Power for heavy melee attacks.",
+			"agility": "Speed for movement and recovery.",
+			"intellect": "Arcane output and spell potency.",
+			"vitality": "Base health and toughness.",
+			"resolve": "Resistance against control effects.",
+			"endurance": "Stamina and sustained effort.",
+			"dexterity": "Precision for weapons and tools.",
+			"willpower": "Mental focus and channeling."
+		}
+	},
+	"world": {
+		"default_level_id": "open_world_01",
+		"default_spawn_x": 96,
+		"default_spawn_y": 96
+	},
+	"character_creation": {
+		"point_budget": 10,
+		"sex_options": ["Male", "Female"],
+		"race_options": ["Human"],
+		"background_options": ["Drifter", "Mercenary", "Scholar"],
+		"affiliation_options": ["Unaffiliated", "Order", "Free Company"],
+		"stats": [
+			{"key": "strength", "label": "Strength", "description": "Power for heavy melee attacks.", "default": 0},
+			{"key": "agility", "label": "Agility", "description": "Speed for movement and recovery.", "default": 0},
+			{"key": "intellect", "label": "Intellect", "description": "Arcane output and spell potency.", "default": 0},
+			{"key": "vitality", "label": "Vitality", "description": "Base health and toughness.", "default": 0},
+			{"key": "resolve", "label": "Resolve", "description": "Resistance against control effects.", "default": 0},
+			{"key": "endurance", "label": "Endurance", "description": "Stamina and sustained effort.", "default": 0},
+			{"key": "dexterity", "label": "Dexterity", "description": "Precision for weapons and tools.", "default": 0},
+			{"key": "willpower", "label": "Willpower", "description": "Mental focus and channeling.", "default": 0}
+		],
+		"skills": [
+			{"key": "ember", "label": "Ember", "description": "Launch a small fire projectile.", "selected": 0},
+			{"key": "cleave", "label": "Cleave", "description": "Wide melee strike in front.", "selected": 0},
+			{"key": "quick_strike", "label": "Quick Strike", "description": "Fast single-target melee attack.", "selected": 0},
+			{"key": "bandage", "label": "Bandage", "description": "Short heal over time.", "selected": 0}
+		]
+	},
+	"gameplay": {
+		"movement": {
+			"player_speed_tiles": 4.6,
+			"player_radius": 14.0,
+			"dash_speed_tiles": 7.2
+		},
+		"combat": {
+			"abilities": [
+				{"key": "ember", "damage": 20, "cooldown": 4.0, "resource_cost": 12, "scaling_stat": "intellect"},
+				{"key": "cleave", "damage": 18, "cooldown": 3.0, "resource_cost": 10, "scaling_stat": "strength"},
+				{"key": "quick_strike", "damage": 12, "cooldown": 1.2, "resource_cost": 6, "scaling_stat": "agility"},
+				{"key": "bandage", "heal": 15, "cooldown": 8.0, "resource_cost": 8, "scaling_stat": "willpower"}
+			]
+		},
+		"quests": [
+			{
+				"key": "q_tutorial_001",
+				"title": "First Footing",
+				"description": "Reach the old stair marker in the first zone.",
+				"goals": ["Move to marker A", "Return to camp"],
+				"reward_text": "Starter provisions"
+			}
+		],
+		"dialogue": {
+			"npc_guard_01": {
+				"intro": "Welcome to the lower gardens. Stay alert.",
+				"options": [
+					{"text": "Any dangers nearby?", "next": "danger_info"},
+					{"text": "Goodbye.", "next": "exit"}
+				],
+				"danger_info": "Ruin beasts roam at dusk. Keep your torch lit."
+			}
+		}
+	},
+	"assets": {
+		"catalog": [
+			{"key": "grass_tile", "label": "Grass Tile", "default_layer": 0, "collidable": false, "description": "Ground foliage tile.", "collision_template": {"shape": "none", "layers": ["ground"]}},
+			{"key": "wall_block", "label": "Wall Block", "default_layer": 1, "collidable": true, "description": "Solid wall obstacle.", "collision_template": {"shape": "box", "layers": ["ground"], "width": 1.0, "height": 1.0}},
+			{"key": "tree_oak", "label": "Oak Tree", "default_layer": 1, "collidable": true, "description": "Tree obstacle with base collision.", "collision_template": {"shape": "box", "layers": ["ground"], "width": 0.65, "height": 0.35, "offset_y": 0.65}},
+			{"key": "cloud_soft", "label": "Soft Cloud", "default_layer": 2, "collidable": false, "description": "Ambient cloud effect.", "collision_template": {"shape": "none", "layers": ["air"]}}
+		]
+	}
+}

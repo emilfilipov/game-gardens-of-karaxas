@@ -1,3 +1,10 @@
-- Completed `GOK-MMO-246`: restored full MFA QR parity in Godot settings.
-- Backend `/auth/mfa/setup` now returns a `qr_svg` field generated from the provisioning URI.
-- Godot settings now opens a fully themed QR enrollment popup with `Copy Secret` and `Copy URI` fallback actions.
+- Pivoted Godot runtime to a single-player shell and made it the active bootstrap entrypoint.
+- Implemented local main menu flow (`New Game`, `Load Game`, `Settings`, `Update`, `Admin`, `Exit`) with no account/login dependency.
+- Added local save-slot create/load/delete pipeline and world resume from slot state.
+- Added central local config bootstrap (`game_config.json`) with startup/admin validation and runtime settings auto-apply.
+- Added/admin-wired local designer tabs (`Level Editor`, `Asset Editor`, `Config Editor`, `Diagnostics`).
+- Added runtime-configurable world movement parameters (`player_speed_tiles`, `player_radius`) from central config.
+- Migrated UI regression harness to single-player shell builders/snippets and updated golden manifest targets.
+- Removed obsolete backend deploy/security GitHub workflows from active pipeline.
+- Removed backend release-activation callback from release workflow; release now updates GCS feed only.
+- Rewrote canonical docs (`GAME`, `TECHNICAL`, `TASKS`, `README`, `INSTALLER`) for single-player architecture and operations.

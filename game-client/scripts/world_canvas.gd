@@ -7,14 +7,16 @@ const ISO = preload("res://scripts/iso_projection.gd")
 const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
 
 const GRID_UNIT_PIXELS: float = 32.0
-const PLAYER_SPEED_TILES: float = 4.6
-const PLAYER_RADIUS: float = 14.0
+const DEFAULT_PLAYER_SPEED_TILES: float = 4.6
+const DEFAULT_PLAYER_RADIUS: float = 14.0
 
 var world_width_tiles: int = 80
 var world_height_tiles: int = 48
 var player_tile_position: Vector2 = Vector2(3.0, 3.0)
 var player_facing: String = "S"
 var world_name: String = "Default"
+var player_speed_tiles: float = DEFAULT_PLAYER_SPEED_TILES
+var player_radius: float = DEFAULT_PLAYER_RADIUS
 var _active: bool = false
 
 var floor_tiles: Array[Vector2i] = []
@@ -51,6 +53,12 @@ func configure_world(level_name: String, width_tiles: int, height_tiles: int, sp
 	_ingest_level_layers(level_payload)
 	queue_redraw()
 
+func configure_runtime(movement_cfg: Dictionary) -> void:
+	if not (movement_cfg is Dictionary):
+		return
+	player_speed_tiles = maxf(0.5, float(movement_cfg.get("player_speed_tiles", DEFAULT_PLAYER_SPEED_TILES)))
+	player_radius = maxf(2.0, float(movement_cfg.get("player_radius", DEFAULT_PLAYER_RADIUS)))
+
 func set_world_position(world_position: Vector2) -> void:
 	player_tile_position = _clamp_tile_position(_world_pixels_to_tile(world_position))
 	queue_redraw()
@@ -78,7 +86,7 @@ func _process(delta: float) -> void:
 	if axis == Vector2.ZERO:
 		_check_transition_trigger()
 		return
-	var next_pos: Vector2 = _clamp_tile_position(player_tile_position + axis.normalized() * PLAYER_SPEED_TILES * delta)
+	var next_pos: Vector2 = _clamp_tile_position(player_tile_position + axis.normalized() * player_speed_tiles * delta)
 	if _is_blocked(next_pos):
 		return
 	player_tile_position = next_pos

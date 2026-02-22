@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/client_shell.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/single_player_shell.gd" id="1"]
 
 [node name="Bootstrap" type="Control"]
 layout_mode = 3

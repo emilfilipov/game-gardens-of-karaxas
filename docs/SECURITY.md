@@ -1,81 +1,55 @@
 # Security Runbook
 
-## Implemented Baseline
-- Request ID correlation (`X-Request-ID`) and sanitized error envelopes.
-- Secure response headers (`HSTS` on HTTPS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cache-Control`).
-- Optional CORS allowlist (`CORS_ALLOWED_ORIGINS`).
-- Request body size guard (`MAX_REQUEST_BODY_BYTES`).
-- Auth/chat write rate limiting with lockout/backoff.
-- Refresh-token rotation with replay/reuse detection and deterministic bulk session revocation on compromise signal.
-- Short-lived one-time websocket tickets (`POST /auth/ws-ticket`) replacing bearer tokens in websocket query strings.
-- User MFA/TOTP APIs (all authenticated accounts) with shorter admin refresh-session TTL policy.
-- Secure DB transport default (`DB_SSLMODE=require`).
-- Privileged action audit trail (`admin_action_audit`, `publish_drain_events`, `publish_drain_session_audit`).
-- Immutable security-event audit trail (`security_event_audit`) for auth/session event telemetry.
-- CI security gates (`.github/workflows/security-scan.yml`).
+## Active Security Scope
+Single-player runtime security focuses on distribution integrity, update safety, and local data hygiene.
 
-## Secret Management Pattern
-- Required for CI deploy/runtime: Secret Manager references in deploy env:
-  - `JWT_SECRET_SECRET_REF`
-  - `OPS_API_TOKEN_SECRET_REF`
-  - `DB_PASSWORD_SECRET_REF`
-- Plain env fallback is now local-only and must be explicitly enabled via `ALLOW_PLAIN_ENV_SECRETS=true`.
-- CI cloud auth is WIF-only (`GCP_WORKLOAD_IDENTITY_PROVIDER` + `GCP_SERVICE_ACCOUNT`), removing long-lived service-account JSON keys.
-- Rotation policy:
-  1. create new secret version,
-  2. deploy Cloud Run with updated secret ref,
-  3. validate auth + ops + DB connectivity,
-  4. disable old secret version after confirmation.
+## Implemented Baseline
+- Release uploads use GitHub OIDC + GCP Workload Identity Federation (no static cloud key files).
+- GCS feed artifacts are distributed through controlled CI workflow.
+- No runtime backend auth/session tokens are required for gameplay.
+- No embedded GitHub PAT/repo credentials in client update flow.
+- Local logs and config are stored in user-space paths.
+
+## Primary Threat Areas
+1. Malicious/tampered update artifacts.
+2. Feed cache staleness causing incorrect update state.
+3. Local save/config corruption.
+4. Accidental secret leakage in CI/workflows.
+
+## Controls
+- Optional SHA256 verification for downloaded Godot runtime in release pipeline.
+- `Cache-Control: no-cache, max-age=0` on mutable feed artifacts.
+- Feed publishing gated by authenticated workflow run.
+- Runtime validates presence of required config domains and surfaces errors in diagnostics.
+
+## Secrets Handling
+Active secrets/vars are limited to release pipeline cloud auth and feed targets:
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_SERVICE_ACCOUNT`
+- `KARAXAS_GCS_RELEASE_BUCKET`
+- optional runtime bundle/feed vars
+
+Deprecated backend auth/ops secrets are no longer used in active release flow.
 
 ## Incident Response
-### Account compromise wave
-1. Increase auth lockout strictness (`AUTH_*` rate-limit env values).
-2. Revoke suspected sessions (`user_sessions.revoked_at`).
-3. Monitor `/ops/release/metrics` + auth failure rates.
+### Suspected compromised release
+1. Stop new releases.
+2. Move feed pointer back to last known-good archived version.
+3. Rotate cloud IAM credentials/service account bindings if needed.
+4. Publish fixed release with new version.
 
-### Token leakage
-1. Rotate `JWT_SECRET` and `OPS_API_TOKEN`.
-2. Revoke all sessions (bulk update `user_sessions.revoked_at`).
-3. Force update/login gate via release policy activation.
+### Bad update metadata/cache behavior
+1. Verify `Cache-Control` metadata on feed objects.
+2. Re-upload `RELEASES` and setup artifacts.
+3. Re-run update test from clean install + stale install machines.
 
-### Refresh token replay detected
-1. Inspect `GET /ops/release/security-audit?event_type=refresh_token_reuse_detected`.
-2. Confirm automatic bulk revocation (`session_bulk_revocation`) fired for impacted account.
-3. Force password reset and investigate associated IP/session timeline.
+### Local save/config corruption reports
+1. Reproduce with affected save files.
+2. Inspect diagnostics log output.
+3. Recover from slot backups (when available) or provide migration repair script.
 
-### Abuse/spam burst
-1. Tighten chat rate limits (`CHAT_*` env values).
-2. Apply network perimeter controls (Cloud Armor/WAF/IP throttling).
-3. Review `admin_action_audit` and request IDs for timeline.
-
-## Perimeter and Infra Recommendations
-- Place Cloud Run behind HTTPS Load Balancer + Cloud Armor.
-- Restrict unauthenticated access where possible and enforce only required public routes.
-- Keep request-size limits and WAF bot/abuse rules enabled.
-- Use least-privilege service accounts for deploy/runtime.
-- Bootstrap Cloud Armor baseline with:
-```bash
-PROJECT_ID=<project-id> \
-POLICY_NAME=karaxas-backend-policy \
-BACKEND_SERVICE=<lb-backend-service> \
-backend/scripts/configure_cloud_armor.sh
-```
-
-## Audit Retention Guidance
-- `admin_action_audit`: keep indefinitely (compliance and rollback forensics).
-- `publish_drain_*`: keep indefinitely (release incident traceability).
-- `security_event_audit`: keep minimum 180 days hot, archive older rows to cold storage monthly.
-- Query interfaces:
-  - `GET /ops/release/admin-audit`
-  - `GET /ops/release/security-audit`
-  - `GET /ops/release/metrics` (`security_events` aggregate counters)
-- Optional automated guardrail probe:
-  - `backend/scripts/check_ops_metrics_guardrails.sh` (threshold checks for drain failures and auth/rate-limit pressure).
-
-## Security Readiness Checklist
-- Security scan workflow passing on `main`.
-- No critical untriaged vulnerabilities.
-- Secret refs used for production runtime credentials.
-- Admin audit log endpoint reachable and monitored.
-- Publish-drain and force-update enforcement validated on staging.
-- Basic penetration-test checklist executed (auth, websocket, rate-limit, replay, error leakage).
+## Security Checklist Before Release
+- Release workflow green.
+- No secrets echoed in logs.
+- Feed objects present and metadata correct.
+- Client can update and launch without backend connectivity.

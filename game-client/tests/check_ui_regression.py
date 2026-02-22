@@ -9,10 +9,11 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = ROOT / "game-client/tests/ui_golden_manifest.json"
 SIGNATURE_PATH = ROOT / "game-client/tests/ui_layout_signature.txt"
 SOURCES = [
-    ROOT / "game-client/scripts/client_shell.gd",
+    ROOT / "game-client/scripts/single_player_shell.gd",
     ROOT / "game-client/scripts/ui_tokens.gd",
     ROOT / "game-client/scripts/ui_components.gd",
     ROOT / "game-client/scripts/character_podium_preview.gd",
+    ROOT / "game-client/scripts/world_canvas.gd",
 ]
 
 
@@ -33,7 +34,7 @@ def main() -> int:
         return fail(f"manifest missing: {MANIFEST_PATH}")
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
-    shell_text = (ROOT / "game-client/scripts/client_shell.gd").read_text(encoding="utf-8")
+    shell_text = (ROOT / "game-client/scripts/single_player_shell.gd").read_text(encoding="utf-8")
 
     for name in manifest.get("required_builders", []):
         if f"func {name}(" not in shell_text:

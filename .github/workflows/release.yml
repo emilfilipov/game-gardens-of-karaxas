@@ -9,7 +9,6 @@ on:
       - "**/*.md"
       - "**/*.MD"
       - "backend/**"
-      - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
 
 permissions:
@@ -260,43 +259,6 @@ jobs:
               gsutil setmeta -h "Cache-Control:no-cache, max-age=0" $target
             }
           }
-
-      - name: Notify Backend Release Activation
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        shell: pwsh
-        env:
-          KARAXAS_BACKEND_OPS_URL: ${{ secrets.KARAXAS_BACKEND_OPS_URL || vars.KARAXAS_BACKEND_OPS_URL }}
-          KARAXAS_OPS_TOKEN: ${{ secrets.KARAXAS_OPS_TOKEN }}
-          FEED_URL: ${{ steps.preflight.outputs.feed_url }}
-        run: |
-          if (-not $env:KARAXAS_BACKEND_OPS_URL) {
-            Write-Host "KARAXAS_BACKEND_OPS_URL not configured. Skipping backend notification."
-            exit 0
-          }
-          if (-not $env:KARAXAS_OPS_TOKEN) {
-            Write-Host "KARAXAS_OPS_TOKEN not configured. Skipping backend notification."
-            exit 0
-          }
-
-          $notesPath = "docs/patch_notes.md"
-          $notes = if (Test-Path $notesPath) { (Get-Content $notesPath -Raw) } else { "" }
-          $payload = @{
-            latest_version = "${{ steps.get-version.outputs.version }}"
-            min_supported_version = "${{ steps.get-version.outputs.version }}"
-            grace_minutes = 5
-            update_feed_url = $env:FEED_URL
-            build_release_notes = $notes
-            user_facing_notes = $notes
-          } | ConvertTo-Json -Depth 10
-
-          $url = "$($env:KARAXAS_BACKEND_OPS_URL.TrimEnd('/'))/ops/release/activate"
-          Invoke-RestMethod `
-            -Uri $url `
-            -Method Post `
-            -Headers @{ "x-ops-token" = $env:KARAXAS_OPS_TOKEN } `
-            -ContentType "application/json" `
-            -Body $payload | Out-Null
-          Write-Host "Backend release activation notified."
 
       - name: Skip Release (Missing Inputs/Auth)
         if: steps.preflight.outputs.enabled != 'true' || steps.auth-mode.outputs.mode == 'none'
