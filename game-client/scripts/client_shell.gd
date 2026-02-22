@@ -3,6 +3,8 @@ extends Control
 const WORLD_CANVAS_SCENE = preload("res://scripts/world_canvas.gd")
 const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
 const UI_COMPONENTS = preload("res://scripts/ui_components.gd")
+const ISO_PROJECTION = preload("res://scripts/iso_projection.gd")
+const PODIUM_PREVIEW_SCENE = preload("res://scripts/character_podium_preview.gd")
 
 const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
@@ -54,6 +56,8 @@ var character_row_level_overrides: Dictionary = {}
 var register_mode = false
 var current_screen_name = "auth"
 var screen_nodes: Dictionary = {}
+var suppress_character_tab_changed = false
+var last_character_tab_index = 0
 
 var header_title: Label
 var menu_button: Button
@@ -81,25 +85,38 @@ var character_tabs: TabContainer
 var character_rows_scroll: ScrollContainer
 var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
-var character_preview_texture: TextureRect
+var character_preview_widget: Control
+var character_detail_chips: HBoxContainer
 var character_list_title_label: Label
 var character_refresh_button: Button
 var character_search_input: LineEdit
+var character_sort_option: OptionButton
 var character_play_button: Button
 var character_delete_button: Button
 var character_level_override_option: OptionButton
 
 var create_name_input: LineEdit
 var create_sex_option: OptionButton
+var create_skin_tone_option: OptionButton
+var create_hair_style_option: OptionButton
+var create_hair_color_option: OptionButton
+var create_face_option: OptionButton
+var create_stance_option: OptionButton
 var create_race_option: OptionButton
 var create_background_option: OptionButton
 var create_affiliation_option: OptionButton
-var create_preview_texture: TextureRect
+var create_preview_widget: Control
 var create_points_left_label: Label
 var create_stats_grid: GridContainer
 var create_skills_grid: GridContainer
 var create_status_label: Label
 var create_submit_button: Button
+var create_step_tabs: TabContainer
+var create_step_back_button: Button
+var create_step_next_button: Button
+var create_step_label: Label
+var create_review_text: RichTextLabel
+var create_validation_label: RichTextLabel
 var create_stat_keys: Array[String] = []
 var create_skill_keys: Array[String] = []
 var create_stat_values: Dictionary = {}
@@ -107,6 +124,7 @@ var create_skill_values: Dictionary = {}
 var create_skill_buttons: Dictionary = {}
 var create_point_budget: int = 10
 var create_stat_max_per_entry: int = 10
+var create_dirty: bool = false
 
 var world_container: VBoxContainer
 var world_status_label: Label
@@ -123,6 +141,7 @@ var settings_status_label: Label
 var settings_screen_mode: OptionButton
 var settings_audio_mute: Button
 var settings_audio_volume: HSlider
+var settings_reduced_motion_toggle: Button
 var settings_mfa_toggle: Button
 var settings_mfa_qr_texture: TextureRect
 var settings_mfa_qr_placeholder: Label
@@ -132,6 +151,7 @@ var settings_mfa_enabled_state = false
 var settings_mfa_last_secret = ""
 var settings_mfa_last_uri = ""
 var settings_mfa_last_qr_svg = ""
+var reduced_motion_enabled = false
 
 var level_editor_container: VBoxContainer
 var level_editor_status: Label
@@ -192,8 +212,15 @@ func _ready() -> void:
 	_apply_window_icon()
 	_apply_default_window_mode()
 	_load_client_version()
+	var iso_fixture = ISO_PROJECTION.run_fixtures()
+	_append_log("Iso projection fixtures ok=%s max_error=%s depth_monotonic=%s" % [
+		str(bool(iso_fixture.get("ok", false))),
+		str(iso_fixture.get("max_roundtrip_error", 0.0)),
+		str(bool(iso_fixture.get("depth_monotonic", false))),
+	])
 	_build_theme()
 	_build_ui()
+	_load_settings_preferences()
 	_load_last_email_pref()
 	_load_level_editor_drafts()
 	_load_asset_editor_drafts()
@@ -202,6 +229,30 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		call_deferred("_handle_exit_request")
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey):
+		return
+	var key_event: InputEventKey = event
+	if not key_event.pressed or key_event.echo:
+		return
+	if key_event.keycode == KEY_ESCAPE:
+		if _current_screen() == "settings":
+			_show_screen("account")
+			accept_event()
+		elif _current_screen() == "logs":
+			_show_screen("account")
+			accept_event()
+		elif _current_screen() == "account":
+			menu_button.call_deferred("grab_focus")
+			accept_event()
+	if key_event.keycode == KEY_ENTER or key_event.keycode == KEY_KP_ENTER:
+		if _current_screen() == "auth":
+			_on_auth_submit()
+			accept_event()
+		elif _current_screen() == "account" and character_tabs != null and character_tabs.current_tab == 1:
+			_on_create_step_enter_pressed()
+			accept_event()
 
 func _handle_exit_request() -> void:
 	await _persist_active_character_location()
@@ -573,6 +624,7 @@ func _build_account_screen() -> VBoxContainer:
 	character_tabs = TabContainer.new()
 	character_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_tabs.focus_mode = Control.FOCUS_NONE
+	character_tabs.tab_changed.connect(_on_character_tabs_changed)
 	content_root.add_child(character_tabs)
 
 	var list_tab = VBoxContainer.new()
@@ -610,12 +662,24 @@ func _build_account_screen() -> VBoxContainer:
 	character_refresh_button = UI_COMPONENTS.button_primary("Refresh", Vector2(124, 38))
 	character_refresh_button.pressed.connect(_on_character_refresh_pressed)
 	roster_header.add_child(character_refresh_button)
+
+	var roster_filter_row = HBoxContainer.new()
+	roster_filter_row.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	roster_inner.add_child(roster_filter_row)
 	character_search_input = _line_edit("Search characters")
-	character_search_input.custom_minimum_size = Vector2(0, 34)
+	character_search_input.custom_minimum_size = Vector2(0, 36)
+	character_search_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	character_search_input.text_changed.connect(func(_value: String) -> void:
 		_render_character_rows()
 	)
-	roster_inner.add_child(character_search_input)
+	roster_filter_row.add_child(character_search_input)
+	character_sort_option = _option(["Sort: Name A-Z", "Sort: Level High-Low", "Sort: Location"])
+	character_sort_option.custom_minimum_size = Vector2(170, 36)
+	character_sort_option.item_selected.connect(func(_index: int) -> void:
+		_render_character_rows()
+	)
+	roster_filter_row.add_child(character_sort_option)
+
 	character_rows_scroll = ScrollContainer.new()
 	character_rows_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -644,11 +708,10 @@ func _build_account_screen() -> VBoxContainer:
 	var preview_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), true)
 	preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	podium_inner.add_child(preview_panel)
-	character_preview_texture = TextureRect.new()
-	character_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	character_preview_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	character_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	preview_panel.add_child(character_preview_texture)
+	character_preview_widget = PODIUM_PREVIEW_SCENE.new()
+	character_preview_widget.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	character_preview_widget.call("configure", Callable(self, "_resolve_character_texture_directional"), reduced_motion_enabled)
+	preview_panel.add_child(character_preview_widget)
 
 	var details_panel = UI_COMPONENTS.panel_card(Vector2(360, 0), false)
 	details_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -659,6 +722,9 @@ func _build_account_screen() -> VBoxContainer:
 	details_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	details_panel.add_child(details_inner)
 	details_inner.add_child(_label("Character Details", 20, "text_secondary"))
+	character_detail_chips = HBoxContainer.new()
+	character_detail_chips.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	details_inner.add_child(character_detail_chips)
 	character_details_label = RichTextLabel.new()
 	character_details_label.fit_content = false
 	character_details_label.bbcode_enabled = false
@@ -703,54 +769,122 @@ func _build_account_screen() -> VBoxContainer:
 	create_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_shell.add_child(create_root)
 
-	var create_body = HSplitContainer.new()
-	create_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_root.add_child(create_body)
+	create_step_label = _label("Step 1/4 - Appearance", 18, "text_secondary")
+	create_root.add_child(create_step_label)
 
-	var create_preview_panel = UI_COMPONENTS.panel_card(Vector2(220, 460), false)
-	create_preview_panel.size_flags_stretch_ratio = 0.23
-	create_body.add_child(create_preview_panel)
-	create_preview_texture = TextureRect.new()
-	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	create_preview_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	create_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	create_preview_panel.add_child(create_preview_texture)
+	create_step_tabs = TabContainer.new()
+	create_step_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_step_tabs.focus_mode = Control.FOCUS_NONE
+	create_step_tabs.tab_changed.connect(_on_create_step_changed)
+	create_root.add_child(create_step_tabs)
 
-	var create_right = VBoxContainer.new()
-	create_right.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	create_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_right.size_flags_stretch_ratio = 0.77
-	create_body.add_child(create_right)
+	var appearance_step = VBoxContainer.new()
+	appearance_step.name = "Appearance"
+	appearance_step.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	create_step_tabs.add_child(appearance_step)
+	var appearance_split = HSplitContainer.new()
+	appearance_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	appearance_step.add_child(appearance_split)
+	var create_preview_panel = UI_COMPONENTS.panel_card(Vector2(320, 460), false)
+	appearance_split.add_child(create_preview_panel)
+	create_preview_widget = PODIUM_PREVIEW_SCENE.new()
+	create_preview_widget.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_preview_widget.call("configure", Callable(self, "_resolve_character_texture_directional"), reduced_motion_enabled)
+	create_preview_panel.add_child(create_preview_widget)
+	var appearance_controls_panel = UI_COMPONENTS.panel_card(Vector2(0, 460), false)
+	appearance_controls_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	appearance_split.add_child(appearance_controls_panel)
+	var appearance_grid = GridContainer.new()
+	appearance_grid.columns = 2
+	appearance_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("sm"))
+	appearance_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("sm"))
+	appearance_controls_panel.add_child(appearance_grid)
 
-	var identity_panel = UI_COMPONENTS.panel_card(Vector2(0, 118), false)
-	create_right.add_child(identity_panel)
-	var identity_row = HBoxContainer.new()
-	identity_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	identity_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	identity_panel.add_child(identity_row)
-	create_name_input = _line_edit("Character Name")
-	create_name_input.custom_minimum_size = Vector2(170, 36)
-	identity_row.add_child(_labeled_control("Name", create_name_input))
 	create_sex_option = _option([])
-	create_sex_option.custom_minimum_size = Vector2(170, 36)
+	create_sex_option.custom_minimum_size = Vector2(240, 36)
 	create_sex_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
 		_refresh_create_character_preview()
 	)
-	identity_row.add_child(_labeled_control("Sex", create_sex_option))
-	create_race_option = _option(["Human"])
-	create_race_option.custom_minimum_size = Vector2(170, 36)
-	identity_row.add_child(_labeled_control("Race", create_race_option))
-	create_background_option = _option(["Drifter"])
-	create_background_option.custom_minimum_size = Vector2(170, 36)
-	identity_row.add_child(_labeled_control("Background", create_background_option))
-	create_affiliation_option = _option(["Unaffiliated"])
-	create_affiliation_option.custom_minimum_size = Vector2(170, 36)
-	identity_row.add_child(_labeled_control("Affiliation", create_affiliation_option))
+	appearance_grid.add_child(_labeled_control("Sex", create_sex_option))
+	create_skin_tone_option = _option(["Warm Bronze", "Olive", "Fair", "Deep Umber"])
+	create_skin_tone_option.custom_minimum_size = Vector2(240, 36)
+	create_skin_tone_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	appearance_grid.add_child(_labeled_control("Skin Tone", create_skin_tone_option))
+	create_hair_style_option = _option(["Short", "Braided", "Shaved", "Ponytail"])
+	create_hair_style_option.custom_minimum_size = Vector2(240, 36)
+	create_hair_style_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	appearance_grid.add_child(_labeled_control("Hair Style", create_hair_style_option))
+	create_hair_color_option = _option(["Umber", "Black", "Copper", "Ash"])
+	create_hair_color_option.custom_minimum_size = Vector2(240, 36)
+	create_hair_color_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	appearance_grid.add_child(_labeled_control("Hair Color", create_hair_color_option))
+	create_face_option = _option(["Calm", "Scarred", "Focused", "Stoic"])
+	create_face_option.custom_minimum_size = Vector2(240, 36)
+	create_face_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	appearance_grid.add_child(_labeled_control("Face", create_face_option))
+	create_stance_option = _option(["Neutral", "Guarded", "Ready"])
+	create_stance_option.custom_minimum_size = Vector2(240, 36)
+	create_stance_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	appearance_grid.add_child(_labeled_control("Base Stance", create_stance_option))
 
+	var identity_step = VBoxContainer.new()
+	identity_step.name = "Identity"
+	identity_step.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	create_step_tabs.add_child(identity_step)
+	var identity_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	identity_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	identity_step.add_child(identity_panel)
+	var identity_grid = GridContainer.new()
+	identity_grid.columns = 2
+	identity_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("sm"))
+	identity_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("sm"))
+	identity_panel.add_child(identity_grid)
+	create_name_input = _line_edit("Character Name")
+	create_name_input.custom_minimum_size = Vector2(0, 38)
+	create_name_input.text_changed.connect(func(_value: String) -> void:
+		_mark_create_dirty()
+	)
+	create_name_input.text_submitted.connect(func(_value: String) -> void:
+		_on_create_step_enter_pressed()
+	)
+	identity_grid.add_child(_labeled_control("Name", create_name_input))
+	create_race_option = _option(["Human"])
+	create_race_option.custom_minimum_size = Vector2(0, 38)
+	create_race_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	identity_grid.add_child(_labeled_control("Race", create_race_option))
+	create_background_option = _option(["Drifter"])
+	create_background_option.custom_minimum_size = Vector2(0, 38)
+	create_background_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	identity_grid.add_child(_labeled_control("Background", create_background_option))
+	create_affiliation_option = _option(["Unaffiliated"])
+	create_affiliation_option.custom_minimum_size = Vector2(0, 38)
+	create_affiliation_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	identity_grid.add_child(_labeled_control("Affiliation", create_affiliation_option))
+
+	var stats_step = VBoxContainer.new()
+	stats_step.name = "Stats & Skills"
+	stats_step.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	create_step_tabs.add_child(stats_step)
 	var create_tables = HSplitContainer.new()
 	create_tables.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_right.add_child(create_tables)
-
+	stats_step.add_child(create_tables)
 	var stats_panel = UI_COMPONENTS.panel_card(Vector2(510, 360), false)
 	stats_panel.custom_minimum_size = Vector2(490, 320)
 	stats_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -760,8 +894,7 @@ func _build_account_screen() -> VBoxContainer:
 	stats_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	stats_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stats_panel.add_child(stats_inner)
-	var stats_title = _label("Stats", 20, "text_secondary")
-	stats_inner.add_child(stats_title)
+	stats_inner.add_child(_label("Stats", 20, "text_secondary"))
 	create_stats_grid = GridContainer.new()
 	create_stats_grid.columns = 5
 	create_stats_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -778,8 +911,7 @@ func _build_account_screen() -> VBoxContainer:
 	skills_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	skills_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	skills_panel.add_child(skills_inner)
-	var skills_title = _label("Skills", 20, "text_secondary")
-	skills_inner.add_child(skills_title)
+	skills_inner.add_child(_label("Skills", 20, "text_secondary"))
 	create_skills_grid = GridContainer.new()
 	create_skills_grid.columns = 6
 	create_skills_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -787,9 +919,37 @@ func _build_account_screen() -> VBoxContainer:
 	create_skills_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("xs"))
 	skills_inner.add_child(create_skills_grid)
 
+	var review_step = VBoxContainer.new()
+	review_step.name = "Review"
+	review_step.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	create_step_tabs.add_child(review_step)
+	var review_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	review_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	review_step.add_child(review_panel)
+	create_review_text = RichTextLabel.new()
+	create_review_text.fit_content = false
+	create_review_text.bbcode_enabled = false
+	create_review_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_review_text.scroll_active = true
+	create_review_text.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
+	review_panel.add_child(create_review_text)
+	create_validation_label = RichTextLabel.new()
+	create_validation_label.fit_content = true
+	create_validation_label.scroll_active = false
+	create_validation_label.visible = false
+	create_validation_label.add_theme_color_override("default_color", UI_TOKENS.color("warning"))
+	review_step.add_child(create_validation_label)
+
 	var footer_row = HBoxContainer.new()
 	footer_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	create_right.add_child(footer_row)
+	create_root.add_child(footer_row)
+	create_step_back_button = _button("Back")
+	create_step_back_button.custom_minimum_size = Vector2(120, 42)
+	create_step_back_button.pressed.connect(_on_create_step_back_pressed)
+	footer_row.add_child(create_step_back_button)
+	create_step_next_button = UI_COMPONENTS.button_primary("Next", Vector2(120, 42))
+	create_step_next_button.pressed.connect(_on_create_step_next_pressed)
+	footer_row.add_child(create_step_next_button)
 	create_points_left_label = _label("10/10 points left", 16, "text_secondary")
 	footer_row.add_child(create_points_left_label)
 	footer_row.add_spacer(false)
@@ -802,9 +962,13 @@ func _build_account_screen() -> VBoxContainer:
 	create_status_label.text = " "
 	create_status_label.visible = true
 	create_root.add_child(create_status_label)
+
 	_populate_create_sex_option()
 	_populate_character_creation_tables(content_domains.get("character_options", {}))
 	_refresh_create_character_preview()
+	_set_create_step(0)
+	_configure_create_focus_chain()
+	_configure_account_focus_chain()
 
 	return wrap
 
@@ -812,8 +976,8 @@ func _build_world_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
 	wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 
-	world_status_label = _label("WASD to move.", -1, "text_secondary")
-	world_status_label.text = "WASD to move."
+	world_status_label = _label("Iso WASD movement.", -1, "text_secondary")
+	world_status_label.text = "Iso WASD movement."
 	wrap.add_child(world_status_label)
 
 	var world_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
@@ -936,7 +1100,14 @@ func _build_settings_screen() -> VBoxContainer:
 	video_access_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	video_access_card.add_child(video_access_inner)
 	video_access_inner.add_child(_label("Accessibility", 18, "text_secondary"))
-	video_access_inner.add_child(_label("Reduced-motion, contrast, and readability controls will appear here.", -1, "text_muted"))
+	settings_reduced_motion_toggle = _button("Reduced Motion: OFF")
+	settings_reduced_motion_toggle.custom_minimum_size = Vector2(0, 34)
+	settings_reduced_motion_toggle.toggle_mode = true
+	settings_reduced_motion_toggle.toggled.connect(func(_checked: bool) -> void:
+		settings_reduced_motion_toggle.text = "Reduced Motion: ON" if settings_reduced_motion_toggle.button_pressed else "Reduced Motion: OFF"
+		_apply_settings_preferences()
+	)
+	video_access_inner.add_child(settings_reduced_motion_toggle)
 	video_access_inner.add_spacer(false)
 
 	var audio_tab = VBoxContainer.new()
@@ -1411,6 +1582,13 @@ func _labeled_control(label_text: String, control: Control) -> Control:
 	wrap.add_child(control)
 	return wrap
 
+func _chip(text_value: String) -> Control:
+	var chip = UI_COMPONENTS.panel_card(Vector2(0, 30), false)
+	var label = _label(text_value, -1, "text_secondary")
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chip.add_child(label)
+	return chip
+
 func _clear_children(node: Node) -> void:
 	if node == null:
 		return
@@ -1419,17 +1597,17 @@ func _clear_children(node: Node) -> void:
 		child.queue_free()
 
 func _refresh_create_character_preview() -> void:
-	if create_preview_texture == null:
+	if create_preview_widget == null:
 		return
 	var appearance_key = _selected_create_appearance_key()
-	create_preview_texture.texture = _resolve_character_texture(appearance_key)
+	create_preview_widget.call("set_character", appearance_key, "Character Creator")
 
 func _available_create_appearance_choices() -> Array[Dictionary]:
 	var choices: Array[Dictionary] = []
-	var male_texture = _resolve_character_texture("human_male")
+	var male_texture = _resolve_character_texture_directional("human_male", "S")
 	if male_texture != null:
 		choices.append({"key": "human_male", "label": "Male"})
-	var female_texture = _resolve_character_texture("human_female")
+	var female_texture = _resolve_character_texture_directional("human_female", "S")
 	if female_texture != null:
 		choices.append({"key": "human_female", "label": "Female"})
 	if choices.is_empty():
@@ -1461,37 +1639,261 @@ func _selected_create_appearance_key() -> String:
 			return value
 	return "human_male"
 
+func _on_character_tabs_changed(index: int) -> void:
+	if suppress_character_tab_changed:
+		return
+	if last_character_tab_index == 1 and index != 1 and create_dirty:
+		call_deferred("_confirm_leave_create_tab", index)
+		return
+	last_character_tab_index = index
+	if character_tabs == null:
+		return
+	if index == 1:
+		_set_create_step(create_step_tabs.current_tab if create_step_tabs != null else 0)
+		return
+	_hide_skill_tooltip()
+
+func _confirm_leave_create_tab(target_tab: int) -> void:
+	var accepted = await _show_confirm_dialog(
+		"Discard Character Draft?",
+		"You have unsaved character creator changes. Leave Create Character and discard them?"
+	)
+	if accepted:
+		create_dirty = false
+		last_character_tab_index = target_tab
+		return
+	suppress_character_tab_changed = true
+	character_tabs.current_tab = 1
+	suppress_character_tab_changed = false
+	last_character_tab_index = 1
+
+func _mark_create_dirty() -> void:
+	create_dirty = true
+	if create_status_label != null and create_status_label.text.strip_edges().is_empty():
+		create_status_label.text = "Draft updated."
+
+func _set_create_step(step_index: int) -> void:
+	if create_step_tabs == null:
+		return
+	var max_step = max(0, create_step_tabs.get_tab_count() - 1)
+	var clamped_step = clampi(step_index, 0, max_step)
+	if create_step_tabs.current_tab != clamped_step:
+		create_step_tabs.current_tab = clamped_step
+	if create_step_label != null:
+		var step_name = create_step_tabs.get_tab_title(clamped_step)
+		create_step_label.text = "Step %d/%d - %s" % [clamped_step + 1, max_step + 1, step_name]
+	if create_step_back_button != null:
+		create_step_back_button.disabled = clamped_step == 0
+	if create_step_next_button != null:
+		create_step_next_button.visible = clamped_step < max_step
+	if create_submit_button != null:
+		create_submit_button.visible = clamped_step == max_step
+	if create_points_left_label != null:
+		create_points_left_label.visible = clamped_step == 2 or clamped_step == max_step
+	if clamped_step == max_step:
+		_refresh_create_review()
+
+func _on_create_step_changed(index: int) -> void:
+	_set_create_step(index)
+	_configure_create_focus_chain()
+
+func _on_create_step_back_pressed() -> void:
+	if create_step_tabs == null:
+		return
+	_set_create_step(create_step_tabs.current_tab - 1)
+
+func _on_create_step_next_pressed() -> void:
+	if create_step_tabs == null:
+		return
+	var errors = _validate_create_step(create_step_tabs.current_tab)
+	if not errors.is_empty():
+		if create_validation_label != null:
+			create_validation_label.visible = true
+			create_validation_label.text = "[%s]\n- %s" % [_create_step_name(create_step_tabs.current_tab), "\n- ".join(errors)]
+		create_status_label.text = "Resolve step validation errors before continuing."
+		return
+	if create_validation_label != null:
+		create_validation_label.visible = false
+		create_validation_label.text = ""
+	_set_create_step(create_step_tabs.current_tab + 1)
+
+func _on_create_step_enter_pressed() -> void:
+	if create_step_tabs == null:
+		return
+	var max_step = max(0, create_step_tabs.get_tab_count() - 1)
+	if create_step_tabs.current_tab < max_step:
+		_on_create_step_next_pressed()
+	else:
+		_on_create_character_pressed()
+
+func _create_step_name(step_index: int) -> String:
+	if create_step_tabs == null:
+		return "Step"
+	if step_index < 0 or step_index >= create_step_tabs.get_tab_count():
+		return "Step"
+	return create_step_tabs.get_tab_title(step_index)
+
+func _validate_create_step(step_index: int) -> Array[String]:
+	var errors: Array[String] = []
+	match step_index:
+		0:
+			if create_sex_option == null or create_sex_option.get_item_count() <= 0:
+				errors.append("Select a valid sex preset.")
+		1:
+			if create_name_input == null or create_name_input.text.strip_edges().length() < 2:
+				errors.append("Character name must be at least 2 characters.")
+			if create_race_option == null or create_race_option.get_item_count() <= 0:
+				errors.append("Select a race option.")
+			if create_background_option == null or create_background_option.get_item_count() <= 0:
+				errors.append("Select a background option.")
+			if create_affiliation_option == null or create_affiliation_option.get_item_count() <= 0:
+				errors.append("Select an affiliation option.")
+		2:
+			if _remaining_create_points() < 0:
+				errors.append("Skill point allocation is invalid.")
+			if create_stat_values.is_empty():
+				errors.append("Stat table did not initialize.")
+			if create_skill_values.is_empty():
+				errors.append("Skill table did not initialize.")
+		3:
+			var all_errors = _collect_create_validation_errors()
+			if not all_errors.is_empty():
+				errors.append("Review highlights unresolved errors from previous steps.")
+	return errors
+
+func _collect_create_validation_errors() -> Dictionary:
+	var result: Dictionary = {}
+	for step in range(3):
+		var errors = _validate_create_step(step)
+		if not errors.is_empty():
+			result[step] = errors
+	return result
+
+func _refresh_create_review() -> void:
+	if create_review_text == null:
+		return
+	var appearance_profile = _create_appearance_profile_payload()
+	var picked_skills: Array[String] = []
+	for key in create_skill_keys:
+		if int(create_skill_values.get(key, 0)) > 0:
+			picked_skills.append(key)
+	var selected_race = create_race_option.get_item_text(create_race_option.selected) if create_race_option != null and create_race_option.selected >= 0 else "Human"
+	var selected_background = create_background_option.get_item_text(create_background_option.selected) if create_background_option != null and create_background_option.selected >= 0 else "Drifter"
+	var selected_affiliation = create_affiliation_option.get_item_text(create_affiliation_option.selected) if create_affiliation_option != null and create_affiliation_option.selected >= 0 else "Unaffiliated"
+	create_review_text.text = (
+		"Appearance\n- Sex: %s\n- Skin Tone: %s\n- Hair Style: %s\n- Hair Color: %s\n- Face: %s\n- Stance: %s\n\nIdentity\n- Name: %s\n- Race: %s\n- Background: %s\n- Affiliation: %s\n\nBuild\n- Points Left: %s/%s\n- Selected Skills: %s\n\nAppearance Payload\n%s"
+		% [
+			str(appearance_profile.get("sex", "human_male")),
+			str(appearance_profile.get("skin_tone", "warm bronze")),
+			str(appearance_profile.get("hair_style", "short")),
+			str(appearance_profile.get("hair_color", "umber")),
+			str(appearance_profile.get("face", "calm")),
+			str(appearance_profile.get("stance", "neutral")),
+			create_name_input.text.strip_edges() if create_name_input != null else "",
+			selected_race,
+			selected_background,
+			selected_affiliation,
+			str(_remaining_create_points()),
+			str(create_point_budget),
+			", ".join(picked_skills) if not picked_skills.is_empty() else "None",
+			JSON.stringify(appearance_profile),
+		]
+	)
+	var grouped = _collect_create_validation_errors()
+	if create_validation_label != null:
+		if grouped.is_empty():
+			create_validation_label.visible = false
+			create_validation_label.text = ""
+			return
+		var lines: Array[String] = []
+		for step in grouped.keys():
+			var step_name = _create_step_name(int(step))
+			var items: Array = grouped.get(step, [])
+			lines.append("[%s]\n- %s" % [step_name, "\n- ".join(items)])
+		create_validation_label.visible = true
+		create_validation_label.text = "\n\n".join(lines)
+
+func _create_appearance_profile_payload() -> Dictionary:
+	var payload: Dictionary = {}
+	payload["sex"] = _selected_create_appearance_key()
+	if create_skin_tone_option != null and create_skin_tone_option.selected >= 0:
+		payload["skin_tone"] = create_skin_tone_option.get_item_text(create_skin_tone_option.selected).to_lower()
+	if create_hair_style_option != null and create_hair_style_option.selected >= 0:
+		payload["hair_style"] = create_hair_style_option.get_item_text(create_hair_style_option.selected).to_lower()
+	if create_hair_color_option != null and create_hair_color_option.selected >= 0:
+		payload["hair_color"] = create_hair_color_option.get_item_text(create_hair_color_option.selected).to_lower()
+	if create_face_option != null and create_face_option.selected >= 0:
+		payload["face"] = create_face_option.get_item_text(create_face_option.selected).to_lower()
+	if create_stance_option != null and create_stance_option.selected >= 0:
+		payload["stance"] = create_stance_option.get_item_text(create_stance_option.selected).to_lower()
+	return payload
+
+func _configure_create_focus_chain() -> void:
+	if create_step_tabs == null:
+		return
+	if create_step_tabs.current_tab == 0:
+		_set_focus_link(create_sex_option, create_skin_tone_option)
+		_set_focus_link(create_skin_tone_option, create_hair_style_option)
+		_set_focus_link(create_hair_style_option, create_hair_color_option)
+		_set_focus_link(create_hair_color_option, create_face_option)
+		_set_focus_link(create_face_option, create_stance_option)
+		_set_focus_link(create_stance_option, create_step_next_button)
+	elif create_step_tabs.current_tab == 1:
+		_set_focus_link(create_name_input, create_race_option)
+		_set_focus_link(create_race_option, create_background_option)
+		_set_focus_link(create_background_option, create_affiliation_option)
+		_set_focus_link(create_affiliation_option, create_step_next_button)
+
+func _configure_account_focus_chain() -> void:
+	if character_search_input == null or character_refresh_button == null or character_sort_option == null:
+		return
+	_set_focus_link(character_search_input, character_sort_option)
+	_set_focus_link(character_sort_option, character_refresh_button)
+	if character_play_button != null:
+		_set_focus_link(character_refresh_button, character_play_button)
+
 func _refresh_selected_character_preview() -> void:
-	if character_preview_texture == null:
+	if character_preview_widget == null:
 		return
 	if selected_character_index < 0 or selected_character_index >= characters.size():
-		character_preview_texture.texture = null
+		character_preview_widget.call("set_character", "human_male", "Selected Character")
 		return
 	var row: Dictionary = characters[selected_character_index]
 	var appearance_key = str(row.get("appearance_key", "human_male"))
-	character_preview_texture.texture = _resolve_character_texture(appearance_key)
+	character_preview_widget.call("set_character", appearance_key, str(row.get("name", "Selected Character")))
 
-func _resolve_character_texture(appearance_key: String):
+func _resolve_character_texture_directional(appearance_key: String, direction: String):
 	var key = appearance_key.strip_edges().to_lower()
 	if key.is_empty():
 		key = "human_male"
+	var direction_key = direction.strip_edges().to_lower()
+	var cache_key = "%s|%s" % [key, direction_key]
+	if character_texture_cache.has(cache_key):
+		var cached_directional = character_texture_cache.get(cache_key)
+		if cached_directional is Texture2D:
+			return cached_directional
 	if character_texture_cache.has(key):
 		var cached = character_texture_cache.get(key)
 		if cached is Texture2D:
 			return cached
 
-	var file_name = "karaxas_human_female_idle_32.png" if key == "human_female" else "karaxas_human_male_idle_32.png"
-	var candidates: Array[String] = []
-	candidates.append("res://assets/characters/" + file_name)
-	candidates.append(_path_join(install_root_path, "assets/characters/" + file_name))
-	candidates.append(_path_join(install_root_path, "game-client/assets/characters/" + file_name))
-	candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "assets/characters/" + file_name))
-
-	for path in candidates:
-		var texture = _load_texture_from_path(path)
-		if texture != null:
-			character_texture_cache[key] = texture
-			return texture
+	var base = "karaxas_human_female" if key == "human_female" else "karaxas_human_male"
+	var file_names: Array[String] = []
+	if not direction_key.is_empty():
+		file_names.append("%s_idle_%s_32.png" % [base, direction_key])
+	file_names.append("%s_idle_32.png" % base)
+	for file_name in file_names:
+		var candidates: Array[String] = []
+		candidates.append("res://assets/characters/" + file_name)
+		candidates.append(_path_join(install_root_path, "assets/characters/" + file_name))
+		candidates.append(_path_join(install_root_path, "game-client/assets/characters/" + file_name))
+		candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "assets/characters/" + file_name))
+		for path in candidates:
+			var texture = _load_texture_from_path(path)
+			if texture != null:
+				character_texture_cache[cache_key] = texture
+				character_texture_cache[key] = texture
+				return texture
 	return null
 
 func _load_texture_from_path(path: String):
@@ -1549,6 +1951,24 @@ func _filtered_character_indices() -> Array[int]:
 		var location = _character_location_text(row).to_lower()
 		if name.contains(query) or location.contains(query):
 			indices.append(index)
+	if character_sort_option != null:
+		match character_sort_option.selected:
+			1:
+				indices.sort_custom(func(a: int, b: int) -> bool:
+					var av = int((characters[a] as Dictionary).get("level", 1))
+					var bv = int((characters[b] as Dictionary).get("level", 1))
+					if av == bv:
+						return str((characters[a] as Dictionary).get("name", "")).to_lower() < str((characters[b] as Dictionary).get("name", "")).to_lower()
+					return av > bv
+				)
+			2:
+				indices.sort_custom(func(a: int, b: int) -> bool:
+					return _character_location_text(characters[a] as Dictionary).to_lower() < _character_location_text(characters[b] as Dictionary).to_lower()
+				)
+			_:
+				indices.sort_custom(func(a: int, b: int) -> bool:
+					return str((characters[a] as Dictionary).get("name", "")).to_lower() < str((characters[b] as Dictionary).get("name", "")).to_lower()
+				)
 	return indices
 
 func _render_character_rows() -> void:
@@ -1603,12 +2023,10 @@ func _render_character_rows() -> void:
 		card_pad.add_child(card_inner)
 
 		var summary_button = UI_COMPONENTS.button_secondary(
-			"%s  |  Lv.%s  |  XP %s/%s"
+			"%s  |  Lv.%s"
 			% [
 				str(row.get("name", "Unnamed")),
 				str(row.get("level", 1)),
-				str(row.get("experience", 0)),
-				str(row.get("experience_to_next_level", 100)),
 			],
 			Vector2(maxf(220.0, roster_min_width - float(UI_TOKENS.spacing("lg") * 2)), UI_TOKENS.size("button_h_lg"))
 		)
@@ -1637,6 +2055,8 @@ func _refresh_create_points_label() -> void:
 	if create_points_left_label == null:
 		return
 	create_points_left_label.text = "%d/%d points left" % [_remaining_create_points(), create_point_budget]
+	if create_step_tabs != null and create_step_tabs.current_tab == 3:
+		_refresh_create_review()
 
 func _adjust_create_stat(stat_key: String, delta: int, value_label: Label) -> void:
 	var current = int(create_stat_values.get(stat_key, 0))
@@ -1647,6 +2067,7 @@ func _adjust_create_stat(stat_key: String, delta: int, value_label: Label) -> vo
 		return
 	create_stat_values[stat_key] = next_value
 	value_label.text = str(next_value)
+	_mark_create_dirty()
 	_refresh_create_points_label()
 
 func _toggle_create_skill(skill_key: String, enabled: bool) -> void:
@@ -1657,6 +2078,7 @@ func _toggle_create_skill(skill_key: String, enabled: bool) -> void:
 			button.button_pressed = false
 		return
 	create_skill_values[skill_key] = 1 if enabled else 0
+	_mark_create_dirty()
 	_refresh_create_points_label()
 
 func _skill_tooltip(entry: Dictionary) -> String:
@@ -1882,10 +2304,13 @@ func _show_screen(name: String) -> void:
 			if is_target:
 				node.visible = true
 				node.modulate = Color(1.0, 1.0, 1.0, 0.0)
-				var fade_in = create_tween()
-				fade_in.set_trans(Tween.TRANS_SINE)
-				fade_in.set_ease(Tween.EASE_OUT)
-				fade_in.tween_property(node, "modulate:a", 1.0, 0.16)
+				if reduced_motion_enabled:
+					node.modulate = Color(1.0, 1.0, 1.0, 1.0)
+				else:
+					var fade_in = create_tween()
+					fade_in.set_trans(Tween.TRANS_SINE)
+					fade_in.set_ease(Tween.EASE_OUT)
+					fade_in.tween_property(node, "modulate:a", 1.0, 0.16)
 			else:
 				node.visible = false
 	if world_canvas != null and world_canvas.has_method("set_active"):
@@ -2028,6 +2453,7 @@ func _on_auth_submit() -> void:
 	await _load_characters()
 	_show_screen("account")
 	character_tabs.current_tab = 0
+	last_character_tab_index = 0
 
 func _apply_session(payload: Dictionary) -> void:
 	access_token = str(payload.get("access_token", ""))
@@ -2054,12 +2480,15 @@ func _logout_session_local() -> void:
 	character_row_level_overrides.clear()
 	_clear_children(character_rows_container)
 	character_details_label.text = "Choose a character from the list."
-	character_preview_texture.texture = null
+	if character_preview_widget != null:
+		character_preview_widget.call("set_character", "human_male", "Selected Character")
 	auth_password_input.clear()
 	auth_otp_input.clear()
 	settings_mfa_last_secret = ""
 	settings_mfa_last_uri = ""
 	settings_mfa_last_qr_svg = ""
+	create_dirty = false
+	last_character_tab_index = 0
 
 func _logout_account() -> void:
 	await _persist_active_character_location()
@@ -2098,6 +2527,7 @@ func _load_characters() -> void:
 	_refresh_create_character_preview()
 	_render_character_rows()
 	call_deferred("_render_character_rows")
+	_configure_account_focus_chain()
 	account_status_label.text = " "
 
 func _refresh_admin_levels_cache() -> void:
@@ -2164,7 +2594,10 @@ func _on_character_selected(index: int) -> void:
 func _render_character_details(index: int) -> void:
 	if index < 0 or index >= characters.size():
 		character_details_label.text = "Choose a character from the list."
-		character_preview_texture.texture = null
+		if character_detail_chips != null:
+			_clear_children(character_detail_chips)
+		if character_preview_widget != null:
+			character_preview_widget.call("set_character", "human_male", "Selected Character")
 		if character_play_button != null:
 			character_play_button.disabled = true
 		if character_delete_button != null:
@@ -2174,6 +2607,11 @@ func _render_character_details(index: int) -> void:
 		return
 	var row: Dictionary = characters[index]
 	var location_text = _character_location_text(row)
+	if character_detail_chips != null:
+		_clear_children(character_detail_chips)
+		character_detail_chips.add_child(_chip("Level " + str(row.get("level", 1))))
+		character_detail_chips.add_child(_chip("Zone " + str(row.get("level_name", row.get("level_id", "Default")))))
+		character_detail_chips.add_child(_chip("At " + location_text))
 	character_details_label.text = (
 		"Name: %s\nLevel: %s\nXP: %s (next %s)\nAppearance: %s\nRace: %s\nBackground: %s\nAffiliation: %s\nLocation: %s"
 		% [
@@ -2199,6 +2637,15 @@ func _on_create_character_pressed() -> void:
 	if access_token == "":
 		create_status_label.text = "Please login first."
 		return
+	var grouped_errors = _collect_create_validation_errors()
+	if not grouped_errors.is_empty():
+		var step_keys = grouped_errors.keys()
+		step_keys.sort()
+		var first_invalid_step = int(step_keys[0])
+		_set_create_step(first_invalid_step)
+		_refresh_create_review()
+		create_status_label.text = "Fix the highlighted step errors before creating the character."
+		return
 	var name = create_name_input.text.strip_edges()
 	if name.length() < 2:
 		create_status_label.text = "Character name must be at least 2 characters."
@@ -2221,6 +2668,7 @@ func _on_create_character_pressed() -> void:
 		"stats": stats_payload,
 		"skills": skills_payload,
 		"equipment": {},
+		"appearance_profile": _create_appearance_profile_payload(),
 	}
 	var response = await _api_request(HTTPClient.METHOD_POST, "/characters", payload, true)
 	if not response.get("ok", false):
@@ -2238,11 +2686,14 @@ func _on_create_character_pressed() -> void:
 		if button is Button:
 			button.button_pressed = false
 	_populate_character_creation_tables(content_domains.get("character_options", {}))
+	create_dirty = false
+	_set_create_step(0)
 	create_status_label.text = " "
 	if character_search_input != null:
 		character_search_input.text = ""
 	await _load_characters()
 	character_tabs.current_tab = 0
+	last_character_tab_index = 0
 
 func _on_character_delete_pressed() -> void:
 	if selected_character_index < 0 or selected_character_index >= characters.size():
@@ -2332,15 +2783,15 @@ func _on_character_play_pressed() -> void:
 	if not override_applied and row.get("location_x", null) != null and row.get("location_y", null) != null:
 		spawn_world = Vector2(float(row.get("location_x")), float(row.get("location_y")))
 
-	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world)
-	world_status_label.text = "WASD to move. Level: %s" % active_level_name
+	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world, level_data)
+	world_status_label.text = "Iso WASD movement. Level: %s" % active_level_name
 	_append_log("Character " + str(active_character_id) + " entered world level=" + active_level_name)
 	active_world_ready = true
 	account_status_label.text = " "
 	_show_screen("world")
 
 func _on_world_position_changed(position: Vector2) -> void:
-	world_status_label.text = "WASD to move. Level: %s (%d, %d)" % [active_level_name, int(position.x), int(position.y)]
+	world_status_label.text = "Iso WASD. Level: %s (%d, %d)" % [active_level_name, int(position.x), int(position.y)]
 
 func _persist_active_character_location() -> void:
 	if not active_world_ready:
@@ -2444,10 +2895,15 @@ func _load_settings_preferences() -> void:
 	settings_audio_mute.button_pressed = str(prefs.get("audio_muted", "false")).strip_edges().to_lower() == "true"
 	settings_audio_mute.text = "Muted: ON" if settings_audio_mute.button_pressed else "Muted: OFF"
 	settings_audio_volume.value = float(str(prefs.get("audio_volume", "80")).to_int())
+	reduced_motion_enabled = str(prefs.get("reduced_motion", "false")).strip_edges().to_lower() == "true"
+	if settings_reduced_motion_toggle != null:
+		settings_reduced_motion_toggle.button_pressed = reduced_motion_enabled
+		settings_reduced_motion_toggle.text = "Reduced Motion: ON" if reduced_motion_enabled else "Reduced Motion: OFF"
 	settings_dirty = false
 	suppress_settings_events = false
 	settings_status_label.text = " "
 	_apply_window_preferences()
+	_apply_motion_preferences()
 
 func _apply_window_preferences() -> void:
 	if settings_screen_mode.selected == 1:
@@ -2464,10 +2920,19 @@ func _apply_settings_preferences() -> void:
 	prefs["screen_mode"] = "windowed" if settings_screen_mode.selected == 1 else "borderless_fullscreen"
 	prefs["audio_muted"] = "true" if settings_audio_mute.button_pressed else "false"
 	prefs["audio_volume"] = str(int(round(settings_audio_volume.value)))
+	reduced_motion_enabled = settings_reduced_motion_toggle != null and settings_reduced_motion_toggle.button_pressed
+	prefs["reduced_motion"] = "true" if reduced_motion_enabled else "false"
 	_write_preferences(prefs)
 	settings_dirty = false
 	_apply_window_preferences()
+	_apply_motion_preferences()
 	settings_status_label.text = "Settings auto-applied."
+
+func _apply_motion_preferences() -> void:
+	if character_preview_widget != null:
+		character_preview_widget.call("set_reduced_motion", reduced_motion_enabled)
+	if create_preview_widget != null:
+		create_preview_widget.call("set_reduced_motion", reduced_motion_enabled)
 
 func _show_confirm_dialog(title: String, text_value: String) -> bool:
 	var dialog = PopupPanel.new()

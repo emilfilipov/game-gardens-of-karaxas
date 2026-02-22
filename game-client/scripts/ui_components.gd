@@ -64,6 +64,23 @@ static func _apply_button_style(node: Button, normal: StyleBoxFlat, hover: Style
 	node.add_theme_color_override("font_color", UI_TOKENS.color("text_primary"))
 	node.add_theme_color_override("font_hover_color", UI_TOKENS.color("text_primary"))
 	node.add_theme_color_override("font_pressed_color", UI_TOKENS.color("text_primary"))
+	_attach_hover_motion(node)
+
+static func _attach_hover_motion(node: Button) -> void:
+	if node == null:
+		return
+	node.mouse_entered.connect(func() -> void:
+		var tween = node.create_tween()
+		tween.set_trans(Tween.TRANS_QUAD)
+		tween.set_ease(Tween.EASE_OUT)
+		tween.tween_property(node, "scale", Vector2(1.02, 1.02), 0.09)
+	)
+	node.mouse_exited.connect(func() -> void:
+		var tween = node.create_tween()
+		tween.set_trans(Tween.TRANS_QUAD)
+		tween.set_ease(Tween.EASE_OUT)
+		tween.tween_property(node, "scale", Vector2.ONE, 0.09)
+	)
 
 
 static func button_secondary(text_value: String, min_size: Vector2 = Vector2(0, 0)) -> Button:

@@ -11,6 +11,7 @@ create/select characters, and enter gameplay sessions.
 - Flexible character identity via point distribution into stats and skills.
 - Live-service readiness through version-gated updates and controlled rollout windows.
 - Launcher-driven desktop distribution and patching.
+- Isometric (`2:1`) runtime presentation with 8-direction locomotion in the world prototype.
 - Visual direction baseline: warm/vibrant color palette with soft global lighting; mood can be shifted per item/character/zone via effects toward darker grim-themed presentation.
 
 ## Isometric Direction Lock
@@ -39,6 +40,7 @@ create/select characters, and enter gameplay sessions.
    - Action buttons do not change the current preview selection.
    - Character List now uses a 3-column flow: roster rail (left), large selected-character preview/podium (center), and detail/action panel (right).
    - Roster rail includes quick character search/filter by name or location text.
+   - Roster rail now includes sort modes (name, level, location) and concise cards (`name`, `level`, `location`) to avoid duplicate detail text.
    - Roster rail enforces minimum card/list widths so entries cannot collapse into invisible rows on narrow layouts or splitter drift.
    - Character roster rendering now runs a deferred post-layout pass and auto-clears stale filters that hide all rows, so newly created characters reliably appear.
    - Character rows render as fixed-size selection cards; `Play` and `Delete` actions are bound to the selected character in the right detail panel.
@@ -46,7 +48,11 @@ create/select characters, and enter gameplay sessions.
    - Character list auto-refreshes after create/delete events.
    - Character list includes a manual `Refresh` action for explicit reloads.
    - Character rows show current location (area + coordinates when known).
-5. Character creation persists selected identity and allocated points:
+5. Character creation now runs as a multi-step flow and persists selected identity/build choices:
+   - Step flow: `Appearance` -> `Identity` -> `Stats & Skills` -> `Review`.
+   - Step navigation enforces validation and shows grouped errors before final submit.
+   - Leaving create flow with unsaved draft changes prompts for confirmation.
+   - Appearance step includes preset and scaffold options (`sex`, `skin tone`, `hair style`, `hair color`, `face`, `stance`) wired to live podium preview.
    - Allocated stat points and selected starter skills are sent in the character create payload.
    - Point budget is enforced client-side from content domains and validated server-side.
    - If appearance options are unavailable, creator falls back to a single safe preset (`human_male`) so character creation remains functional.
@@ -58,7 +64,9 @@ create/select characters, and enter gameplay sessions.
    - New characters now start on the first tower floor (lowest configured floor order) at that floor's spawn point.
    - Returning characters resume from their persisted location (floor + coordinates).
    - Character location is persisted (floor/level + coordinates) so the next login resumes from the last saved position.
-6. Move inside the world prototype with WASD; world-edge borders block out-of-bounds movement.
+6. Move inside the world prototype with isometric WASD controls; world-edge borders block out-of-bounds movement.
+   - World runtime now renders in isometric pass order (floor, props, actor, foreground) with stable depth sorting.
+   - Movement now maps to isometric vectors and updates 8-direction facing (`N`, `NE`, `E`, `SE`, `S`, `SW`, `W`, `NW`).
    - Collision currently comes from layer-1 collidable tiles (for example walls/trees) from the loaded level.
    - Transition assets (`stairs`, `ladder`, `elevator`) allow seamless floor-to-floor travel without loading screens.
    - Adjacent linked floors are preloaded when the player approaches a transition trigger zone.
@@ -68,6 +76,7 @@ create/select characters, and enter gameplay sessions.
    - Settings are applied immediately on change (no save/cancel workflow).
    - `Video` includes screen mode (`Borderless Fullscreen` / `Windowed`).
    - `Audio` includes mute toggle and master volume slider.
+   - Accessibility now includes a persisted `Reduced Motion` toggle that dampens UI/podium animation.
    - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
    - Settings tabs render as compact 3-column themed card layouts per tab so controls stay dense and expansion space is reserved for future options.
    - Settings shell uses a smaller dedicated footprint than account/admin workspaces.
@@ -112,6 +121,7 @@ create/select characters, and enter gameplay sessions.
 - Sex switching must always map to the correct preset in both directions (male->female and female->male) without substring ambiguity.
 - Character preview rendering preserves sprite aspect ratio to avoid stretching between male/female presets.
 - Character creation preview uses a fixed render target so initial load and sex-switch states keep the same zoom level.
+- Character List and Character Creator now share one reusable podium preview component with drag-to-rotate and facing controls.
 - Character creation layout uses split tables: expanded multi-column stats on the left and skill choices on the right.
 - Stats allocation rows now use fixed-size cards with square `- / +` controls and a right-side short description card per stat.
 - Stats scaffold is expanded to include additional placeholders beyond the base six stats.

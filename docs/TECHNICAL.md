@@ -37,6 +37,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Shared UI foundation for Godot shell is now split into:
   - `game-client/scripts/ui_tokens.gd` (authoritative palette/spacing/size/radius tokens),
   - `game-client/scripts/ui_components.gd` (shared constructors for labels/buttons/inputs/options and centered shell scaffolds).
+- Isometric/shared runtime helpers now include:
+  - `game-client/scripts/iso_projection.gd` (world<->screen transforms, tile helpers, stable depth-key helper, fixture self-checks),
+  - `game-client/scripts/character_podium_preview.gd` (shared directional podium renderer for character list + creator).
 - `ui_tokens` now includes a dedicated compact settings shell size (`shell_settings_w/h`) so settings uses a tighter workspace than account/admin editing screens.
 - `ui_components` now also provides reusable primary/secondary button variants, consistent card-panel styles, and section/banner helpers used by auth/account/settings/admin surfaces.
 - Shared styleboxes now apply internal content margins so card/button/input children inherit consistent inset padding without per-screen manual offsets.
@@ -243,6 +246,16 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character load/create flows now emit client log diagnostics for `/characters` fetch/create status and loaded row counts to speed up list-render incident triage.
 - Character roster summary buttons now set `Button.alignment` (Godot 4) instead of invalid `horizontal_alignment`, preventing runtime render exceptions that hid list rows despite valid backend responses.
 - Character texture loader now checks `ResourceLoader.exists`/`FileAccess.file_exists` before loading `res://` files to avoid noisy startup errors for optional/fallback art filenames.
+- World prototype renderer now uses an isometric pass pipeline in `world_canvas.gd`:
+  - pass order: floor -> props -> actor -> foreground,
+  - stable sorting tuple from `iso_projection.depth_key(...)`,
+  - optional draw-order diagnostics hook for depth collisions.
+- World prototype movement now maps WASD into isometric vectors and emits 8-direction facing buckets while preserving existing location persistence callbacks (`player_position_changed` + `/characters/{id}/location` path).
+- Character List/Creator preview now uses shared `CharacterPodiumPreview` widgets with directional controls and drag-to-rotate input; texture lookup falls back from directional variants to canonical idle assets.
+- Character Creator is now implemented as a 4-step TabContainer flow (`Appearance`, `Identity`, `Stats & Skills`, `Review`) with step validation helpers, grouped review errors, unsaved-leave confirmation dialog, and final submit gating.
+- Character roster rail now includes search + sort (`name`, `level`, `location`) and concise row cards; detailed XP/build text remains in the right-side detail panel.
+- Settings now persists and applies a `reduced_motion` preference used by screen transitions and podium preview animation.
+- `ui_components.gd` now applies shared hover-motion emphasis to themed buttons (unless reduced motion suppresses runtime tween usage in consuming screens).
 - Added automated character roundtrip tests:
   - backend route-level create->list regression (`backend/tests/test_character_list_roundtrip.py`),
   - launcher client contract regression with mocked `/characters` backend (`launcher/src/test/kotlin/com/gok/launcher/KaraxasBackendClientCharacterFlowTest.kt`).
