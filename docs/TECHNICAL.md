@@ -39,6 +39,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - `game-client/scripts/ui_components.gd` (shared constructors for labels/buttons/inputs/options and centered shell scaffolds).
 - `ui_tokens` now includes a dedicated compact settings shell size (`shell_settings_w/h`) so settings uses a tighter workspace than account/admin editing screens.
 - `ui_components` now also provides reusable primary/secondary button variants, consistent card-panel styles, and section/banner helpers used by auth/account/settings/admin surfaces.
+- Shared styleboxes now apply internal content margins so card/button/input children inherit consistent inset padding without per-screen manual offsets.
 - Godot helper scripts now resolve cross-script dependencies via explicit `preload(...)` constants (instead of relying on global class-name lookup) to avoid parser-order startup failures in packaged builds.
 - Godot shell defaults to borderless fullscreen startup.
 - Screen switching in the Godot shell now uses a generic `Control` stack container for Godot 4.3 compatibility (no `StackContainer` dependency).
@@ -223,6 +224,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Character creator appearance selector now derives from discovered local art and falls back to a single guaranteed preset (`human_male`) when optional variants are unavailable.
 - Character List now exposes both auto-refresh (after create/delete) and an explicit manual `Refresh` action.
 - Character List roster rail now includes client-side text search/filter against name and location metadata.
+- Character list refresh now performs a deferred second render pass after data load to avoid zero-width pre-layout roster rendering.
 - Character flow QA expectations are captured in `docs/CHARACTER_FLOW_QA.md` (empty/single/multi/admin/MFA path coverage).
 - Character List row rendering now uses fixed-height themed cards with:
   - selectable row header button for preview binding,
@@ -235,6 +237,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Settings `Video`, `Audio`, and `Security` sections are rendered in themed card blocks rather than plain unstructured tab content.
 - Settings tabs now use compact three-column card grids per tab so control density is higher and future options can be added without full-row stretching.
 - Global spacing tokens (`xs..xl`) were increased and re-applied to account/settings rails to reduce control crowding and border clipping.
+- BoxContainer spacer usage was normalized to end-spacers (`add_spacer(false)`) so settings controls pin to the top of each card instead of drifting toward the bottom.
+- Root screen gutters were widened to keep account/settings/admin shells off viewport edges and maintain consistent left-right breathing room.
 - Screen switching in `client_shell.gd` now applies short fade-in transitions to improve perceived fluidity while preserving deterministic screen ownership.
 - Footer text is version-only; transient welcome/status chatter is no longer rendered in footer/account surfaces.
 - Dropdown popups are sanitized to non-checkable list behavior (no radio/check glyphs), and skill buttons use a themed custom tooltip popup instead of default tooltip behavior.

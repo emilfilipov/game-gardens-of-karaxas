@@ -16,6 +16,10 @@ static func _style_box(bg: Color, border: Color, radius_name: String = "radius_l
 	style.corner_radius_top_right = UI_TOKENS.size(radius_name)
 	style.corner_radius_bottom_left = UI_TOKENS.size(radius_name)
 	style.corner_radius_bottom_right = UI_TOKENS.size(radius_name)
+	style.content_margin_left = float(UI_TOKENS.spacing("xs"))
+	style.content_margin_top = float(UI_TOKENS.spacing("xs"))
+	style.content_margin_right = float(UI_TOKENS.spacing("xs"))
+	style.content_margin_bottom = float(UI_TOKENS.spacing("xs"))
 	return style
 
 

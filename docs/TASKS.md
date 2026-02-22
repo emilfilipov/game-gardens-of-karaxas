@@ -39,6 +39,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-295 | ✅ | 2 | Normalized BoxContainer spacer direction (`add_spacer(false)`) across auth/settings cards so control groups anchor to top instead of drifting to bottom alignment. |
+| GOK-MMO-294 | ✅ | 2 | Added global stylebox content insets for shared card/button/input surfaces to enforce consistent left-right/internal padding without per-screen one-off margins. |
+| GOK-MMO-293 | ✅ | 2 | Widened root shell gutters to improve horizontal breathing room and prevent account/settings/admin panels from hugging viewport edges. |
+| GOK-MMO-292 | ✅ | 3 | Hardened Character List refresh reliability with deferred post-layout roster rendering and stale-filter auto-clear fallback so newly created characters appear immediately. |
+| GOK-MMO-291 | ✅ | 2 | Stabilized Character List row placement by pinning roster container alignment to top (`ALIGNMENT_BEGIN`) and removing vertical expand drift in scroll content. |
 | GOK-MMO-290 | ✅ | 2 | Increased shared spacing tokens and applied denser margin rhythm across account/settings shells to reduce edge-clipping and improve visual separation between controls/cards. |
 | GOK-MMO-289 | ✅ | 3 | Refactored Settings screen into a compact 3-column tab layout per section (`Video`, `Audio`, `Security`) so controls no longer consume full-row width and future settings have reserved card space. |
 | GOK-MMO-288 | ✅ | 2 | Added dedicated compact settings shell sizing (`shell_settings_w/h`) so Settings no longer occupies the same near-full-size footprint as account/admin workspaces. |

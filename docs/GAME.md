@@ -40,6 +40,7 @@ create/select characters, and enter gameplay sessions.
    - Character List now uses a 3-column flow: roster rail (left), large selected-character preview/podium (center), and detail/action panel (right).
    - Roster rail includes quick character search/filter by name or location text.
    - Roster rail enforces minimum card/list widths so entries cannot collapse into invisible rows on narrow layouts or splitter drift.
+   - Character roster rendering now runs a deferred post-layout pass and auto-clears stale filters that hide all rows, so newly created characters reliably appear.
    - Character rows render as fixed-size selection cards; `Play` and `Delete` actions are bound to the selected character in the right detail panel.
    - Admin spawn-level override is now managed on the selected-character detail panel.
    - Character list auto-refreshes after create/delete events.
@@ -70,6 +71,7 @@ create/select characters, and enter gameplay sessions.
    - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
    - Settings tabs render as compact 3-column themed card layouts per tab so controls stay dense and expansion space is reserved for future options.
    - Settings shell uses a smaller dedicated footprint than account/admin workspaces.
+   - Settings controls are pinned to the top of each card column (not bottom-aligned), keeping option groups readable and consistent.
 - MFA toggle is now a single ON/OFF control with no OTP entry requirement in settings.
 - Security tab now shows MFA as a compact switch row and a two-column inline setup area (QR on the left, secret/URI info on the right) with `Refresh QR` and `Copy URI`.
 - Disabling MFA clears the stored MFA secret; re-enabling issues a fresh enrollment secret/QR.
@@ -90,6 +92,8 @@ create/select characters, and enter gameplay sessions.
 - Shared menu/form controls use a consistent thin-border panel/button style over the same background key art, all rendered in the Godot UI layer.
 - Shared controls now follow one modernized token/component system (buttons, tabs, dropdowns, cards, text inputs, dialogs, editor panes) so every screen inherits the same look-and-feel.
 - Shared spacing/padding now comes from a single token set (`xs..xl`) and was increased to reduce crowding and clipped-edge visuals in dense account/settings surfaces.
+- Global screen gutters (left/right/top/bottom) are now wider so shell panels do not sit flush against viewport edges.
+- Card surfaces now apply consistent internal content padding to avoid border-clipping of text and controls.
 - Screen swaps use subtle fade transitions for smoother flow between auth/account/settings/admin/gameplay surfaces.
 - Footer text is reserved for build/version display only; transient welcome/status text is suppressed.
 
