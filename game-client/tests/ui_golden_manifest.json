@@ -22,7 +22,12 @@
     "MENU_EXIT",
     "_create_save_slot",
     "_load_level",
-    "_on_update_pressed"
+    "_on_update_pressed",
+    "_on_world_use_item_pressed",
+    "_refresh_world_inventory_view",
+    "_build_world_runtime_config",
+    "_build_keybind_rows",
+    "_admin_apply_level_canvas_overlays"
   ],
   "golden_images": [
     "game-client/tests/goldens/main_menu_shell.png",

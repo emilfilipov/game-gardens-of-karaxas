@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gardens of Karaxas Local Game Config",
+  "type": "object",
+  "required": [
+    "meta",
+    "update",
+    "character_creation",
+    "gameplay",
+    "assets",
+    "world"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "description": "Build-independent local config metadata",
+      "required": ["revision", "title", "mode"]
+    },
+    "update": {
+      "type": "object",
+      "description": "Updater feed configuration",
+      "required": ["feed_url"]
+    },
+    "character_creation": {
+      "type": "object",
+      "description": "Character creator point budget, options, stat/skill catalogs",
+      "required": ["point_budget", "sex_options", "race_options", "background_options", "affiliation_options", "stats", "skills"]
+    },
+    "gameplay": {
+      "type": "object",
+      "description": "Runtime gameplay tuning domains",
+      "required": ["movement", "combat", "enemies", "items", "quests", "dialogue", "npcs"]
+    },
+    "assets": {
+      "type": "object",
+      "description": "Asset catalog and collision metadata",
+      "required": ["catalog"]
+    },
+    "world": {
+      "type": "object",
+      "description": "World/default-level bootstrap settings",
+      "required": ["default_level_id", "default_spawn_x", "default_spawn_y"]
+    },
+    "ui": {
+      "type": "object",
+      "description": "UI text/tooltip catalogs"
+    }
+  }
+}

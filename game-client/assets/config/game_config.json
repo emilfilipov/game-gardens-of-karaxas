@@ -51,22 +51,45 @@
 		"movement": {
 			"player_speed_tiles": 4.6,
 			"player_radius": 14.0,
-			"dash_speed_tiles": 7.2
+			"dash_speed_tiles": 7.2,
+			"health_regen": 0.8,
+			"mana_regen": 2.1
 		},
 		"combat": {
+			"resource_pool": "mana",
+			"basic_attack": {"damage": 8, "range": 1.3, "cooldown": 0.45},
 			"abilities": [
-				{"key": "ember", "damage": 20, "cooldown": 4.0, "resource_cost": 12, "scaling_stat": "intellect"},
-				{"key": "cleave", "damage": 18, "cooldown": 3.0, "resource_cost": 10, "scaling_stat": "strength"},
-				{"key": "quick_strike", "damage": 12, "cooldown": 1.2, "resource_cost": 6, "scaling_stat": "agility"},
+				{"key": "ember", "damage": 20, "range": 3.4, "cooldown": 4.0, "resource_cost": 12, "scaling_stat": "intellect"},
+				{"key": "cleave", "damage": 18, "range": 1.9, "max_targets": 3, "cooldown": 3.0, "resource_cost": 10, "scaling_stat": "strength"},
+				{"key": "quick_strike", "damage": 12, "range": 1.6, "cooldown": 1.2, "resource_cost": 6, "scaling_stat": "agility"},
 				{"key": "bandage", "heal": 15, "cooldown": 8.0, "resource_cost": 8, "scaling_stat": "willpower"}
 			]
 		},
+		"enemies": {
+			"catalog": [
+				{"key": "goblin", "label": "Goblin", "health": 40, "aggro_range": 6.0, "attack_range": 1.0, "attack_damage": 4, "attack_cooldown": 1.3, "move_speed": 2.5, "loot": [{"item_key": "healing_herb", "chance": 0.40, "count": 1}]},
+				{"key": "wisp", "label": "Wisp", "health": 24, "aggro_range": 7.0, "attack_range": 1.3, "attack_damage": 3, "attack_cooldown": 1.0, "move_speed": 3.1, "loot": [{"item_key": "mana_tonic", "chance": 0.35, "count": 1}]}
+			],
+			"spawn": [
+				{"enemy_key": "goblin", "count": 6},
+				{"enemy_key": "wisp", "count": 4}
+			]
+		},
+		"items": [
+			{"key": "healing_herb", "label": "Healing Herb", "stackable": true, "slot": "", "description": "Restores health when consumed.", "use_effect": {"heal": 18}},
+			{"key": "mana_tonic", "label": "Mana Tonic", "stackable": true, "slot": "", "description": "Restores mana by calming focus.", "use_effect": {"heal": 0, "mana": 14}},
+			{"key": "rusty_sword", "label": "Rusty Sword", "stackable": false, "slot": "weapon_main", "description": "A worn blade.", "stat_bonus": {"strength": 2}},
+			{"key": "oak_shield", "label": "Oak Shield", "stackable": false, "slot": "weapon_off", "description": "Light shield.", "stat_bonus": {"vitality": 2}},
+			{"key": "traveler_hood", "label": "Traveler Hood", "stackable": false, "slot": "head", "description": "A basic hood.", "stat_bonus": {"willpower": 1}}
+		],
 		"quests": [
 			{
 				"key": "q_tutorial_001",
 				"title": "First Footing",
 				"description": "Reach the old stair marker in the first zone.",
-				"goals": ["Move to marker A", "Return to camp"],
+				"goals": ["Defeat 3 goblins"],
+				"goal_enemy_type": "goblin",
+				"goal_count": 3,
 				"reward_text": "Starter provisions"
 			}
 		],
@@ -79,7 +102,10 @@
 				],
 				"danger_info": "Ruin beasts roam at dusk. Keep your torch lit."
 			}
-		}
+		},
+		"npcs": [
+			{"key": "npc_guard_01", "label": "Watch Guard", "x": 5, "y": 5, "dialogue_key": "npc_guard_01", "quest_key": "q_tutorial_001"}
+		]
 	},
 	"assets": {
 		"catalog": [

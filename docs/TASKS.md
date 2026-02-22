@@ -5,16 +5,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-SPRPG-023 | ⬜ | 4 | Isometric gameplay vertical slice: implement player combat loop (`basic attack`, `Ember`, `Cleave`, `Quick Strike`, `Bandage`) using values from central config (`gameplay.combat`), with cooldown/resource UI and deterministic hit resolution in world scene. |
-| GOK-SPRPG-024 | ⬜ | 4 | Inventory/equipment foundation: add local inventory model, pickup/drop flow, paperdoll slots, and visual equipment mapping scaffold in character preview/world actor rendering. |
-| GOK-SPRPG-025 | ⬜ | 3 | Quest/dialog runtime v1: load quest/dialog definitions from config, implement NPC interaction panel, objective tracking, and save/load persistence for quest progression state. |
-| GOK-SPRPG-026 | ⬜ | 3 | Level editor UX modernization: convert raw JSON-heavy panel into structured tool widgets (brushes, palette, placement modes, transform handles, collision overlays) while preserving file compatibility. |
-| GOK-SPRPG-027 | ⬜ | 3 | Asset editor UX modernization: searchable asset cards with icon thumbnails, structured field forms, collision-shape editor, and inline validation feedback before save/publish. |
-| GOK-SPRPG-028 | ⬜ | 3 | Full UI art-direction pass for single-player shell v2: tighten spacing rhythm, animation/motion polish, responsive breakpoints, and standardized control hierarchy across main/load/create/settings/admin/world menus. |
-| GOK-SPRPG-029 | ⬜ | 2 | Accessibility pass: keyboard/gamepad navigation parity for all core screens, scalable UI text preset, contrast verification, and reduced-motion coverage for any new transitions. |
-| GOK-SPRPG-030 | ⬜ | 3 | Save safety hardening: transactional save writes with timestamped backup snapshots, restore UI for corrupted slots, and startup recovery diagnostics surfaced in admin diagnostics tab. |
-| GOK-SPRPG-031 | ⬜ | 2 | Config schema hardening v2: move validation rules to explicit schema files and generate user-facing config reference docs from schema definitions. |
-| GOK-SPRPG-032 | ⬜ | 2 | Release/patchnote UX iteration: enrich in-game update panel with latest release summary and local changelog rendering tuned for non-technical players. |
+| GOK-SPRPG-035 | ⬜ | 4 | Isometric combat/content polish pass: add enemy archetype variety (ranged/caster/elites), status effects, telegraphs, and balancing sweep across ability/resource curves for the first playable chapter. |
+| GOK-SPRPG-036 | ⬜ | 3 | Character/equipment visual pass v2: replace placeholder paperdoll text overlays with layered sprite composition and weapon/armor visuals in both world and podium preview. |
+| GOK-SPRPG-037 | ⬜ | 3 | Quest pipeline expansion: multi-step objective chains, branching dialogue choices with consequences, and quest rewards wired to item/equipment progression. |
+| GOK-SPRPG-038 | ⬜ | 3 | Admin tooling expansion: add undo/redo history stacks for level and asset editors, plus batch apply/rollback snapshots for local draft sessions. |
+| GOK-SPRPG-039 | ⬜ | 2 | Save migration/versioning layer: implement save schema version stamps and migration transforms so future config/content updates remain backward compatible. |
 
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
@@ -41,6 +36,18 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | GOK-SPRPG-020 | ✅ | 3 | Migrated UI regression harness to single-player shell script and manifest checks for new required builders/snippets. |
 | GOK-SPRPG-021 | ✅ | 2 | Standardized local logging/debug model with game log sink and admin diagnostics tab reload/paths views. |
 | GOK-SPRPG-022 | ✅ | 2 | Finalized pivot cleanup in canonical docs and workflow behavior so release/update flow is aligned with single-player runtime architecture. |
+| GOK-SPRPG-023 | ✅ | 4 | Implemented isometric gameplay combat vertical slice in world runtime with `basic attack`, `Ember`, `Cleave`, `Quick Strike`, and `Bandage` using central config values, ability cooldown/resource tracking, and deterministic enemy hit resolution. |
+| GOK-SPRPG-024 | ✅ | 4 | Implemented inventory/equipment foundation: in-world inventory list with use/equip/drop actions, stack handling, equipment slot model, and equipment stat modifiers applied to world combat runtime. |
+| GOK-SPRPG-025 | ✅ | 3 | Implemented quest/dialog runtime v1: NPC interaction in world, quest acceptance flow, kill-goal objective progress tracking, and persistence of quest state in local saves. |
+| GOK-SPRPG-026 | ✅ | 3 | Modernized Level Editor UX with structured brush workflow: active layer/asset/mode controls, grid/collision overlays, and interactive level canvas (`level_editor_canvas.gd`) while keeping advanced JSON compatibility. |
+| GOK-SPRPG-027 | ✅ | 3 | Modernized Asset Editor UX with searchable asset list and structured field forms (key/label/layer/collision/description) plus inline validation and unique-key guard on save. |
+| GOK-SPRPG-028 | ✅ | 3 | Completed single-player UI art-direction polish pass: upgraded menu shell composition with release-notes pane, denser spacing rhythm, themed side panels for world systems, and token refinements for cohesive burgundy visual language. |
+| GOK-SPRPG-029 | ✅ | 2 | Implemented accessibility/input parity pass: configurable keybindings capture flow, gamepad enable/deadzone settings, UI scale control, high-contrast toggle, and reduced-motion persistence. |
+| GOK-SPRPG-030 | ✅ | 3 | Implemented save safety hardening: atomic JSON writes, timestamped backups, automatic backup recovery on read failure, load-screen restore action, and diagnostics visibility of recovered files. |
+| GOK-SPRPG-031 | ✅ | 2 | Implemented config schema hardening v2 with explicit schema file (`game_config.schema.json`), schema-backed runtime validation hook, and generated config reference docs (`docs/CONFIG_FIELDS.md`). |
+| GOK-SPRPG-032 | ✅ | 2 | Implemented release/patchnote UX iteration by surfacing latest local release notes in both main menu and in-world side panel for player-friendly update visibility. |
+| GOK-SPRPG-033 | ✅ | 3 | Added explicit enemy prototype system ticket and implementation: config-driven enemy catalog/spawn rules, AI chase/attack loop, death events, and loot drop spawning integrated into the world runtime. |
+| GOK-SPRPG-034 | ✅ | 2 | Added explicit keybinding/gamepad settings ticket and implementation: action-level key rebinding UI capture, persisted keymap settings, runtime keybind propagation, and gamepad tuning controls scaffold. |
 
 ## Archived / Superseded
 | Task ID | Status | Complexity | Detailed Description |

@@ -31,17 +31,34 @@ Canonical technical source of truth for architecture, module boundaries, update 
 - Shared components: `game-client/scripts/ui_components.gd`
 - Shared character preview: `game-client/scripts/character_podium_preview.gd`
 - World renderer/collision/movement surface: `game-client/scripts/world_canvas.gd`
+- Level editor interactive canvas: `game-client/scripts/level_editor_canvas.gd`
 
 ## Single-Player Feature Surfaces
 - Main menu: new/load/settings/update/admin/exit
 - Character creation flow with point-budgeted stats/skills
 - Local save/load slot system
-- In-world play surface with local persistence
+- In-world play surface with local persistence:
+  - combat abilities/cooldowns/resource loop
+  - enemy prototype AI and loot drops
+  - inventory/equipment interactions
+  - NPC interaction + quest progress events
 - Admin tab suite:
   - Level Editor
   - Asset Editor
   - Config Editor
   - Diagnostics/log viewer
+
+## Runtime Systems (Current)
+- `world_canvas.gd` owns:
+  - isometric movement/collision checks
+  - combat simulation entrypoints and HUD combat state events
+  - enemy spawn/update/death flow
+  - pickup and NPC interaction signaling
+- `single_player_shell.gd` owns:
+  - save-slot orchestration
+  - inventory/equipment/quest/dialog state integration
+  - settings capture, keybinding mapping, and runtime propagation
+  - admin tool forms and persistence actions
 
 ## Central Config System
 
@@ -50,6 +67,10 @@ Canonical technical source of truth for architecture, module boundaries, update 
   - `game-client/assets/config/game_config.json`
 - Runtime-editable copy:
   - `user://config/game_config.json`
+- Schema:
+  - `game-client/assets/config/schema/game_config.schema.json`
+- Generated reference:
+  - `docs/CONFIG_FIELDS.md` (via `python3 tools/generate_config_docs.py`)
 
 ### Current domains in config
 - `meta`
@@ -64,6 +85,7 @@ Canonical technical source of truth for architecture, module boundaries, update 
 - Startup validation occurs in `single_player_shell.gd`.
 - Admin `Config Editor` exposes local validation and save path.
 - Invalid config reports actionable errors in UI/status + local logs.
+- Runtime schema checks are enforced through `_validate_with_schema`.
 
 ## Save System
 - Root: `user://saves`
@@ -71,6 +93,11 @@ Canonical technical source of truth for architecture, module boundaries, update 
 - Slot payload: `user://saves/slot_<id>.json`
 - Level files: `user://designer/levels/*.json`
 - Logs: `<install_root>/logs/game.log` and updater logs
+- Safety hardening:
+  - atomic write (`.tmp` then rename)
+  - timestamped backup snapshots
+  - read-time fallback restore from latest backup for corrupted JSON
+  - manual restore action in load UI
 
 ## Update Pipeline (Retained)
 
@@ -116,6 +143,8 @@ Canonical technical source of truth for architecture, module boundaries, update 
 ## Testing and Checks
 - Launcher tests:
   - `./gradlew :launcher:test`
+- Backend syntax sanity:
+  - `python3 -m compileall backend/app`
 - UI regression harness:
   - `python3 game-client/tests/check_ui_regression.py`
 - UI signature update (intentional layout changes only):

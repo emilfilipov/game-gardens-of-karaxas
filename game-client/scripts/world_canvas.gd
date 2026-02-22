@@ -2,6 +2,10 @@ extends Control
 
 signal player_position_changed(position: Vector2)
 signal transition_requested(transition: Dictionary)
+signal combat_state_changed(state: Dictionary)
+signal loot_dropped(item: Dictionary)
+signal quest_event(event: Dictionary)
+signal npc_interacted(npc: Dictionary)
 
 const ISO = preload("res://scripts/iso_projection.gd")
 const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
@@ -29,6 +33,50 @@ var transitions: Array[Dictionary] = []
 var player_collision_layer: String = "ground"
 var _transition_cooldown: float = 0.0
 
+var keybinds: Dictionary = {
+	"move_up": KEY_W,
+	"move_down": KEY_S,
+	"move_left": KEY_A,
+	"move_right": KEY_D,
+	"basic_attack": KEY_SPACE,
+	"ability_1": KEY_1,
+	"ability_2": KEY_2,
+	"ability_3": KEY_3,
+	"ability_4": KEY_4,
+	"interact": KEY_E,
+	"pickup": KEY_F,
+}
+var _previous_key_states: Dictionary = {}
+
+var player_base_stats: Dictionary = {}
+var player_bonus_stats: Dictionary = {}
+var player_max_health: float = 100.0
+var player_health: float = 100.0
+var player_max_mana: float = 60.0
+var player_mana: float = 60.0
+var player_regen_health: float = 0.8
+var player_regen_mana: float = 2.1
+var player_level: int = 1
+
+var basic_attack_cfg: Dictionary = {
+	"damage": 8.0,
+	"range": 1.3,
+	"cooldown": 0.45,
+}
+var ability_catalog: Dictionary = {}
+var ability_cooldowns: Dictionary = {}
+var ability_resource_pool: String = "mana"
+
+var enemy_catalog: Dictionary = {}
+var enemy_spawn_rules: Array = []
+var enemies: Array[Dictionary] = []
+var enemy_id_counter: int = 1
+
+var pickups: Array[Dictionary] = []
+var pickup_id_counter: int = 1
+
+var npcs: Array[Dictionary] = []
+
 func configure_world(level_name: String, width_tiles: int, height_tiles: int, spawn_world: Vector2, level_payload: Dictionary = {}) -> void:
 	world_name = level_name
 	world_width_tiles = maxi(width_tiles, 6)
@@ -51,13 +99,78 @@ func configure_world(level_name: String, width_tiles: int, height_tiles: int, sp
 	_transition_cooldown = 0.0
 	_build_default_floor()
 	_ingest_level_layers(level_payload)
+	_spawn_level_content(level_payload)
+	_emit_combat_state()
 	queue_redraw()
 
-func configure_runtime(movement_cfg: Dictionary) -> void:
-	if not (movement_cfg is Dictionary):
+func configure_runtime(runtime_cfg: Dictionary) -> void:
+	if not (runtime_cfg is Dictionary):
 		return
+	var runtime_keybinds = runtime_cfg.get("keybinds", {})
+	if runtime_keybinds is Dictionary:
+		for action_name in runtime_keybinds.keys():
+			keybinds[action_name] = int(runtime_keybinds.get(action_name, keybinds.get(action_name, 0)))
+	var movement_cfg: Dictionary = runtime_cfg.get("movement", {}) if runtime_cfg.has("movement") else runtime_cfg
 	player_speed_tiles = maxf(0.5, float(movement_cfg.get("player_speed_tiles", DEFAULT_PLAYER_SPEED_TILES)))
 	player_radius = maxf(2.0, float(movement_cfg.get("player_radius", DEFAULT_PLAYER_RADIUS)))
+
+	player_level = int(runtime_cfg.get("player_level", 1))
+	player_base_stats = runtime_cfg.get("player_stats", {}) if runtime_cfg.get("player_stats", {}) is Dictionary else {}
+	player_bonus_stats = runtime_cfg.get("equipment_bonus_stats", {}) if runtime_cfg.get("equipment_bonus_stats", {}) is Dictionary else {}
+
+	var player_cfg: Dictionary = runtime_cfg.get("player", {}) if runtime_cfg.get("player", {}) is Dictionary else {}
+	player_max_health = maxf(1.0, float(player_cfg.get("base_health", 100.0 + _stat_value("vitality") * 8.0)))
+	player_max_mana = maxf(1.0, float(player_cfg.get("base_mana", 60.0 + _stat_value("willpower") * 6.0)))
+	player_regen_health = maxf(0.0, float(player_cfg.get("health_regen", 0.8)))
+	player_regen_mana = maxf(0.0, float(player_cfg.get("mana_regen", 2.1)))
+	if player_health <= 0.0:
+		player_health = player_max_health
+	else:
+		player_health = clampf(player_health, 0.0, player_max_health)
+	player_mana = clampf(player_mana, 0.0, player_max_mana)
+
+	ability_catalog.clear()
+	ability_cooldowns.clear()
+	var combat_cfg: Dictionary = runtime_cfg.get("combat", {}) if runtime_cfg.get("combat", {}) is Dictionary else {}
+	var basic_cfg: Dictionary = combat_cfg.get("basic_attack", {}) if combat_cfg.get("basic_attack", {}) is Dictionary else {}
+	basic_attack_cfg = {
+		"damage": float(basic_cfg.get("damage", 8.0)),
+		"range": float(basic_cfg.get("range", 1.3)),
+		"cooldown": float(basic_cfg.get("cooldown", 0.45)),
+	}
+	ability_resource_pool = str(combat_cfg.get("resource_pool", "mana")).strip_edges().to_lower()
+	if ability_resource_pool.is_empty():
+		ability_resource_pool = "mana"
+	var abilities: Array = combat_cfg.get("abilities", []) if combat_cfg.get("abilities", []) is Array else []
+	for raw_ability in abilities:
+		if not (raw_ability is Dictionary):
+			continue
+		var key = str(raw_ability.get("key", "")).strip_edges().to_lower()
+		if key.is_empty():
+			continue
+		ability_catalog[key] = raw_ability
+		ability_cooldowns[key] = 0.0
+	ability_cooldowns["basic_attack"] = 0.0
+
+	enemy_catalog.clear()
+	var enemies_cfg: Dictionary = runtime_cfg.get("enemies", {}) if runtime_cfg.get("enemies", {}) is Dictionary else {}
+	var enemy_entries: Array = enemies_cfg.get("catalog", []) if enemies_cfg.get("catalog", []) is Array else []
+	for raw_enemy in enemy_entries:
+		if not (raw_enemy is Dictionary):
+			continue
+		var enemy_key = str(raw_enemy.get("key", "")).strip_edges().to_lower()
+		if enemy_key.is_empty():
+			continue
+		enemy_catalog[enemy_key] = raw_enemy
+	enemy_spawn_rules = enemies_cfg.get("spawn", []) if enemies_cfg.get("spawn", []) is Array else []
+
+	npcs.clear()
+	var npc_entries: Array = runtime_cfg.get("npcs", []) if runtime_cfg.get("npcs", []) is Array else []
+	for raw_npc in npc_entries:
+		if raw_npc is Dictionary:
+			npcs.append(raw_npc)
+
+	_emit_combat_state()
 
 func set_world_position(world_position: Vector2) -> void:
 	player_tile_position = _clamp_tile_position(_world_pixels_to_tile(world_position))
@@ -82,28 +195,33 @@ func _process(delta: float) -> void:
 		return
 	if _transition_cooldown > 0.0:
 		_transition_cooldown = maxf(0.0, _transition_cooldown - delta)
+	_update_cooldowns(delta)
+	_update_player_regen(delta)
+	_handle_combat_inputs()
+
 	var axis: Vector2 = _movement_axis()
-	if axis == Vector2.ZERO:
-		_check_transition_trigger()
-		return
-	var next_pos: Vector2 = _clamp_tile_position(player_tile_position + axis.normalized() * player_speed_tiles * delta)
-	if _is_blocked(next_pos):
-		return
-	player_tile_position = next_pos
-	player_facing = _axis_to_facing(axis)
-	emit_signal("player_position_changed", _tile_to_world_pixels(player_tile_position))
+	if axis != Vector2.ZERO:
+		var next_pos: Vector2 = _clamp_tile_position(player_tile_position + axis.normalized() * player_speed_tiles * delta)
+		if not _is_blocked(next_pos):
+			player_tile_position = next_pos
+			player_facing = _axis_to_facing(axis)
+			emit_signal("player_position_changed", _tile_to_world_pixels(player_tile_position))
+
+	_update_enemies(delta)
+	_check_pickup_action()
+	_check_npc_interaction_action()
 	_check_transition_trigger()
 	queue_redraw()
 
 func _movement_axis() -> Vector2:
 	var axis = Vector2.ZERO
-	if Input.is_key_pressed(KEY_W):
+	if _action_pressed("move_up"):
 		axis += Vector2(-1.0, -1.0)
-	if Input.is_key_pressed(KEY_S):
+	if _action_pressed("move_down"):
 		axis += Vector2(1.0, 1.0)
-	if Input.is_key_pressed(KEY_A):
+	if _action_pressed("move_left"):
 		axis += Vector2(-1.0, 1.0)
-	if Input.is_key_pressed(KEY_D):
+	if _action_pressed("move_right"):
 		axis += Vector2(1.0, -1.0)
 	return axis
 
@@ -128,6 +246,254 @@ func _axis_to_facing(axis: Vector2) -> String:
 		return "NW"
 	return player_facing
 
+func _action_pressed(action_name: String) -> bool:
+	var keycode = int(keybinds.get(action_name, 0))
+	if keycode <= 0:
+		return false
+	return Input.is_key_pressed(keycode)
+
+func _action_just_pressed(action_name: String) -> bool:
+	var now_pressed = _action_pressed(action_name)
+	var prev_pressed = bool(_previous_key_states.get(action_name, false))
+	_previous_key_states[action_name] = now_pressed
+	return now_pressed and not prev_pressed
+
+func _update_cooldowns(delta: float) -> void:
+	for key in ability_cooldowns.keys():
+		ability_cooldowns[key] = maxf(0.0, float(ability_cooldowns.get(key, 0.0)) - delta)
+
+func _update_player_regen(delta: float) -> void:
+	player_health = minf(player_max_health, player_health + player_regen_health * delta)
+	player_mana = minf(player_max_mana, player_mana + player_regen_mana * delta)
+
+func _handle_combat_inputs() -> void:
+	if _action_just_pressed("basic_attack"):
+		_cast_basic_attack()
+	if _action_just_pressed("ability_1"):
+		_cast_ability("ember")
+	if _action_just_pressed("ability_2"):
+		_cast_ability("cleave")
+	if _action_just_pressed("ability_3"):
+		_cast_ability("quick_strike")
+	if _action_just_pressed("ability_4"):
+		_cast_ability("bandage")
+
+func _cast_basic_attack() -> void:
+	if float(ability_cooldowns.get("basic_attack", 0.0)) > 0.0:
+		return
+	ability_cooldowns["basic_attack"] = float(basic_attack_cfg.get("cooldown", 0.45))
+	var damage = float(basic_attack_cfg.get("damage", 8.0)) + _stat_value("strength") * 0.7
+	var range_tiles = float(basic_attack_cfg.get("range", 1.3))
+	_apply_damage_to_targets(damage, range_tiles, 1)
+	_emit_combat_state()
+
+func _cast_ability(ability_key: String) -> void:
+	var key = ability_key.strip_edges().to_lower()
+	if not ability_catalog.has(key):
+		return
+	if float(ability_cooldowns.get(key, 0.0)) > 0.0:
+		return
+	var ability: Dictionary = ability_catalog.get(key, {})
+	var resource_cost = float(ability.get("resource_cost", 0.0))
+	if ability_resource_pool == "mana" and player_mana < resource_cost:
+		return
+	if ability_resource_pool == "mana":
+		player_mana = maxf(0.0, player_mana - resource_cost)
+	ability_cooldowns[key] = maxf(0.1, float(ability.get("cooldown", 1.0)))
+
+	if key == "bandage":
+		var heal_amount = float(ability.get("heal", 15.0)) + _stat_value("willpower") * 0.7
+		player_health = minf(player_max_health, player_health + heal_amount)
+		_emit_combat_state()
+		return
+
+	var base_damage = float(ability.get("damage", 10.0))
+	var scaling_stat = str(ability.get("scaling_stat", "strength")).strip_edges().to_lower()
+	var scaled_damage = base_damage + _stat_value(scaling_stat) * 0.8
+	var max_targets = int(ability.get("max_targets", 1))
+	if key == "cleave":
+		max_targets = maxi(max_targets, 3)
+	var range_tiles = float(ability.get("range", 2.0))
+	_apply_damage_to_targets(scaled_damage, range_tiles, max_targets)
+	_emit_combat_state()
+
+func _apply_damage_to_targets(damage: float, range_tiles: float, max_targets: int) -> void:
+	var indexed_hits: Array = []
+	for i in range(enemies.size()):
+		var enemy: Dictionary = enemies[i]
+		if bool(enemy.get("dead", false)):
+			continue
+		var enemy_pos = enemy.get("pos", Vector2.ZERO)
+		var distance = player_tile_position.distance_to(enemy_pos)
+		if distance <= range_tiles:
+			indexed_hits.append({"index": i, "distance": distance})
+	indexed_hits.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("distance", 9999.0)) < float(b.get("distance", 9999.0))
+	)
+	var hits = mini(max_targets, indexed_hits.size())
+	for h in range(hits):
+		var index = int(indexed_hits[h].get("index", -1))
+		if index < 0 or index >= enemies.size():
+			continue
+		var updated: Dictionary = enemies[index]
+		updated["health"] = float(updated.get("health", 1.0)) - damage
+		if float(updated.get("health", 0.0)) <= 0.0:
+			updated["dead"] = true
+			_on_enemy_killed(updated)
+		enemies[index] = updated
+
+func _update_enemies(delta: float) -> void:
+	for i in range(enemies.size()):
+		var enemy: Dictionary = enemies[i]
+		if bool(enemy.get("dead", false)):
+			continue
+		var pos = enemy.get("pos", Vector2.ZERO)
+		var attack_timer = maxf(0.0, float(enemy.get("attack_timer", 0.0)) - delta)
+		enemy["attack_timer"] = attack_timer
+		var dist = player_tile_position.distance_to(pos)
+		var aggro = float(enemy.get("aggro_range", 5.0))
+		var attack_range = float(enemy.get("attack_range", 1.0))
+		var move_speed = float(enemy.get("move_speed", 2.0))
+		if dist <= aggro and dist > attack_range:
+			var direction = (player_tile_position - pos).normalized()
+			var next_pos = _clamp_tile_position(pos + direction * move_speed * delta)
+			if not _is_blocked(next_pos):
+				enemy["pos"] = next_pos
+		elif dist <= attack_range and attack_timer <= 0.0:
+			var attack_damage = float(enemy.get("attack_damage", 4.0))
+			player_health = maxf(0.0, player_health - attack_damage)
+			enemy["attack_timer"] = maxf(0.2, float(enemy.get("attack_cooldown", 1.2)))
+			_emit_combat_state()
+		enemies[i] = enemy
+
+func _on_enemy_killed(enemy: Dictionary) -> void:
+	var enemy_type = str(enemy.get("type", "enemy"))
+	emit_signal("quest_event", {
+		"type": "enemy_killed",
+		"enemy_type": enemy_type,
+	})
+	var loot_table = enemy.get("loot", [])
+	if loot_table is Array and not loot_table.is_empty():
+		for raw_entry in loot_table:
+			if not (raw_entry is Dictionary):
+				continue
+			var drop_chance = clampf(float(raw_entry.get("chance", 0.0)), 0.0, 1.0)
+			if randf() <= drop_chance:
+				var item_key = str(raw_entry.get("item_key", "")).strip_edges().to_lower()
+				if item_key.is_empty():
+					continue
+				var pickup = {
+					"id": pickup_id_counter,
+					"item_key": item_key,
+					"count": int(raw_entry.get("count", 1)),
+					"pos": enemy.get("pos", player_tile_position),
+				}
+				pickup_id_counter += 1
+				pickups.append(pickup)
+				break
+
+func _check_pickup_action() -> void:
+	if not _action_just_pressed("pickup"):
+		return
+	for i in range(pickups.size()):
+		var pickup = pickups[i]
+		var pickup_pos = pickup.get("pos", Vector2.ZERO)
+		if player_tile_position.distance_to(pickup_pos) <= 1.2:
+			emit_signal("loot_dropped", {
+				"item_key": str(pickup.get("item_key", "")),
+				"count": int(pickup.get("count", 1)),
+			})
+			pickups.remove_at(i)
+			return
+
+func _check_npc_interaction_action() -> void:
+	if not _action_just_pressed("interact"):
+		return
+	for npc in npcs:
+		if not (npc is Dictionary):
+			continue
+		var npc_x = float(npc.get("x", npc.get("tile_x", -99)))
+		var npc_y = float(npc.get("y", npc.get("tile_y", -99)))
+		if npc_x < -1 or npc_y < -1:
+			continue
+		var npc_pos = Vector2(npc_x, npc_y)
+		if player_tile_position.distance_to(npc_pos) <= 1.6:
+			emit_signal("npc_interacted", npc)
+			return
+
+func apply_player_heal(amount: float) -> void:
+	player_health = minf(player_max_health, player_health + maxf(0.0, amount))
+	_emit_combat_state()
+
+func apply_player_mana(amount: float) -> void:
+	player_mana = minf(player_max_mana, player_mana + maxf(0.0, amount))
+	_emit_combat_state()
+
+func apply_equipment_modifiers(stat_bonus: Dictionary) -> void:
+	if stat_bonus is Dictionary:
+		player_bonus_stats = stat_bonus
+	_emit_combat_state()
+
+func get_combat_snapshot() -> Dictionary:
+	var cooldowns: Dictionary = {}
+	for key in ability_cooldowns.keys():
+		cooldowns[key] = snappedf(float(ability_cooldowns.get(key, 0.0)), 0.01)
+	return {
+		"health": snappedf(player_health, 0.1),
+		"max_health": snappedf(player_max_health, 0.1),
+		"mana": snappedf(player_mana, 0.1),
+		"max_mana": snappedf(player_max_mana, 0.1),
+		"cooldowns": cooldowns,
+	}
+
+func _stat_value(key: String) -> float:
+	var normalized = key.strip_edges().to_lower()
+	var base = float(player_base_stats.get(normalized, 0.0))
+	var bonus = float(player_bonus_stats.get(normalized, 0.0))
+	return base + bonus
+
+func _emit_combat_state() -> void:
+	emit_signal("combat_state_changed", get_combat_snapshot())
+
+func _spawn_level_content(level_payload: Dictionary) -> void:
+	enemies.clear()
+	pickups.clear()
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	for rule in enemy_spawn_rules:
+		if not (rule is Dictionary):
+			continue
+		var enemy_key = str(rule.get("enemy_key", "")).strip_edges().to_lower()
+		if enemy_key.is_empty() or not enemy_catalog.has(enemy_key):
+			continue
+		var enemy_def = enemy_catalog.get(enemy_key, {})
+		var count = maxi(0, int(rule.get("count", 0)))
+		for _i in range(count):
+			var ex = rng.randi_range(1, maxi(1, world_width_tiles - 2))
+			var ey = rng.randi_range(1, maxi(1, world_height_tiles - 2))
+			var spawn = Vector2(float(ex), float(ey))
+			if _is_blocked(spawn):
+				continue
+			if player_tile_position.distance_to(spawn) < 3.0:
+				continue
+			enemies.append({
+				"id": enemy_id_counter,
+				"type": enemy_key,
+				"label": str(enemy_def.get("label", enemy_key.capitalize())),
+				"pos": spawn,
+				"health": float(enemy_def.get("health", 30.0)),
+				"max_health": float(enemy_def.get("health", 30.0)),
+				"dead": false,
+				"aggro_range": float(enemy_def.get("aggro_range", 5.0)),
+				"attack_range": float(enemy_def.get("attack_range", 1.0)),
+				"attack_damage": float(enemy_def.get("attack_damage", 4.0)),
+				"attack_cooldown": float(enemy_def.get("attack_cooldown", 1.2)),
+				"attack_timer": 0.0,
+				"move_speed": float(enemy_def.get("move_speed", 2.0)),
+				"loot": enemy_def.get("loot", []),
+			})
+			enemy_id_counter += 1
+
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), UI_TOKENS.color("panel_bg_deep"), true)
 	var camera = _camera_screen_origin()
@@ -141,13 +507,48 @@ func _draw() -> void:
 			"key": ISO.depth_key(0, 0, tile.y, tile.x, tile.y * 10000 + tile.x),
 		})
 	for prop in prop_tiles:
-		var tile = prop.get("tile", Vector2i.ZERO)
+		var ptile = prop.get("tile", Vector2i.ZERO)
 		var render_layer = int(prop.get("layer", 1))
 		drawables.append({
 			"pass": "prop",
-			"tile": tile,
+			"tile": ptile,
 			"asset_key": prop.get("asset_key", "prop"),
-			"key": ISO.depth_key(0, render_layer, tile.y, tile.x, 100000 + tile.y * 10000 + tile.x),
+			"key": ISO.depth_key(0, render_layer, ptile.y, ptile.x, 100000 + ptile.y * 10000 + ptile.x),
+		})
+
+	for enemy in enemies:
+		if bool(enemy.get("dead", false)):
+			continue
+		var enemy_tile: Vector2 = enemy.get("pos", Vector2.ZERO)
+		var et = Vector2i(int(round(enemy_tile.x)), int(round(enemy_tile.y)))
+		drawables.append({
+			"pass": "enemy",
+			"tile": et,
+			"enemy": enemy,
+			"key": ISO.depth_key(0, 4, et.y, et.x, 450000 + int(enemy.get("id", 0))),
+		})
+
+	for pickup in pickups:
+		var ppos: Vector2 = pickup.get("pos", Vector2.ZERO)
+		var pt = Vector2i(int(round(ppos.x)), int(round(ppos.y)))
+		drawables.append({
+			"pass": "pickup",
+			"tile": pt,
+			"pickup": pickup,
+			"key": ISO.depth_key(0, 4, pt.y, pt.x, 430000 + int(pickup.get("id", 0))),
+		})
+
+	for npc in npcs:
+		if not (npc is Dictionary):
+			continue
+		var nx = int(round(float(npc.get("x", npc.get("tile_x", 0)))))
+		var ny = int(round(float(npc.get("y", npc.get("tile_y", 0)))))
+		var nt = Vector2i(nx, ny)
+		drawables.append({
+			"pass": "npc",
+			"tile": nt,
+			"npc": npc,
+			"key": ISO.depth_key(0, 4, nt.y, nt.x, 420000 + nx * 1024 + ny),
 		})
 
 	var actor_tile = Vector2i(int(round(player_tile_position.x)), int(round(player_tile_position.y)))
@@ -159,24 +560,18 @@ func _draw() -> void:
 	})
 
 	for fg in foreground_tiles:
-		var tile = fg.get("tile", Vector2i.ZERO)
-		var render_layer = int(fg.get("layer", 2))
+		var ftile = fg.get("tile", Vector2i.ZERO)
+		var frender_layer = int(fg.get("layer", 2))
 		drawables.append({
 			"pass": "foreground",
-			"tile": tile,
+			"tile": ftile,
 			"asset_key": fg.get("asset_key", "ambient"),
-			"key": ISO.depth_key(0, render_layer, tile.y, tile.x, 900000 + tile.y * 10000 + tile.x),
+			"key": ISO.depth_key(0, frender_layer, ftile.y, ftile.x, 900000 + ftile.y * 10000 + ftile.x),
 		})
 
 	drawables.sort_custom(_sort_drawables)
 
-	var previous_key: Array = []
-	var duplicate_depth_keys: int = 0
 	for drawable in drawables:
-		var key: Array = drawable.get("key", [])
-		if not previous_key.is_empty() and key == previous_key:
-			duplicate_depth_keys += 1
-		previous_key = key
 		var tile: Vector2i = drawable.get("tile", Vector2i.ZERO)
 		var center = ISO.tile_center_screen(tile) - camera + world_center
 		var pass_name = str(drawable.get("pass", "floor"))
@@ -185,14 +580,18 @@ func _draw() -> void:
 				_draw_iso_diamond(center, UI_TOKENS.color("panel_bg_alt"), UI_TOKENS.color("panel_border_soft"), 1.0)
 			"prop":
 				_draw_prop(center, str(drawable.get("asset_key", "prop")))
+			"enemy":
+				_draw_enemy(center, drawable.get("enemy", {}))
+			"pickup":
+				_draw_pickup(center, drawable.get("pickup", {}))
+			"npc":
+				_draw_npc(center, drawable.get("npc", {}))
 			"actor":
 				_draw_actor(center, str(drawable.get("facing", "S")))
 			"foreground":
 				_draw_foreground(center, str(drawable.get("asset_key", "ambient")))
 
-	if show_sort_diagnostics:
-		var debug_text = "Iso Sort | drawables=%d | duplicateDepthKeys=%d | facing=%s" % [drawables.size(), duplicate_depth_keys, player_facing]
-		draw_string(get_theme_default_font(), Vector2(16, 26), debug_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UI_TOKENS.color("text_secondary"))
+	_draw_hud_overlay()
 
 func _sort_drawables(a: Dictionary, b: Dictionary) -> bool:
 	var ka: Array = a.get("key", [])
@@ -223,21 +622,44 @@ func _draw_prop(center: Vector2, asset_key: String) -> void:
 	draw_rect(rect, body_color, true)
 	draw_rect(rect, UI_TOKENS.color("panel_border"), false, 1.0)
 
+func _draw_enemy(center: Vector2, enemy: Dictionary) -> void:
+	draw_circle(center + Vector2(0.0, -20.0), 12.0, Color(0.64, 0.22, 0.20, 1.0))
+	var hp = maxf(0.0, float(enemy.get("health", 0.0)))
+	var max_hp = maxf(1.0, float(enemy.get("max_health", 1.0)))
+	var pct = clampf(hp / max_hp, 0.0, 1.0)
+	var bar_rect = Rect2(center + Vector2(-14.0, -42.0), Vector2(28.0, 4.0))
+	draw_rect(bar_rect, Color(0.15, 0.08, 0.08, 1.0), true)
+	draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * pct, bar_rect.size.y)), Color(0.90, 0.32, 0.28, 1.0), true)
+	draw_rect(bar_rect, UI_TOKENS.color("panel_border_soft"), false, 1.0)
+
+func _draw_pickup(center: Vector2, pickup: Dictionary) -> void:
+	var points = PackedVector2Array([
+		center + Vector2(0.0, -18.0),
+		center + Vector2(8.0, -10.0),
+		center + Vector2(0.0, -2.0),
+		center + Vector2(-8.0, -10.0),
+	])
+	draw_colored_polygon(points, Color(0.88, 0.73, 0.34, 0.95))
+	var outline = PackedVector2Array(points)
+	outline.append(points[0])
+	draw_polyline(outline, UI_TOKENS.color("panel_border"), 1.0, true)
+	var item_key = str(pickup.get("item_key", ""))
+	if not item_key.is_empty():
+		draw_string(get_theme_default_font(), center + Vector2(-22.0, 12.0), item_key, HORIZONTAL_ALIGNMENT_LEFT, 64.0, 10, UI_TOKENS.color("text_secondary"))
+
+func _draw_npc(center: Vector2, npc: Dictionary) -> void:
+	var rect = Rect2(center + Vector2(-10.0, -30.0), Vector2(20.0, 30.0))
+	draw_rect(rect, Color(0.30, 0.42, 0.64, 1.0), true)
+	draw_rect(rect, UI_TOKENS.color("panel_border"), false, 1.0)
+	var label = str(npc.get("label", npc.get("key", "NPC")))
+	draw_string(get_theme_default_font(), center + Vector2(-28.0, -36.0), label, HORIZONTAL_ALIGNMENT_LEFT, 120.0, 11, UI_TOKENS.color("text_secondary"))
+
 func _draw_actor(center: Vector2, facing: String) -> void:
 	var body_rect = Rect2(center + Vector2(-8.0, -30.0), Vector2(16.0, 26.0))
 	draw_rect(body_rect, UI_TOKENS.color("button_primary"), true)
 	draw_rect(body_rect, UI_TOKENS.color("panel_bg_deep"), false, 1.0)
 	draw_circle(center + Vector2(0.0, -36.0), 7.0, UI_TOKENS.color("panel_border"))
-	var facing_label = facing
-	draw_string(
-		get_theme_default_font(),
-		center + Vector2(-10.0, 14.0),
-		facing_label,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		24.0,
-		12,
-		UI_TOKENS.color("text_primary")
-	)
+	draw_string(get_theme_default_font(), center + Vector2(-10.0, 14.0), facing, HORIZONTAL_ALIGNMENT_LEFT, 24.0, 12, UI_TOKENS.color("text_primary"))
 
 func _draw_foreground(center: Vector2, asset_key: String) -> void:
 	var alpha = 0.26
@@ -245,6 +667,33 @@ func _draw_foreground(center: Vector2, asset_key: String) -> void:
 		alpha = 0.34
 	var rect = Rect2(center + Vector2(-28.0, -84.0), Vector2(56.0, 20.0))
 	draw_rect(rect, Color(0.82, 0.86, 0.90, alpha), true)
+
+func _draw_hud_overlay() -> void:
+	var font = get_theme_default_font()
+	var hud_line = "HP %d/%d | MP %d/%d | Enemies %d | Pickups %d" % [
+		int(round(player_health)),
+		int(round(player_max_health)),
+		int(round(player_mana)),
+		int(round(player_max_mana)),
+		_alive_enemy_count(),
+		pickups.size(),
+	]
+	draw_string(font, Vector2(14.0, 24.0), hud_line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, UI_TOKENS.color("text_primary"))
+	var ability_line = "Atk[Space] %.1fs | Ember[1] %.1fs | Cleave[2] %.1fs | Quick[3] %.1fs | Bandage[4] %.1fs" % [
+		float(ability_cooldowns.get("basic_attack", 0.0)),
+		float(ability_cooldowns.get("ember", 0.0)),
+		float(ability_cooldowns.get("cleave", 0.0)),
+		float(ability_cooldowns.get("quick_strike", 0.0)),
+		float(ability_cooldowns.get("bandage", 0.0)),
+	]
+	draw_string(font, Vector2(14.0, 42.0), ability_line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, UI_TOKENS.color("text_secondary"))
+
+func _alive_enemy_count() -> int:
+	var count = 0
+	for enemy in enemies:
+		if not bool(enemy.get("dead", false)):
+			count += 1
+	return count
 
 func _camera_screen_origin() -> Vector2:
 	var player_screen_world = ISO.world_to_screen(player_tile_position)
@@ -268,15 +717,21 @@ func _world_pixels_to_tile(world_pixels: Vector2) -> Vector2:
 
 func _is_blocked(tile_pos: Vector2) -> bool:
 	var key = "%d:%d" % [int(floor(tile_pos.x)), int(floor(tile_pos.y))]
-	if not blocked_tiles.has(key):
-		return false
-	var layers = blocked_tiles.get(key, [])
-	if layers is Array:
-		for layer in layers:
-			if str(layer).strip_edges().to_lower() == player_collision_layer:
-				return true
-		return false
-	return true
+	if blocked_tiles.has(key):
+		var layers = blocked_tiles.get(key, [])
+		if layers is Array:
+			for layer in layers:
+				if str(layer).strip_edges().to_lower() == player_collision_layer:
+					return true
+		else:
+			return true
+	for enemy in enemies:
+		if bool(enemy.get("dead", false)):
+			continue
+		var epos = enemy.get("pos", Vector2.ZERO)
+		if tile_pos.distance_to(epos) <= 0.45:
+			return true
+	return false
 
 func _collision_layers_for_asset(asset_key: String, entry: Dictionary) -> Array[String]:
 	var template: Dictionary = {}

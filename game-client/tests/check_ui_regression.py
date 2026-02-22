@@ -14,6 +14,7 @@ SOURCES = [
     ROOT / "game-client/scripts/ui_components.gd",
     ROOT / "game-client/scripts/character_podium_preview.gd",
     ROOT / "game-client/scripts/world_canvas.gd",
+    ROOT / "game-client/scripts/level_editor_canvas.gd",
 ]
 
 

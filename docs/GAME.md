@@ -53,6 +53,24 @@ In-game menu is intentionally smaller than main menu:
 - New saves start at level 1 / 0 XP.
 - Character preview uses shared podium component and supports direction control.
 
+## Gameplay Runtime (Current)
+- World runtime now supports a playable combat loop:
+  - basic attack
+  - `Ember`
+  - `Cleave`
+  - `Quick Strike`
+  - `Bandage`
+- Ability cooldowns/resources and enemy combat stats are config-driven.
+- Enemy prototype AI is active with chase/attack/death and loot drops.
+- Inventory/equipment loop is active:
+  - pickup/use/equip/drop
+  - stack handling
+  - equipment bonuses affecting combat stats
+- Quest/dialog loop v1 is active:
+  - NPC interaction
+  - quest accept/progress (kill goals)
+  - quest state persisted in saves
+
 ## Save/Load Model (Current)
 - Save model is file-based (no backend dependency):
   - save index file
@@ -60,6 +78,11 @@ In-game menu is intentionally smaller than main menu:
 - Save payload stores character state, world state, inventory/quests/dialog placeholders, and timestamps.
 - Manual save is available in-world.
 - Autosave interval is a local setting.
+- Save writes are atomic and backup-protected:
+  - temp-write + rename semantics
+  - timestamped backup snapshots
+  - auto-recovery from latest backup if primary save/config file is corrupted
+  - load menu exposes backup-restore action
 
 ## Admin Workspace (Current)
 Admin opens a tabbed local tool suite:
@@ -71,6 +94,8 @@ Admin opens a tabbed local tool suite:
 Notes:
 - Level ordering/tower-floor ordering UI is removed for the single-player open-world direction.
 - Admin tools operate on local files and central config.
+- Level Editor is tool-first (brush/layer/mode/canvas overlays) with optional advanced JSON fallback.
+- Asset Editor is form-first (search + structured asset/collision fields) with validation guardrails.
 
 ## Data-Driven Rule (Single Source)
 All game-configurable values must be sourced from central local config, including:
@@ -84,11 +109,23 @@ All game-configurable values must be sourced from central local config, includin
 Current root config file:
 - `game-client/assets/config/game_config.json` (default template shipped with build)
 - runtime editable copy: `user://config/game_config.json`
+- schema: `game-client/assets/config/schema/game_config.schema.json`
+- generated reference: `docs/CONFIG_FIELDS.md`
+
+## Settings Scope (Current)
+- Settings auto-apply and persist locally.
+- Current active settings include:
+  - video mode and UI scaling
+  - audio mute/volume
+  - gameplay difficulty and autosave interval
+  - accessibility toggles (high contrast, reduced motion)
+  - input keybindings plus gamepad enable/deadzone
 
 ## Update Policy
 - Velopack/GCS updater remains the release/update authority.
 - Client update checks are user-triggered from menu (not forced auto-update).
 - If no update exists, user remains in game and sees `Game is up to date.`
+- Latest local release notes are shown in main menu and in-world side panel.
 
 ## Visual Direction
 - Isometric (`2:1`) direction remains locked.

@@ -1,10 +1,12 @@
-- Pivoted Godot runtime to a single-player shell and made it the active bootstrap entrypoint.
-- Implemented local main menu flow (`New Game`, `Load Game`, `Settings`, `Update`, `Admin`, `Exit`) with no account/login dependency.
-- Added local save-slot create/load/delete pipeline and world resume from slot state.
-- Added central local config bootstrap (`game_config.json`) with startup/admin validation and runtime settings auto-apply.
-- Added/admin-wired local designer tabs (`Level Editor`, `Asset Editor`, `Config Editor`, `Diagnostics`).
-- Added runtime-configurable world movement parameters (`player_speed_tiles`, `player_radius`) from central config.
-- Migrated UI regression harness to single-player shell builders/snippets and updated golden manifest targets.
-- Removed obsolete backend deploy/security GitHub workflows from active pipeline.
-- Removed backend release-activation callback from release workflow; release now updates GCS feed only.
-- Rewrote canonical docs (`GAME`, `TECHNICAL`, `TASKS`, `README`, `INSTALLER`) for single-player architecture and operations.
+- Added playable combat runtime in world view with `basic attack`, `Ember`, `Cleave`, `Quick Strike`, and `Bandage`, including cooldown/resource tracking and HUD state updates.
+- Added enemy prototype system with config-driven spawn catalog, chase/attack AI, death handling, quest kill events, and loot drops.
+- Added inventory/equipment world loop (`pickup/use/equip/drop`) with stack handling and equipment bonuses applied to combat stats.
+- Added NPC interaction + quest progression v1 with acceptance flow and kill-goal updates persisted in local saves.
+- Upgraded Level Editor to tool-first interaction via `level_editor_canvas.gd` (active layer, brush asset, mode, grid/collision overlays) while retaining optional advanced JSON editing.
+- Upgraded Asset Editor to structured searchable forms (key/label/layer/collision/description) with inline validation and unique-key guards.
+- Expanded settings with keybinding capture, gamepad toggle/deadzone controls, UI scale, high-contrast toggle, and runtime keybind propagation.
+- Hardened save/config IO with atomic writes, timestamped backups, automatic backup recovery, and a load-screen restore action.
+- Added explicit config schema at `game-client/assets/config/schema/game_config.schema.json` and generated field reference docs in `docs/CONFIG_FIELDS.md`.
+- Added release-notes visibility in both main menu and world UI for player-facing change summaries.
+- Updated UI regression harness signature/sources for the new world + editor architecture.
+- Updated task tracking so GOK-SPRPG-023 through GOK-SPRPG-034 are recorded as completed and backlog now starts at GOK-SPRPG-035.

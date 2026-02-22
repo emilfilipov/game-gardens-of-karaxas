@@ -1,6 +1,7 @@
 extends Control
 
 const WORLD_CANVAS_SCENE = preload("res://scripts/world_canvas.gd")
+const LEVEL_EDITOR_CANVAS_SCENE = preload("res://scripts/level_editor_canvas.gd")
 const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
 const UI_COMPONENTS = preload("res://scripts/ui_components.gd")
 const PODIUM_PREVIEW_SCENE = preload("res://scripts/character_podium_preview.gd")
@@ -43,6 +44,7 @@ var main_stack = null
 
 var main_menu_container = null
 var menu_status_label = null
+var main_menu_notes_text = null
 
 var create_container = null
 var create_name_input = null
@@ -75,6 +77,12 @@ var settings_audio_volume = null
 var settings_autosave_interval = null
 var settings_reduced_motion = null
 var settings_difficulty_option = null
+var settings_text_scale = null
+var settings_high_contrast = null
+var settings_gamepad_deadzone = null
+var settings_gamepad_enabled = null
+var settings_keybind_buttons = {}
+var settings_capturing_keybind_action = ""
 
 var admin_container = null
 var admin_status_label = null
@@ -90,11 +98,27 @@ var admin_level_spawn_y_input = null
 var admin_level_layers_input = null
 var admin_level_objects_input = null
 var admin_level_transitions_input = null
+var admin_level_canvas = null
+var admin_level_layer_option = null
+var admin_level_asset_option = null
+var admin_level_mode_option = null
+var admin_level_show_grid = null
+var admin_level_show_collision = null
+var admin_level_advanced_toggle = null
 
 var admin_asset_list = null
-var admin_asset_payload = null
 var admin_asset_status = null
 var admin_asset_selected_index = -1
+var admin_asset_search = null
+var admin_asset_key_input = null
+var admin_asset_label_input = null
+var admin_asset_layer_option = null
+var admin_asset_collidable_toggle = null
+var admin_asset_description_input = null
+var admin_asset_collision_shape_option = null
+var admin_asset_collision_width_input = null
+var admin_asset_collision_height_input = null
+var admin_asset_collision_offset_y_input = null
 
 var admin_config_text = null
 var admin_config_status = null
@@ -104,8 +128,22 @@ var admin_diag_text = null
 var world_container = null
 var world_canvas = null
 var world_status_label = null
+var world_health_label = null
+var world_mana_label = null
+var world_cooldown_label = null
+var world_inventory_list = null
+var world_inventory_status = null
+var world_equipment_list = null
+var world_quest_list = null
+var world_dialog_text = null
+var world_dialog_options = null
+var world_release_notes = null
+var world_context_npc = {}
+var world_autosave_elapsed: float = 0.0
+var world_playtime_accum: float = 0.0
 
 var character_texture_cache = {}
+var recovered_backup_files: Array[String] = []
 
 func _ready() -> void:
 	_resolve_paths()
@@ -129,11 +167,36 @@ func _notification(what: int) -> void:
 			_save_active_slot(false)
 		get_tree().quit()
 
+func _process(delta: float) -> void:
+	if not world_active:
+		world_autosave_elapsed = 0.0
+		world_playtime_accum = 0.0
+		return
+	world_playtime_accum += delta
+	if world_playtime_accum >= 1.0:
+		active_save["playtime_seconds"] = int(active_save.get("playtime_seconds", 0)) + int(floor(world_playtime_accum))
+		world_playtime_accum = fmod(world_playtime_accum, 1.0)
+	var autosave_interval = maxf(15.0, float(game_settings.get("autosave_interval", 120.0)))
+	world_autosave_elapsed += delta
+	if world_autosave_elapsed >= autosave_interval:
+		world_autosave_elapsed = 0.0
+		_save_active_slot(false)
+		if world_inventory_status != null:
+			world_inventory_status.text = "Autosaved."
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
 		return
-	var key_event = event
+	var key_event: InputEventKey = event
 	if not key_event.pressed or key_event.echo:
+		return
+	if not settings_capturing_keybind_action.is_empty():
+		_set_keybind(settings_capturing_keybind_action, key_event.keycode)
+		settings_capturing_keybind_action = ""
+		_refresh_keybind_buttons()
+		_apply_settings()
+		_set_status("Keybinding updated.")
+		accept_event()
 		return
 	if key_event.keycode == KEY_ESCAPE:
 		if current_screen == "world":
@@ -332,7 +395,7 @@ func _show_screen(name: String) -> void:
 		_refresh_admin_panels()
 
 func _build_main_menu_screen() -> Control:
-	var shell = UI_COMPONENTS.centered_shell(Vector2(560, 620), UI_TOKENS.spacing("lg"))
+	var shell = UI_COMPONENTS.centered_shell(Vector2(1260, 700), UI_TOKENS.spacing("lg"))
 	var wrap = shell["wrap"]
 	var content = shell["content"]
 
@@ -341,18 +404,41 @@ func _build_main_menu_screen() -> Control:
 	content.add_child(title)
 	content.add_child(_label("Single-player isometric ARPG", -1, "text_secondary"))
 
-	var button_col = VBoxContainer.new()
-	button_col.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	button_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(button_col)
+	var split = HBoxContainer.new()
+	split.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(split)
 
+	var left_card = UI_COMPONENTS.panel_card(Vector2(340, 0), true)
+	left_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	split.add_child(left_card)
+	var button_col = VBoxContainer.new()
+	button_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	button_col.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	left_card.add_child(button_col)
 	button_col.add_child(_main_menu_button("New Game", MENU_NEW_GAME))
 	button_col.add_child(_main_menu_button("Load Game", MENU_LOAD_GAME))
 	button_col.add_child(_main_menu_button("Settings", MENU_SETTINGS))
 	button_col.add_child(_main_menu_button("Update", MENU_UPDATE))
 	button_col.add_child(_main_menu_button("Admin", MENU_ADMIN))
-	button_col.add_child(_main_menu_button("Exit", MENU_EXIT))
 	button_col.add_spacer(false)
+	button_col.add_child(_main_menu_button("Exit", MENU_EXIT))
+
+	var notes_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	notes_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	notes_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	split.add_child(notes_card)
+	var notes_col = VBoxContainer.new()
+	notes_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	notes_col.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	notes_card.add_child(notes_col)
+	notes_col.add_child(_label("Latest Notes", 20, "text_secondary"))
+	main_menu_notes_text = RichTextLabel.new()
+	main_menu_notes_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	main_menu_notes_text.bbcode_enabled = false
+	main_menu_notes_text.fit_content = false
+	notes_col.add_child(main_menu_notes_text)
+	_refresh_release_notes_preview()
 
 	menu_status_label = _label(" ", -1, "text_secondary")
 	menu_status_label.text = " "
@@ -528,6 +614,10 @@ func _build_load_screen() -> Control:
 	refresh_btn.custom_minimum_size = Vector2(120, 40)
 	refresh_btn.pressed.connect(_refresh_load_game_list)
 	actions.add_child(refresh_btn)
+	var restore_btn = _button("Restore Backup")
+	restore_btn.custom_minimum_size = Vector2(170, 40)
+	restore_btn.pressed.connect(_on_restore_selected_pressed)
+	actions.add_child(restore_btn)
 
 	load_status_label = _label(" ", -1, "text_secondary")
 	load_status_label.text = " "
@@ -557,20 +647,37 @@ func _build_settings_screen() -> Control:
 	content.add_child(tabs)
 
 	var video_tab = _settings_tab(tabs, "Video")
+	var video_cols = _settings_columns(video_tab)
 	settings_screen_mode = _option(["Borderless Fullscreen", "Windowed"])
 	settings_screen_mode.item_selected.connect(func(_index: int) -> void:
 		_apply_settings()
 	)
-	video_tab.add_child(_labeled_control("Screen Mode", settings_screen_mode))
+	video_cols[0].add_child(_labeled_control("Screen Mode", settings_screen_mode))
+	settings_text_scale = HSlider.new()
+	settings_text_scale.min_value = 0.85
+	settings_text_scale.max_value = 1.35
+	settings_text_scale.step = 0.05
+	settings_text_scale.value_changed.connect(func(_value: float) -> void:
+		_apply_settings()
+	)
+	video_cols[1].add_child(_labeled_control("UI Scale", settings_text_scale))
+	settings_high_contrast = _button("High Contrast: OFF")
+	settings_high_contrast.toggle_mode = true
+	settings_high_contrast.toggled.connect(func(_checked: bool) -> void:
+		settings_high_contrast.text = "High Contrast: ON" if settings_high_contrast.button_pressed else "High Contrast: OFF"
+		_apply_settings()
+	)
+	video_cols[2].add_child(settings_high_contrast)
 
 	var audio_tab = _settings_tab(tabs, "Audio")
+	var audio_cols = _settings_columns(audio_tab)
 	settings_audio_mute = _button("Muted: OFF")
 	settings_audio_mute.toggle_mode = true
 	settings_audio_mute.toggled.connect(func(_checked: bool) -> void:
 		settings_audio_mute.text = "Muted: ON" if settings_audio_mute.button_pressed else "Muted: OFF"
 		_apply_settings()
 	)
-	audio_tab.add_child(settings_audio_mute)
+	audio_cols[0].add_child(settings_audio_mute)
 	settings_audio_volume = HSlider.new()
 	settings_audio_volume.min_value = 0
 	settings_audio_volume.max_value = 100
@@ -578,17 +685,38 @@ func _build_settings_screen() -> Control:
 	settings_audio_volume.value_changed.connect(func(_value: float) -> void:
 		_apply_settings()
 	)
-	audio_tab.add_child(_labeled_control("Master Volume", settings_audio_volume))
+	audio_cols[1].add_child(_labeled_control("Master Volume", settings_audio_volume))
 
 	var input_tab = _settings_tab(tabs, "Input")
-	input_tab.add_child(_label("Input rebinding scaffold lives in central config (`input.bindings`).", -1, "text_secondary"))
+	var input_cols = _settings_columns(input_tab)
+	settings_gamepad_enabled = _button("Gamepad: OFF")
+	settings_gamepad_enabled.toggle_mode = true
+	settings_gamepad_enabled.toggled.connect(func(_checked: bool) -> void:
+		settings_gamepad_enabled.text = "Gamepad: ON" if settings_gamepad_enabled.button_pressed else "Gamepad: OFF"
+		_apply_settings()
+	)
+	input_cols[0].add_child(settings_gamepad_enabled)
+	settings_gamepad_deadzone = HSlider.new()
+	settings_gamepad_deadzone.min_value = 0.05
+	settings_gamepad_deadzone.max_value = 0.40
+	settings_gamepad_deadzone.step = 0.01
+	settings_gamepad_deadzone.value_changed.connect(func(_value: float) -> void:
+		_apply_settings()
+	)
+	input_cols[1].add_child(_labeled_control("Gamepad Deadzone", settings_gamepad_deadzone))
+	var keybind_panel = VBoxContainer.new()
+	keybind_panel.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	input_cols[2].add_child(_label("Keybindings", -1, "text_secondary"))
+	input_cols[2].add_child(keybind_panel)
+	_build_keybind_rows(keybind_panel)
 
 	var gameplay_tab = _settings_tab(tabs, "Gameplay")
+	var gameplay_cols = _settings_columns(gameplay_tab)
 	settings_difficulty_option = _option(["Story", "Normal", "Hard", "Nightmare"])
 	settings_difficulty_option.item_selected.connect(func(_index: int) -> void:
 		_apply_settings()
 	)
-	gameplay_tab.add_child(_labeled_control("Difficulty", settings_difficulty_option))
+	gameplay_cols[0].add_child(_labeled_control("Difficulty", settings_difficulty_option))
 	settings_autosave_interval = HSlider.new()
 	settings_autosave_interval.min_value = 30
 	settings_autosave_interval.max_value = 600
@@ -596,16 +724,19 @@ func _build_settings_screen() -> Control:
 	settings_autosave_interval.value_changed.connect(func(_value: float) -> void:
 		_apply_settings()
 	)
-	gameplay_tab.add_child(_labeled_control("Autosave (sec)", settings_autosave_interval))
+	gameplay_cols[1].add_child(_labeled_control("Autosave (sec)", settings_autosave_interval))
 
 	var access_tab = _settings_tab(tabs, "Accessibility")
+	var access_cols = _settings_columns(access_tab)
 	settings_reduced_motion = _button("Reduced Motion: OFF")
 	settings_reduced_motion.toggle_mode = true
 	settings_reduced_motion.toggled.connect(func(_checked: bool) -> void:
 		settings_reduced_motion.text = "Reduced Motion: ON" if settings_reduced_motion.button_pressed else "Reduced Motion: OFF"
 		_apply_settings()
 	)
-	access_tab.add_child(settings_reduced_motion)
+	access_cols[0].add_child(settings_reduced_motion)
+	access_cols[1].add_child(_label("Navigation: keyboard + gamepad parity enabled.", -1, "text_secondary"))
+	access_cols[2].add_child(_label("Use UI scale and high contrast from Video tab for readability.", -1, "text_secondary"))
 
 	settings_status_label = _label("Settings auto-apply and save locally.", -1, "text_secondary")
 	content.add_child(settings_status_label)
@@ -619,6 +750,24 @@ func _settings_tab(tabs: TabContainer, name: String) -> VBoxContainer:
 	tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	tabs.add_child(tab)
 	return tab
+
+func _settings_columns(parent: VBoxContainer) -> Array:
+	var row = HBoxContainer.new()
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	parent.add_child(row)
+	var columns: Array = []
+	for _i in range(3):
+		var card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		row.add_child(card)
+		var col = VBoxContainer.new()
+		col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+		card.add_child(col)
+		columns.append(col)
+	return columns
 
 func _build_admin_screen() -> Control:
 	var shell = UI_COMPONENTS.centered_shell(Vector2(1700, 900), UI_TOKENS.spacing("md"))
@@ -679,6 +828,51 @@ func _build_admin_levels_tab() -> void:
 	set_default_btn.pressed.connect(_admin_set_default_level)
 	top.add_child(set_default_btn)
 
+	var tools = HBoxContainer.new()
+	tools.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	tab.add_child(tools)
+	admin_level_layer_option = _option(["Layer 0", "Layer 1", "Layer 2"], Vector2(130, 34))
+	admin_level_layer_option.item_selected.connect(func(index: int) -> void:
+		if admin_level_canvas != null:
+			admin_level_canvas.call("set_active_layer", index)
+	)
+	tools.add_child(_labeled_control("Active Layer", admin_level_layer_option))
+	admin_level_asset_option = _option(["wall_block"], Vector2(180, 34))
+	admin_level_asset_option.item_selected.connect(func(index: int) -> void:
+		if admin_level_canvas != null:
+			admin_level_canvas.call("set_brush_asset", admin_level_asset_option.get_item_text(index))
+	)
+	tools.add_child(_labeled_control("Brush Asset", admin_level_asset_option))
+	admin_level_mode_option = _option(["Place", "Erase", "Select"], Vector2(140, 34))
+	admin_level_mode_option.item_selected.connect(func(index: int) -> void:
+		if admin_level_canvas != null:
+			admin_level_canvas.call("set_brush_mode", admin_level_mode_option.get_item_text(index).to_lower())
+	)
+	tools.add_child(_labeled_control("Mode", admin_level_mode_option))
+	admin_level_show_grid = _button("Grid: ON")
+	admin_level_show_grid.toggle_mode = true
+	admin_level_show_grid.button_pressed = true
+	admin_level_show_grid.toggled.connect(func(_checked: bool) -> void:
+		admin_level_show_grid.text = "Grid: ON" if admin_level_show_grid.button_pressed else "Grid: OFF"
+		_admin_apply_level_canvas_overlays()
+	)
+	tools.add_child(admin_level_show_grid)
+	admin_level_show_collision = _button("Collision: ON")
+	admin_level_show_collision.toggle_mode = true
+	admin_level_show_collision.button_pressed = true
+	admin_level_show_collision.toggled.connect(func(_checked: bool) -> void:
+		admin_level_show_collision.text = "Collision: ON" if admin_level_show_collision.button_pressed else "Collision: OFF"
+		_admin_apply_level_canvas_overlays()
+	)
+	tools.add_child(admin_level_show_collision)
+	admin_level_advanced_toggle = _button("Advanced JSON: OFF")
+	admin_level_advanced_toggle.toggle_mode = true
+	admin_level_advanced_toggle.toggled.connect(func(_checked: bool) -> void:
+		admin_level_advanced_toggle.text = "Advanced JSON: ON" if admin_level_advanced_toggle.button_pressed else "Advanced JSON: OFF"
+		_admin_toggle_level_advanced(admin_level_advanced_toggle.button_pressed)
+	)
+	tools.add_child(admin_level_advanced_toggle)
+
 	var meta = GridContainer.new()
 	meta.columns = 8
 	meta.add_theme_constant_override("h_separation", UI_TOKENS.spacing("xs"))
@@ -703,27 +897,38 @@ func _build_admin_levels_tab() -> void:
 	meta.add_child(_label("Spawn Y", -1, "text_secondary"))
 	meta.add_child(admin_level_spawn_y_input)
 
-	var split = HSplitContainer.new()
-	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	tab.add_child(split)
+	var canvas_card = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	canvas_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tab.add_child(canvas_card)
+	admin_level_canvas = Control.new()
+	admin_level_canvas.set_script(LEVEL_EDITOR_CANVAS_SCENE)
+	admin_level_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	admin_level_canvas.connect("layers_changed", _on_admin_level_canvas_layers_changed)
+	admin_level_canvas.connect("status_changed", _on_admin_level_canvas_status_changed)
+	canvas_card.add_child(admin_level_canvas)
 
+	var advanced_row = HBoxContainer.new()
+	advanced_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	advanced_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	tab.add_child(advanced_row)
 	admin_level_layers_input = TextEdit.new()
 	admin_level_layers_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	admin_level_layers_input.placeholder_text = "Layers JSON"
-	split.add_child(admin_level_layers_input)
-
+	advanced_row.add_child(admin_level_layers_input)
 	var right = VBoxContainer.new()
-	right.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	split.add_child(right)
+	right.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	advanced_row.add_child(right)
 	admin_level_objects_input = TextEdit.new()
 	admin_level_objects_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	admin_level_objects_input.placeholder_text = "Objects JSON"
 	right.add_child(admin_level_objects_input)
 	admin_level_transitions_input = TextEdit.new()
-	admin_level_transitions_input.custom_minimum_size = Vector2(0, 180)
+	admin_level_transitions_input.custom_minimum_size = Vector2(0, 160)
 	admin_level_transitions_input.placeholder_text = "Transitions JSON"
 	right.add_child(admin_level_transitions_input)
+	advanced_row.visible = false
+	admin_level_layers_input.set_meta("advanced_row", advanced_row)
 
 func _build_admin_assets_tab() -> void:
 	var tab = VBoxContainer.new()
@@ -734,6 +939,11 @@ func _build_admin_assets_tab() -> void:
 	var top = HBoxContainer.new()
 	top.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	tab.add_child(top)
+	admin_asset_search = _line_edit("Search by key or label")
+	admin_asset_search.text_changed.connect(func(_value: String) -> void:
+		_refresh_admin_asset_list()
+	)
+	top.add_child(admin_asset_search)
 	var refresh = _button("Refresh Assets")
 	refresh.pressed.connect(_refresh_admin_asset_list)
 	top.add_child(refresh)
@@ -754,9 +964,38 @@ func _build_admin_assets_tab() -> void:
 	admin_asset_list.item_selected.connect(_on_admin_asset_selected)
 	split.add_child(admin_asset_list)
 
-	admin_asset_payload = TextEdit.new()
-	admin_asset_payload.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	split.add_child(admin_asset_payload)
+	var form = VBoxContainer.new()
+	form.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	form.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	split.add_child(form)
+	admin_asset_key_input = _line_edit("asset_key")
+	admin_asset_label_input = _line_edit("Asset Label")
+	admin_asset_layer_option = _option(["0", "1", "2"], Vector2(80, 34))
+	admin_asset_collidable_toggle = _button("Collidable: OFF")
+	admin_asset_collidable_toggle.toggle_mode = true
+	admin_asset_collidable_toggle.toggled.connect(func(_checked: bool) -> void:
+		admin_asset_collidable_toggle.text = "Collidable: ON" if admin_asset_collidable_toggle.button_pressed else "Collidable: OFF"
+	)
+	admin_asset_description_input = _line_edit("Description")
+	admin_asset_collision_shape_option = _option(["none", "box", "circle"], Vector2(120, 34))
+	admin_asset_collision_width_input = _line_edit("1.0")
+	admin_asset_collision_height_input = _line_edit("1.0")
+	admin_asset_collision_offset_y_input = _line_edit("0.0")
+	form.add_child(_labeled_control("Key", admin_asset_key_input))
+	form.add_child(_labeled_control("Label", admin_asset_label_input))
+	form.add_child(_labeled_control("Default Layer", admin_asset_layer_option))
+	form.add_child(admin_asset_collidable_toggle)
+	form.add_child(_labeled_control("Description", admin_asset_description_input))
+	form.add_child(_labeled_control("Collision Shape", admin_asset_collision_shape_option))
+	var collision_grid = GridContainer.new()
+	collision_grid.columns = 2
+	collision_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("xs"))
+	collision_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("xs"))
+	collision_grid.add_child(_labeled_control("Collision Width", admin_asset_collision_width_input))
+	collision_grid.add_child(_labeled_control("Collision Height", admin_asset_collision_height_input))
+	collision_grid.add_child(_labeled_control("Collision Offset Y", admin_asset_collision_offset_y_input))
+	form.add_child(collision_grid)
+	form.add_spacer(false)
 
 	admin_asset_status = _label(" ", -1, "text_secondary")
 	admin_asset_status.text = " "
@@ -831,6 +1070,10 @@ func _build_world_screen() -> Control:
 		_save_active_slot(true)
 	)
 	top.add_child(save_btn)
+	var update_btn = _button("Update")
+	update_btn.custom_minimum_size = Vector2(110, 38)
+	update_btn.pressed.connect(_on_update_pressed)
+	top.add_child(update_btn)
 	var settings_btn = _button("Settings")
 	settings_btn.custom_minimum_size = Vector2(120, 38)
 	settings_btn.pressed.connect(func() -> void:
@@ -853,18 +1096,100 @@ func _build_world_screen() -> Control:
 	top.add_child(exit_btn)
 	top.add_spacer(false)
 
-	world_status_label = _label("WASD to move. ESC returns to menu.", -1, "text_secondary")
+	world_status_label = _label("WASD move | Space basic attack | 1-4 skills | E interact | F pickup", -1, "text_secondary")
 	wrap.add_child(world_status_label)
+	var combat_row = HBoxContainer.new()
+	combat_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	wrap.add_child(combat_row)
+	world_health_label = _label("HP 0/0", -1, "text_secondary")
+	world_mana_label = _label("MP 0/0", -1, "text_secondary")
+	world_cooldown_label = _label("Cooldowns: -", -1, "text_muted")
+	combat_row.add_child(world_health_label)
+	combat_row.add_child(world_mana_label)
+	combat_row.add_spacer(false)
+	combat_row.add_child(world_cooldown_label)
 
-	var panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wrap.add_child(panel)
+	var split = HSplitContainer.new()
+	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_child(split)
+
+	var world_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	world_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	world_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	split.add_child(world_panel)
 	world_canvas = Control.new()
 	world_canvas.set_script(WORLD_CANVAS_SCENE)
 	world_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	world_canvas.connect("player_position_changed", _on_world_position_changed)
 	world_canvas.connect("transition_requested", _on_world_transition_requested)
-	panel.add_child(world_canvas)
+	world_canvas.connect("combat_state_changed", _on_world_combat_state_changed)
+	world_canvas.connect("loot_dropped", _on_world_loot_dropped)
+	world_canvas.connect("quest_event", _on_world_quest_event)
+	world_canvas.connect("npc_interacted", _on_world_npc_interacted)
+	world_panel.add_child(world_canvas)
+
+	var side = UI_COMPONENTS.panel_card(Vector2(390, 0), false)
+	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	split.add_child(side)
+	var side_col = VBoxContainer.new()
+	side_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side_col.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	side.add_child(side_col)
+
+	side_col.add_child(_label("Inventory", 18, "text_secondary"))
+	world_inventory_list = ItemList.new()
+	world_inventory_list.custom_minimum_size = Vector2(0, 170)
+	world_inventory_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	world_inventory_list.item_selected.connect(_on_world_inventory_selected)
+	side_col.add_child(world_inventory_list)
+	var inv_row = HBoxContainer.new()
+	inv_row.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	side_col.add_child(inv_row)
+	var use_btn = _button("Use")
+	use_btn.pressed.connect(_on_world_use_item_pressed)
+	inv_row.add_child(use_btn)
+	var equip_btn = _button("Equip")
+	equip_btn.pressed.connect(_on_world_equip_item_pressed)
+	inv_row.add_child(equip_btn)
+	var drop_btn = _button("Drop")
+	drop_btn.pressed.connect(_on_world_drop_item_pressed)
+	inv_row.add_child(drop_btn)
+	world_inventory_status = _label(" ", -1, "text_muted")
+	world_inventory_status.text = " "
+	side_col.add_child(world_inventory_status)
+
+	side_col.add_child(_label("Equipment", 18, "text_secondary"))
+	world_equipment_list = RichTextLabel.new()
+	world_equipment_list.custom_minimum_size = Vector2(0, 120)
+	world_equipment_list.fit_content = false
+	world_equipment_list.bbcode_enabled = false
+	side_col.add_child(world_equipment_list)
+
+	side_col.add_child(_label("Quest Log", 18, "text_secondary"))
+	world_quest_list = RichTextLabel.new()
+	world_quest_list.custom_minimum_size = Vector2(0, 140)
+	world_quest_list.fit_content = false
+	world_quest_list.bbcode_enabled = false
+	side_col.add_child(world_quest_list)
+
+	side_col.add_child(_label("Dialogue", 18, "text_secondary"))
+	world_dialog_text = RichTextLabel.new()
+	world_dialog_text.custom_minimum_size = Vector2(0, 100)
+	world_dialog_text.fit_content = false
+	world_dialog_text.bbcode_enabled = false
+	world_dialog_text.text = "Approach an NPC and press interact."
+	side_col.add_child(world_dialog_text)
+	world_dialog_options = HBoxContainer.new()
+	world_dialog_options.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	side_col.add_child(world_dialog_options)
+
+	side_col.add_child(_label("Release Notes", 18, "text_secondary"))
+	world_release_notes = RichTextLabel.new()
+	world_release_notes.fit_content = false
+	world_release_notes.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	world_release_notes.bbcode_enabled = false
+	side_col.add_child(world_release_notes)
+	_refresh_release_notes_preview()
 
 	world_container = wrap
 	return wrap
@@ -933,6 +1258,7 @@ func _refresh_create_from_config() -> void:
 		button.custom_minimum_size = Vector2(84, 84)
 		button.toggle_mode = true
 		button.button_pressed = int(create_skill_values[skill_key]) > 0
+		button.tooltip_text = str(raw_skill.get("description", "Skill tooltip placeholder."))
 		button.toggled.connect(func(enabled: bool) -> void:
 			_toggle_skill(skill_key, enabled)
 		)
@@ -1025,6 +1351,7 @@ func _on_create_character_pressed() -> void:
 			"experience": 0,
 			"stats": create_stat_values.duplicate(true),
 			"skills": create_skill_values.duplicate(true),
+			"equipment": {},
 		},
 		"world": {
 			"level_id": default_level,
@@ -1032,7 +1359,7 @@ func _on_create_character_pressed() -> void:
 			"world_y": float(world_cfg.get("default_spawn_y", 96.0)),
 		},
 		"inventory": [],
-		"quests": [],
+		"quest_state": {},
 		"dialog_state": {},
 		"playtime_seconds": 0,
 		"created_at": Time.get_datetime_string_from_system(true, true),
@@ -1074,7 +1401,7 @@ func _refresh_load_game_list() -> void:
 			str(slot.get("character_name", "Unknown")),
 			str(slot.get("character_level", 1)),
 			str(slot.get("level_id", "unknown")),
-			str(slot.get("updated_at", "")),
+			_format_playtime(int(slot.get("playtime_seconds", 0))),
 		]
 		load_list.add_item(line)
 		load_list.set_item_metadata(load_list.get_item_count() - 1, int(slot.get("id", -1)))
@@ -1104,7 +1431,7 @@ func _on_load_slot_selected(index: int) -> void:
 		str(world.get("level_id", "unknown")),
 		str(int(world.get("world_x", 0))),
 		str(int(world.get("world_y", 0))),
-		str(payload.get("updated_at", "")),
+		"%s (playtime %s)" % [str(payload.get("updated_at", "")), _format_playtime(int(payload.get("playtime_seconds", 0)))],
 	]
 
 func _on_load_selected_pressed() -> void:
@@ -1124,6 +1451,19 @@ func _on_delete_selected_pressed() -> void:
 	_delete_save_slot(slot_id)
 	load_status_label.text = "Deleted slot %d." % slot_id
 	_refresh_load_game_list()
+
+func _on_restore_selected_pressed() -> void:
+	if load_list == null or load_list.get_selected_items().is_empty():
+		load_status_label.text = "Select a save slot first."
+		return
+	var item = int(load_list.get_selected_items()[0])
+	var slot_id = int(load_list.get_item_metadata(item))
+	var path = _path_join(saves_root_path, "slot_%d.json" % slot_id)
+	if _restore_file_from_latest_backup(path):
+		load_status_label.text = "Restored slot %d from backup." % slot_id
+		_refresh_load_game_list()
+	else:
+		load_status_label.text = "No backup found for slot %d." % slot_id
 
 func _start_game_from_slot(slot_id: int) -> void:
 	var payload = _read_save_slot(slot_id)
@@ -1147,12 +1487,17 @@ func _start_world_from_active_save() -> void:
 	var spawn_x = float(world.get("world_x", float(level.get("spawn_x", 3)) * 32.0))
 	var spawn_y = float(world.get("world_y", float(level.get("spawn_y", 3)) * 32.0))
 	var level_name = str(level.get("display_name", level.get("id", "Open World")))
-	var runtime_cfg = game_config.get("gameplay", {}).get("movement", {})
+	_ensure_active_save_scaffold()
+	var runtime_cfg = _build_world_runtime_config(level)
 	if world_canvas.has_method("configure_runtime"):
 		world_canvas.call("configure_runtime", runtime_cfg)
 	world_canvas.call("configure_world", level_name, width, height, Vector2(spawn_x, spawn_y), level)
 	world_status_label.text = "WASD to move. Level: %s" % level_name
+	_refresh_world_inventory_view()
+	_refresh_world_equipment_view()
+	_refresh_world_quest_view()
 	world_active = true
+	world_playtime_accum = 0.0
 	_show_screen("world")
 
 func _exit_world_to_main_menu() -> void:
@@ -1184,6 +1529,457 @@ func _on_world_transition_requested(transition: Dictionary) -> void:
 	active_save["world"] = world
 	_start_world_from_active_save()
 
+func _on_world_combat_state_changed(state: Dictionary) -> void:
+	if world_health_label != null:
+		world_health_label.text = "HP %d/%d" % [int(round(float(state.get("health", 0.0)))), int(round(float(state.get("max_health", 0.0))))]
+	if world_mana_label != null:
+		world_mana_label.text = "MP %d/%d" % [int(round(float(state.get("mana", 0.0)))), int(round(float(state.get("max_mana", 0.0))))]
+	if world_cooldown_label != null:
+		var cooldowns: Dictionary = state.get("cooldowns", {}) if state.get("cooldowns", {}) is Dictionary else {}
+		world_cooldown_label.text = "CD Atk %.1f | E %.1f | C %.1f | Q %.1f | B %.1f" % [
+			float(cooldowns.get("basic_attack", 0.0)),
+			float(cooldowns.get("ember", 0.0)),
+			float(cooldowns.get("cleave", 0.0)),
+			float(cooldowns.get("quick_strike", 0.0)),
+			float(cooldowns.get("bandage", 0.0)),
+		]
+
+func _on_world_loot_dropped(item: Dictionary) -> void:
+	var item_key = str(item.get("item_key", "")).strip_edges().to_lower()
+	var count = maxi(1, int(item.get("count", 1)))
+	if item_key.is_empty():
+		return
+	_add_item_to_inventory(item_key, count)
+	world_inventory_status.text = "Picked up %s x%d." % [item_key, count]
+	_refresh_world_inventory_view()
+	_save_active_slot(false)
+
+func _on_world_quest_event(event: Dictionary) -> void:
+	if active_save.is_empty():
+		return
+	var event_type = str(event.get("type", ""))
+	if event_type != "enemy_killed":
+		return
+	var enemy_type = str(event.get("enemy_type", "")).strip_edges().to_lower()
+	var quest_state = active_save.get("quest_state", {})
+	if not (quest_state is Dictionary):
+		quest_state = {}
+	for quest_key in quest_state.keys():
+		var state = quest_state.get(quest_key, {})
+		if not (state is Dictionary):
+			continue
+		if str(state.get("status", "")) != "active":
+			continue
+		var target_type = str(state.get("goal_enemy_type", "")).strip_edges().to_lower()
+		if target_type != enemy_type:
+			continue
+		var progress = int(state.get("progress", 0)) + 1
+		var goal_count = maxi(1, int(state.get("goal_count", 1)))
+		state["progress"] = progress
+		if progress >= goal_count:
+			state["status"] = "completed"
+			world_inventory_status.text = "Quest complete: %s" % quest_key
+		quest_state[quest_key] = state
+	active_save["quest_state"] = quest_state
+	_refresh_world_quest_view()
+
+func _on_world_npc_interacted(npc: Dictionary) -> void:
+	world_context_npc = npc
+	var npc_label = str(npc.get("label", npc.get("key", "NPC")))
+	var dialogue_key = str(npc.get("dialogue_key", npc.get("key", ""))).strip_edges()
+	var dialogue_cfg = _dialogue_entry(dialogue_key)
+	var intro = str(dialogue_cfg.get("intro", "Greetings, traveler."))
+	if world_dialog_text != null:
+		world_dialog_text.text = "%s: %s" % [npc_label, intro]
+	_rebuild_dialog_options(npc, dialogue_cfg)
+
+func _build_world_runtime_config(level_payload: Dictionary) -> Dictionary:
+	var gameplay = game_config.get("gameplay", {})
+	var movement = gameplay.get("movement", {}) if gameplay is Dictionary else {}
+	var combat = gameplay.get("combat", {}) if gameplay is Dictionary else {}
+	var enemies = gameplay.get("enemies", {}) if gameplay is Dictionary else {}
+	var npcs = gameplay.get("npcs", []) if gameplay is Dictionary else []
+	if level_payload.has("npcs") and level_payload.get("npcs") is Array:
+		npcs = level_payload.get("npcs")
+	var character = active_save.get("character", {})
+	if not (character is Dictionary):
+		character = {}
+	return {
+		"movement": movement,
+		"combat": combat,
+		"enemies": enemies,
+		"npcs": npcs,
+		"player_level": int(character.get("level", 1)),
+		"player_stats": character.get("stats", {}),
+		"equipment_bonus_stats": _equipment_bonus_stats(),
+		"player": {
+			"base_health": 100.0 + _sum_stat_value("vitality", character.get("stats", {}), _equipment_bonus_stats()) * 8.0,
+			"base_mana": 60.0 + _sum_stat_value("willpower", character.get("stats", {}), _equipment_bonus_stats()) * 6.0,
+			"health_regen": float(movement.get("health_regen", 0.8)),
+			"mana_regen": float(movement.get("mana_regen", 2.1)),
+		},
+		"keybinds": _runtime_keybinds(),
+		"level_payload": level_payload,
+	}
+
+func _runtime_keybinds() -> Dictionary:
+	var map = {}
+	for action_name in _keybind_actions():
+		map[action_name] = int(game_settings.get("keybind_" + action_name, 0))
+	return map
+
+func _sum_stat_value(stat_key: String, base_stats, bonus_stats) -> float:
+	var normalized = stat_key.strip_edges().to_lower()
+	var base = 0.0
+	if base_stats is Dictionary:
+		base = float(base_stats.get(normalized, 0.0))
+	var bonus = 0.0
+	if bonus_stats is Dictionary:
+		bonus = float(bonus_stats.get(normalized, 0.0))
+	return base + bonus
+
+func _ensure_active_save_scaffold() -> void:
+	if active_save.is_empty():
+		return
+	var character = active_save.get("character", {})
+	if not (character is Dictionary):
+		character = {}
+	if not character.has("equipment") or not (character.get("equipment") is Dictionary):
+		character["equipment"] = {}
+	active_save["character"] = character
+	if not active_save.has("inventory") or not (active_save.get("inventory") is Array):
+		active_save["inventory"] = []
+	if not active_save.has("quest_state") or not (active_save.get("quest_state") is Dictionary):
+		active_save["quest_state"] = {}
+	if not active_save.has("dialog_state") or not (active_save.get("dialog_state") is Dictionary):
+		active_save["dialog_state"] = {}
+
+func _refresh_world_inventory_view() -> void:
+	if world_inventory_list == null or active_save.is_empty():
+		return
+	world_inventory_list.clear()
+	var inventory = active_save.get("inventory", [])
+	if not (inventory is Array):
+		inventory = []
+	for i in range(inventory.size()):
+		var entry = inventory[i]
+		if not (entry is Dictionary):
+			continue
+		var key = str(entry.get("item_key", "item"))
+		var count = int(entry.get("count", 1))
+		world_inventory_list.add_item("%s x%d" % [key, count])
+		world_inventory_list.set_item_metadata(world_inventory_list.get_item_count() - 1, i)
+	if world_inventory_list.get_item_count() > 0:
+		world_inventory_list.select(0)
+
+func _refresh_world_equipment_view() -> void:
+	if world_equipment_list == null or active_save.is_empty():
+		return
+	var character = active_save.get("character", {})
+	var equipment = character.get("equipment", {}) if character is Dictionary and character.get("equipment", {}) is Dictionary else {}
+	var slots = _equipment_slots()
+	var lines: Array[String] = []
+	for slot_name in slots:
+		var value = str(equipment.get(slot_name, "-"))
+		lines.append("%s: %s" % [slot_name, value])
+	world_equipment_list.text = "\n".join(lines)
+	_apply_world_equipment_modifiers()
+
+func _refresh_world_quest_view() -> void:
+	if world_quest_list == null:
+		return
+	if active_save.is_empty():
+		world_quest_list.text = "No active save."
+		return
+	var quest_state = active_save.get("quest_state", {})
+	if not (quest_state is Dictionary) or quest_state.is_empty():
+		world_quest_list.text = "No active quests."
+		return
+	var lines: Array[String] = []
+	for quest_key in quest_state.keys():
+		var state = quest_state.get(quest_key, {})
+		if not (state is Dictionary):
+			continue
+		var progress = int(state.get("progress", 0))
+		var goal = int(state.get("goal_count", 1))
+		lines.append("%s | %s | %d/%d" % [quest_key, str(state.get("status", "active")), progress, goal])
+	world_quest_list.text = "\n".join(lines)
+
+func _rebuild_dialog_options(npc: Dictionary, dialogue_cfg: Dictionary) -> void:
+	if world_dialog_options == null:
+		return
+	_clear_children(world_dialog_options)
+	var quest_key = str(npc.get("quest_key", "")).strip_edges()
+	if not quest_key.is_empty():
+		var quest_state = active_save.get("quest_state", {})
+		var has_quest = quest_state is Dictionary and quest_state.has(quest_key)
+		if not has_quest:
+			var accept_btn = _button("Accept Quest")
+			accept_btn.pressed.connect(func() -> void:
+				_accept_quest(quest_key)
+			)
+			world_dialog_options.add_child(accept_btn)
+	var close_btn = _button("Close")
+	close_btn.pressed.connect(func() -> void:
+		world_context_npc = {}
+		if world_dialog_text != null:
+			world_dialog_text.text = "Dialogue closed."
+		_clear_children(world_dialog_options)
+	)
+	world_dialog_options.add_child(close_btn)
+
+func _accept_quest(quest_key: String) -> void:
+	var quest_def = _quest_definition(quest_key)
+	var goal_type = str(quest_def.get("goal_enemy_type", "goblin"))
+	var goal_count = maxi(1, int(quest_def.get("goal_count", 3)))
+	var quest_state = active_save.get("quest_state", {})
+	if not (quest_state is Dictionary):
+		quest_state = {}
+	quest_state[quest_key] = {
+		"status": "active",
+		"goal_enemy_type": goal_type,
+		"goal_count": goal_count,
+		"progress": 0,
+	}
+	active_save["quest_state"] = quest_state
+	if world_dialog_text != null:
+		world_dialog_text.text = "Quest accepted: %s" % quest_key
+	_refresh_world_quest_view()
+
+func _dialogue_entry(dialogue_key: String) -> Dictionary:
+	var gameplay = game_config.get("gameplay", {})
+	var dialogue = gameplay.get("dialogue", {}) if gameplay is Dictionary and gameplay.get("dialogue", {}) is Dictionary else {}
+	if dialogue_key.is_empty():
+		return {}
+	return dialogue.get(dialogue_key, {}) if dialogue.get(dialogue_key, {}) is Dictionary else {}
+
+func _quest_definition(quest_key: String) -> Dictionary:
+	var gameplay = game_config.get("gameplay", {})
+	var quests = gameplay.get("quests", []) if gameplay is Dictionary and gameplay.get("quests", []) is Array else []
+	for raw in quests:
+		if not (raw is Dictionary):
+			continue
+		if str(raw.get("key", "")) == quest_key:
+			return raw
+	return {}
+
+func _equipment_slots() -> Array:
+	return [
+		"head",
+		"chest",
+		"pants",
+		"hands",
+		"feet",
+		"belt",
+		"weapon_main",
+		"weapon_off",
+	]
+
+func _equipment_bonus_stats() -> Dictionary:
+	var result: Dictionary = {}
+	if active_save.is_empty():
+		return result
+	var character = active_save.get("character", {})
+	if not (character is Dictionary):
+		return result
+	var equipped = character.get("equipment", {})
+	if not (equipped is Dictionary):
+		return result
+	for slot_name in equipped.keys():
+		var item_key = str(equipped.get(slot_name, ""))
+		var item = _find_item_definition(item_key)
+		if item.is_empty():
+			continue
+		var stats = item.get("stat_bonus", {})
+		if not (stats is Dictionary):
+			continue
+		for stat_key in stats.keys():
+			result[stat_key] = float(result.get(stat_key, 0.0)) + float(stats.get(stat_key, 0.0))
+	return result
+
+func _find_item_definition(item_key: String) -> Dictionary:
+	if item_key.is_empty():
+		return {}
+	var gameplay = game_config.get("gameplay", {})
+	var items = gameplay.get("items", []) if gameplay is Dictionary and gameplay.get("items", []) is Array else []
+	for raw in items:
+		if not (raw is Dictionary):
+			continue
+		if str(raw.get("key", "")) == item_key:
+			return raw
+	return {}
+
+func _add_item_to_inventory(item_key: String, count: int) -> void:
+	if active_save.is_empty():
+		return
+	var inventory = active_save.get("inventory", [])
+	if not (inventory is Array):
+		inventory = []
+	var item_def = _find_item_definition(item_key)
+	var stackable = bool(item_def.get("stackable", true))
+	if stackable:
+		for i in range(inventory.size()):
+			var row = inventory[i]
+			if not (row is Dictionary):
+				continue
+			if str(row.get("item_key", "")) == item_key:
+				row["count"] = int(row.get("count", 0)) + count
+				inventory[i] = row
+				active_save["inventory"] = inventory
+				return
+	inventory.append({"item_key": item_key, "count": count})
+	active_save["inventory"] = inventory
+
+func _on_world_inventory_selected(_index: int) -> void:
+	if world_inventory_status != null:
+		world_inventory_status.text = "Selected item ready."
+
+func _selected_inventory_entry() -> Dictionary:
+	if world_inventory_list == null:
+		return {}
+	var selected = world_inventory_list.get_selected_items()
+	if selected.is_empty():
+		return {}
+	var list_index = int(selected[0])
+	var inventory = active_save.get("inventory", [])
+	if not (inventory is Array):
+		return {}
+	if list_index < 0 or list_index >= inventory.size():
+		return {}
+	var entry = inventory[list_index]
+	return entry if entry is Dictionary else {}
+
+func _on_world_use_item_pressed() -> void:
+	var entry = _selected_inventory_entry()
+	if entry.is_empty():
+		world_inventory_status.text = "Select an inventory item first."
+		return
+	var item_key = str(entry.get("item_key", ""))
+	var item_def = _find_item_definition(item_key)
+	var use_effect = item_def.get("use_effect", {}) if item_def.get("use_effect", {}) is Dictionary else {}
+	var heal = float(use_effect.get("heal", 0.0))
+	var mana = float(use_effect.get("mana", 0.0))
+	var used = false
+	if heal > 0.0 and world_canvas != null and world_canvas.has_method("apply_player_heal"):
+		world_canvas.call("apply_player_heal", heal)
+		world_inventory_status.text = "Used %s (heal %.0f)." % [item_key, heal]
+		used = true
+	if mana > 0.0 and world_canvas != null and world_canvas.has_method("apply_player_mana"):
+		world_canvas.call("apply_player_mana", mana)
+		world_inventory_status.text = "Used %s (mana %.0f)." % [item_key, mana]
+		used = true
+	if used:
+		_consume_selected_inventory_item(1)
+	else:
+		world_inventory_status.text = "Item is not usable."
+	_refresh_world_inventory_view()
+
+func _on_world_equip_item_pressed() -> void:
+	var entry = _selected_inventory_entry()
+	if entry.is_empty():
+		world_inventory_status.text = "Select an inventory item first."
+		return
+	var item_key = str(entry.get("item_key", ""))
+	var item_def = _find_item_definition(item_key)
+	if item_def.is_empty():
+		world_inventory_status.text = "Item definition missing."
+		return
+	var slot = str(item_def.get("slot", "")).strip_edges().to_lower()
+	if slot.is_empty():
+		world_inventory_status.text = "Item cannot be equipped."
+		return
+	var character = active_save.get("character", {})
+	if not (character is Dictionary):
+		character = {}
+	var equipment = character.get("equipment", {})
+	if not (equipment is Dictionary):
+		equipment = {}
+	var replaced = str(equipment.get(slot, ""))
+	equipment[slot] = item_key
+	if bool(item_def.get("two_handed", false)):
+		equipment["weapon_off"] = ""
+	if slot == "weapon_off":
+		var main_item = _find_item_definition(str(equipment.get("weapon_main", "")))
+		if bool(main_item.get("two_handed", false)):
+			equipment["weapon_main"] = ""
+	character["equipment"] = equipment
+	active_save["character"] = character
+	_consume_selected_inventory_item(1)
+	if not replaced.is_empty():
+		_add_item_to_inventory(replaced, 1)
+	world_inventory_status.text = "Equipped %s to %s." % [item_key, slot]
+	_refresh_world_inventory_view()
+	_refresh_world_equipment_view()
+	_save_active_slot(false)
+
+func _on_world_drop_item_pressed() -> void:
+	var entry = _selected_inventory_entry()
+	if entry.is_empty():
+		world_inventory_status.text = "Select an inventory item first."
+		return
+	_consume_selected_inventory_item(1)
+	world_inventory_status.text = "Dropped one item."
+	_refresh_world_inventory_view()
+	_save_active_slot(false)
+
+func _consume_selected_inventory_item(amount: int) -> void:
+	if world_inventory_list == null:
+		return
+	var selected = world_inventory_list.get_selected_items()
+	if selected.is_empty():
+		return
+	var list_index = int(selected[0])
+	var inventory = active_save.get("inventory", [])
+	if not (inventory is Array):
+		return
+	if list_index < 0 or list_index >= inventory.size():
+		return
+	var row = inventory[list_index]
+	if not (row is Dictionary):
+		return
+	var count = int(row.get("count", 1)) - amount
+	if count <= 0:
+		inventory.remove_at(list_index)
+	else:
+		row["count"] = count
+		inventory[list_index] = row
+	active_save["inventory"] = inventory
+
+func _apply_world_equipment_modifiers() -> void:
+	if world_canvas != null and world_canvas.has_method("apply_equipment_modifiers"):
+		world_canvas.call("apply_equipment_modifiers", _equipment_bonus_stats())
+
+func _refresh_release_notes_preview() -> void:
+	var lines: Array[String] = []
+	var notes_path = _path_join(install_root_path, "patch_notes.md")
+	if FileAccess.file_exists(notes_path):
+		var file = FileAccess.open(notes_path, FileAccess.READ)
+		if file != null:
+			var content = file.get_as_text()
+			file.close()
+			for line in content.split("\n"):
+				var cleaned = line.strip_edges()
+				if not cleaned.is_empty():
+					lines.append(cleaned)
+	if lines.is_empty():
+		lines.append("No release notes available for this build.")
+	var rendered = "\n".join(lines.slice(0, mini(lines.size(), 20)))
+	if main_menu_notes_text != null:
+		main_menu_notes_text.text = rendered
+	if world_release_notes != null:
+		world_release_notes.text = rendered
+
+func _active_level_payload() -> Dictionary:
+	if active_save.is_empty():
+		return {}
+	var world = active_save.get("world", {})
+	if not (world is Dictionary):
+		return {}
+	var level_id = str(world.get("level_id", ""))
+	if level_id.is_empty():
+		return {}
+	return _load_level(level_id)
+
 func _save_active_slot(show_status: bool) -> void:
 	if active_slot_id < 0 or active_save.is_empty():
 		return
@@ -1209,17 +2005,30 @@ func _apply_settings() -> void:
 		game_settings["autosave_interval"] = int(round(settings_autosave_interval.value))
 	if settings_reduced_motion != null:
 		game_settings["reduced_motion"] = settings_reduced_motion.button_pressed
+	if settings_text_scale != null:
+		game_settings["ui_scale"] = float(settings_text_scale.value)
+	if settings_high_contrast != null:
+		game_settings["high_contrast"] = settings_high_contrast.button_pressed
+	if settings_gamepad_enabled != null:
+		game_settings["gamepad_enabled"] = settings_gamepad_enabled.button_pressed
+	if settings_gamepad_deadzone != null:
+		game_settings["gamepad_deadzone"] = float(settings_gamepad_deadzone.value)
 	if settings_difficulty_option != null and settings_difficulty_option.selected >= 0:
 		game_settings["difficulty"] = settings_difficulty_option.get_item_text(settings_difficulty_option.selected)
 
 	_write_preferences(game_settings)
 	_apply_window_mode_from_settings()
+	_apply_ui_scale_from_settings()
+	_apply_theme_contrast_from_settings()
 	if create_preview_widget != null:
 		create_preview_widget.call("set_reduced_motion", bool(game_settings.get("reduced_motion", false)))
+	if world_canvas != null and world_canvas.has_method("configure_runtime"):
+		world_canvas.call("configure_runtime", _build_world_runtime_config(_active_level_payload()))
 	settings_status_label.text = "Settings applied."
 
 func _load_settings() -> void:
 	game_settings = _read_preferences()
+	_set_default_keybinds_if_missing()
 	if settings_screen_mode != null:
 		settings_screen_mode.selected = 1 if str(game_settings.get("screen_mode", "borderless_fullscreen")).to_lower() == "windowed" else 0
 	if settings_audio_mute != null:
@@ -1232,13 +2041,26 @@ func _load_settings() -> void:
 	if settings_reduced_motion != null:
 		settings_reduced_motion.button_pressed = bool(game_settings.get("reduced_motion", false))
 		settings_reduced_motion.text = "Reduced Motion: ON" if settings_reduced_motion.button_pressed else "Reduced Motion: OFF"
+	if settings_text_scale != null:
+		settings_text_scale.value = float(game_settings.get("ui_scale", 1.0))
+	if settings_high_contrast != null:
+		settings_high_contrast.button_pressed = bool(game_settings.get("high_contrast", false))
+		settings_high_contrast.text = "High Contrast: ON" if settings_high_contrast.button_pressed else "High Contrast: OFF"
+	if settings_gamepad_enabled != null:
+		settings_gamepad_enabled.button_pressed = bool(game_settings.get("gamepad_enabled", false))
+		settings_gamepad_enabled.text = "Gamepad: ON" if settings_gamepad_enabled.button_pressed else "Gamepad: OFF"
+	if settings_gamepad_deadzone != null:
+		settings_gamepad_deadzone.value = float(game_settings.get("gamepad_deadzone", 0.20))
 	if settings_difficulty_option != null:
 		var difficulty = str(game_settings.get("difficulty", "Normal"))
 		for i in range(settings_difficulty_option.get_item_count()):
 			if settings_difficulty_option.get_item_text(i) == difficulty:
 				settings_difficulty_option.selected = i
 				break
+	_refresh_keybind_buttons()
 	_apply_window_mode_from_settings()
+	_apply_ui_scale_from_settings()
+	_apply_theme_contrast_from_settings()
 
 func _apply_window_mode_from_settings() -> void:
 	var mode = str(game_settings.get("screen_mode", "borderless_fullscreen")).to_lower()
@@ -1248,6 +2070,88 @@ func _apply_window_mode_from_settings() -> void:
 	else:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+
+func _apply_ui_scale_from_settings() -> void:
+	var window = get_window()
+	if window != null:
+		window.content_scale_factor = clampf(float(game_settings.get("ui_scale", 1.0)), 0.85, 1.35)
+
+func _apply_theme_contrast_from_settings() -> void:
+	var high_contrast = bool(game_settings.get("high_contrast", false))
+	if ui_theme == null:
+		return
+	var button_color = UI_TOKENS.color("text_primary") if not high_contrast else Color(1.0, 1.0, 1.0)
+	ui_theme.set_color("font_color", "Button", button_color)
+	ui_theme.set_color("font_hover_color", "Button", button_color)
+	ui_theme.set_color("font_pressed_color", "Button", button_color)
+	ui_theme.set_color("font_color", "Label", button_color)
+	ui_theme.set_color("font_color", "RichTextLabel", button_color)
+
+func _keybind_actions() -> Array:
+	return [
+		"move_up",
+		"move_down",
+		"move_left",
+		"move_right",
+		"basic_attack",
+		"ability_1",
+		"ability_2",
+		"ability_3",
+		"ability_4",
+		"interact",
+		"pickup",
+	]
+
+func _set_default_keybinds_if_missing() -> void:
+	var defaults = {
+		"move_up": KEY_W,
+		"move_down": KEY_S,
+		"move_left": KEY_A,
+		"move_right": KEY_D,
+		"basic_attack": KEY_SPACE,
+		"ability_1": KEY_1,
+		"ability_2": KEY_2,
+		"ability_3": KEY_3,
+		"ability_4": KEY_4,
+		"interact": KEY_E,
+		"pickup": KEY_F,
+	}
+	for action_key in defaults.keys():
+		var pref_key = "keybind_" + str(action_key)
+		if not game_settings.has(pref_key):
+			game_settings[pref_key] = int(defaults[action_key])
+
+func _build_keybind_rows(parent: VBoxContainer) -> void:
+	settings_keybind_buttons.clear()
+	for action_name in _keybind_actions():
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+		parent.add_child(row)
+		var label = _label(action_name.replace("_", " ").capitalize(), -1, "text_secondary")
+		label.custom_minimum_size = Vector2(120, 0)
+		row.add_child(label)
+		var button = _button("Set")
+		button.custom_minimum_size = Vector2(110, 30)
+		var action_copy = str(action_name)
+		var button_ref: Button = button
+		button.pressed.connect(func() -> void:
+			settings_capturing_keybind_action = action_copy
+			button_ref.text = "Press key..."
+			settings_status_label.text = "Press a key for " + action_copy
+		)
+		row.add_child(button)
+		settings_keybind_buttons[action_name] = button
+
+func _refresh_keybind_buttons() -> void:
+	for action_name in settings_keybind_buttons.keys():
+		var button = settings_keybind_buttons.get(action_name)
+		if not (button is Button):
+			continue
+		var keycode = int(game_settings.get("keybind_" + str(action_name), 0))
+		button.text = OS.get_keycode_string(keycode) if keycode > 0 else "Unbound"
+
+func _set_keybind(action_name: String, keycode: int) -> void:
+	game_settings["keybind_" + action_name] = keycode
 
 func _on_update_pressed() -> void:
 	var feed_url = str(game_config.get("update", {}).get("feed_url", "")).strip_edges()
@@ -1294,12 +2198,14 @@ func _refresh_admin_level_list() -> void:
 	if files.is_empty():
 		admin_level_option.add_item("No levels")
 		admin_level_option.selected = 0
+		_refresh_admin_level_asset_options()
 		_admin_new_level()
 		return
 	for file_name in files:
 		admin_level_option.add_item(file_name)
 	admin_level_option.selected = 0
 	UI_COMPONENTS.sanitize_option_popup(admin_level_option)
+	_refresh_admin_level_asset_options()
 	_admin_load_selected_level()
 
 func _admin_new_level() -> void:
@@ -1312,6 +2218,9 @@ func _admin_new_level() -> void:
 	admin_level_layers_input.text = JSON.stringify({"0": [], "1": [], "2": []}, "\t")
 	admin_level_objects_input.text = JSON.stringify([], "\t")
 	admin_level_transitions_input.text = JSON.stringify([], "\t")
+	if admin_level_canvas != null:
+		admin_level_canvas.call("configure_level", 80, 48, {"0": [], "1": [], "2": []})
+		_admin_apply_level_canvas_overlays()
 	admin_status_label.text = "New level draft created."
 
 func _admin_load_selected_level() -> void:
@@ -1335,6 +2244,9 @@ func _admin_load_selected_level() -> void:
 	admin_level_layers_input.text = JSON.stringify(level.get("layers", {"0": [], "1": [], "2": []}), "\t")
 	admin_level_objects_input.text = JSON.stringify(level.get("objects", []), "\t")
 	admin_level_transitions_input.text = JSON.stringify(level.get("transitions", []), "\t")
+	if admin_level_canvas != null:
+		admin_level_canvas.call("configure_level", int(level.get("width", 80)), int(level.get("height", 48)), level.get("layers", {"0": [], "1": [], "2": []}))
+		_admin_apply_level_canvas_overlays()
 	admin_status_label.text = "Loaded level " + level_id
 
 func _admin_save_level() -> void:
@@ -1343,6 +2255,9 @@ func _admin_save_level() -> void:
 		admin_status_label.text = "Level ID is required."
 		return
 	var layers = JSON.parse_string(admin_level_layers_input.text)
+	if admin_level_canvas != null:
+		layers = admin_level_canvas.call("get_layers_data")
+		admin_level_layers_input.text = JSON.stringify(layers, "\t")
 	if not (layers is Dictionary):
 		admin_status_label.text = "Layers JSON must be an object."
 		return
@@ -1407,23 +2322,68 @@ func _admin_set_default_level() -> void:
 	admin_status_label.text = "Default level set to " + level_id
 	_refresh_admin_config_text()
 
+func _refresh_admin_level_asset_options() -> void:
+	if admin_level_asset_option == null:
+		return
+	admin_level_asset_option.clear()
+	for entry in _assets_catalog():
+		if not (entry is Dictionary):
+			continue
+		admin_level_asset_option.add_item(str(entry.get("key", "asset")))
+	if admin_level_asset_option.get_item_count() <= 0:
+		admin_level_asset_option.add_item("wall_block")
+	admin_level_asset_option.selected = 0
+	UI_COMPONENTS.sanitize_option_popup(admin_level_asset_option)
+	if admin_level_canvas != null:
+		admin_level_canvas.call("set_brush_asset", admin_level_asset_option.get_item_text(0))
+
+func _admin_apply_level_canvas_overlays() -> void:
+	if admin_level_canvas == null:
+		return
+	admin_level_canvas.call(
+		"set_overlays",
+		admin_level_show_grid == null or admin_level_show_grid.button_pressed,
+		admin_level_show_collision == null or admin_level_show_collision.button_pressed
+	)
+
+func _admin_toggle_level_advanced(visible: bool) -> void:
+	if admin_level_layers_input != null and admin_level_layers_input.has_meta("advanced_row"):
+		var row = admin_level_layers_input.get_meta("advanced_row")
+		if row is Control:
+			row.visible = visible
+
+func _on_admin_level_canvas_layers_changed(layers: Dictionary) -> void:
+	if admin_level_layers_input != null:
+		admin_level_layers_input.text = JSON.stringify(layers, "\t")
+
+func _on_admin_level_canvas_status_changed(message: String) -> void:
+	if admin_status_label != null:
+		admin_status_label.text = message
+
 func _refresh_admin_asset_list() -> void:
 	if admin_asset_list == null:
 		return
 	admin_asset_list.clear()
+	var filter = ""
+	if admin_asset_search != null:
+		filter = admin_asset_search.text.strip_edges().to_lower()
 	var catalog = _assets_catalog()
-	for entry in catalog:
+	for index in range(catalog.size()):
+		var entry = catalog[index]
 		if not (entry is Dictionary):
 			continue
 		var key = str(entry.get("key", "asset"))
 		var label = str(entry.get("label", key))
+		var line = ("%s | %s" % [key, label]).to_lower()
+		if not filter.is_empty() and not line.contains(filter):
+			continue
 		admin_asset_list.add_item("%s | %s" % [key, label])
-		admin_asset_list.set_item_metadata(admin_asset_list.get_item_count() - 1, key)
+		admin_asset_list.set_item_metadata(admin_asset_list.get_item_count() - 1, index)
 	if admin_asset_list.get_item_count() > 0:
 		admin_asset_list.select(0)
 		_on_admin_asset_selected(0)
 	else:
-		admin_asset_payload.text = "{}"
+		_clear_admin_asset_form()
 		admin_asset_status.text = "No asset entries in config."
 
 func _assets_catalog() -> Array:
@@ -1447,12 +2407,47 @@ func _asset_templates_map() -> Dictionary:
 	return templates
 
 func _on_admin_asset_selected(index: int) -> void:
-	admin_asset_selected_index = index
-	var catalog = _assets_catalog()
-	if index < 0 or index >= catalog.size():
-		admin_asset_payload.text = "{}"
+	admin_asset_selected_index = -1
+	if admin_asset_list == null:
 		return
-	admin_asset_payload.text = JSON.stringify(catalog[index], "\t")
+	if index < 0 or index >= admin_asset_list.get_item_count():
+		_clear_admin_asset_form()
+		return
+	var catalog_index = int(admin_asset_list.get_item_metadata(index))
+	admin_asset_selected_index = catalog_index
+	var catalog = _assets_catalog()
+	if catalog_index < 0 or catalog_index >= catalog.size():
+		_clear_admin_asset_form()
+		return
+	var entry = catalog[catalog_index]
+	if not (entry is Dictionary):
+		_clear_admin_asset_form()
+		return
+	admin_asset_key_input.text = str(entry.get("key", ""))
+	admin_asset_label_input.text = str(entry.get("label", ""))
+	_select_option_by_text(admin_asset_layer_option, str(entry.get("default_layer", 1)))
+	admin_asset_collidable_toggle.button_pressed = bool(entry.get("collidable", false))
+	admin_asset_collidable_toggle.text = "Collidable: ON" if admin_asset_collidable_toggle.button_pressed else "Collidable: OFF"
+	admin_asset_description_input.text = str(entry.get("description", ""))
+	var collision = entry.get("collision_template", {}) if entry.get("collision_template", {}) is Dictionary else {}
+	_select_option_by_text(admin_asset_collision_shape_option, str(collision.get("shape", "none")))
+	admin_asset_collision_width_input.text = str(collision.get("width", 1.0))
+	admin_asset_collision_height_input.text = str(collision.get("height", 1.0))
+	admin_asset_collision_offset_y_input.text = str(collision.get("offset_y", 0.0))
+
+func _clear_admin_asset_form() -> void:
+	if admin_asset_key_input != null:
+		admin_asset_key_input.text = ""
+	if admin_asset_label_input != null:
+		admin_asset_label_input.text = ""
+	if admin_asset_description_input != null:
+		admin_asset_description_input.text = ""
+	if admin_asset_collision_width_input != null:
+		admin_asset_collision_width_input.text = "1.0"
+	if admin_asset_collision_height_input != null:
+		admin_asset_collision_height_input.text = "1.0"
+	if admin_asset_collision_offset_y_input != null:
+		admin_asset_collision_offset_y_input.text = "0.0"
 
 func _admin_add_asset_entry() -> void:
 	var assets = game_config.get("assets", {})
@@ -1483,10 +2478,24 @@ func _admin_save_asset_entry() -> void:
 	if admin_asset_selected_index < 0:
 		admin_asset_status.text = "Select an asset first."
 		return
-	var parsed = JSON.parse_string(admin_asset_payload.text)
-	if not (parsed is Dictionary):
-		admin_asset_status.text = "Asset payload must be valid JSON object."
+	var key = admin_asset_key_input.text.strip_edges().to_lower()
+	if key.is_empty():
+		admin_asset_status.text = "Asset key is required."
 		return
+	var parsed = {
+		"key": key,
+		"label": admin_asset_label_input.text.strip_edges(),
+		"default_layer": int(admin_asset_layer_option.get_item_text(admin_asset_layer_option.selected).to_int()),
+		"collidable": bool(admin_asset_collidable_toggle.button_pressed),
+		"description": admin_asset_description_input.text.strip_edges(),
+		"collision_template": {
+			"shape": admin_asset_collision_shape_option.get_item_text(admin_asset_collision_shape_option.selected).to_lower(),
+			"layers": ["ground"],
+			"width": float(admin_asset_collision_width_input.text.to_float()),
+			"height": float(admin_asset_collision_height_input.text.to_float()),
+			"offset_y": float(admin_asset_collision_offset_y_input.text.to_float()),
+		},
+	}
 	var assets = game_config.get("assets", {})
 	if not (assets is Dictionary):
 		assets = {}
@@ -1496,11 +2505,19 @@ func _admin_save_asset_entry() -> void:
 	if admin_asset_selected_index < 0 or admin_asset_selected_index >= catalog.size():
 		admin_asset_status.text = "Selected asset index is out of range."
 		return
+	for idx in range(catalog.size()):
+		if idx == admin_asset_selected_index:
+			continue
+		var existing = catalog[idx]
+		if existing is Dictionary and str(existing.get("key", "")).to_lower() == key:
+			admin_asset_status.text = "Asset key must be unique."
+			return
 	catalog[admin_asset_selected_index] = parsed
 	assets["catalog"] = catalog
 	game_config["assets"] = assets
 	_save_game_config(game_config)
 	_refresh_admin_asset_list()
+	_refresh_admin_level_asset_options()
 	admin_asset_status.text = "Asset saved."
 
 func _refresh_admin_config_text() -> void:
@@ -1521,6 +2538,8 @@ func _admin_save_config_text() -> void:
 	admin_config_status.text = "Config saved."
 	_refresh_create_from_config()
 	_refresh_admin_asset_list()
+	_refresh_admin_level_asset_options()
+	_refresh_release_notes_preview()
 
 func _refresh_admin_diagnostics() -> void:
 	if admin_diag_text == null:
@@ -1532,7 +2551,10 @@ func _refresh_admin_diagnostics() -> void:
 		if file != null:
 			text = file.get_as_text()
 			file.close()
-	admin_diag_text.text = text if not text.is_empty() else "No log entries yet."
+	var extra = ""
+	if not recovered_backup_files.is_empty():
+		extra += "\nRecovered from backup files:\n- " + "\n- ".join(recovered_backup_files)
+	admin_diag_text.text = (text if not text.is_empty() else "No log entries yet.") + extra
 
 func _show_admin_paths() -> void:
 	if admin_diag_text == null:
@@ -1563,7 +2585,41 @@ func _validate_config(config: Dictionary) -> Array:
 			errors.append("character_creation.point_budget must be > 0")
 	else:
 		errors.append("character_creation must be an object")
+	var schema_errors = _validate_with_schema(config)
+	for issue in schema_errors:
+		errors.append(issue)
 	return errors
+
+func _validate_with_schema(config: Dictionary) -> Array:
+	var issues: Array = []
+	var schema_path = "res://assets/config/schema/game_config.schema.json"
+	var schema = _read_json_file(schema_path)
+	if not (schema is Dictionary):
+		return issues
+	var required = schema.get("required", [])
+	if required is Array:
+		for key in required:
+			if not config.has(key):
+				issues.append("schema.required missing: %s" % str(key))
+	var properties = schema.get("properties", {})
+	if properties is Dictionary:
+		for key in properties.keys():
+			if not config.has(key):
+				continue
+			var property_rule = properties.get(key, {})
+			if not (property_rule is Dictionary):
+				continue
+			var expected_type = str(property_rule.get("type", ""))
+			var value = config.get(key)
+			if expected_type == "object" and not (value is Dictionary):
+				issues.append("%s must be object" % str(key))
+			elif expected_type == "array" and not (value is Array):
+				issues.append("%s must be array" % str(key))
+			elif expected_type == "number" and not (value is float or value is int):
+				issues.append("%s must be number" % str(key))
+			elif expected_type == "string" and not (value is String):
+				issues.append("%s must be string" % str(key))
+	return issues
 
 func _new_ephemeral_save_payload() -> Dictionary:
 	return {
@@ -1578,6 +2634,7 @@ func _new_ephemeral_save_payload() -> Dictionary:
 			"experience": 0,
 			"stats": {},
 			"skills": {},
+			"equipment": {},
 		},
 		"world": {
 			"level_id": str(game_config.get("world", {}).get("default_level_id", "open_world_01")),
@@ -1585,7 +2642,7 @@ func _new_ephemeral_save_payload() -> Dictionary:
 			"world_y": int(game_config.get("world", {}).get("default_spawn_y", 96)),
 		},
 		"inventory": [],
-		"quests": [],
+		"quest_state": {},
 		"dialog_state": {},
 		"playtime_seconds": 0,
 		"created_at": Time.get_datetime_string_from_system(true, true),
@@ -1646,6 +2703,7 @@ func _save_summary(slot_id: int, payload: Dictionary) -> Dictionary:
 		"character_name": str(character.get("name", "Unknown")),
 		"character_level": int(character.get("level", 1)),
 		"level_id": str(world.get("level_id", "unknown")),
+		"playtime_seconds": int(payload.get("playtime_seconds", 0)),
 		"updated_at": str(payload.get("updated_at", Time.get_datetime_string_from_system(true, true))),
 	}
 
@@ -1723,7 +2781,19 @@ func _ensure_default_config_exists() -> void:
 			"meta": {"revision": 1},
 			"update": {"feed_url": ""},
 			"character_creation": {"point_budget": 10, "sex_options": ["Male", "Female"], "race_options": ["Human"], "background_options": ["Drifter"], "affiliation_options": ["Unaffiliated"], "stats": [], "skills": []},
-			"gameplay": {"movement": {"player_speed_tiles": 4.6, "player_radius": 14.0}},
+			"gameplay": {
+				"movement": {"player_speed_tiles": 4.6, "player_radius": 14.0, "health_regen": 0.8, "mana_regen": 2.1},
+				"combat": {
+					"resource_pool": "mana",
+					"basic_attack": {"damage": 8, "range": 1.3, "cooldown": 0.45},
+					"abilities": []
+				},
+				"enemies": {"catalog": [], "spawn": []},
+				"items": [],
+				"quests": [],
+				"dialogue": {},
+				"npcs": [],
+			},
 			"assets": {"catalog": []},
 			"world": {"default_level_id": "open_world_01", "default_spawn_x": 96, "default_spawn_y": 96},
 		}
@@ -1792,18 +2862,21 @@ func _resolve_character_texture_directional(appearance_key: String, direction: S
 func _load_texture(path: String):
 	if path.is_empty():
 		return null
-	var image = Image.new()
 	if path.begins_with("res://"):
-		if not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
+		if not ResourceLoader.exists(path):
 			return null
-		if image.load(path) == OK:
-			return ImageTexture.create_from_image(image)
 		var resource = load(path)
 		if resource is Texture2D:
 			return resource
+		if not FileAccess.file_exists(path):
+			return null
+		var image_res = Image.new()
+		if image_res.load(path) == OK:
+			return ImageTexture.create_from_image(image_res)
 		return null
 	if not FileAccess.file_exists(path):
 		return null
+	var image = Image.new()
 	if image.load(path) != OK:
 		return null
 	return ImageTexture.create_from_image(image)
@@ -1926,7 +2999,24 @@ func _read_json_file(path: String):
 		return null
 	var text = file.get_as_text()
 	file.close()
-	return JSON.parse_string(text)
+	var parsed = JSON.parse_string(text)
+	if parsed != null:
+		return parsed
+	var backup_path = _latest_backup_for(path)
+	if backup_path.is_empty():
+		return null
+	var backup_file = FileAccess.open(backup_path, FileAccess.READ)
+	if backup_file == null:
+		return null
+	var backup_text = backup_file.get_as_text()
+	backup_file.close()
+	var backup_parsed = JSON.parse_string(backup_text)
+	if backup_parsed != null:
+		_write_plain_text_file(path, backup_text)
+		recovered_backup_files.append(path)
+		_append_log("Recovered JSON from backup for %s" % path)
+		return backup_parsed
+	return null
 
 func _write_json_file(path: String, payload) -> bool:
 	if path.is_empty():
@@ -1934,12 +3024,74 @@ func _write_json_file(path: String, payload) -> bool:
 	var parent = path.get_base_dir()
 	if not parent.is_empty():
 		DirAccess.make_dir_recursive_absolute(parent)
-	var file = FileAccess.open(path, FileAccess.WRITE)
+	if FileAccess.file_exists(path):
+		var backup_path = _backup_path_for(path)
+		DirAccess.copy_absolute(path, backup_path)
+	var tmp_path = path + ".tmp"
+	var file = FileAccess.open(tmp_path, FileAccess.WRITE)
 	if file == null:
 		return false
 	file.store_string(JSON.stringify(payload, "\t"))
 	file.close()
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	var rename_ok = DirAccess.rename_absolute(tmp_path, path)
+	if rename_ok != OK:
+		_append_log("Atomic rename failed for %s (err=%d)" % [path, rename_ok])
+		return false
 	return true
+
+func _write_plain_text_file(path: String, text: String) -> bool:
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(text)
+	file.close()
+	return true
+
+func _backup_path_for(path: String) -> String:
+	var stamp = str(Time.get_unix_time_from_system())
+	return "%s.bak.%s" % [path, stamp]
+
+func _latest_backup_for(path: String) -> String:
+	var parent = path.get_base_dir()
+	var file_name = path.get_file()
+	var prefix = file_name + ".bak."
+	var dir = DirAccess.open(parent)
+	if dir == null:
+		return ""
+	var latest_name = ""
+	var latest_stamp = -1
+	dir.list_dir_begin()
+	while true:
+		var candidate = dir.get_next()
+		if candidate.is_empty():
+			break
+		if dir.current_is_dir():
+			continue
+		if not candidate.begins_with(prefix):
+			continue
+		var stamp_text = candidate.trim_prefix(prefix)
+		var stamp = int(stamp_text.to_int())
+		if stamp > latest_stamp:
+			latest_stamp = stamp
+			latest_name = candidate
+	dir.list_dir_end()
+	if latest_name.is_empty():
+		return ""
+	return _path_join(parent, latest_name)
+
+func _restore_file_from_latest_backup(path: String) -> bool:
+	var backup = _latest_backup_for(path)
+	if backup.is_empty():
+		return false
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	var copied = DirAccess.copy_absolute(backup, path)
+	if copied == OK:
+		_append_log("Restored file from backup: " + path)
+		return true
+	return false
 
 func _path_join(a: String, b: String) -> String:
 	if a.is_empty():
@@ -1948,14 +3100,21 @@ func _path_join(a: String, b: String) -> String:
 		return a + b
 	return a + "/" + b
 
+func _format_playtime(seconds: int) -> String:
+	var total = maxi(0, seconds)
+	var h = total / 3600
+	var m = (total % 3600) / 60
+	var s = total % 60
+	return "%02d:%02d:%02d" % [h, m, s]
+
 func _label(text_value: String, font_size: int = -1, color_name: String = "text_primary") -> Label:
 	return UI_COMPONENTS.label(text_value, font_size, color_name)
 
 func _button(text_value: String) -> Button:
 	return UI_COMPONENTS.button_secondary(text_value)
 
-func _option(items: Array) -> OptionButton:
-	return UI_COMPONENTS.option(items)
+func _option(items: Array, min_size: Vector2 = Vector2(0, 0)) -> OptionButton:
+	return UI_COMPONENTS.option(items, min_size)
 
 func _line_edit(placeholder: String, secret: bool = false) -> LineEdit:
 	return UI_COMPONENTS.line_edit(placeholder, secret)
@@ -1974,3 +3133,11 @@ func _clear_children(node: Node) -> void:
 	for child in node.get_children():
 		node.remove_child(child)
 		child.queue_free()
+
+func _select_option_by_text(option: OptionButton, target_text: String) -> void:
+	if option == null:
+		return
+	for i in range(option.get_item_count()):
+		if option.get_item_text(i).to_lower() == target_text.to_lower():
+			option.selected = i
+			return
