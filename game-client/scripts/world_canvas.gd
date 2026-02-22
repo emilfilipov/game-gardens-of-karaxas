@@ -1,6 +1,7 @@
 extends Control
 
 signal player_position_changed(position: Vector2)
+signal transition_requested(transition: Dictionary)
 
 const ISO = preload("res://scripts/iso_projection.gd")
 const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
@@ -21,12 +22,31 @@ var prop_tiles: Array[Dictionary] = []
 var foreground_tiles: Array[Dictionary] = []
 var blocked_tiles: Dictionary = {}
 var show_sort_diagnostics: bool = false
+var asset_templates: Dictionary = {}
+var transitions: Array[Dictionary] = []
+var player_collision_layer: String = "ground"
+var _transition_cooldown: float = 0.0
 
 func configure_world(level_name: String, width_tiles: int, height_tiles: int, spawn_world: Vector2, level_payload: Dictionary = {}) -> void:
 	world_name = level_name
 	world_width_tiles = maxi(width_tiles, 6)
 	world_height_tiles = maxi(height_tiles, 6)
 	player_tile_position = _clamp_tile_position(_world_pixels_to_tile(spawn_world))
+	asset_templates = {}
+	transitions = []
+	player_collision_layer = str(level_payload.get("player_collision_layer", "ground")).strip_edges().to_lower()
+	if player_collision_layer.is_empty():
+		player_collision_layer = "ground"
+	var raw_templates = level_payload.get("asset_templates", {})
+	if raw_templates is Dictionary:
+		asset_templates = raw_templates
+	var raw_transitions = level_payload.get("transitions", [])
+	if raw_transitions is Array:
+		for raw in raw_transitions:
+			if not (raw is Dictionary):
+				continue
+			transitions.append(raw)
+	_transition_cooldown = 0.0
 	_build_default_floor()
 	_ingest_level_layers(level_payload)
 	queue_redraw()
@@ -52,8 +72,11 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not _active:
 		return
+	if _transition_cooldown > 0.0:
+		_transition_cooldown = maxf(0.0, _transition_cooldown - delta)
 	var axis: Vector2 = _movement_axis()
 	if axis == Vector2.ZERO:
+		_check_transition_trigger()
 		return
 	var next_pos: Vector2 = _clamp_tile_position(player_tile_position + axis.normalized() * PLAYER_SPEED_TILES * delta)
 	if _is_blocked(next_pos):
@@ -61,6 +84,7 @@ func _process(delta: float) -> void:
 	player_tile_position = next_pos
 	player_facing = _axis_to_facing(axis)
 	emit_signal("player_position_changed", _tile_to_world_pixels(player_tile_position))
+	_check_transition_trigger()
 	queue_redraw()
 
 func _movement_axis() -> Vector2:
@@ -236,7 +260,48 @@ func _world_pixels_to_tile(world_pixels: Vector2) -> Vector2:
 
 func _is_blocked(tile_pos: Vector2) -> bool:
 	var key = "%d:%d" % [int(floor(tile_pos.x)), int(floor(tile_pos.y))]
-	return blocked_tiles.has(key)
+	if not blocked_tiles.has(key):
+		return false
+	var layers = blocked_tiles.get(key, [])
+	if layers is Array:
+		for layer in layers:
+			if str(layer).strip_edges().to_lower() == player_collision_layer:
+				return true
+		return false
+	return true
+
+func _collision_layers_for_asset(asset_key: String, entry: Dictionary) -> Array[String]:
+	var template: Dictionary = {}
+	if entry.has("collision_template") and entry.get("collision_template") is Dictionary:
+		template = entry.get("collision_template")
+	elif asset_templates.has(asset_key) and asset_templates.get(asset_key) is Dictionary:
+		template = (asset_templates.get(asset_key) as Dictionary).get("collision_template", {})
+	if template is Dictionary:
+		var raw_layers = template.get("layers", [])
+		if raw_layers is Array and not raw_layers.is_empty():
+			var normalized: Array[String] = []
+			for value in raw_layers:
+				var layer = str(value).strip_edges().to_lower()
+				if not layer.is_empty():
+					normalized.append(layer)
+			if not normalized.is_empty():
+				return normalized
+	var fallback: Array[String] = []
+	fallback.append("ground")
+	return fallback
+
+func _check_transition_trigger() -> void:
+	if _transition_cooldown > 0.0 or transitions.is_empty():
+		return
+	var tx = int(round(player_tile_position.x))
+	var ty = int(round(player_tile_position.y))
+	for transition in transitions:
+		if not (transition is Dictionary):
+			continue
+		if int(transition.get("x", -1)) == tx and int(transition.get("y", -1)) == ty:
+			_transition_cooldown = 0.42
+			emit_signal("transition_requested", transition)
+			return
 
 func _build_default_floor() -> void:
 	floor_tiles.clear()
@@ -276,7 +341,12 @@ func _ingest_level_layers(level_payload: Dictionary) -> void:
 				continue
 			if layer_index == 1:
 				prop_tiles.append({"tile": tile, "layer": layer_index, "asset_key": asset_key})
-				if asset_key.contains("wall") or asset_key.contains("tree") or bool(entry.get("collidable", false)):
-					blocked_tiles["%d:%d" % [tx, ty]] = true
+				var is_collidable = bool(entry.get("collidable", false)) or asset_key.contains("wall") or asset_key.contains("tree")
+				if asset_templates.has(asset_key):
+					var catalog_entry = asset_templates.get(asset_key)
+					if catalog_entry is Dictionary:
+						is_collidable = bool(catalog_entry.get("collidable", is_collidable))
+				if is_collidable:
+					blocked_tiles["%d:%d" % [tx, ty]] = _collision_layers_for_asset(asset_key, entry)
 			else:
 				foreground_tiles.append({"tile": tile, "layer": layer_index, "asset_key": asset_key})

@@ -24,6 +24,7 @@ class Character(Base):
     level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     experience: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     equipment: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    appearance_profile: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     stats: Mapped[dict] = mapped_column(JSON, nullable=False)
     skills: Mapped[dict] = mapped_column(JSON, nullable=False)
     is_selected: Mapped[bool] = mapped_column(nullable=False, default=False)

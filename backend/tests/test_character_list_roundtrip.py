@@ -39,6 +39,16 @@ def test_character_create_then_list_returns_all_rows() -> None:
         CharacterCreateRequest(
             name="FirstHero",
             appearance_key="human_male",
+            appearance_profile={
+                "sex": "human_male",
+                "body_preset": "adventurer",
+                "skin_tone": "warm_bronze",
+                "hair_style": "short",
+                "hair_color": "umber",
+                "face": "calm",
+                "stance": "neutral",
+                "lighting_profile": "warm_torchlight",
+            },
             race="Human",
             background="Drifter",
             affiliation="Unaffiliated",
@@ -52,6 +62,16 @@ def test_character_create_then_list_returns_all_rows() -> None:
         CharacterCreateRequest(
             name="SecondHero",
             appearance_key="human_female",
+            appearance_profile={
+                "sex": "human_female",
+                "body_preset": "adventurer",
+                "skin_tone": "olive",
+                "hair_style": "braided",
+                "hair_color": "black",
+                "face": "focused",
+                "stance": "ready",
+                "lighting_profile": "neutral_daylight",
+            },
             race="Human",
             background="Drifter",
             affiliation="Unaffiliated",
@@ -66,3 +86,5 @@ def test_character_create_then_list_returns_all_rows() -> None:
     assert len(rows) == 2
     assert [row.name for row in rows] == ["FirstHero", "SecondHero"]
     assert all(row.level == 1 for row in rows)
+    assert rows[0].appearance_profile["sex"] == "human_male"
+    assert rows[1].appearance_profile["sex"] == "human_female"

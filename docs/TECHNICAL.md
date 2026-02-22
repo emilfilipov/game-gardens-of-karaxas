@@ -138,6 +138,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `release_records`: append-only release activation history (build/content versions, feed URL, build notes, user-facing notes, actor, activation timestamp).
 - `characters`: user-owned character builds (stats/skills point allocations).
   - Includes `appearance_key` for visual preset selection persistence.
+  - Includes `appearance_profile` JSON for creator appearance selections (skin tone/hair/face/stance/lighting profile) with versioned payload keys.
   - Includes `race`, `background`, and `affiliation` for character identity scaffolds selected in creation UI.
   - Includes `equipment` JSON loadout map (slot -> item visual key) for modular/paperdoll visual composition.
   - Includes `level` and `experience` (starts at level 1 / 0 XP).
@@ -158,6 +159,13 @@ This is the single source of truth for technical architecture, stack decisions, 
 - `friendships`: friend graph.
 - `guilds`, `guild_members`: guild presence and rank scaffolding.
 - `chat_channels`, `chat_members`, `chat_messages`: global/direct/guild chat model.
+
+## Content Governance and Validation
+- Backend exposes schema/governance endpoints for admin content tooling:
+  - `GET /content/schema/registry` returns current domain schema validators/requirements.
+  - `GET /content/versions/{base_version_id}/diff/{target_version_id}` returns domain-level and field-level change summaries.
+- Content activation now auto-generates user-facing release-note text from validated content deltas when a manual note is not provided.
+- Content defaults now include appearance catalogs (`character_options.appearance`) and asset collision template scaffolds so client/editor behavior is data-driven instead of hardcoded.
 
 ## Version Gating and Forced Update Flow
 - Backend stores release policy for both build and content compatibility.
@@ -204,6 +212,7 @@ This is the single source of truth for technical architecture, stack decisions, 
     - `KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL`,
     - `KARAXAS_GODOT_WINDOWS_SHA256`.
   - validates runtime asset ingest metadata with `tools/validate_asset_ingest.py --manifest assets/iso_asset_manifest.json` and fails release on invalid entries.
+  - runs `python game-client/tests/check_ui_regression.py` to enforce UI golden/layout regression checks before packaging.
   - applies `Cache-Control: no-cache, max-age=0` metadata to mutable feed files (`RELEASES`, setup exe, portable zip, and feed JSON manifests) to prevent stale client/browser caching.
   - defaults runtime host packaging to `godot` when runtime-host env vars are unset.
   - notifies backend release activation endpoint with new build/feed/notes metadata.
@@ -222,7 +231,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Legacy Swing bullets below remain as migration reference until `GOK-MMO-242` removes deprecated launcher UI code paths.
 - UI is organized with reusable screen scaffolds and layout tokens (`UiScaffold`) to keep alignment consistent across screens.
 - Screens are card-based (combined auth, character creation, character selection, update, play) instead of one-off ad hoc layouts.
-- Post-login routing now always lands on `Character List`; empty accounts remain on that tab and show empty-state guidance instead of auto-switching to `Create Character`.
+- Post-login routing now always lands on `Character List`; empty accounts remain in list view with an empty-state prompt instead of auto-switching to creator view.
 - Character creation tables are content-driven (`character_options`, `stats`, `skills`) and submit allocated stat/skill payloads directly to `/characters`.
 - Character creator appearance selector now derives from discovered local art and falls back to a single guaranteed preset (`human_male`) when optional variants are unavailable.
 - Character List now exposes both auto-refresh (after create/delete) and an explicit manual `Refresh` action.
@@ -235,7 +244,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - explicit container minimum sizing to keep rows visible inside scroll surfaces,
   - explicit minimum row width sizing to prevent zero-width/invisible roster cards,
   - a separate location metadata line to improve at-a-glance readability.
-- Auth/account/settings surfaces are now rendered inside centered constrained cards to improve hierarchy and reduce full-screen form sprawl.
+- Auth/settings surfaces are rendered in centered constrained cards; account list/create surfaces are rendered near full-screen with thin side rails and a center-dominant podium panel.
 - Admin tool screens (`Level Editor`, `Level Order`, `Asset Editor`, `Content Versions`) are now also rendered in centered constrained card shells instead of raw full-bleed debug layouts.
 - Settings `Video`, `Audio`, and `Security` sections are rendered in themed card blocks rather than plain unstructured tab content.
 - Settings tabs now use compact three-column card grids per tab so control density is higher and future options can be added without full-row stretching.
@@ -252,7 +261,7 @@ This is the single source of truth for technical architecture, stack decisions, 
   - optional draw-order diagnostics hook for depth collisions.
 - World prototype movement now maps WASD into isometric vectors and emits 8-direction facing buckets while preserving existing location persistence callbacks (`player_position_changed` + `/characters/{id}/location` path).
 - Character List/Creator preview now uses shared `CharacterPodiumPreview` widgets with directional controls and drag-to-rotate input; texture lookup falls back from directional variants to canonical idle assets.
-- Character Creator is now implemented as a 4-step TabContainer flow (`Appearance`, `Identity`, `Stats & Skills`, `Review`) with step validation helpers, grouped review errors, and final submit gating.
+- Character Creator now uses a unified 3-column flow (left identity/appearance rail, center podium, right stats/skills/review rail) with grouped validation and final submit gating.
 - Character roster rail now includes search + sort (`name`, `level`, `location`) and concise single-line cards (`Name Lv.x LevelName`); detailed XP/build text remains in the right-side detail panel.
 - Settings now persists and applies a `reduced_motion` preference used by screen transitions and podium preview animation.
 - `ui_components.gd` now applies shared hover-motion emphasis to themed buttons (unless reduced motion suppresses runtime tween usage in consuming screens).
@@ -265,8 +274,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher now defaults to borderless fullscreen and keeps a top-right settings menu entry point.
 - Startup window-mode application now guards undecorated-frame transitions to avoid `IllegalComponentStateException` on already-displayable windows.
 - Launcher keeps the same full-screen background art image, but interactive UI chrome now uses lightweight shape-based rendering (thin borders + painted fills/gradients) instead of PNG-framed button/panel surfaces.
-- Launcher button styling is enforced through a shared `BasicButtonUI`-based theme path so all runtime buttons (auth, tabs, action rows, settings cog, and stat +/- controls) render consistently across platform look-and-feels.
-- Account tab active-state now uses button highlight styling (background/border emphasis) instead of relying on disabled/dimmed tab text.
+- Runtime button styling is enforced through shared Godot UI component factories and theme tokens so auth/account/settings/admin controls stay visually consistent.
 - Launcher text styling is normalized to one shared theme font family/color token across labels, buttons, update controls, and rendered patch-note/log text.
 - Dropdowns are standardized through a reusable themed combo-box class (shared renderer + arrow button UI) to avoid per-screen styling drift and remove platform-default white dropdown surfaces.
 - Scroll containers are standardized through a reusable themed scroll-pane class so list/details/editor panes share consistent opaque/transparent surface behavior, including themed scrollbar track/thumb rendering.
@@ -307,7 +315,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Stored auto-login refresh tokens are only used after an authenticated session updates settings, and are not consumed during app startup.
 - Cog dropdown also exposes a logged-in-only `Logout` action.
 - Account menu is account-only (no chat/guild panels).
-- Account shell now keeps a persistent tab bar (Create/Select) visible across authenticated cards.
+- Account view switching is action-driven (`Create Character` in list view and `Character List` in creator view), with no persistent tab bar.
 - Post-auth default routing always opens `Character List` (including empty accounts).
 - Character List now uses a 3-column shell: roster rail (left), selected character podium preview (center), and detail/action panel (right).
 - Character List columns now use fixed-width side rails plus an expanding center panel (non-draggable), preventing accidental column collapse/overlap from splitter drift.
@@ -317,7 +325,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Launcher still syncs backend selected-character state implicitly on `Play` to satisfy character-gated backend features.
 - Character selection uses fixed-size themed character cards in the roster rail with a separate location metadata line.
 - Character cards use fixed-height row layout and horizontal-scroll suppression so the list fits within the selection viewport.
-- Admin-only launcher controls (level-builder tab and per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
+- Admin-only launcher controls (menu entries + per-character play-level override dropdown) are gated via `SessionResponse.is_admin` from backend auth flows, not hardcoded email checks.
 - Cog dropdown admin menu includes `Level Editor`, `Level Order`, `Asset Editor`, and `Content Versions`.
 - Asset Editor now uses a staged workflow:
   - `Save Local` records item edits in a persistent local draft queue (`asset_editor_local_draft.json`) that survives launcher restarts.

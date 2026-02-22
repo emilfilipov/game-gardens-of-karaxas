@@ -64,3 +64,15 @@ class ContentPublishDrainSummaryResponse(BaseModel):
     sessions_persisted: int
     sessions_persist_failed: int
     sessions_revoked: int
+
+
+class ContentSchemaRegistryResponse(BaseModel):
+    content_schema_version: int
+    required_domains: list[str] = Field(default_factory=list)
+    domain_templates: dict[str, dict] = Field(default_factory=dict)
+
+
+class ContentVersionDiffResponse(BaseModel):
+    base_version_id: int
+    target_version_id: int
+    summary_lines: list[str] = Field(default_factory=list)

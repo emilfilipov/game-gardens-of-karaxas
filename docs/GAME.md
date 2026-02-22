@@ -26,10 +26,10 @@ create/select characters, and enter gameplay sessions.
    - Login form remembers and pre-fills the last successfully authenticated email.
    - Register form always opens clean with hint text visible.
    - Register mode actions are `Register` and `Back` (returns to login mode).
-2. Enter account menu with persistent tab navigation (Create/Select).
+2. Enter account menu with action-driven view switching (list/create), not tabbed switching.
    - Top-right menu shows `Welcome username.` and logged-in account actions.
    - Admin-only menus/features are unlocked by the account's backend `is_admin` flag (not by hardcoded email).
-   - Authenticated tab order is `Character List` (left) and `Create Character` (right).
+   - Character List exposes a direct `Create Character` action; creator exposes a direct `Character List` return action.
    - Account surfaces now use a modernized card-shell structure with consistent spacing, fixed control heights, and stronger text contrast hierarchy.
    - Admin tools (`Level Editor`, `Asset Editor`, `Content Versions`) are opened from the top-right cog menu.
 3. Default post-login routing:
@@ -48,9 +48,9 @@ create/select characters, and enter gameplay sessions.
    - Character list auto-refreshes after create/delete events.
    - Character list includes a manual `Refresh` action for explicit reloads.
    - Character rows show current location (area + coordinates when known).
-5. Character creation now runs as a multi-step flow and persists selected identity/build choices:
-   - Step flow: `Appearance` -> `Identity` -> `Stats & Skills` -> `Review`.
-   - Step navigation enforces validation and shows grouped errors before final submit.
+5. Character creation now runs as a unified center-podium flow and persists selected identity/build choices:
+   - Creator layout is split into thin side rails around a dominant center preview/podium.
+   - Validation errors are grouped by creator sections and surfaced before final submit.
    - Appearance step includes preset and scaffold options (`sex`, `skin tone`, `hair style`, `hair color`, `face`, `stance`) wired to live podium preview.
    - Allocated stat points and selected starter skills are sent in the character create payload.
    - Point budget is enforced client-side from content domains and validated server-side.
@@ -88,7 +88,7 @@ create/select characters, and enter gameplay sessions.
 ## Required Frontend Screens (Godot)
 - Combined authentication screen (login/register toggle in a single centered block) with integrated updater/release-notes panel.
   - Auth panel includes a direct `Exit` action so players can close the game without authenticating.
-- Account menu shell screen (Create/Select tabs).
+- Account menu shell screen (action-driven list/create views).
 - Character creation screen.
 - Character selection screen.
 - In-game world screen.
@@ -120,7 +120,7 @@ create/select characters, and enter gameplay sessions.
 - Sex switching must always map to the correct preset in both directions (male->female and female->male) without substring ambiguity.
 - Character preview rendering preserves sprite aspect ratio to avoid stretching between male/female presets.
 - Character creation preview uses a fixed render target so initial load and sex-switch states keep the same zoom level.
-- Character List and Character Creator now share one reusable podium preview component with drag-to-rotate and facing controls.
+- Character List and Character Creator now share one reusable podium preview component with drag-to-rotate, facing controls, and bottom rotation arrows.
 - Character creation layout uses split tables: expanded multi-column stats on the left and skill choices on the right.
 - Stats allocation rows now use fixed-size cards with square `- / +` controls and a right-side short description card per stat.
 - Stats scaffold is expanded to include additional placeholders beyond the base six stats.

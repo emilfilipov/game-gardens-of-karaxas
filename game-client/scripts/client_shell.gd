@@ -79,18 +79,21 @@ var auth_update_button: Button
 
 var account_container: VBoxContainer
 var account_status_label: Label
-var character_tabs: TabContainer
+var account_show_list_button: Button
+var account_list_view: Control
+var account_create_view: Control
+var account_active_view: String = "list"
 var character_rows_scroll: ScrollContainer
 var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
 var character_preview_widget: Control
-var character_list_title_label: Label
 var character_refresh_button: Button
 var character_search_input: LineEdit
 var character_sort_option: OptionButton
 var character_play_button: Button
 var character_delete_button: Button
 var character_level_override_option: OptionButton
+var character_create_button: Button
 
 var create_name_input: LineEdit
 var create_sex_option: OptionButton
@@ -99,6 +102,7 @@ var create_hair_style_option: OptionButton
 var create_hair_color_option: OptionButton
 var create_face_option: OptionButton
 var create_stance_option: OptionButton
+var create_lighting_profile_option: OptionButton
 var create_race_option: OptionButton
 var create_background_option: OptionButton
 var create_affiliation_option: OptionButton
@@ -126,6 +130,8 @@ var create_dirty: bool = false
 var world_container: VBoxContainer
 var world_status_label: Label
 var world_canvas: Control
+var world_cached_levels: Dictionary = {}
+var world_transition_busy: bool = false
 
 var log_container: VBoxContainer
 var log_file_option: OptionButton
@@ -160,13 +166,18 @@ var level_editor_width_input: LineEdit
 var level_editor_height_input: LineEdit
 var level_editor_spawn_x_input: LineEdit
 var level_editor_spawn_y_input: LineEdit
+var level_editor_mode_option: OptionButton
+var level_editor_snap_step_input: LineEdit
+var level_editor_snap_toggle: Button
 var level_editor_asset_option: OptionButton
 var level_editor_layer_option: OptionButton
 var level_editor_show_layer_checks: Dictionary = {}
 var level_editor_canvas_scroll: ScrollContainer
 var level_editor_canvas: Control
 var level_editor_layers_input: TextEdit
+var level_editor_objects_input: TextEdit
 var level_editor_transitions_input: TextEdit
+var level_editor_validation_output: TextEdit
 var level_editor_pending_list: ItemList
 var level_editor_local_drafts: Array = []
 var level_editor_levels_cache: Array = []
@@ -247,7 +258,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _current_screen() == "auth":
 			_on_auth_submit()
 			accept_event()
-		elif _current_screen() == "account" and character_tabs != null and character_tabs.current_tab == 1:
+		elif _current_screen() == "account" and account_active_view == "create":
 			_on_create_step_enter_pressed()
 			accept_event()
 
@@ -402,10 +413,10 @@ func _build_ui() -> void:
 
 	var root = MarginContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_theme_constant_override("margin_left", 40)
-	root.add_theme_constant_override("margin_top", 24)
-	root.add_theme_constant_override("margin_right", 40)
-	root.add_theme_constant_override("margin_bottom", 22)
+	root.add_theme_constant_override("margin_left", 20)
+	root.add_theme_constant_override("margin_top", 14)
+	root.add_theme_constant_override("margin_right", 20)
+	root.add_theme_constant_override("margin_bottom", 14)
 	add_child(root)
 
 	var layout = VBoxContainer.new()
@@ -607,45 +618,31 @@ func _build_auth_screen() -> VBoxContainer:
 	return wrap
 
 func _build_account_screen() -> VBoxContainer:
-	var shell: Dictionary = UI_COMPONENTS.centered_shell(
-		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_wide_h")),
-		UI_TOKENS.spacing("lg")
-	)
-	var wrap = shell["wrap"] as VBoxContainer
-	var content_root = shell["content"] as VBoxContainer
+	var wrap = VBoxContainer.new()
+	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
 
 	account_status_label = _label(" ", -1, "text_secondary")
 	account_status_label.text = " "
-	content_root.add_child(account_status_label)
+	account_status_label.visible = false
+	wrap.add_child(account_status_label)
 
-	character_tabs = TabContainer.new()
-	character_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	character_tabs.focus_mode = Control.FOCUS_NONE
-	character_tabs.tab_changed.connect(_on_character_tabs_changed)
-	content_root.add_child(character_tabs)
+	var view_stack = Control.new()
+	view_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_child(view_stack)
 
-	var list_tab = VBoxContainer.new()
-	list_tab.name = "Character List"
-	list_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	character_tabs.add_child(list_tab)
+	account_list_view = HBoxContainer.new()
+	account_list_view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	account_list_view.offset_left = 0
+	account_list_view.offset_top = 0
+	account_list_view.offset_right = 0
+	account_list_view.offset_bottom = 0
+	(account_list_view as HBoxContainer).add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	view_stack.add_child(account_list_view)
 
-	var list_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	list_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_tab.add_child(list_shell)
-	var list_shell_inner = VBoxContainer.new()
-	list_shell_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	list_shell_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_shell.add_child(list_shell_inner)
-
-	var list_split = HBoxContainer.new()
-	list_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_shell_inner.add_child(list_split)
-
-	var roster_panel = UI_COMPONENTS.panel_card(Vector2(340, 0), false)
+	var roster_panel = UI_COMPONENTS.panel_card(Vector2(240, 0), false)
 	roster_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	roster_panel.size_flags_horizontal = Control.SIZE_FILL
-	list_split.add_child(roster_panel)
+	account_list_view.add_child(roster_panel)
 	var roster_inner = VBoxContainer.new()
 	roster_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	roster_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -653,10 +650,13 @@ func _build_account_screen() -> VBoxContainer:
 	var roster_header = HBoxContainer.new()
 	roster_header.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	roster_inner.add_child(roster_header)
-	character_list_title_label = _label("Character List", 22)
-	character_list_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	roster_header.add_child(character_list_title_label)
-	character_refresh_button = UI_COMPONENTS.button_primary("Refresh", Vector2(124, 38))
+	character_create_button = UI_COMPONENTS.button_primary("Create Character", Vector2(0, 36))
+	character_create_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	character_create_button.pressed.connect(func() -> void:
+		_set_account_view("create")
+	)
+	roster_header.add_child(character_create_button)
+	character_refresh_button = UI_COMPONENTS.button_secondary("Refresh", Vector2(104, 36))
 	character_refresh_button.pressed.connect(_on_character_refresh_pressed)
 	roster_header.add_child(character_refresh_button)
 
@@ -670,8 +670,8 @@ func _build_account_screen() -> VBoxContainer:
 		_render_character_rows()
 	)
 	roster_filter_row.add_child(character_search_input)
-	character_sort_option = _option(["Sort: Name A-Z", "Sort: Level High-Low", "Sort: Location"])
-	character_sort_option.custom_minimum_size = Vector2(170, 36)
+	character_sort_option = _option(["Name", "Level", "Location"])
+	character_sort_option.custom_minimum_size = Vector2(110, 36)
 	character_sort_option.item_selected.connect(func(_index: int) -> void:
 		_render_character_rows()
 	)
@@ -685,35 +685,25 @@ func _build_account_screen() -> VBoxContainer:
 	character_rows_scroll.clip_contents = true
 	roster_inner.add_child(character_rows_scroll)
 	character_rows_container = VBoxContainer.new()
-	character_rows_container.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	character_rows_container.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
 	character_rows_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	character_rows_container.size_flags_vertical = Control.SIZE_FILL
 	character_rows_container.alignment = BoxContainer.ALIGNMENT_BEGIN
-	character_rows_container.custom_minimum_size = Vector2(290, 0)
+	character_rows_container.custom_minimum_size = Vector2(250, 0)
 	character_rows_scroll.add_child(character_rows_container)
 
-	var podium_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	podium_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	podium_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	podium_panel.custom_minimum_size = Vector2(420, 0)
-	list_split.add_child(podium_panel)
-	var podium_inner = VBoxContainer.new()
-	podium_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	podium_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	podium_panel.add_child(podium_inner)
-	podium_inner.add_child(_label("Selected Character", 20, "text_secondary"))
 	var preview_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), true)
 	preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	podium_inner.add_child(preview_panel)
+	preview_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	account_list_view.add_child(preview_panel)
 	character_preview_widget = PODIUM_PREVIEW_SCENE.new()
 	character_preview_widget.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_preview_widget.call("configure", Callable(self, "_resolve_character_texture_directional"), reduced_motion_enabled)
 	preview_panel.add_child(character_preview_widget)
 
-	var details_panel = UI_COMPONENTS.panel_card(Vector2(360, 0), false)
+	var details_panel = UI_COMPONENTS.panel_card(Vector2(250, 0), false)
 	details_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	details_panel.size_flags_horizontal = Control.SIZE_FILL
-	list_split.add_child(details_panel)
+	account_list_view.add_child(details_panel)
 	var details_inner = VBoxContainer.new()
 	details_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	details_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -725,7 +715,6 @@ func _build_account_screen() -> VBoxContainer:
 	character_details_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_details_label.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	details_inner.add_child(character_details_label)
-
 	var override_wrap = VBoxContainer.new()
 	override_wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
 	override_wrap.visible = false
@@ -736,114 +725,45 @@ func _build_account_screen() -> VBoxContainer:
 	character_level_override_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	character_level_override_option.item_selected.connect(_on_character_override_selected)
 	override_wrap.add_child(character_level_override_option)
-
 	var detail_actions = HBoxContainer.new()
 	detail_actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	details_inner.add_child(detail_actions)
-	character_play_button = UI_COMPONENTS.button_primary("Play", Vector2(130, 38))
+	character_play_button = UI_COMPONENTS.button_primary("Play", Vector2(124, 38))
 	character_play_button.disabled = true
 	character_play_button.pressed.connect(_on_character_play_pressed)
 	detail_actions.add_child(character_play_button)
 	character_delete_button = _button("Delete")
-	character_delete_button.custom_minimum_size = Vector2(130, 38)
+	character_delete_button.custom_minimum_size = Vector2(124, 38)
 	character_delete_button.disabled = true
 	character_delete_button.pressed.connect(_on_character_delete_pressed)
 	detail_actions.add_child(character_delete_button)
 
-	var create_tab = VBoxContainer.new()
-	create_tab.name = "Create Character"
-	create_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	character_tabs.add_child(create_tab)
+	account_create_view = HBoxContainer.new()
+	account_create_view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	account_create_view.offset_left = 0
+	account_create_view.offset_top = 0
+	account_create_view.offset_right = 0
+	account_create_view.offset_bottom = 0
+	(account_create_view as HBoxContainer).add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	view_stack.add_child(account_create_view)
 
-	var create_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	create_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_tab.add_child(create_shell)
-	var create_root = VBoxContainer.new()
-	create_root.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	create_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_shell.add_child(create_root)
-
-	create_step_label = _label("Step 1/4 - Appearance", 18, "text_secondary")
-	create_root.add_child(create_step_label)
-
-	create_step_tabs = TabContainer.new()
-	create_step_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_step_tabs.focus_mode = Control.FOCUS_NONE
-	create_step_tabs.tab_changed.connect(_on_create_step_changed)
-	create_root.add_child(create_step_tabs)
-
-	var appearance_step = VBoxContainer.new()
-	appearance_step.name = "Appearance"
-	appearance_step.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	create_step_tabs.add_child(appearance_step)
-	var appearance_split = HSplitContainer.new()
-	appearance_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	appearance_step.add_child(appearance_split)
-	var create_preview_panel = UI_COMPONENTS.panel_card(Vector2(320, 460), false)
-	appearance_split.add_child(create_preview_panel)
-	create_preview_widget = PODIUM_PREVIEW_SCENE.new()
-	create_preview_widget.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_preview_widget.call("configure", Callable(self, "_resolve_character_texture_directional"), reduced_motion_enabled)
-	create_preview_panel.add_child(create_preview_widget)
-	var appearance_controls_panel = UI_COMPONENTS.panel_card(Vector2(0, 460), false)
-	appearance_controls_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	appearance_split.add_child(appearance_controls_panel)
-	var appearance_grid = GridContainer.new()
-	appearance_grid.columns = 2
-	appearance_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("sm"))
-	appearance_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("sm"))
-	appearance_controls_panel.add_child(appearance_grid)
-
-	create_sex_option = _option([])
-	create_sex_option.custom_minimum_size = Vector2(240, 36)
-	create_sex_option.item_selected.connect(func(_index: int) -> void:
-		_mark_create_dirty()
-		_refresh_create_character_preview()
+	var create_left_panel = UI_COMPONENTS.panel_card(Vector2(248, 0), false)
+	create_left_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	account_create_view.add_child(create_left_panel)
+	var create_left = VBoxContainer.new()
+	create_left.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_left.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_left_panel.add_child(create_left)
+	var create_top_actions = HBoxContainer.new()
+	create_top_actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_left.add_child(create_top_actions)
+	account_show_list_button = UI_COMPONENTS.button_secondary("Character List", Vector2(0, 34))
+	account_show_list_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	account_show_list_button.pressed.connect(func() -> void:
+		_set_account_view("list")
 	)
-	appearance_grid.add_child(_labeled_control("Sex", create_sex_option))
-	create_skin_tone_option = _option(["Warm Bronze", "Olive", "Fair", "Deep Umber"])
-	create_skin_tone_option.custom_minimum_size = Vector2(240, 36)
-	create_skin_tone_option.item_selected.connect(func(_index: int) -> void:
-		_mark_create_dirty()
-	)
-	appearance_grid.add_child(_labeled_control("Skin Tone", create_skin_tone_option))
-	create_hair_style_option = _option(["Short", "Braided", "Shaved", "Ponytail"])
-	create_hair_style_option.custom_minimum_size = Vector2(240, 36)
-	create_hair_style_option.item_selected.connect(func(_index: int) -> void:
-		_mark_create_dirty()
-	)
-	appearance_grid.add_child(_labeled_control("Hair Style", create_hair_style_option))
-	create_hair_color_option = _option(["Umber", "Black", "Copper", "Ash"])
-	create_hair_color_option.custom_minimum_size = Vector2(240, 36)
-	create_hair_color_option.item_selected.connect(func(_index: int) -> void:
-		_mark_create_dirty()
-	)
-	appearance_grid.add_child(_labeled_control("Hair Color", create_hair_color_option))
-	create_face_option = _option(["Calm", "Scarred", "Focused", "Stoic"])
-	create_face_option.custom_minimum_size = Vector2(240, 36)
-	create_face_option.item_selected.connect(func(_index: int) -> void:
-		_mark_create_dirty()
-	)
-	appearance_grid.add_child(_labeled_control("Face", create_face_option))
-	create_stance_option = _option(["Neutral", "Guarded", "Ready"])
-	create_stance_option.custom_minimum_size = Vector2(240, 36)
-	create_stance_option.item_selected.connect(func(_index: int) -> void:
-		_mark_create_dirty()
-	)
-	appearance_grid.add_child(_labeled_control("Base Stance", create_stance_option))
-
-	var identity_step = VBoxContainer.new()
-	identity_step.name = "Identity"
-	identity_step.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	create_step_tabs.add_child(identity_step)
-	var identity_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	identity_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	identity_step.add_child(identity_panel)
-	var identity_grid = GridContainer.new()
-	identity_grid.columns = 2
-	identity_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("sm"))
-	identity_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("sm"))
-	identity_panel.add_child(identity_grid)
+	create_top_actions.add_child(account_show_list_button)
+	create_left.add_child(_label("Identity", 20, "text_secondary"))
 	create_name_input = _line_edit("Character Name")
 	create_name_input.custom_minimum_size = Vector2(0, 38)
 	create_name_input.text_changed.connect(func(_value: String) -> void:
@@ -852,118 +772,150 @@ func _build_account_screen() -> VBoxContainer:
 	create_name_input.text_submitted.connect(func(_value: String) -> void:
 		_on_create_step_enter_pressed()
 	)
-	identity_grid.add_child(_labeled_control("Name", create_name_input))
+	create_left.add_child(_labeled_control("Name", create_name_input))
+	create_sex_option = _option([])
+	create_sex_option.custom_minimum_size = Vector2(0, 36)
+	create_sex_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+		_refresh_create_character_preview()
+	)
+	create_left.add_child(_labeled_control("Sex", create_sex_option))
 	create_race_option = _option(["Human"])
-	create_race_option.custom_minimum_size = Vector2(0, 38)
+	create_race_option.custom_minimum_size = Vector2(0, 36)
 	create_race_option.item_selected.connect(func(_index: int) -> void:
 		_mark_create_dirty()
 	)
-	identity_grid.add_child(_labeled_control("Race", create_race_option))
+	create_left.add_child(_labeled_control("Race", create_race_option))
 	create_background_option = _option(["Drifter"])
-	create_background_option.custom_minimum_size = Vector2(0, 38)
+	create_background_option.custom_minimum_size = Vector2(0, 36)
 	create_background_option.item_selected.connect(func(_index: int) -> void:
 		_mark_create_dirty()
 	)
-	identity_grid.add_child(_labeled_control("Background", create_background_option))
+	create_left.add_child(_labeled_control("Background", create_background_option))
 	create_affiliation_option = _option(["Unaffiliated"])
-	create_affiliation_option.custom_minimum_size = Vector2(0, 38)
+	create_affiliation_option.custom_minimum_size = Vector2(0, 36)
 	create_affiliation_option.item_selected.connect(func(_index: int) -> void:
 		_mark_create_dirty()
 	)
-	identity_grid.add_child(_labeled_control("Affiliation", create_affiliation_option))
+	create_left.add_child(_labeled_control("Affiliation", create_affiliation_option))
+	create_skin_tone_option = _option(["Warm Bronze", "Olive", "Fair", "Deep Umber"])
+	create_skin_tone_option.custom_minimum_size = Vector2(0, 36)
+	create_skin_tone_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	create_left.add_child(_labeled_control("Skin Tone", create_skin_tone_option))
+	create_hair_style_option = _option(["Short", "Braided", "Shaved", "Ponytail"])
+	create_hair_style_option.custom_minimum_size = Vector2(0, 36)
+	create_hair_style_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	create_left.add_child(_labeled_control("Hair Style", create_hair_style_option))
+	create_hair_color_option = _option(["Umber", "Black", "Copper", "Ash"])
+	create_hair_color_option.custom_minimum_size = Vector2(0, 36)
+	create_hair_color_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	create_left.add_child(_labeled_control("Hair Color", create_hair_color_option))
+	create_face_option = _option(["Calm", "Scarred", "Focused", "Stoic"])
+	create_face_option.custom_minimum_size = Vector2(0, 36)
+	create_face_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+	)
+	create_left.add_child(_labeled_control("Face", create_face_option))
+	create_stance_option = _option(["Neutral", "Guarded", "Ready"])
+	create_stance_option.custom_minimum_size = Vector2(0, 36)
+	create_stance_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+		_refresh_create_character_preview()
+	)
+	create_left.add_child(_labeled_control("Stance", create_stance_option))
+	create_lighting_profile_option = _option(["Warm Torchlight", "Neutral Daylight", "Grim Dusk"])
+	create_lighting_profile_option.custom_minimum_size = Vector2(0, 36)
+	create_lighting_profile_option.item_selected.connect(func(_index: int) -> void:
+		_mark_create_dirty()
+		_refresh_create_character_preview()
+	)
+	create_left.add_child(_labeled_control("Preview Lighting", create_lighting_profile_option))
+	create_left.add_spacer(false)
 
-	var stats_step = VBoxContainer.new()
-	stats_step.name = "Stats & Skills"
-	stats_step.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	create_step_tabs.add_child(stats_step)
-	var create_tables = HSplitContainer.new()
-	create_tables.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stats_step.add_child(create_tables)
-	var stats_panel = UI_COMPONENTS.panel_card(Vector2(510, 360), false)
-	stats_panel.custom_minimum_size = Vector2(490, 320)
-	stats_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stats_panel.size_flags_stretch_ratio = 0.48
-	create_tables.add_child(stats_panel)
-	var stats_inner = VBoxContainer.new()
-	stats_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	stats_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stats_panel.add_child(stats_inner)
-	stats_inner.add_child(_label("Stats", 20, "text_secondary"))
+	var create_preview_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), true)
+	create_preview_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	account_create_view.add_child(create_preview_panel)
+	create_preview_widget = PODIUM_PREVIEW_SCENE.new()
+	create_preview_widget.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_preview_widget.call("configure", Callable(self, "_resolve_character_texture_directional"), reduced_motion_enabled)
+	create_preview_panel.add_child(create_preview_widget)
+
+	var create_right_panel = UI_COMPONENTS.panel_card(Vector2(330, 0), false)
+	create_right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	account_create_view.add_child(create_right_panel)
+	var create_right = VBoxContainer.new()
+	create_right.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_right_panel.add_child(create_right)
+	create_right.add_child(_label("Build", 20, "text_secondary"))
+	var stats_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	stats_shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_right.add_child(stats_shell)
 	create_stats_grid = GridContainer.new()
 	create_stats_grid.columns = 5
-	create_stats_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_stats_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("xs"))
 	create_stats_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("xs"))
-	stats_inner.add_child(create_stats_grid)
-
-	var skills_panel = UI_COMPONENTS.panel_card(Vector2(560, 360), false)
-	skills_panel.custom_minimum_size = Vector2(560, 320)
-	skills_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	skills_panel.size_flags_stretch_ratio = 0.52
-	create_tables.add_child(skills_panel)
-	var skills_inner = VBoxContainer.new()
-	skills_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	skills_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	skills_panel.add_child(skills_inner)
-	skills_inner.add_child(_label("Skills", 20, "text_secondary"))
+	stats_shell.add_child(create_stats_grid)
+	var skills_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	skills_shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_right.add_child(skills_shell)
 	create_skills_grid = GridContainer.new()
 	create_skills_grid.columns = 6
-	create_skills_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_skills_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("xs"))
 	create_skills_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("xs"))
-	skills_inner.add_child(create_skills_grid)
+	skills_shell.add_child(create_skills_grid)
 
-	var review_step = VBoxContainer.new()
-	review_step.name = "Review"
-	review_step.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	create_step_tabs.add_child(review_step)
-	var review_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	review_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	review_step.add_child(review_panel)
+	var review_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	review_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_right.add_child(review_shell)
 	create_review_text = RichTextLabel.new()
 	create_review_text.fit_content = false
 	create_review_text.bbcode_enabled = false
 	create_review_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_review_text.scroll_active = true
 	create_review_text.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
-	review_panel.add_child(create_review_text)
+	review_shell.add_child(create_review_text)
 	create_validation_label = RichTextLabel.new()
 	create_validation_label.fit_content = true
 	create_validation_label.scroll_active = false
 	create_validation_label.visible = false
 	create_validation_label.add_theme_color_override("default_color", UI_TOKENS.color("warning"))
-	review_step.add_child(create_validation_label)
+	create_right.add_child(create_validation_label)
 
-	var footer_row = HBoxContainer.new()
-	footer_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	create_root.add_child(footer_row)
-	create_step_back_button = _button("Back")
-	create_step_back_button.custom_minimum_size = Vector2(120, 42)
-	create_step_back_button.pressed.connect(_on_create_step_back_pressed)
-	footer_row.add_child(create_step_back_button)
-	create_step_next_button = UI_COMPONENTS.button_primary("Next", Vector2(120, 42))
-	create_step_next_button.pressed.connect(_on_create_step_next_pressed)
-	footer_row.add_child(create_step_next_button)
+	var create_actions = HBoxContainer.new()
+	create_actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_right.add_child(create_actions)
 	create_points_left_label = _label("10/10 points left", 16, "text_secondary")
-	footer_row.add_child(create_points_left_label)
-	footer_row.add_spacer(false)
+	create_actions.add_child(create_points_left_label)
+	create_actions.add_spacer(false)
 	create_submit_button = UI_COMPONENTS.button_primary("Create Character")
 	create_submit_button.custom_minimum_size = Vector2(220, 42)
 	create_submit_button.pressed.connect(_on_create_character_pressed)
-	footer_row.add_child(create_submit_button)
+	create_actions.add_child(create_submit_button)
 
 	create_status_label = _label(" ", -1, "text_secondary")
 	create_status_label.text = " "
-	create_status_label.visible = true
-	create_root.add_child(create_status_label)
+	create_status_label.visible = false
+	create_right.add_child(create_status_label)
 
+	create_step_tabs = null
+	create_step_label = null
+	create_step_back_button = null
+	create_step_next_button = null
 	_populate_create_sex_option()
 	_populate_character_creation_tables(content_domains.get("character_options", {}))
 	_refresh_create_character_preview()
-	_set_create_step(0)
+	_refresh_create_review()
 	_configure_create_focus_chain()
 	_configure_account_focus_chain()
-
+	_set_account_view("list")
 	return wrap
 
 func _build_world_screen() -> VBoxContainer:
@@ -982,6 +934,7 @@ func _build_world_screen() -> VBoxContainer:
 	world_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	world_canvas.custom_minimum_size = Vector2(800, 460)
 	world_canvas.connect("player_position_changed", _on_world_position_changed)
+	world_canvas.connect("transition_requested", _on_world_transition_requested)
 	world_shell.add_child(world_canvas)
 	return wrap
 
@@ -1267,7 +1220,7 @@ func _build_level_editor_screen() -> VBoxContainer:
 	var wrap = shell["wrap"] as VBoxContainer
 	var content = shell["content"] as VBoxContainer
 	content.add_child(_label("Level Editor (Admin)", 30))
-	content.add_child(_label("Author levels, stage local drafts, then publish as a batch.", -1, "text_secondary"))
+	content.add_child(_label("Isometric authoring workspace with docked tools, validation, and draft publishing.", -1, "text_secondary"))
 
 	var top_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	content.add_child(top_shell)
@@ -1303,6 +1256,10 @@ func _build_level_editor_screen() -> VBoxContainer:
 	level_editor_order_input.custom_minimum_size = Vector2(72, 34)
 	level_editor_order_input.tooltip_text = "Tower floor order index. Lower values appear earlier in progression."
 	top_row_1.add_child(level_editor_order_input)
+	top_row_1.add_child(_label("Mode"))
+	level_editor_mode_option = _option(["Gameplay Grid", "Decoration Freeform"])
+	level_editor_mode_option.custom_minimum_size = Vector2(190, 34)
+	top_row_1.add_child(level_editor_mode_option)
 	var save_local = _button("Save Local")
 	save_local.custom_minimum_size = Vector2(110, 34)
 	save_local.pressed.connect(_save_level_editor_local_draft)
@@ -1337,35 +1294,107 @@ func _build_level_editor_screen() -> VBoxContainer:
 	level_editor_spawn_y_input = _line_edit("3")
 	level_editor_spawn_y_input.custom_minimum_size = Vector2(82, 34)
 	top_row_2.add_child(level_editor_spawn_y_input)
+	top_row_2.add_child(_label("Active Asset"))
+	level_editor_asset_option = _option(["grass_tile", "wall_block", "tree_oak", "cloud_soft", "stairs_passage", "ladder_passage", "elevator_platform"])
+	level_editor_asset_option.custom_minimum_size = Vector2(180, 34)
+	top_row_2.add_child(level_editor_asset_option)
+	top_row_2.add_child(_label("Active Layer"))
+	level_editor_layer_option = _option(["0", "1", "2"])
+	level_editor_layer_option.custom_minimum_size = Vector2(90, 34)
+	top_row_2.add_child(level_editor_layer_option)
+	level_editor_snap_toggle = _button("Snap: ON")
+	level_editor_snap_toggle.custom_minimum_size = Vector2(110, 34)
+	level_editor_snap_toggle.toggle_mode = true
+	level_editor_snap_toggle.button_pressed = true
+	level_editor_snap_toggle.toggled.connect(func(pressed: bool) -> void:
+		level_editor_snap_toggle.text = "Snap: ON" if pressed else "Snap: OFF"
+	)
+	top_row_2.add_child(level_editor_snap_toggle)
+	top_row_2.add_child(_label("Snap Step"))
+	level_editor_snap_step_input = _line_edit("1.0")
+	level_editor_snap_step_input.custom_minimum_size = Vector2(82, 34)
+	top_row_2.add_child(level_editor_snap_step_input)
+	var validate_layout = _button("Validate")
+	validate_layout.custom_minimum_size = Vector2(100, 34)
+	validate_layout.pressed.connect(_validate_level_editor_payload)
+	top_row_2.add_child(validate_layout)
+	var reverse_links = _button("Add Reverse Links")
+	reverse_links.custom_minimum_size = Vector2(150, 34)
+	reverse_links.pressed.connect(_add_reverse_transition_links)
+	top_row_2.add_child(reverse_links)
 
 	var split_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	split_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(split_shell)
-	var split = HSplitContainer.new()
+	var split = HBoxContainer.new()
+	split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	split_shell.add_child(split)
-	var left = VBoxContainer.new()
-	left.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+
+	var left = UI_COMPONENTS.panel_card(Vector2(410, 0), false)
+	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	split.add_child(left)
-	left.add_child(_label("Layers JSON"))
+	var left_inner = VBoxContainer.new()
+	left_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left.add_child(left_inner)
+	left_inner.add_child(_label("Layer Grid JSON"))
 	level_editor_layers_input = TextEdit.new()
 	level_editor_layers_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	level_editor_layers_input.custom_minimum_size = Vector2(520, 320)
+	level_editor_layers_input.custom_minimum_size = Vector2(390, 220)
 	level_editor_layers_input.text = "{\n  \"0\": [],\n  \"1\": [],\n  \"2\": []\n}"
-	left.add_child(level_editor_layers_input)
-	left.add_child(_label("Transitions JSON"))
+	left_inner.add_child(level_editor_layers_input)
+	left_inner.add_child(_label("Transitions JSON"))
 	level_editor_transitions_input = TextEdit.new()
-	level_editor_transitions_input.custom_minimum_size = Vector2(520, 140)
+	level_editor_transitions_input.custom_minimum_size = Vector2(390, 120)
 	level_editor_transitions_input.text = "[]"
-	left.add_child(level_editor_transitions_input)
+	left_inner.add_child(level_editor_transitions_input)
+	left_inner.add_child(_label("Objects JSON"))
+	level_editor_objects_input = TextEdit.new()
+	level_editor_objects_input.custom_minimum_size = Vector2(390, 120)
+	level_editor_objects_input.text = "[]"
+	left_inner.add_child(level_editor_objects_input)
 
-	var right = VBoxContainer.new()
-	right.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	var center = UI_COMPONENTS.panel_card(Vector2(0, 0), true)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	split.add_child(center)
+	var center_inner = VBoxContainer.new()
+	center_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	center_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	center.add_child(center_inner)
+	center_inner.add_child(_label("Isometric Workspace", 18, "text_secondary"))
+	level_editor_canvas_scroll = ScrollContainer.new()
+	level_editor_canvas_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	level_editor_canvas_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	level_editor_canvas_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	center_inner.add_child(level_editor_canvas_scroll)
+	level_editor_canvas = ColorRect.new()
+	level_editor_canvas.color = UI_TOKENS.color("panel_bg_deep")
+	level_editor_canvas.custom_minimum_size = Vector2(1280, 820)
+	level_editor_canvas_scroll.add_child(level_editor_canvas)
+	var workspace_hint = _label("Grid mode places gameplay assets. Freeform mode stores transform objects for decoration/ambient layers.", -1, "text_muted")
+	workspace_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	center_inner.add_child(workspace_hint)
+	level_editor_validation_output = TextEdit.new()
+	level_editor_validation_output.custom_minimum_size = Vector2(0, 120)
+	level_editor_validation_output.editable = false
+	level_editor_validation_output.text = "Validation diagnostics will appear here."
+	center_inner.add_child(level_editor_validation_output)
+
+	var right = UI_COMPONENTS.panel_card(Vector2(290, 0), false)
+	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	split.add_child(right)
-	right.add_child(_label("Local Draft Queue"))
+	var right_inner = VBoxContainer.new()
+	right_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right.add_child(right_inner)
+	right_inner.add_child(_label("Local Draft Queue"))
 	level_editor_pending_list = ItemList.new()
 	level_editor_pending_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	right.add_child(level_editor_pending_list)
+	right_inner.add_child(level_editor_pending_list)
+	right_inner.add_child(_label("Inspector", 18, "text_secondary"))
+	right_inner.add_child(_label("Use Active Asset + Active Layer for gameplay tiles.\nSwitch to Decoration Freeform to save object transforms in Objects JSON.", -1, "text_muted"))
 
 	level_editor_status = _label(" ", -1, "text_secondary")
 	content.add_child(level_editor_status)
@@ -1458,9 +1487,26 @@ func _build_asset_editor_screen() -> VBoxContainer:
 	var split = HSplitContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	split_shell.add_child(split)
+
+	var browser_wrap = VBoxContainer.new()
+	browser_wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	browser_wrap.custom_minimum_size = Vector2(300, 520)
+	split.add_child(browser_wrap)
+	browser_wrap.add_child(_label("Search"))
+	asset_editor_search_input = _line_edit("Search cards")
+	asset_editor_search_input.custom_minimum_size = Vector2(0, 34)
+	asset_editor_search_input.text_changed.connect(func(_value: String) -> void:
+		_refresh_asset_editor_cards_view()
+	)
+	browser_wrap.add_child(asset_editor_search_input)
+	asset_editor_card_list = ItemList.new()
+	asset_editor_card_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	asset_editor_card_list.item_selected.connect(_on_asset_editor_card_selected)
+	browser_wrap.add_child(asset_editor_card_list)
+
 	asset_editor_payload_input = TextEdit.new()
 	asset_editor_payload_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	asset_editor_payload_input.custom_minimum_size = Vector2(860, 520)
+	asset_editor_payload_input.custom_minimum_size = Vector2(760, 520)
 	split.add_child(asset_editor_payload_input)
 	var pending_wrap = VBoxContainer.new()
 	pending_wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
@@ -1520,6 +1566,9 @@ func _build_content_versions_screen() -> VBoxContainer:
 	var run_compare = _button("Compare")
 	run_compare.pressed.connect(_compare_content_versions)
 	compare_row.add_child(run_compare)
+	var schema_registry_button = _button("Schema")
+	schema_registry_button.pressed.connect(_load_content_schema_registry)
+	compare_row.add_child(schema_registry_button)
 	var refresh = _button("Refresh")
 	refresh.pressed.connect(_refresh_content_versions)
 	compare_row.add_child(refresh)
@@ -1587,7 +1636,9 @@ func _refresh_create_character_preview() -> void:
 	if create_preview_widget == null:
 		return
 	var appearance_key = _selected_create_appearance_key()
-	create_preview_widget.call("set_character", appearance_key, "Character Creator")
+	create_preview_widget.call("set_character", appearance_key, "")
+	if create_lighting_profile_option != null:
+		create_preview_widget.call("set_lighting_profile", _selected_option_value(create_lighting_profile_option))
 
 func _available_create_appearance_choices() -> Array[Dictionary]:
 	var choices: Array[Dictionary] = []
@@ -1626,13 +1677,27 @@ func _selected_create_appearance_key() -> String:
 			return value
 	return "human_male"
 
-func _on_character_tabs_changed(index: int) -> void:
-	if character_tabs == null:
-		return
-	if index == 1:
-		_set_create_step(create_step_tabs.current_tab if create_step_tabs != null else 0)
-		return
-	_hide_skill_tooltip()
+func _set_account_view(view_name: String) -> void:
+	account_active_view = "create" if view_name == "create" else "list"
+	if account_list_view != null:
+		account_list_view.visible = account_active_view == "list"
+	if account_create_view != null:
+		account_create_view.visible = account_active_view == "create"
+	if account_show_list_button != null:
+		account_show_list_button.visible = account_active_view == "create"
+	if character_refresh_button != null:
+		character_refresh_button.visible = account_active_view == "list"
+	if character_create_button != null:
+		character_create_button.visible = account_active_view == "list"
+	if account_active_view == "create":
+		_refresh_create_character_preview()
+		_refresh_create_review()
+		_configure_create_focus_chain()
+	else:
+		_render_character_rows()
+		if selected_character_index >= 0:
+			_render_character_details(selected_character_index)
+		_hide_skill_tooltip()
 
 func _mark_create_dirty() -> void:
 	create_dirty = true
@@ -1641,6 +1706,8 @@ func _mark_create_dirty() -> void:
 
 func _set_create_step(step_index: int) -> void:
 	if create_step_tabs == null:
+		if step_index >= 0:
+			_refresh_create_review()
 		return
 	var max_step = max(0, create_step_tabs.get_tab_count() - 1)
 	var clamped_step = clampi(step_index, 0, max_step)
@@ -1686,6 +1753,7 @@ func _on_create_step_next_pressed() -> void:
 
 func _on_create_step_enter_pressed() -> void:
 	if create_step_tabs == null:
+		_on_create_character_pressed()
 		return
 	var max_step = max(0, create_step_tabs.get_tab_count() - 1)
 	if create_step_tabs.current_tab < max_step:
@@ -1695,7 +1763,17 @@ func _on_create_step_enter_pressed() -> void:
 
 func _create_step_name(step_index: int) -> String:
 	if create_step_tabs == null:
-		return "Step"
+		match step_index:
+			0:
+				return "Appearance"
+			1:
+				return "Identity"
+			2:
+				return "Stats & Skills"
+			3:
+				return "Review"
+			_:
+				return "Step"
 	if step_index < 0 or step_index >= create_step_tabs.get_tab_count():
 		return "Step"
 	return create_step_tabs.get_tab_title(step_index)
@@ -1748,14 +1826,16 @@ func _refresh_create_review() -> void:
 	var selected_background = create_background_option.get_item_text(create_background_option.selected) if create_background_option != null and create_background_option.selected >= 0 else "Drifter"
 	var selected_affiliation = create_affiliation_option.get_item_text(create_affiliation_option.selected) if create_affiliation_option != null and create_affiliation_option.selected >= 0 else "Unaffiliated"
 	create_review_text.text = (
-		"Appearance\n- Sex: %s\n- Skin Tone: %s\n- Hair Style: %s\n- Hair Color: %s\n- Face: %s\n- Stance: %s\n\nIdentity\n- Name: %s\n- Race: %s\n- Background: %s\n- Affiliation: %s\n\nBuild\n- Points Left: %s/%s\n- Selected Skills: %s\n\nAppearance Payload\n%s"
+		"Appearance\n- Sex: %s\n- Body Preset: %s\n- Skin Tone: %s\n- Hair Style: %s\n- Hair Color: %s\n- Face: %s\n- Stance: %s\n- Lighting: %s\n\nIdentity\n- Name: %s\n- Race: %s\n- Background: %s\n- Affiliation: %s\n\nBuild\n- Points Left: %s/%s\n- Selected Skills: %s\n\nAppearance Payload\n%s"
 		% [
 			str(appearance_profile.get("sex", "human_male")),
+			str(appearance_profile.get("body_preset", "adventurer")),
 			str(appearance_profile.get("skin_tone", "warm bronze")),
 			str(appearance_profile.get("hair_style", "short")),
 			str(appearance_profile.get("hair_color", "umber")),
 			str(appearance_profile.get("face", "calm")),
 			str(appearance_profile.get("stance", "neutral")),
+			str(appearance_profile.get("lighting_profile", "warm_torchlight")),
 			create_name_input.text.strip_edges() if create_name_input != null else "",
 			selected_race,
 			selected_background,
@@ -1782,21 +1862,45 @@ func _refresh_create_review() -> void:
 
 func _create_appearance_profile_payload() -> Dictionary:
 	var payload: Dictionary = {}
+	payload["version"] = 1
 	payload["sex"] = _selected_create_appearance_key()
+	payload["body_preset"] = "adventurer"
 	if create_skin_tone_option != null and create_skin_tone_option.selected >= 0:
-		payload["skin_tone"] = create_skin_tone_option.get_item_text(create_skin_tone_option.selected).to_lower()
+		payload["skin_tone"] = _selected_option_value(create_skin_tone_option)
 	if create_hair_style_option != null and create_hair_style_option.selected >= 0:
-		payload["hair_style"] = create_hair_style_option.get_item_text(create_hair_style_option.selected).to_lower()
+		payload["hair_style"] = _selected_option_value(create_hair_style_option)
 	if create_hair_color_option != null and create_hair_color_option.selected >= 0:
-		payload["hair_color"] = create_hair_color_option.get_item_text(create_hair_color_option.selected).to_lower()
+		payload["hair_color"] = _selected_option_value(create_hair_color_option)
 	if create_face_option != null and create_face_option.selected >= 0:
-		payload["face"] = create_face_option.get_item_text(create_face_option.selected).to_lower()
+		payload["face"] = _selected_option_value(create_face_option)
 	if create_stance_option != null and create_stance_option.selected >= 0:
-		payload["stance"] = create_stance_option.get_item_text(create_stance_option.selected).to_lower()
+		payload["stance"] = _selected_option_value(create_stance_option)
+	payload["lighting_profile"] = _selected_option_value(create_lighting_profile_option)
 	return payload
+
+func _selected_option_value(option: OptionButton) -> String:
+	if option == null or option.selected < 0:
+		return ""
+	var metadata = option.get_item_metadata(option.selected)
+	if metadata is String:
+		var value = str(metadata).strip_edges().to_lower()
+		if not value.is_empty():
+			return value
+	return option.get_item_text(option.selected).strip_edges().to_lower().replace(" ", "_")
 
 func _configure_create_focus_chain() -> void:
 	if create_step_tabs == null:
+		_set_focus_link(create_name_input, create_sex_option)
+		_set_focus_link(create_sex_option, create_race_option)
+		_set_focus_link(create_race_option, create_background_option)
+		_set_focus_link(create_background_option, create_affiliation_option)
+		_set_focus_link(create_affiliation_option, create_skin_tone_option)
+		_set_focus_link(create_skin_tone_option, create_hair_style_option)
+		_set_focus_link(create_hair_style_option, create_hair_color_option)
+		_set_focus_link(create_hair_color_option, create_face_option)
+		_set_focus_link(create_face_option, create_stance_option)
+		_set_focus_link(create_stance_option, create_lighting_profile_option)
+		_set_focus_link(create_lighting_profile_option, create_submit_button)
 		return
 	if create_step_tabs.current_tab == 0:
 		_set_focus_link(create_sex_option, create_skin_tone_option)
@@ -1816,18 +1920,29 @@ func _configure_account_focus_chain() -> void:
 		return
 	_set_focus_link(character_search_input, character_sort_option)
 	_set_focus_link(character_sort_option, character_refresh_button)
+	if character_create_button != null:
+		_set_focus_link(character_refresh_button, character_create_button)
 	if character_play_button != null:
-		_set_focus_link(character_refresh_button, character_play_button)
+		if character_create_button != null:
+			_set_focus_link(character_create_button, character_play_button)
+		else:
+			_set_focus_link(character_refresh_button, character_play_button)
 
 func _refresh_selected_character_preview() -> void:
 	if character_preview_widget == null:
 		return
 	if selected_character_index < 0 or selected_character_index >= characters.size():
-		character_preview_widget.call("set_character", "human_male", "Selected Character")
+		character_preview_widget.call("set_character", "human_male", "")
+		character_preview_widget.call("set_lighting_profile", "warm_torchlight")
 		return
 	var row: Dictionary = characters[selected_character_index]
 	var appearance_key = str(row.get("appearance_key", "human_male"))
-	character_preview_widget.call("set_character", appearance_key, str(row.get("name", "Selected Character")))
+	character_preview_widget.call("set_character", appearance_key, "")
+	var profile = row.get("appearance_profile", {})
+	if profile is Dictionary:
+		character_preview_widget.call("set_lighting_profile", str(profile.get("lighting_profile", "warm_torchlight")))
+	else:
+		character_preview_widget.call("set_lighting_profile", "warm_torchlight")
 
 func _resolve_character_texture_directional(appearance_key: String, direction: String):
 	var key = appearance_key.strip_edges().to_lower()
@@ -1946,9 +2061,9 @@ func _render_character_rows() -> void:
 	if character_rows_container == null:
 		return
 	_clear_children(character_rows_container)
-	var roster_min_width = 300.0
+	var roster_min_width = 220.0
 	if character_rows_scroll != null:
-		roster_min_width = maxf(300.0, character_rows_scroll.size.x - float(UI_TOKENS.spacing("md") * 2))
+		roster_min_width = maxf(220.0, character_rows_scroll.size.x - float(UI_TOKENS.spacing("md") * 2))
 	character_rows_container.custom_minimum_size = Vector2(roster_min_width, 0)
 	var visible_indices = _filtered_character_indices()
 	if visible_indices.is_empty() and character_search_input != null and not character_search_input.text.strip_edges().is_empty():
@@ -1958,13 +2073,14 @@ func _render_character_rows() -> void:
 	if characters.size() > 0 and visible_indices.is_empty():
 		_append_log("Character roster render mismatch: characters=%d visible=%d query='%s'" % [characters.size(), visible_indices.size(), character_search_input.text if character_search_input != null else ""])
 	if visible_indices.is_empty():
-		var empty_card = UI_COMPONENTS.panel_card(Vector2(roster_min_width, 140), false)
+		var empty_card = VBoxContainer.new()
+		empty_card.custom_minimum_size = Vector2(roster_min_width, 140)
 		empty_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var empty_pad = MarginContainer.new()
-		empty_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("md"))
-		empty_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("md"))
-		empty_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("md"))
-		empty_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("md"))
+		empty_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("sm"))
+		empty_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("sm"))
+		empty_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("sm"))
+		empty_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("sm"))
 		empty_card.add_child(empty_pad)
 		var empty_text = "No matching characters. Adjust search or create a new character."
 		if characters.is_empty():
@@ -1978,21 +2094,9 @@ func _render_character_rows() -> void:
 		if character_delete_button != null:
 			character_delete_button.disabled = true
 		return
-	character_rows_container.custom_minimum_size = Vector2(roster_min_width, float(visible_indices.size() * 96))
+	character_rows_container.custom_minimum_size = Vector2(roster_min_width, float(visible_indices.size() * 54))
 	for row_index in visible_indices:
 		var row: Dictionary = characters[row_index]
-		var card = UI_COMPONENTS.panel_card(Vector2(roster_min_width, 86), row_index == selected_character_index)
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var card_pad = MarginContainer.new()
-		card_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("md"))
-		card_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("sm"))
-		card_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("md"))
-		card_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("sm"))
-		card.add_child(card_pad)
-		var card_inner = HBoxContainer.new()
-		card_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
-		card_pad.add_child(card_inner)
-
 		var summary_button = UI_COMPONENTS.button_secondary(
 			"%s Lv.%s %s"
 			% [
@@ -2000,16 +2104,30 @@ func _render_character_rows() -> void:
 				str(row.get("level", 1)),
 				_character_level_name(row),
 			],
-			Vector2(maxf(220.0, roster_min_width - float(UI_TOKENS.spacing("lg") * 2)), 44)
+			Vector2(maxf(220.0, roster_min_width - float(UI_TOKENS.spacing("sm") * 2)), 46)
 		)
 		summary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		summary_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		summary_button.clip_text = true
+		if row_index == selected_character_index:
+			var selected_style = StyleBoxFlat.new()
+			selected_style.bg_color = UI_TOKENS.color("button_pressed")
+			selected_style.border_width_left = 1
+			selected_style.border_width_top = 1
+			selected_style.border_width_right = 1
+			selected_style.border_width_bottom = 1
+			selected_style.border_color = UI_TOKENS.color("panel_border")
+			selected_style.corner_radius_top_left = UI_TOKENS.size("radius")
+			selected_style.corner_radius_top_right = UI_TOKENS.size("radius")
+			selected_style.corner_radius_bottom_left = UI_TOKENS.size("radius")
+			selected_style.corner_radius_bottom_right = UI_TOKENS.size("radius")
+			summary_button.add_theme_color_override("font_color", UI_TOKENS.color("selection_text"))
+			summary_button.add_theme_stylebox_override("normal", selected_style)
+			summary_button.add_theme_stylebox_override("hover", selected_style)
 		summary_button.pressed.connect(func() -> void:
 			_set_selected_character(row_index)
 		)
-		card_inner.add_child(summary_button)
-		character_rows_container.add_child(card)
+		character_rows_container.add_child(summary_button)
 
 func _remaining_create_points() -> int:
 	var used = 0
@@ -2024,7 +2142,9 @@ func _refresh_create_points_label() -> void:
 	if create_points_left_label == null:
 		return
 	create_points_left_label.text = "%d/%d points left" % [_remaining_create_points(), create_point_budget]
-	if create_step_tabs != null and create_step_tabs.current_tab == 3:
+	if create_step_tabs == null:
+		_refresh_create_review()
+	elif create_step_tabs.current_tab == 3:
 		_refresh_create_review()
 
 func _adjust_create_stat(stat_key: String, delta: int, value_label: Label) -> void:
@@ -2287,6 +2407,7 @@ func _show_screen(name: String) -> void:
 	menu_button.visible = name != "auth"
 	footer_status.visible = not in_world
 	if name == "account" and access_token != "":
+		_set_account_view("list")
 		call_deferred("_refresh_account_screen_deferred")
 	if name == "world":
 		header_title.text = ""
@@ -2421,7 +2542,7 @@ func _on_auth_submit() -> void:
 	_apply_auth_mode()
 	await _load_characters()
 	_show_screen("account")
-	character_tabs.current_tab = 0
+	_set_account_view("list")
 
 func _apply_session(payload: Dictionary) -> void:
 	access_token = str(payload.get("access_token", ""))
@@ -2449,7 +2570,8 @@ func _logout_session_local() -> void:
 	_clear_children(character_rows_container)
 	character_details_label.text = "Choose a character from the list."
 	if character_preview_widget != null:
-		character_preview_widget.call("set_character", "human_male", "Selected Character")
+		character_preview_widget.call("set_character", "human_male", "")
+		character_preview_widget.call("set_lighting_profile", "warm_torchlight")
 	auth_password_input.clear()
 	auth_otp_input.clear()
 	settings_mfa_last_secret = ""
@@ -2478,8 +2600,8 @@ func _load_characters() -> void:
 	var payload = response.get("json", [])
 	characters = payload if payload is Array else []
 	_append_log("Character list loaded count=%d" % characters.size())
-	if character_list_title_label != null:
-		character_list_title_label.text = "Character List (%d)" % characters.size()
+	if character_create_button != null:
+		character_create_button.text = "Create Character"
 	if characters.is_empty():
 		selected_character_index = -1
 		_render_character_details(-1)
@@ -2562,7 +2684,8 @@ func _render_character_details(index: int) -> void:
 	if index < 0 or index >= characters.size():
 		character_details_label.text = "Choose a character from the list."
 		if character_preview_widget != null:
-			character_preview_widget.call("set_character", "human_male", "Selected Character")
+			character_preview_widget.call("set_character", "human_male", "")
+			character_preview_widget.call("set_lighting_profile", "warm_torchlight")
 		if character_play_button != null:
 			character_play_button.disabled = true
 		if character_delete_button != null:
@@ -2603,6 +2726,7 @@ func _on_create_character_pressed() -> void:
 		step_keys.sort()
 		var first_invalid_step = int(step_keys[0])
 		_set_create_step(first_invalid_step)
+		_focus_create_step(first_invalid_step)
 		_refresh_create_review()
 		create_status_label.text = "Fix the highlighted step errors before creating the character."
 		return
@@ -2635,6 +2759,8 @@ func _on_create_character_pressed() -> void:
 		_append_log("Create character failed status=%s body=%s" % [str(response.get("status", 0)), str(response.get("text", ""))])
 		create_status_label.text = _friendly_error(response)
 		return
+	var created_payload: Dictionary = response.get("json", {})
+	var created_character_id = int(created_payload.get("id", -1))
 	_append_log("Create character succeeded name=%s" % name)
 	create_name_input.clear()
 	for key in create_stat_keys:
@@ -2647,12 +2773,32 @@ func _on_create_character_pressed() -> void:
 			button.button_pressed = false
 	_populate_character_creation_tables(content_domains.get("character_options", {}))
 	create_dirty = false
-	_set_create_step(0)
+	_refresh_create_review()
+	_configure_create_focus_chain()
 	create_status_label.text = " "
 	if character_search_input != null:
 		character_search_input.text = ""
 	await _load_characters()
-	character_tabs.current_tab = 0
+	if created_character_id > 0:
+		for idx in range(characters.size()):
+			if int((characters[idx] as Dictionary).get("id", -1)) == created_character_id:
+				_set_selected_character(idx)
+				break
+	_set_account_view("list")
+
+func _focus_create_step(step_index: int) -> void:
+	match step_index:
+		0:
+			if create_sex_option != null:
+				create_sex_option.grab_focus()
+		1:
+			if create_name_input != null:
+				create_name_input.grab_focus()
+		2:
+			if create_stats_grid != null and create_stats_grid.get_child_count() > 0:
+				var first = create_stats_grid.get_child(1)
+				if first is Control:
+					(first as Control).grab_focus()
 
 func _on_character_delete_pressed() -> void:
 	if selected_character_index < 0 or selected_character_index >= characters.size():
@@ -2729,6 +2875,9 @@ func _on_character_play_pressed() -> void:
 		}
 		account_status_label.text = "Loaded fallback world."
 
+	world_cached_levels.clear()
+	level_data = _attach_runtime_level_context(level_data)
+	_cache_level_data(level_data)
 	active_level_id = int(level_data.get("id", -1))
 	active_level_name = str(level_data.get("descriptive_name", level_data.get("name", "Default")))
 	var width_tiles = int(level_data.get("width", 64))
@@ -2745,12 +2894,84 @@ func _on_character_play_pressed() -> void:
 	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world, level_data)
 	world_status_label.text = "Iso WASD movement. Level: %s" % active_level_name
 	_append_log("Character " + str(active_character_id) + " entered world level=" + active_level_name)
+	await _warm_adjacent_levels(level_data)
 	active_world_ready = true
 	account_status_label.text = " "
 	_show_screen("world")
 
 func _on_world_position_changed(position: Vector2) -> void:
 	world_status_label.text = "Iso WASD. Level: %s (%d, %d)" % [active_level_name, int(position.x), int(position.y)]
+
+func _attach_runtime_level_context(level_data: Dictionary) -> Dictionary:
+	var level_copy: Dictionary = level_data.duplicate(true)
+	var assets_domain = content_domains.get("assets", {})
+	var templates: Dictionary = {}
+	var entries = assets_domain.get("entries", [])
+	if entries is Array:
+		for raw in entries:
+			if not (raw is Dictionary):
+				continue
+			var key = str(raw.get("key", "")).strip_edges().to_lower()
+			if key.is_empty():
+				continue
+			templates[key] = raw
+	level_copy["asset_templates"] = templates
+	level_copy["player_collision_layer"] = "ground"
+	return level_copy
+
+func _cache_level_data(level_data: Dictionary) -> void:
+	var level_id = int(level_data.get("id", -1))
+	if level_id > 0:
+		world_cached_levels[level_id] = level_data.duplicate(true)
+
+func _warm_adjacent_levels(level_data: Dictionary) -> void:
+	var transitions = level_data.get("transitions", [])
+	if not (transitions is Array):
+		return
+	for raw in transitions:
+		if not (raw is Dictionary):
+			continue
+		var destination_level_id = int(raw.get("destination_level_id", -1))
+		if destination_level_id <= 0 or world_cached_levels.has(destination_level_id):
+			continue
+		var response = await _api_request(HTTPClient.METHOD_GET, "/levels/%s" % str(destination_level_id), null, true)
+		if not response.get("ok", false):
+			continue
+		var payload = response.get("json", {})
+		var enriched = _attach_runtime_level_context(payload)
+		world_cached_levels[destination_level_id] = enriched
+
+func _on_world_transition_requested(transition: Dictionary) -> void:
+	if world_transition_busy:
+		return
+	world_transition_busy = true
+	var destination_level_id = int(transition.get("destination_level_id", -1))
+	if destination_level_id <= 0:
+		world_transition_busy = false
+		return
+	var destination_level: Dictionary = {}
+	if world_cached_levels.has(destination_level_id):
+		destination_level = world_cached_levels[destination_level_id]
+	else:
+		var level_response = await _api_request(HTTPClient.METHOD_GET, "/levels/%s" % str(destination_level_id), null, true)
+		if not level_response.get("ok", false):
+			world_status_label.text = "Transition failed: destination unavailable."
+			world_transition_busy = false
+			return
+		destination_level = _attach_runtime_level_context(level_response.get("json", {}))
+		world_cached_levels[destination_level_id] = destination_level
+	var width_tiles = int(destination_level.get("width", 64))
+	var height_tiles = int(destination_level.get("height", 48))
+	var spawn_x = int(destination_level.get("spawn_x", 3))
+	var spawn_y = int(destination_level.get("spawn_y", 3))
+	var spawn_world = Vector2(float(spawn_x) * 32.0 + 16.0, float(spawn_y) * 32.0 + 16.0)
+	active_level_id = int(destination_level.get("id", active_level_id))
+	active_level_name = str(destination_level.get("descriptive_name", destination_level.get("name", active_level_name)))
+	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world, destination_level)
+	world_status_label.text = "Iso WASD movement. Level: %s" % active_level_name
+	_cache_level_data(destination_level)
+	await _warm_adjacent_levels(destination_level)
+	world_transition_busy = false
 
 func _persist_active_character_location() -> void:
 	if not active_world_ready:
@@ -3042,6 +3263,122 @@ func _on_settings_mfa_toggle_requested(requested_enabled: bool) -> void:
 	settings_status_label.text = "MFA " + ("enabled." if requested_enabled else "disabled.")
 	await _refresh_settings_mfa_status()
 
+func _validate_level_editor_payload() -> void:
+	var issues: Array[String] = []
+	var width = max(8, int(level_editor_width_input.text.to_int()))
+	var height = max(8, int(level_editor_height_input.text.to_int()))
+	var spawn_x = max(0, int(level_editor_spawn_x_input.text.to_int()))
+	var spawn_y = max(0, int(level_editor_spawn_y_input.text.to_int()))
+	if spawn_x >= width or spawn_y >= height:
+		issues.append("Spawn point must be inside level bounds.")
+
+	var layers_variant = JSON.parse_string(level_editor_layers_input.text.strip_edges())
+	if not (layers_variant is Dictionary):
+		issues.append("Layers JSON must be a dictionary keyed by layer id.")
+	var transitions_variant = JSON.parse_string(level_editor_transitions_input.text.strip_edges())
+	if not (transitions_variant is Array):
+		issues.append("Transitions JSON must be an array.")
+	else:
+		var seen: Dictionary = {}
+		for raw in transitions_variant:
+			if not (raw is Dictionary):
+				continue
+			var tx = int(raw.get("x", -1))
+			var ty = int(raw.get("y", -1))
+			var destination_level_id = int(raw.get("destination_level_id", -1))
+			var transition_type = str(raw.get("transition_type", "")).strip_edges().to_lower()
+			if tx < 0 or ty < 0 or tx >= width or ty >= height:
+				issues.append("Transition %s,%s is outside level bounds." % [str(tx), str(ty)])
+			if destination_level_id <= 0:
+				issues.append("Transition at %s,%s must define destination_level_id." % [str(tx), str(ty)])
+			if transition_type not in ["stairs", "ladder", "elevator"]:
+				issues.append("Transition type must be stairs, ladder, or elevator.")
+			var dedupe = "%s:%s:%s:%s" % [str(tx), str(ty), transition_type, str(destination_level_id)]
+			if seen.has(dedupe):
+				issues.append("Duplicate transition found at %s,%s." % [str(tx), str(ty)])
+			seen[dedupe] = true
+
+	var objects_variant = JSON.parse_string(level_editor_objects_input.text.strip_edges())
+	if not (objects_variant is Array):
+		issues.append("Objects JSON must be an array.")
+	var mode_label = level_editor_mode_option.get_item_text(level_editor_mode_option.selected) if level_editor_mode_option != null else "Gameplay Grid"
+	if mode_label == "Gameplay Grid" and objects_variant is Array and not objects_variant.is_empty():
+		issues.append("Gameplay Grid mode should keep Objects JSON empty.")
+
+	if level_editor_validation_output != null:
+		if issues.is_empty():
+			level_editor_validation_output.text = "Validation passed. Payload is ready for Save Local."
+		else:
+			level_editor_validation_output.text = "- " + "\n- ".join(issues)
+	level_editor_status.text = "Validation complete." if issues.is_empty() else "Validation found %d issue(s)." % issues.size()
+
+func _add_reverse_transition_links() -> void:
+	if level_editor_levels_cache.is_empty():
+		level_editor_status.text = "Load a level first."
+		return
+	var selected_idx = level_editor_level_option.selected
+	if selected_idx < 0 or selected_idx >= level_editor_levels_cache.size():
+		level_editor_status.text = "Select a level first."
+		return
+	var current_level = level_editor_levels_cache[selected_idx]
+	var current_level_id = int(current_level.get("id", -1))
+	if current_level_id <= 0:
+		level_editor_status.text = "Invalid current level selection."
+		return
+	var transitions_variant = JSON.parse_string(level_editor_transitions_input.text.strip_edges())
+	if not (transitions_variant is Array):
+		level_editor_status.text = "Transitions JSON must be an array."
+		return
+	var added_count = 0
+	for raw in transitions_variant:
+		if not (raw is Dictionary):
+			continue
+		var destination_level_id = int(raw.get("destination_level_id", -1))
+		if destination_level_id <= 0 or destination_level_id == current_level_id:
+			continue
+		var destination_response = await _api_request(HTTPClient.METHOD_GET, "/levels/%s" % str(destination_level_id), null, true)
+		if not destination_response.get("ok", false):
+			continue
+		var destination_level: Dictionary = destination_response.get("json", {})
+		var destination_transitions = destination_level.get("transitions", [])
+		if not (destination_transitions is Array):
+			destination_transitions = []
+		var has_reverse = false
+		for existing in destination_transitions:
+			if not (existing is Dictionary):
+				continue
+			if int(existing.get("destination_level_id", -1)) == current_level_id:
+				has_reverse = true
+				break
+		if has_reverse:
+			continue
+		destination_transitions.append(
+			{
+				"x": int(destination_level.get("spawn_x", 1)),
+				"y": int(destination_level.get("spawn_y", 1)),
+				"transition_type": str(raw.get("transition_type", "stairs")).strip_edges().to_lower(),
+				"destination_level_id": current_level_id,
+			}
+		)
+		var destination_payload = {
+			"name": str(destination_level.get("name", "")),
+			"descriptive_name": str(destination_level.get("descriptive_name", destination_level.get("name", ""))),
+			"order_index": int(destination_level.get("order_index", 1)),
+			"schema_version": int(destination_level.get("schema_version", 2)),
+			"width": int(destination_level.get("width", 80)),
+			"height": int(destination_level.get("height", 48)),
+			"spawn_x": int(destination_level.get("spawn_x", 1)),
+			"spawn_y": int(destination_level.get("spawn_y", 1)),
+			"layers": destination_level.get("layers", {}),
+			"objects": destination_level.get("objects", []),
+			"transitions": destination_transitions,
+		}
+		level_editor_local_drafts.append(destination_payload)
+		added_count += 1
+	_save_level_editor_drafts()
+	_refresh_level_editor_pending_view()
+	level_editor_status.text = "Added %d reverse transition draft(s)." % added_count if added_count > 0 else "No reverse links were needed."
+
 func _refresh_level_editor_levels() -> void:
 	if access_token.is_empty() or not session_is_admin:
 		return
@@ -3057,6 +3394,20 @@ func _refresh_level_editor_levels() -> void:
 		level_editor_level_option.add_item("%s (#%s)" % [str(row.get("descriptive_name", row.get("name", ""))), str(row.get("id", ""))])
 	if level_editor_level_option.get_item_count() == 0:
 		level_editor_level_option.add_item("No levels")
+	if level_editor_asset_option != null:
+		level_editor_asset_option.clear()
+		var asset_entries = content_domains.get("assets", {}).get("entries", [])
+		if asset_entries is Array:
+			for entry in asset_entries:
+				if entry is Dictionary:
+					var key = str(entry.get("key", "")).strip_edges()
+					if not key.is_empty():
+						level_editor_asset_option.add_item(key)
+		if level_editor_asset_option.get_item_count() == 0:
+			level_editor_asset_option.add_item("grass_tile")
+	if level_editor_layer_option != null and level_editor_layer_option.get_item_count() <= 0:
+		for layer_id in ["0", "1", "2"]:
+			level_editor_layer_option.add_item(layer_id)
 	level_editor_status.text = " "
 	_refresh_level_editor_pending_view()
 
@@ -3081,8 +3432,11 @@ func _load_selected_level_into_editor() -> void:
 	level_editor_height_input.text = str(level.get("height", 48))
 	level_editor_spawn_x_input.text = str(level.get("spawn_x", 3))
 	level_editor_spawn_y_input.text = str(level.get("spawn_y", 3))
+	level_editor_mode_option.selected = 1 if int(level.get("schema_version", 2)) >= 3 else 0
 	level_editor_layers_input.text = JSON.stringify(level.get("layers", {}), "\t")
+	level_editor_objects_input.text = JSON.stringify(level.get("objects", []), "\t")
 	level_editor_transitions_input.text = JSON.stringify(level.get("transitions", []), "\t")
+	_validate_level_editor_payload()
 	level_editor_status.text = "Level loaded."
 
 func _save_level_editor_local_draft() -> void:
@@ -3098,16 +3452,24 @@ func _save_level_editor_local_draft() -> void:
 	if not (transitions_variant is Array):
 		level_editor_status.text = "Transitions JSON must be an array."
 		return
+	var objects_variant = JSON.parse_string(level_editor_objects_input.text.strip_edges())
+	if not (objects_variant is Array):
+		level_editor_status.text = "Objects JSON must be an array."
+		return
+	_validate_level_editor_payload()
+	var mode_label = level_editor_mode_option.get_item_text(level_editor_mode_option.selected) if level_editor_mode_option != null else "Gameplay Grid"
+	var schema_version = 3 if mode_label == "Decoration Freeform" else 2
 	var payload = {
 		"name": level_name,
 		"descriptive_name": level_editor_descriptive_input.text.strip_edges(),
 		"order_index": int(level_editor_order_input.text.to_int()),
-		"schema_version": 2,
+		"schema_version": schema_version,
 		"width": max(8, int(level_editor_width_input.text.to_int())),
 		"height": max(8, int(level_editor_height_input.text.to_int())),
 		"spawn_x": max(0, int(level_editor_spawn_x_input.text.to_int())),
 		"spawn_y": max(0, int(level_editor_spawn_y_input.text.to_int())),
 		"layers": layers_variant,
+		"objects": objects_variant,
 		"transitions": transitions_variant,
 	}
 	var replaced = false
@@ -3126,6 +3488,7 @@ func _publish_level_editor_drafts() -> void:
 	if level_editor_local_drafts.is_empty():
 		level_editor_status.text = "No level drafts to publish."
 		return
+	_validate_level_editor_payload()
 	level_editor_status.text = "Publishing %d level draft(s)..." % level_editor_local_drafts.size()
 	for draft in level_editor_local_drafts:
 		var response = await _api_request(HTTPClient.METHOD_POST, "/levels", draft, true)
@@ -3141,7 +3504,15 @@ func _publish_level_editor_drafts() -> void:
 func _refresh_level_editor_pending_view() -> void:
 	level_editor_pending_list.clear()
 	for draft in level_editor_local_drafts:
-		level_editor_pending_list.add_item("%s | %sx%s" % [str(draft.get("name", "")), str(draft.get("width", "")), str(draft.get("height", ""))])
+		level_editor_pending_list.add_item(
+			"%s | %sx%s | schema v%s"
+			% [
+				str(draft.get("name", "")),
+				str(draft.get("width", "")),
+				str(draft.get("height", "")),
+				str(draft.get("schema_version", 2)),
+			]
+		)
 
 func _refresh_level_order_list() -> void:
 	if access_token.is_empty() or not session_is_admin:
@@ -3267,7 +3638,59 @@ func _load_asset_editor_selected_domain_payload() -> void:
 		return
 	var domain = asset_editor_domain_option.get_item_text(asset_editor_domain_option.selected)
 	var payload = asset_editor_active_domains.get(domain, {})
-	asset_editor_payload_input.text = JSON.stringify(payload, "\t")
+	asset_editor_selected_card_index = -1
+	asset_editor_cards.clear()
+	if payload is Dictionary:
+		var entries = payload.get("entries", [])
+		if entries is Array:
+			for entry in entries:
+				if not (entry is Dictionary):
+					continue
+				var key = str(entry.get("key", entry.get("item_key", ""))).strip_edges()
+				var label = str(entry.get("label", key)).strip_edges()
+				if key.is_empty():
+					continue
+				asset_editor_cards.append(
+					{
+						"entry_key": key,
+						"label": label if not label.is_empty() else key,
+						"payload": entry,
+					}
+				)
+	_refresh_asset_editor_cards_view()
+	if asset_editor_cards.is_empty():
+		asset_editor_payload_input.text = JSON.stringify(payload, "\t")
+	else:
+		asset_editor_payload_input.text = ""
+		if asset_editor_card_list.get_item_count() > 0:
+			asset_editor_card_list.select(0)
+			_on_asset_editor_card_selected(0)
+
+func _refresh_asset_editor_cards_view() -> void:
+	if asset_editor_card_list == null:
+		return
+	asset_editor_card_list.clear()
+	var query = asset_editor_search_input.text.strip_edges().to_lower() if asset_editor_search_input != null else ""
+	for idx in range(asset_editor_cards.size()):
+		var row = asset_editor_cards[idx]
+		var label = str(row.get("label", row.get("entry_key", "")))
+		var key = str(row.get("entry_key", ""))
+		var haystack = (label + " " + key).to_lower()
+		if not query.is_empty() and not haystack.contains(query):
+			continue
+		asset_editor_card_list.add_item(label)
+		var added_index = asset_editor_card_list.get_item_count() - 1
+		asset_editor_card_list.set_item_metadata(added_index, idx)
+
+func _on_asset_editor_card_selected(index: int) -> void:
+	if index < 0 or index >= asset_editor_card_list.get_item_count():
+		return
+	var mapped_index = int(asset_editor_card_list.get_item_metadata(index))
+	if mapped_index < 0 or mapped_index >= asset_editor_cards.size():
+		return
+	asset_editor_selected_card_index = mapped_index
+	var row = asset_editor_cards[mapped_index]
+	asset_editor_payload_input.text = JSON.stringify(row.get("payload", {}), "\t")
 
 func _save_asset_editor_local_draft() -> void:
 	if asset_editor_versions_cache.is_empty():
@@ -3281,16 +3704,38 @@ func _save_asset_editor_local_draft() -> void:
 	if domain == "No domains":
 		asset_editor_status.text = "Select a domain."
 		return
-	var payload = JSON.parse_string(asset_editor_payload_input.text.strip_edges())
-	if not (payload is Dictionary):
-		asset_editor_status.text = "Domain payload must be a JSON object."
+	var parsed_payload = JSON.parse_string(asset_editor_payload_input.text.strip_edges())
+	if not (parsed_payload is Dictionary):
+		asset_editor_status.text = "Payload must be a JSON object."
 		return
+	var payload: Dictionary = parsed_payload
+	var active_payload = asset_editor_active_domains.get(domain, {})
+	var payload_for_domain: Dictionary = {}
+	if active_payload is Dictionary:
+		payload_for_domain = (active_payload as Dictionary).duplicate(true)
+	if payload_for_domain.is_empty():
+		payload_for_domain = payload.duplicate(true)
+	elif asset_editor_selected_card_index >= 0 and asset_editor_selected_card_index < asset_editor_cards.size():
+		var entry_key = str(asset_editor_cards[asset_editor_selected_card_index].get("entry_key", ""))
+		var entries = payload_for_domain.get("entries", [])
+		if entries is Array:
+			for i in range(entries.size()):
+				if not (entries[i] is Dictionary):
+					continue
+				var existing_key = str((entries[i] as Dictionary).get("key", (entries[i] as Dictionary).get("item_key", "")))
+				if existing_key == entry_key:
+					entries[i] = payload
+					break
+			payload_for_domain["entries"] = entries
+	else:
+		payload_for_domain = payload.duplicate(true)
 	var version = asset_editor_versions_cache[idx]
 	var entry = {
 		"version_id": int(version.get("id", -1)),
 		"version_key": str(version.get("version_key", "")),
 		"domain": domain,
-		"payload": payload,
+		"payload": payload_for_domain,
+		"entry_key": str(asset_editor_cards[asset_editor_selected_card_index].get("entry_key", "")) if asset_editor_selected_card_index >= 0 and asset_editor_selected_card_index < asset_editor_cards.size() else "",
 	}
 	var replaced = false
 	for i in range(asset_editor_local_drafts.size()):
@@ -3329,7 +3774,9 @@ func _publish_asset_editor_drafts() -> void:
 func _refresh_asset_editor_pending_view() -> void:
 	asset_editor_pending_list.clear()
 	for entry in asset_editor_local_drafts:
-		asset_editor_pending_list.add_item("%s | %s" % [str(entry.get("version_key", "")), str(entry.get("domain", ""))])
+		var entry_key = str(entry.get("entry_key", "")).strip_edges()
+		var suffix = " | " + entry_key if not entry_key.is_empty() else ""
+		asset_editor_pending_list.add_item("%s | %s%s" % [str(entry.get("version_key", "")), str(entry.get("domain", "")), suffix])
 
 func _refresh_content_versions() -> void:
 	if access_token.is_empty() or not session_is_admin:
@@ -3353,6 +3800,13 @@ func _refresh_content_versions() -> void:
 		versions_list.select(0)
 		await _on_versions_item_selected(0)
 	versions_status.text = " "
+
+func _load_content_schema_registry() -> void:
+	var response = await _api_request(HTTPClient.METHOD_GET, "/content/schema/registry", null, true)
+	if not response.get("ok", false):
+		versions_compare_output.text = _friendly_error(response)
+		return
+	versions_compare_output.text = JSON.stringify(response.get("json", {}), "\t")
 
 func _on_versions_item_selected(index: int) -> void:
 	if index < 0 or index >= asset_editor_versions_cache.size():
@@ -3424,28 +3878,23 @@ func _compare_content_versions() -> void:
 		return
 	var id_a = int(asset_editor_versions_cache[idx_a].get("id", -1))
 	var id_b = int(asset_editor_versions_cache[idx_b].get("id", -1))
-	var a_resp = await _api_request(HTTPClient.METHOD_GET, "/content/versions/%s" % str(id_a), null, true)
-	var b_resp = await _api_request(HTTPClient.METHOD_GET, "/content/versions/%s" % str(id_b), null, true)
-	if not a_resp.get("ok", false) or not b_resp.get("ok", false):
-		versions_compare_output.text = "Failed to load compare versions."
+	var response = await _api_request(
+		HTTPClient.METHOD_GET,
+		"/content/versions/%s/diff/%s" % [str(id_a), str(id_b)],
+		null,
+		true
+	)
+	if not response.get("ok", false):
+		versions_compare_output.text = _friendly_error(response)
 		return
-	var a_domains = a_resp.get("json", {}).get("domains", {})
-	var b_domains = b_resp.get("json", {}).get("domains", {})
-	var lines: Array = []
-	for key in a_domains.keys():
-		if not b_domains.has(key):
-			lines.append("- Domain removed in B: " + str(key))
-			continue
-		var a_text = JSON.stringify(a_domains.get(key, {}))
-		var b_text = JSON.stringify(b_domains.get(key, {}))
-		if a_text != b_text:
-			lines.append("- Domain changed: " + str(key))
-	for key in b_domains.keys():
-		if not a_domains.has(key):
-			lines.append("- Domain added in B: " + str(key))
-	if lines.is_empty():
-		lines.append("No domain-level differences detected.")
-	versions_compare_output.text = "\n".join(lines)
+	var summary_lines = response.get("json", {}).get("summary_lines", [])
+	if summary_lines is Array and not summary_lines.is_empty():
+		var rendered: Array[String] = []
+		for line in summary_lines:
+			rendered.append("- " + str(line))
+		versions_compare_output.text = "\n".join(rendered)
+	else:
+		versions_compare_output.text = "No content differences detected."
 
 func _selected_content_version_id() -> int:
 	var idx = versions_list.get_selected_items()
@@ -3504,30 +3953,109 @@ func _populate_character_options_from_content() -> void:
 	var options: Dictionary = content_domains.get("character_options", {})
 	if create_race_option == null:
 		return
-	_populate_create_sex_option()
-	_fill_option(create_race_option, _content_labels(options.get("race", options.get("races", [])), ["Human"]))
-	_fill_option(create_background_option, _content_labels(options.get("background", options.get("backgrounds", [])), ["Drifter"]))
-	_fill_option(create_affiliation_option, _content_labels(options.get("affiliation", options.get("affiliations", [])), ["Unaffiliated"]))
+	var appearance = options.get("appearance", {})
+	_fill_option_entries(
+		create_sex_option,
+		_content_option_entries(appearance.get("sex", []), "Male", "human_male"),
+		str(appearance.get("defaults", {}).get("sex", "human_male"))
+	)
+	_fill_option_entries(
+		create_skin_tone_option,
+		_content_option_entries(appearance.get("skin_tone", []), "Warm Bronze", "warm_bronze"),
+		str(appearance.get("defaults", {}).get("skin_tone", "warm_bronze"))
+	)
+	_fill_option_entries(
+		create_hair_style_option,
+		_content_option_entries(appearance.get("hair_style", []), "Short", "short"),
+		str(appearance.get("defaults", {}).get("hair_style", "short"))
+	)
+	_fill_option_entries(
+		create_hair_color_option,
+		_content_option_entries(appearance.get("hair_color", []), "Umber", "umber"),
+		str(appearance.get("defaults", {}).get("hair_color", "umber"))
+	)
+	_fill_option_entries(
+		create_face_option,
+		_content_option_entries(appearance.get("face", []), "Calm", "calm"),
+		str(appearance.get("defaults", {}).get("face", "calm"))
+	)
+	_fill_option_entries(
+		create_stance_option,
+		_content_option_entries(appearance.get("stance", []), "Neutral", "neutral"),
+		str(appearance.get("defaults", {}).get("stance", "neutral"))
+	)
+	_fill_option_entries(
+		create_lighting_profile_option,
+		_content_option_entries(appearance.get("lighting_profile", []), "Warm Torchlight", "warm_torchlight"),
+		str(appearance.get("defaults", {}).get("lighting_profile", "warm_torchlight"))
+	)
+	_fill_option_entries(create_race_option, _content_option_entries(options.get("race", options.get("races", [])), "Human", "human"))
+	_fill_option_entries(
+		create_background_option,
+		_content_option_entries(options.get("background", options.get("backgrounds", [])), "Drifter", "drifter")
+	)
+	_fill_option_entries(
+		create_affiliation_option,
+		_content_option_entries(options.get("affiliation", options.get("affiliations", [])), "Unaffiliated", "unaffiliated")
+	)
+	_refresh_create_character_preview()
+	_refresh_create_review()
 	_populate_character_creation_tables(options)
 
-func _content_labels(source: Variant, fallback: Array) -> Array:
-	if source is Array and not source.is_empty():
-		var labels: Array = []
-		for entry in source:
-			if entry is Dictionary:
-				var label = str(entry.get("label", entry.get("value", ""))).strip_edges()
-				if not label.is_empty():
-					labels.append(label)
-		if not labels.is_empty():
-			return labels
-	return fallback
+func _content_option_entries(source: Variant, fallback_label: String, fallback_value: String) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	if source is Array:
+		for raw in source:
+			if not (raw is Dictionary):
+				continue
+			var value = str(raw.get("value", raw.get("key", raw.get("label", "")))).strip_edges().to_lower()
+			var label = str(raw.get("label", raw.get("value", ""))).strip_edges()
+			if value.is_empty() or label.is_empty():
+				continue
+			var tooltip = str(raw.get("description", raw.get("tooltip", ""))).strip_edges()
+			entries.append(
+				{
+					"value": value,
+					"label": label,
+					"tooltip": tooltip,
+					"text_key": str(raw.get("text_key", "")).strip_edges(),
+					"order": int(raw.get("order", entries.size())),
+				}
+			)
+	if entries.is_empty():
+		entries.append({"value": fallback_value.to_lower(), "label": fallback_label, "tooltip": "", "text_key": "", "order": 0})
+	else:
+		entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a.get("order", 0)) < int(b.get("order", 0))
+		)
+	return entries
 
-func _fill_option(option: OptionButton, values: Array) -> void:
+func _fill_option_entries(option: OptionButton, entries: Array[Dictionary], preferred_value: String = "") -> void:
+	if option == null:
+		return
 	option.clear()
-	for value in values:
-		option.add_item(str(value))
+	var normalized_preferred = preferred_value.strip_edges().to_lower()
+	var preferred_index = -1
+	for entry in entries:
+		var label = str(entry.get("label", "")).strip_edges()
+		var value = str(entry.get("value", label)).strip_edges().to_lower()
+		if label.is_empty():
+			continue
+		option.add_item(label)
+		var idx = option.get_item_count() - 1
+		option.set_item_metadata(idx, value)
+		var tooltip = str(entry.get("tooltip", "")).strip_edges()
+		if not tooltip.is_empty():
+			option.set_item_tooltip(idx, tooltip)
+		if preferred_index < 0 and not normalized_preferred.is_empty() and value == normalized_preferred:
+			preferred_index = idx
 	_sanitize_option_popup(option)
-	option.selected = 0 if option.get_item_count() > 0 else -1
+	if option.get_item_count() <= 0:
+		option.selected = -1
+	elif preferred_index >= 0:
+		option.selected = preferred_index
+	else:
+		option.selected = 0
 
 func _api_request(method: int, path: String, payload: Variant, requires_auth: bool) -> Dictionary:
 	var request = HTTPRequest.new()

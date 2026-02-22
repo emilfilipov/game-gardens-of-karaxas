@@ -89,6 +89,12 @@ jobs:
         run: |
           python tools/validate_asset_ingest.py --manifest assets/iso_asset_manifest.json
 
+      - name: UI Regression Harness
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          python game-client/tests/check_ui_regression.py
+
       - name: Setup .NET
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         uses: actions/setup-dotnet@v4

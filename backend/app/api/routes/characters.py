@@ -25,6 +25,17 @@ from app.services.content import (
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
+APPEARANCE_OPTION_KEYS = (
+    "sex",
+    "body_preset",
+    "skin_tone",
+    "hair_style",
+    "hair_color",
+    "face",
+    "stance",
+    "lighting_profile",
+)
+
 
 def _xp_per_level(db: Session) -> int:
     snapshot = get_active_snapshot(db)
@@ -154,6 +165,71 @@ def _normalize_catalog_choice(db: Session, catalog_key: str, raw_value: str, fal
     )
 
 
+def _appearance_catalog(db: Session) -> dict[str, set[str]]:
+    snapshot = get_active_snapshot(db)
+    options = snapshot.domain(CONTENT_DOMAIN_CHARACTER_OPTIONS)
+    raw_appearance = options.get("appearance", {})
+    if not isinstance(raw_appearance, dict):
+        return {}
+    catalog: dict[str, set[str]] = {}
+    for field in APPEARANCE_OPTION_KEYS:
+        values: set[str] = set()
+        entries = raw_appearance.get(field, [])
+        if isinstance(entries, list):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                value = str(entry.get("value", entry.get("label", ""))).strip().lower()
+                if value:
+                    values.add(value)
+        if values:
+            catalog[field] = values
+    return catalog
+
+
+def _normalize_appearance_profile(db: Session, raw_profile: dict, appearance_key: str) -> dict:
+    if not isinstance(raw_profile, dict):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": "appearance_profile must be an object", "code": "invalid_appearance_profile"},
+        )
+
+    normalized_key = appearance_key.strip().lower() or "human_male"
+    catalog = _appearance_catalog(db)
+    defaults = {
+        "sex": normalized_key,
+        "body_preset": "adventurer",
+        "skin_tone": "warm_bronze",
+        "hair_style": "short",
+        "hair_color": "umber",
+        "face": "calm",
+        "stance": "neutral",
+        "lighting_profile": "warm_torchlight",
+    }
+    for key, values in catalog.items():
+        if values and defaults.get(key, "") not in values:
+            defaults[key] = sorted(values)[0]
+    defaults["sex"] = normalized_key if "sex" not in catalog or normalized_key in catalog["sex"] else defaults["sex"]
+
+    result: dict[str, str | int] = {"version": 1}
+    for key in APPEARANCE_OPTION_KEYS:
+        value = raw_profile.get(key, defaults.get(key, ""))
+        normalized_value = str(value).strip().lower()
+        if not normalized_value:
+            normalized_value = str(defaults.get(key, "")).strip().lower()
+        allowed = catalog.get(key)
+        if allowed and normalized_value not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": f"Invalid appearance option '{key}={value}'",
+                    "code": "invalid_appearance_profile_choice",
+                },
+            )
+        result[key] = normalized_value
+    return result
+
+
 def _to_response(character: Character, xp_per_level: int) -> CharacterResponse:
     band = xp_per_level if xp_per_level > 0 else 100
     current_band_progress = character.experience % band
@@ -164,6 +240,7 @@ def _to_response(character: Character, xp_per_level: int) -> CharacterResponse:
         location_x=character.location_x,
         location_y=character.location_y,
         appearance_key=character.appearance_key,
+        appearance_profile=character.appearance_profile if isinstance(character.appearance_profile, dict) else {},
         race=character.race,
         background=character.background,
         affiliation=character.affiliation,
@@ -270,6 +347,11 @@ def create_character(
         location_x=default_spawn[1] if default_spawn is not None else None,
         location_y=default_spawn[2] if default_spawn is not None else None,
         appearance_key=payload.appearance_key.strip(),
+        appearance_profile=_normalize_appearance_profile(
+            db,
+            payload.appearance_profile,
+            payload.appearance_key.strip(),
+        ),
         race=_normalize_catalog_choice(db, "race", payload.race, "Human"),
         background=_normalize_catalog_choice(db, "background", payload.background, "Drifter"),
         affiliation=_normalize_catalog_choice(db, "affiliation", payload.affiliation, "Unaffiliated"),

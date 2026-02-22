@@ -13,6 +13,7 @@ var _drag_anchor_x: float = 0.0
 var _drag_threshold: float = 18.0
 var _reduced_motion: bool = false
 var _idle_phase: float = 0.0
+var _lighting_profile: String = "warm_torchlight"
 
 var _title_label: Label
 var _texture: TextureRect
@@ -39,7 +40,8 @@ func set_character(appearance_key: String, title: String = "") -> void:
 	if _appearance_key.is_empty():
 		_appearance_key = "human_male"
 	if _title_label != null:
-		_title_label.text = title if not title.is_empty() else "Selected Character"
+		_title_label.visible = not title.is_empty()
+		_title_label.text = title
 	_refresh_texture()
 
 func set_direction(direction: String) -> void:
@@ -50,6 +52,12 @@ func set_direction(direction: String) -> void:
 	_direction_index = index
 	_refresh_texture()
 	emit_signal("direction_changed", DIRECTIONS[_direction_index])
+
+func set_lighting_profile(profile: String) -> void:
+	_lighting_profile = profile.strip_edges().to_lower()
+	if _lighting_profile.is_empty():
+		_lighting_profile = "warm_torchlight"
+	_apply_lighting_profile()
 
 func current_direction() -> String:
 	return DIRECTIONS[_direction_index]
@@ -69,28 +77,16 @@ func _build_ui() -> void:
 	add_child(root)
 
 	_title_label = Label.new()
-	_title_label.text = "Selected Character"
+	_title_label.text = ""
+	_title_label.visible = false
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 18)
 	root.add_child(_title_label)
 
-	var deck = HBoxContainer.new()
-	deck.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	deck.add_theme_constant_override("separation", 8)
-	root.add_child(deck)
-
-	_rotate_left = Button.new()
-	_rotate_left.text = "<"
-	_rotate_left.custom_minimum_size = Vector2(40, 40)
-	_rotate_left.pressed.connect(func() -> void:
-		rotate_by(-1)
-	)
-	deck.add_child(_rotate_left)
-
 	var preview_shell = PanelContainer.new()
-	preview_shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	preview_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	deck.add_child(preview_shell)
+	preview_shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.add_child(preview_shell)
 
 	_texture = TextureRect.new()
 	_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -98,18 +94,33 @@ func _build_ui() -> void:
 	_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview_shell.add_child(_texture)
 
-	_rotate_right = Button.new()
-	_rotate_right.text = ">"
-	_rotate_right.custom_minimum_size = Vector2(40, 40)
-	_rotate_right.pressed.connect(func() -> void:
-		rotate_by(1)
+	var controls = HBoxContainer.new()
+	controls.add_theme_constant_override("separation", 8)
+	root.add_child(controls)
+	controls.add_spacer(false)
+
+	_rotate_left = Button.new()
+	_rotate_left.text = "<"
+	_rotate_left.custom_minimum_size = Vector2(56, 36)
+	_rotate_left.pressed.connect(func() -> void:
+		rotate_by(-1)
 	)
-	deck.add_child(_rotate_right)
+	controls.add_child(_rotate_left)
 
 	_direction_label = Label.new()
 	_direction_label.text = "Facing: S"
 	_direction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	root.add_child(_direction_label)
+	_direction_label.custom_minimum_size = Vector2(130, 32)
+	controls.add_child(_direction_label)
+
+	_rotate_right = Button.new()
+	_rotate_right.text = ">"
+	_rotate_right.custom_minimum_size = Vector2(56, 36)
+	_rotate_right.pressed.connect(func() -> void:
+		rotate_by(1)
+	)
+	controls.add_child(_rotate_right)
+	controls.add_spacer(false)
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -154,3 +165,15 @@ func _refresh_texture() -> void:
 			if value is Texture2D:
 				texture = value
 	_texture.texture = texture
+	_apply_lighting_profile()
+
+func _apply_lighting_profile() -> void:
+	if _texture == null:
+		return
+	match _lighting_profile:
+		"neutral_daylight":
+			_texture.modulate = Color(0.95, 0.97, 1.0, 1.0)
+		"grim_dusk":
+			_texture.modulate = Color(0.78, 0.72, 0.84, 1.0)
+		_:
+			_texture.modulate = Color(1.0, 0.95, 0.88, 1.0)

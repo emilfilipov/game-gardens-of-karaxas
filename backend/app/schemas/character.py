@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class CharacterCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=64)
     appearance_key: str = Field(default="human_male", min_length=1, max_length=64)
+    appearance_profile: dict = Field(default_factory=dict)
     race: str = Field(default="Human", min_length=1, max_length=64)
     background: str = Field(default="Drifter", min_length=1, max_length=64)
     affiliation: str = Field(default="Unaffiliated", min_length=1, max_length=64)
@@ -22,6 +23,7 @@ class CharacterResponse(BaseModel):
     location_x: int | None = None
     location_y: int | None = None
     appearance_key: str
+    appearance_profile: dict
     race: str
     background: str
     affiliation: str

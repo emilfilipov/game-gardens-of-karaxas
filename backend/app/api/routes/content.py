@@ -13,8 +13,10 @@ from app.schemas.content import (
     ContentBootstrapResponse,
     ContentBundleUpsertRequest,
     ContentPublishDrainSummaryResponse,
+    ContentSchemaRegistryResponse,
     ContentValidationIssueResponse,
     ContentValidationResponse,
+    ContentVersionDiffResponse,
     ContentVersionCreateRequest,
     ContentVersionDetailResponse,
     ContentVersionSummaryResponse,
@@ -24,12 +26,14 @@ from app.services.content import (
     CONTENT_STATE_ACTIVE,
     CONTENT_STATE_RETIRED,
     activate_version,
+    content_schema_registry,
     content_contract_signature,
     create_draft_from_active,
     get_active_snapshot,
     get_content_version_domains,
     get_content_version_or_none,
     list_content_versions,
+    summarize_content_deltas,
     upsert_version_bundle,
     validate_version,
 )
@@ -164,6 +168,14 @@ def bootstrap_content(db: Session = Depends(get_db)):
     )
 
 
+@router.get("/schema/registry", response_model=ContentSchemaRegistryResponse)
+def content_schema_registry_endpoint(
+    context: AuthContext = Depends(require_admin_context),
+):
+    payload = content_schema_registry()
+    return ContentSchemaRegistryResponse(**payload)
+
+
 @router.get("/versions", response_model=list[ContentVersionSummaryResponse])
 def admin_list_content_versions(context: AuthContext = Depends(require_admin_context), db: Session = Depends(get_db)):
     rows = list_content_versions(db)
@@ -193,6 +205,29 @@ def admin_get_content_version(
         )
     domains = get_content_version_domains(db, version.id)
     return _to_detail(version, domains)
+
+
+@router.get("/versions/{base_version_id}/diff/{target_version_id}", response_model=ContentVersionDiffResponse)
+def admin_diff_content_versions(
+    base_version_id: int,
+    target_version_id: int,
+    context: AuthContext = Depends(require_admin_context),
+    db: Session = Depends(get_db),
+):
+    base_version = get_content_version_or_none(db, base_version_id)
+    target_version = get_content_version_or_none(db, target_version_id)
+    if base_version is None or target_version is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Content version not found", "code": "content_version_not_found"},
+        )
+    base_domains = get_content_version_domains(db, base_version.id)
+    target_domains = get_content_version_domains(db, target_version.id)
+    return ContentVersionDiffResponse(
+        base_version_id=base_version.id,
+        target_version_id=target_version.id,
+        summary_lines=summarize_content_deltas(base_domains, target_domains),
+    )
 
 
 @router.post("/versions", response_model=ContentVersionDetailResponse)
@@ -312,15 +347,29 @@ async def admin_activate_content_version(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"message": "Content version not found", "code": "content_version_not_found"},
         )
+    active_before = db.execute(
+        select(ContentVersion)
+        .where(ContentVersion.state == CONTENT_STATE_ACTIVE)
+        .order_by(ContentVersion.activated_at.desc().nullslast(), ContentVersion.id.desc())
+    ).scalars().first()
     issues = activate_version(db, version)
     refreshed = get_content_version_or_none(db, version_id) or version
     if not issues and refreshed.state == CONTENT_STATE_ACTIVE:
+        refreshed_domains = get_content_version_domains(db, refreshed.id)
+        before_domains = (
+            get_content_version_domains(db, active_before.id)
+            if active_before is not None and active_before.id != refreshed.id
+            else {}
+        )
+        generated_lines = summarize_content_deltas(before_domains, refreshed_domains)
+        auto_note = "\n".join(f"- {line}" for line in generated_lines[:14])
+        content_note = (refreshed.note or "").strip() or auto_note
         await _apply_publish_policy_and_drain(
             db=db,
             user_id=context.user.id,
             content_version_id=refreshed.id,
             content_version_key=refreshed.version_key,
-            content_note=refreshed.note or "",
+            content_note=content_note,
             reason_code="content_publish",
         )
     write_admin_audit(

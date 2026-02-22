@@ -56,6 +56,59 @@ DEFAULT_CONTENT_DOMAINS: dict[str, dict] = {
     },
     CONTENT_DOMAIN_CHARACTER_OPTIONS: {
         "point_budget": 10,
+        "appearance": {
+            "sex": [
+                {"value": "human_male", "label": "Male", "text_key": "option.sex.human_male", "description": "Standard male body preset.", "order": 1},
+                {"value": "human_female", "label": "Female", "text_key": "option.sex.human_female", "description": "Standard female body preset.", "order": 2},
+            ],
+            "body_preset": [
+                {"value": "adventurer", "label": "Adventurer", "text_key": "option.body.adventurer", "description": "Default tower climber body silhouette.", "order": 1},
+            ],
+            "skin_tone": [
+                {"value": "warm_bronze", "label": "Warm Bronze", "text_key": "option.skin.warm_bronze", "description": "Balanced warm skin profile.", "order": 1},
+                {"value": "olive", "label": "Olive", "text_key": "option.skin.olive", "description": "Muted olive skin profile.", "order": 2},
+                {"value": "fair", "label": "Fair", "text_key": "option.skin.fair", "description": "Light skin profile.", "order": 3},
+                {"value": "deep_umber", "label": "Deep Umber", "text_key": "option.skin.deep_umber", "description": "Dark warm skin profile.", "order": 4},
+            ],
+            "hair_style": [
+                {"value": "short", "label": "Short", "text_key": "option.hair_style.short", "description": "Short practical haircut.", "order": 1},
+                {"value": "braided", "label": "Braided", "text_key": "option.hair_style.braided", "description": "Braided hairstyle variant.", "order": 2},
+                {"value": "shaved", "label": "Shaved", "text_key": "option.hair_style.shaved", "description": "Close shaved style.", "order": 3},
+                {"value": "ponytail", "label": "Ponytail", "text_key": "option.hair_style.ponytail", "description": "Tied long hair style.", "order": 4},
+            ],
+            "hair_color": [
+                {"value": "umber", "label": "Umber", "text_key": "option.hair_color.umber", "description": "Default warm brown hair.", "order": 1},
+                {"value": "black", "label": "Black", "text_key": "option.hair_color.black", "description": "Deep black hair tone.", "order": 2},
+                {"value": "copper", "label": "Copper", "text_key": "option.hair_color.copper", "description": "Copper red hair tone.", "order": 3},
+                {"value": "ash", "label": "Ash", "text_key": "option.hair_color.ash", "description": "Ash gray hair tone.", "order": 4},
+            ],
+            "face": [
+                {"value": "calm", "label": "Calm", "text_key": "option.face.calm", "description": "Neutral relaxed face.", "order": 1},
+                {"value": "scarred", "label": "Scarred", "text_key": "option.face.scarred", "description": "Weathered veteran look.", "order": 2},
+                {"value": "focused", "label": "Focused", "text_key": "option.face.focused", "description": "Disciplined focused look.", "order": 3},
+                {"value": "stoic", "label": "Stoic", "text_key": "option.face.stoic", "description": "Reserved stoic look.", "order": 4},
+            ],
+            "stance": [
+                {"value": "neutral", "label": "Neutral", "text_key": "option.stance.neutral", "description": "Balanced idle stance.", "order": 1},
+                {"value": "guarded", "label": "Guarded", "text_key": "option.stance.guarded", "description": "Defensive guard stance.", "order": 2},
+                {"value": "ready", "label": "Ready", "text_key": "option.stance.ready", "description": "Aggressive ready stance.", "order": 3},
+            ],
+            "lighting_profile": [
+                {"value": "warm_torchlight", "label": "Warm Torchlight", "text_key": "option.light.warm_torchlight", "description": "Warm cinematic preview lighting.", "order": 1},
+                {"value": "neutral_daylight", "label": "Neutral Daylight", "text_key": "option.light.neutral_daylight", "description": "Balanced daylight lighting.", "order": 2},
+                {"value": "grim_dusk", "label": "Grim Dusk", "text_key": "option.light.grim_dusk", "description": "Lower-key dramatic preview lighting.", "order": 3},
+            ],
+            "defaults": {
+                "sex": "human_male",
+                "body_preset": "adventurer",
+                "skin_tone": "warm_bronze",
+                "hair_style": "short",
+                "hair_color": "umber",
+                "face": "calm",
+                "stance": "neutral",
+                "lighting_profile": "warm_torchlight",
+            },
+        },
         "race": [
             {"value": "human", "label": "Human", "text_key": "option.race.human", "description": "Balanced origin."},
             {"value": "elf", "label": "Elf", "text_key": "option.race.elf", "description": "Arcane-leaning origin."},
@@ -216,6 +269,14 @@ DEFAULT_CONTENT_DOMAINS: dict[str, dict] = {
                 "default_layer": 1,
                 "collidable": True,
                 "icon_asset_key": "wall_block",
+                "collision_template": {
+                    "shape": "box",
+                    "offset_x": 0.0,
+                    "offset_y": 0.0,
+                    "width": 1.0,
+                    "height": 1.0,
+                    "layers": ["ground", "flying"],
+                },
             },
             {
                 "key": "tree_oak",
@@ -225,6 +286,14 @@ DEFAULT_CONTENT_DOMAINS: dict[str, dict] = {
                 "default_layer": 1,
                 "collidable": True,
                 "icon_asset_key": "tree_oak",
+                "collision_template": {
+                    "shape": "base_box",
+                    "offset_x": 0.15,
+                    "offset_y": 0.62,
+                    "width": 0.70,
+                    "height": 0.34,
+                    "layers": ["ground"],
+                },
             },
             {
                 "key": "cloud_soft",
@@ -411,9 +480,8 @@ def _is_number(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _validate_option_list(domain: str, key: str, payload: dict) -> list[ContentValidationIssue]:
+def _validate_option_entries(domain: str, key: str, raw: object) -> list[ContentValidationIssue]:
     issues: list[ContentValidationIssue] = []
-    raw = payload.get(key)
     if not isinstance(raw, list) or not raw:
         issues.append(ContentValidationIssue(domain, f"'{key}' must be a non-empty list"))
         return issues
@@ -432,6 +500,9 @@ def _validate_option_list(domain: str, key: str, payload: dict) -> list[ContentV
             issues.append(ContentValidationIssue(domain, f"'{key}[{index}].label' is required"))
         if not text_key:
             issues.append(ContentValidationIssue(domain, f"'{key}[{index}].text_key' is required"))
+        order = item.get("order", index)
+        if not isinstance(order, int):
+            issues.append(ContentValidationIssue(domain, f"'{key}[{index}].order' must be an integer"))
         if value in seen_values:
             issues.append(ContentValidationIssue(domain, f"'{key}[{index}].value' is duplicated ('{value}')"))
         seen_values.add(value)
@@ -550,9 +621,55 @@ def validate_domain_payload(domain: str, payload: dict) -> list[ContentValidatio
         budget = payload.get("point_budget")
         if not isinstance(budget, int) or budget <= 0:
             issues.append(ContentValidationIssue(domain, "'point_budget' must be a positive integer"))
-        issues.extend(_validate_option_list(domain, "race", payload))
-        issues.extend(_validate_option_list(domain, "background", payload))
-        issues.extend(_validate_option_list(domain, "affiliation", payload))
+        issues.extend(_validate_option_entries(domain, "race", payload.get("race")))
+        issues.extend(_validate_option_entries(domain, "background", payload.get("background")))
+        issues.extend(_validate_option_entries(domain, "affiliation", payload.get("affiliation")))
+        appearance = payload.get("appearance", {})
+        if not isinstance(appearance, dict):
+            issues.append(ContentValidationIssue(domain, "'appearance' must be an object"))
+        else:
+            for field in (
+                "sex",
+                "body_preset",
+                "skin_tone",
+                "hair_style",
+                "hair_color",
+                "face",
+                "stance",
+                "lighting_profile",
+            ):
+                issues.extend(_validate_option_entries(domain, f"appearance.{field}", appearance.get(field)))
+            defaults = appearance.get("defaults", {})
+            if not isinstance(defaults, dict):
+                issues.append(ContentValidationIssue(domain, "'appearance.defaults' must be an object"))
+            else:
+                for field in (
+                    "sex",
+                    "body_preset",
+                    "skin_tone",
+                    "hair_style",
+                    "hair_color",
+                    "face",
+                    "stance",
+                    "lighting_profile",
+                ):
+                    value = str(defaults.get(field, "")).strip().lower()
+                    if not value:
+                        issues.append(ContentValidationIssue(domain, f"'appearance.defaults.{field}' is required"))
+                        continue
+                    entries = appearance.get(field, [])
+                    entry_values = {
+                        str(entry.get("value", "")).strip().lower()
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    }
+                    if entry_values and value not in entry_values:
+                        issues.append(
+                            ContentValidationIssue(
+                                domain,
+                                f"'appearance.defaults.{field}' must match one of appearance.{field} values",
+                            )
+                        )
 
     elif domain == CONTENT_DOMAIN_STATS:
         max_per_stat = payload.get("max_per_stat")
@@ -642,6 +759,7 @@ def validate_domain_payload(domain: str, payload: dict) -> list[ContentValidatio
                 icon_asset_key = str(icon_asset_key_raw).strip() if icon_asset_key_raw is not None else ""
                 default_layer = entry.get("default_layer")
                 collidable = entry.get("collidable")
+                collision_template = entry.get("collision_template", None)
                 if not key:
                     issues.append(ContentValidationIssue(domain, f"'entries[{index}].key' is required"))
                 if key in seen:
@@ -659,6 +777,64 @@ def validate_domain_payload(domain: str, payload: dict) -> list[ContentValidatio
                     issues.append(ContentValidationIssue(domain, f"'entries[{index}].default_layer' must be an integer >= 0"))
                 if not isinstance(collidable, bool):
                     issues.append(ContentValidationIssue(domain, f"'entries[{index}].collidable' must be a boolean"))
+                if collision_template is not None:
+                    if not isinstance(collision_template, dict):
+                        issues.append(
+                            ContentValidationIssue(
+                                domain,
+                                f"'entries[{index}].collision_template' must be an object when provided",
+                            )
+                        )
+                    else:
+                        shape = str(collision_template.get("shape", "")).strip().lower()
+                        if shape not in {"box", "polygon", "base_box"}:
+                            issues.append(
+                                ContentValidationIssue(
+                                    domain,
+                                    f"'entries[{index}].collision_template.shape' must be box, polygon, or base_box",
+                                )
+                            )
+                        layers = collision_template.get("layers", [])
+                        if not isinstance(layers, list) or not layers:
+                            issues.append(
+                                ContentValidationIssue(
+                                    domain,
+                                    f"'entries[{index}].collision_template.layers' must be a non-empty list",
+                                )
+                            )
+                        else:
+                            for layer_idx, layer_name in enumerate(layers):
+                                if not isinstance(layer_name, str) or not layer_name.strip():
+                                    issues.append(
+                                        ContentValidationIssue(
+                                            domain,
+                                            f"'entries[{index}].collision_template.layers[{layer_idx}]' must be text",
+                                        )
+                                    )
+                        for number_key in ("offset_x", "offset_y", "width", "height"):
+                            if number_key in collision_template and not _is_number(collision_template.get(number_key)):
+                                issues.append(
+                                    ContentValidationIssue(
+                                        domain,
+                                        f"'entries[{index}].collision_template.{number_key}' must be numeric",
+                                    )
+                                )
+                        if shape == "polygon":
+                            points = collision_template.get("points", [])
+                            if not isinstance(points, list) or len(points) < 3:
+                                issues.append(
+                                    ContentValidationIssue(
+                                        domain,
+                                        f"'entries[{index}].collision_template.points' must have at least 3 points for polygon shape",
+                                    )
+                                )
+                elif collidable is True:
+                    issues.append(
+                        ContentValidationIssue(
+                            domain,
+                            f"'entries[{index}]' is collidable but missing collision_template",
+                        )
+                    )
         slot_issues, slot_keys = _validate_equipment_slots(domain, payload)
         issues.extend(slot_issues)
         issues.extend(_validate_equipment_visuals(domain, payload, slot_keys))
@@ -936,3 +1112,100 @@ def activate_version(db: Session, version: ContentVersion) -> list[ContentValida
     db.refresh(version)
     refresh_active_snapshot(db)
     return []
+
+
+def content_schema_registry() -> dict[str, dict]:
+    return {
+        "content_schema_version": CONTENT_SCHEMA_VERSION,
+        "required_domains": sorted(REQUIRED_DOMAINS),
+        "domain_templates": deepcopy(DEFAULT_CONTENT_DOMAINS),
+    }
+
+
+def _entries_by_key(entries: object) -> dict[str, dict]:
+    result: dict[str, dict] = {}
+    if not isinstance(entries, list):
+        return result
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("key", item.get("item_key", ""))).strip().lower()
+        if key:
+            result[key] = item
+    return result
+
+
+def summarize_content_deltas(base_domains: dict[str, dict], target_domains: dict[str, dict]) -> list[str]:
+    lines: list[str] = []
+
+    base_skills = _entries_by_key(base_domains.get(CONTENT_DOMAIN_SKILLS, {}).get("entries", []))
+    target_skills = _entries_by_key(target_domains.get(CONTENT_DOMAIN_SKILLS, {}).get("entries", []))
+    for key, target in sorted(target_skills.items()):
+        base = base_skills.get(key)
+        if base is None:
+            lines.append(f"Added new skill: {target.get('label', key)}")
+            continue
+        for field, label in (
+            ("damage_base", "damage"),
+            ("cooldown_seconds", "cooldown"),
+            ("mana_cost", "mana cost"),
+            ("energy_cost", "energy cost"),
+            ("life_cost", "life cost"),
+        ):
+            before = base.get(field)
+            after = target.get(field)
+            if before != after:
+                lines.append(
+                    f"{target.get('label', key)} {label} changed from {before} to {after}"
+                )
+    for key, base in sorted(base_skills.items()):
+        if key not in target_skills:
+            lines.append(f"Removed skill: {base.get('label', key)}")
+
+    base_assets = _entries_by_key(base_domains.get(CONTENT_DOMAIN_ASSETS, {}).get("entries", []))
+    target_assets = _entries_by_key(target_domains.get(CONTENT_DOMAIN_ASSETS, {}).get("entries", []))
+    for key, target in sorted(target_assets.items()):
+        base = base_assets.get(key)
+        if base is None:
+            lines.append(f"Added asset: {target.get('label', key)}")
+            continue
+        if bool(base.get("collidable", False)) != bool(target.get("collidable", False)):
+            state = "enabled" if bool(target.get("collidable", False)) else "disabled"
+            lines.append(f"{target.get('label', key)} collision {state}")
+        base_collision = base.get("collision_template", {})
+        target_collision = target.get("collision_template", {})
+        if base_collision != target_collision and target_collision:
+            lines.append(f"{target.get('label', key)} collision shape/template updated")
+        if base.get("default_layer") != target.get("default_layer"):
+            lines.append(
+                f"{target.get('label', key)} default layer changed from {base.get('default_layer')} to {target.get('default_layer')}"
+            )
+    for key, base in sorted(base_assets.items()):
+        if key not in target_assets:
+            lines.append(f"Removed asset: {base.get('label', key)}")
+
+    base_stats = _entries_by_key(base_domains.get(CONTENT_DOMAIN_STATS, {}).get("entries", []))
+    target_stats = _entries_by_key(target_domains.get(CONTENT_DOMAIN_STATS, {}).get("entries", []))
+    for key, target in sorted(target_stats.items()):
+        base = base_stats.get(key)
+        if base is None:
+            lines.append(f"Added stat: {target.get('label', key)}")
+            continue
+        if str(base.get("description", "")).strip() != str(target.get("description", "")).strip():
+            lines.append(f"{target.get('label', key)} description updated")
+        if str(base.get("tooltip", "")).strip() != str(target.get("tooltip", "")).strip():
+            lines.append(f"{target.get('label', key)} tooltip updated")
+    for key, base in sorted(base_stats.items()):
+        if key not in target_stats:
+            lines.append(f"Removed stat: {base.get('label', key)}")
+
+    base_progression = base_domains.get(CONTENT_DOMAIN_PROGRESSION, {})
+    target_progression = target_domains.get(CONTENT_DOMAIN_PROGRESSION, {})
+    if base_progression.get("xp_per_level") != target_progression.get("xp_per_level"):
+        lines.append(
+            f"Level-up XP requirement changed from {base_progression.get('xp_per_level')} to {target_progression.get('xp_per_level')}"
+        )
+
+    if not lines:
+        lines.append("No user-visible content changes were detected.")
+    return lines

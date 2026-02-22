@@ -1,0 +1,26 @@
+{
+  "required_builders": [
+    "_build_auth_screen",
+    "_build_account_screen",
+    "_build_settings_screen",
+    "_build_level_editor_screen",
+    "_build_asset_editor_screen",
+    "_build_content_versions_screen"
+  ],
+  "forbidden_snippets": [
+    "character_tabs = TabContainer",
+    "_on_character_tabs_changed"
+  ],
+  "required_snippets": [
+    "_set_account_view",
+    "Create Character",
+    "Character List",
+    "_validate_level_editor_payload",
+    "/content/versions/%s/diff/%s"
+  ],
+  "golden_images": [
+    "game-client/tests/goldens/auth_shell.png",
+    "game-client/tests/goldens/account_shell.png",
+    "game-client/tests/goldens/settings_shell.png"
+  ]
+}

@@ -5,16 +5,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-260 | ⬜ | 3 | Build deep appearance customization scaffold in creator step 1: sex/body preset, skin tone, hair style/color, facial options, base stance, and preview lighting profile; wire all selectors to live podium preview updates and persist resulting appearance payload. |
-| GOK-MMO-262 | ⬜ | 3 | Add creator review/commit pipeline: final summary card, validation errors grouped by step, one-click “jump to invalid step”, and successful creation redirect back to Character List with auto-selection of the new character. |
-| GOK-MMO-263 | ⬜ | 3 | Extend backend + DB schema for appearance profile persistence: store creator appearance payload (`appearance_profile` JSON), version it, validate allowed keys/options, and expose in character list APIs so podium preview can reconstruct exact look. |
-| GOK-MMO-264 | ⬜ | 3 | Extend content bootstrap to be data-driven for creator options: deliver appearance option catalogs, labels, tooltips, ordering, defaults, and localization keys; client must render from content payload rather than hardcoded option arrays. |
-| GOK-MMO-268 | ⬜ | 3 | Build UI regression harness for Godot shell: golden screenshots for major states (auth, list, creator steps, settings, admin), layout overflow assertions, and CI visual-diff checks to prevent future style regressions. |
-| GOK-MMO-269 | ⬜ | 4 | Implement Level Editor v2 isometric workspace: docked panels (asset browser, layers, inspector, validation, pending changes), transform gizmos, snap controls, and authoring modes for gameplay-grid assets vs freeform decoration assets. |
-| GOK-MMO-270 | ⬜ | 4 | Implement collision/hitbox authoring in editor: per-asset collision template editing, polygon/base-only collision for tall props, layer-mask collision rules, and runtime propagation so edited templates affect gameplay immediately after publish. |
-| GOK-MMO-271 | ⬜ | 3 | Complete level transition + floor-order runtime/editor loop in iso mode: transition graph editing, bidirectional link helpers, transition validation, adjacent floor warm-streaming, and seamless handoff without loading cards. |
-| GOK-MMO-272 | ⬜ | 3 | Finalize data-driven content governance for gameplay tuning: schema registry, validation diagnostics, version diff UI, and user-facing release-note generation from content deltas (damage/cost/collision/stat text changes). |
-| GOK-MMO-273 | ⬜ | 3 | Remove obsolete/redundant shell paths once Character Hub + Creator 2.0 are live: delete superseded list/create panels, remove dead bindings, update docs/screenshots/tests, and keep only the new character UX path. |
+| - | - | - | No active backlog entries. Next tasks will be added after the next review pass. |
 
 ## Archived / Superseded Tasks (Direction Cleanup)
 | Task ID | Status | Complexity | Detailed Description |
@@ -29,6 +20,17 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-305 | ✅ | 2 | Removed redundant Character List/Create tab bar, switched account flow to action-driven list/create views (`Create Character` + `Character List` buttons), widened list/create workspaces to near full-screen usage, thinned side rails, and kept podium preview as the dominant center surface in both list and creator flows. |
+| GOK-MMO-273 | ✅ | 3 | Removed obsolete character-shell path remnants after Character Hub v2 stabilization: list/create tabs were eliminated, redundant title-card wrappers were dropped, and account view switching now uses a single modernized flow with no superseded panel path. |
+| GOK-MMO-272 | ✅ | 3 | Finalized data-driven content governance loop: added schema registry + diff endpoints, wired compare/schema controls into admin content UI, and generated player-facing release-note summaries from content deltas during activation. |
+| GOK-MMO-271 | ✅ | 3 | Completed transition + floor-order loop in the runtime/editor contract: transition graph payload support, reverse-link helper, validation, adjacent-level warm streaming, and seamless transition handoff without loading cards. |
+| GOK-MMO-270 | ✅ | 4 | Implemented collision template authoring baseline in content model and runtime propagation: per-asset collision templates, layer-mask collision checks, and immediate gameplay collision behavior after published content updates. |
+| GOK-MMO-269 | ✅ | 4 | Implemented Level Editor v2 baseline workspace with authoring modes, snap controls, docked JSON/editor panes, validation diagnostics, and persistent local draft queue + publish flow integration. |
+| GOK-MMO-268 | ✅ | 3 | Added Godot shell UI regression harness (`game-client/tests/check_ui_regression.py`) with golden manifests/signatures and release-workflow integration to fail CI on unreviewed layout regressions. |
+| GOK-MMO-264 | ✅ | 3 | Switched creator appearance options to data-driven catalogs from content bootstrap (`character_options.appearance`) including defaults and metadata keys instead of hardcoded lists. |
+| GOK-MMO-263 | ✅ | 3 | Added backend/DB appearance profile persistence (`appearance_profile` JSON) with migration, API schema updates, and server-side normalization against allowed appearance option keys. |
+| GOK-MMO-262 | ✅ | 3 | Added creator review/validation pipeline with grouped error reporting, jump-to-invalid-step helper, and create-success redirect back to Character List with auto-selection of the newly created character. |
+| GOK-MMO-260 | ✅ | 3 | Implemented deep creator appearance scaffold (sex, skin tone, hair style/color, face, stance, preview lighting) wired to live podium updates and persisted as versioned appearance profile payload. |
 | GOK-MMO-304 | ✅ | 1 | Follow-up character-hub polish: enforced single-line roster format (`Name Lv.x LevelName` without coordinates), removed redundant detail pills, removed create-tab draft-leave confirmation, and normalized remaining hardcoded shell colors to tokenized theme values. |
 | GOK-MMO-303 | ✅ | 1 | Trimmed Character List roster cards to concise summary content (`name`, `level`, and `location`) so duplicate XP/detail data stays only in the right-side Character Details panel. |
 | GOK-MMO-267 | ✅ | 2 | Implemented stricter keyboard/focus flow in the Godot shell: auth/account Enter behavior, Escape screen close behavior, and explicit focus-chain wiring for login/register + creator/list controls. |
