@@ -39,6 +39,8 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-302 | ✅ | 1 | Added safe `res://` existence checks before texture decode in character-art loader to suppress optional-fallback missing-file startup errors. |
+| GOK-MMO-301 | ✅ | 1 | Fixed Character List row render crash by replacing invalid `Button.horizontal_alignment` assignment with Godot-4-compatible `Button.alignment`. |
 | GOK-MMO-300 | ✅ | 2 | Added launcher-side contract test (`KaraxasBackendClientCharacterFlowTest`) that programmatically creates a character against a mocked `/characters` backend and verifies list roundtrip parsing. |
 | GOK-MMO-299 | ✅ | 2 | Added backend route regression test (`test_character_list_roundtrip.py`) validating create->list flow returns all newly created character rows in order. |
 | GOK-MMO-298 | ✅ | 2 | Added character-flow diagnostics in Godot shell logs for create/list requests and loaded row counts to accelerate backend-communication troubleshooting. |

@@ -241,6 +241,8 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Root screen gutters were widened to keep account/settings/admin shells off viewport edges and maintain consistent left-right breathing room.
 - Header chrome now uses a centered title with symmetric fixed-width side slots; the cog button is anchored in the right slot and screen-name title swapping is disabled for non-world screens.
 - Character load/create flows now emit client log diagnostics for `/characters` fetch/create status and loaded row counts to speed up list-render incident triage.
+- Character roster summary buttons now set `Button.alignment` (Godot 4) instead of invalid `horizontal_alignment`, preventing runtime render exceptions that hid list rows despite valid backend responses.
+- Character texture loader now checks `ResourceLoader.exists`/`FileAccess.file_exists` before loading `res://` files to avoid noisy startup errors for optional/fallback art filenames.
 - Added automated character roundtrip tests:
   - backend route-level create->list regression (`backend/tests/test_character_list_roundtrip.py`),
   - launcher client contract regression with mocked `/characters` backend (`launcher/src/test/kotlin/com/gok/launcher/KaraxasBackendClientCharacterFlowTest.kt`).

@@ -1499,6 +1499,8 @@ func _load_texture_from_path(path: String):
 		return null
 	var image = Image.new()
 	if path.begins_with("res://"):
+		if not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
+			return null
 		if image.load(path) == OK:
 			return ImageTexture.create_from_image(image)
 		var resource = load(path)
@@ -1611,7 +1613,7 @@ func _render_character_rows() -> void:
 			Vector2(maxf(220.0, roster_min_width - float(UI_TOKENS.spacing("lg") * 2)), UI_TOKENS.size("button_h_lg"))
 		)
 		summary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		summary_button.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		summary_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		summary_button.clip_text = true
 		summary_button.pressed.connect(func() -> void:
 			_set_selected_character(row_index)
