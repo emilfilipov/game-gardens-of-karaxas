@@ -579,13 +579,14 @@ func _build_account_screen() -> VBoxContainer:
 	list_shell_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_shell.add_child(list_shell_inner)
 
-	var list_split = HSplitContainer.new()
+	var list_split = HBoxContainer.new()
 	list_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	list_shell_inner.add_child(list_split)
 
-	var roster_panel = UI_COMPONENTS.panel_card(Vector2(320, 0), false)
+	var roster_panel = UI_COMPONENTS.panel_card(Vector2(340, 0), false)
 	roster_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	roster_panel.size_flags_stretch_ratio = 0.30
+	roster_panel.size_flags_horizontal = Control.SIZE_FILL
 	list_split.add_child(roster_panel)
 	var roster_inner = VBoxContainer.new()
 	roster_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
@@ -610,6 +611,7 @@ func _build_account_screen() -> VBoxContainer:
 	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	character_rows_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	character_rows_scroll.clip_contents = true
 	roster_inner.add_child(character_rows_scroll)
 	character_rows_container = VBoxContainer.new()
 	character_rows_container.add_theme_constant_override("separation", 8)
@@ -617,9 +619,10 @@ func _build_account_screen() -> VBoxContainer:
 	character_rows_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.add_child(character_rows_container)
 
-	var podium_panel = UI_COMPONENTS.panel_card(Vector2(420, 0), false)
+	var podium_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	podium_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	podium_panel.size_flags_stretch_ratio = 0.40
+	podium_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	podium_panel.custom_minimum_size = Vector2(420, 0)
 	list_split.add_child(podium_panel)
 	var podium_inner = VBoxContainer.new()
 	podium_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
@@ -635,9 +638,9 @@ func _build_account_screen() -> VBoxContainer:
 	character_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview_panel.add_child(character_preview_texture)
 
-	var details_panel = UI_COMPONENTS.panel_card(Vector2(340, 0), false)
+	var details_panel = UI_COMPONENTS.panel_card(Vector2(360, 0), false)
 	details_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	details_panel.size_flags_stretch_ratio = 0.30
+	details_panel.size_flags_horizontal = Control.SIZE_FILL
 	list_split.add_child(details_panel)
 	var details_inner = VBoxContainer.new()
 	details_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))

@@ -39,6 +39,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-285 | ✅ | 2 | Stabilized Character List panel geometry by replacing draggable split columns with fixed side rails + expanding center preview to prevent roster/details collapse and overlap artifacts. |
 | GOK-MMO-284 | ✅ | 2 | Added executable character-flow QA checklist in `docs/CHARACTER_FLOW_QA.md` covering empty/single/multi-character, admin override, and MFA/auth focus-path validation. |
 | GOK-MMO-282 | ✅ | 3 | Character Creator ergonomics pass: grouped identity controls into a dedicated panel, tightened control widths, and improved layout consistency without introducing multi-scene flow complexity. |
 | GOK-MMO-280 | ✅ | 3 | Character List v2 polish pass: added roster search/filter and denser metadata presentation while preserving fixed-size row cards and stable scroll behavior. |

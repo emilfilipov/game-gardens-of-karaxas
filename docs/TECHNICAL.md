@@ -282,6 +282,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Account shell now keeps a persistent tab bar (Create/Select) visible across authenticated cards.
 - Post-auth default routing always opens `Character List` (including empty accounts).
 - Character List now uses a 3-column shell: roster rail (left), selected character podium preview (center), and detail/action panel (right).
+- Character List columns now use fixed-width side rails plus an expanding center panel (non-draggable), preventing accidental column collapse/overlap from splitter drift.
 - Character row preview/details selection is driven by card-row clicks only.
 - `Play` and `Delete` actions are bound to the currently selected character in the right detail panel.
 - Admin spawn-override selection is bound to the selected character in the detail panel.
