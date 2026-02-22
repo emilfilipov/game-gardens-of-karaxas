@@ -29,12 +29,13 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-304 | ✅ | 1 | Follow-up character-hub polish: enforced single-line roster format (`Name Lv.x LevelName` without coordinates), removed redundant detail pills, removed create-tab draft-leave confirmation, and normalized remaining hardcoded shell colors to tokenized theme values. |
 | GOK-MMO-303 | ✅ | 1 | Trimmed Character List roster cards to concise summary content (`name`, `level`, and `location`) so duplicate XP/detail data stays only in the right-side Character Details panel. |
 | GOK-MMO-267 | ✅ | 2 | Implemented stricter keyboard/focus flow in the Godot shell: auth/account Enter behavior, Escape screen close behavior, and explicit focus-chain wiring for login/register + creator/list controls. |
 | GOK-MMO-266 | ✅ | 2 | Added fluid interaction/motion pass with shared button hover emphasis, screen fade transitions, and a persisted `Reduced Motion` accessibility toggle that disables animated motion in previews/screen transitions. |
 | GOK-MMO-265 | ✅ | 3 | Applied MMO shell art-direction refresh with a burgundy-forward token palette and unified themed control treatment across auth/account/settings/world/admin surfaces. |
 | GOK-MMO-261 | ✅ | 3 | Integrated stats-and-skills customization as the dedicated creator step with enforced point budget, square skill matrix, tooltip template reuse, and live summary synchronization into review flow. |
-| GOK-MMO-259 | ✅ | 4 | Implemented Character Creator 2.0 as a four-step flow (`Appearance` -> `Identity` -> `Stats & Skills` -> `Review`) with step validation, back/next nav, unsaved-draft leave prompt, and final create gating. |
+| GOK-MMO-259 | ✅ | 4 | Implemented Character Creator 2.0 as a four-step flow (`Appearance` -> `Identity` -> `Stats & Skills` -> `Review`) with step validation, back/next nav, and final create gating. |
 | GOK-MMO-258 | ✅ | 4 | Completed Character List 2.0 layout with roster rail search/sort, central reusable podium preview, right detail/action panel, and metadata chips for quick level/zone/location glanceability. |
 | GOK-MMO-257 | ✅ | 4 | Built reusable `CharacterPodiumPreview` component with configurable loader hook, direction controls, drag-to-rotate, idle pulse loop, and directional-fallback texture resolution. |
 | GOK-MMO-256 | ✅ | 3 | Upgraded gameplay prototype movement to isometric 8-direction behavior by remapping WASD to iso vectors, normalizing diagonals, and emitting facing buckets (`N..NW`) while preserving location persistence callbacks. |

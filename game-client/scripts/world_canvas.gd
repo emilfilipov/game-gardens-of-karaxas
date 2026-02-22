@@ -3,6 +3,7 @@ extends Control
 signal player_position_changed(position: Vector2)
 
 const ISO = preload("res://scripts/iso_projection.gd")
+const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
 
 const GRID_UNIT_PIXELS: float = 32.0
 const PLAYER_SPEED_TILES: float = 4.6
@@ -96,7 +97,7 @@ func _axis_to_facing(axis: Vector2) -> String:
 	return player_facing
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.08, 0.08, 0.12, 1.0), true)
+	draw_rect(Rect2(Vector2.ZERO, size), UI_TOKENS.color("panel_bg_deep"), true)
 	var camera = _camera_screen_origin()
 	var world_center = size * 0.5
 
@@ -149,7 +150,7 @@ func _draw() -> void:
 		var pass_name = str(drawable.get("pass", "floor"))
 		match pass_name:
 			"floor":
-				_draw_iso_diamond(center, Color(0.20, 0.24, 0.27, 0.95), Color(0.34, 0.39, 0.42, 0.85), 1.0)
+				_draw_iso_diamond(center, UI_TOKENS.color("panel_bg_alt"), UI_TOKENS.color("panel_border_soft"), 1.0)
 			"prop":
 				_draw_prop(center, str(drawable.get("asset_key", "prop")))
 			"actor":
@@ -159,7 +160,7 @@ func _draw() -> void:
 
 	if show_sort_diagnostics:
 		var debug_text = "Iso Sort | drawables=%d | duplicateDepthKeys=%d | facing=%s" % [drawables.size(), duplicate_depth_keys, player_facing]
-		draw_string(get_theme_default_font(), Vector2(16, 26), debug_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.93, 0.85, 0.69))
+		draw_string(get_theme_default_font(), Vector2(16, 26), debug_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UI_TOKENS.color("text_secondary"))
 
 func _sort_drawables(a: Dictionary, b: Dictionary) -> bool:
 	var ka: Array = a.get("key", [])
@@ -179,22 +180,22 @@ func _draw_iso_diamond(center: Vector2, fill: Color, outline: Color, line_width:
 	draw_polyline(closed_points, outline, line_width, true)
 
 func _draw_prop(center: Vector2, asset_key: String) -> void:
-	var body_color = Color(0.28, 0.45, 0.33, 1.0)
+	var body_color = UI_TOKENS.color("panel_bg_highlight")
 	if asset_key.contains("wall"):
-		body_color = Color(0.40, 0.30, 0.24, 1.0)
+		body_color = UI_TOKENS.color("panel_bg_soft")
 	elif asset_key.contains("tree"):
-		body_color = Color(0.17, 0.43, 0.23, 1.0)
+		body_color = Color(0.20, 0.35, 0.22, 1.0)
 	elif asset_key.contains("stairs") or asset_key.contains("ladder") or asset_key.contains("elevator"):
-		body_color = Color(0.49, 0.40, 0.30, 1.0)
+		body_color = UI_TOKENS.color("button_primary")
 	var rect = Rect2(center + Vector2(-10.0, -44.0), Vector2(20.0, 44.0))
 	draw_rect(rect, body_color, true)
-	draw_rect(rect, Color(0.85, 0.70, 0.48, 0.9), false, 1.0)
+	draw_rect(rect, UI_TOKENS.color("panel_border"), false, 1.0)
 
 func _draw_actor(center: Vector2, facing: String) -> void:
 	var body_rect = Rect2(center + Vector2(-8.0, -30.0), Vector2(16.0, 26.0))
-	draw_rect(body_rect, Color(0.90, 0.78, 0.57, 1.0), true)
-	draw_rect(body_rect, Color(0.22, 0.16, 0.12, 1.0), false, 1.0)
-	draw_circle(center + Vector2(0.0, -36.0), 7.0, Color(0.78, 0.56, 0.40, 1.0))
+	draw_rect(body_rect, UI_TOKENS.color("button_primary"), true)
+	draw_rect(body_rect, UI_TOKENS.color("panel_bg_deep"), false, 1.0)
+	draw_circle(center + Vector2(0.0, -36.0), 7.0, UI_TOKENS.color("panel_border"))
 	var facing_label = facing
 	draw_string(
 		get_theme_default_font(),
@@ -203,7 +204,7 @@ func _draw_actor(center: Vector2, facing: String) -> void:
 		HORIZONTAL_ALIGNMENT_LEFT,
 		24.0,
 		12,
-		Color(0.98, 0.93, 0.82)
+		UI_TOKENS.color("text_primary")
 	)
 
 func _draw_foreground(center: Vector2, asset_key: String) -> void:

@@ -252,8 +252,8 @@ This is the single source of truth for technical architecture, stack decisions, 
   - optional draw-order diagnostics hook for depth collisions.
 - World prototype movement now maps WASD into isometric vectors and emits 8-direction facing buckets while preserving existing location persistence callbacks (`player_position_changed` + `/characters/{id}/location` path).
 - Character List/Creator preview now uses shared `CharacterPodiumPreview` widgets with directional controls and drag-to-rotate input; texture lookup falls back from directional variants to canonical idle assets.
-- Character Creator is now implemented as a 4-step TabContainer flow (`Appearance`, `Identity`, `Stats & Skills`, `Review`) with step validation helpers, grouped review errors, unsaved-leave confirmation dialog, and final submit gating.
-- Character roster rail now includes search + sort (`name`, `level`, `location`) and concise row cards; detailed XP/build text remains in the right-side detail panel.
+- Character Creator is now implemented as a 4-step TabContainer flow (`Appearance`, `Identity`, `Stats & Skills`, `Review`) with step validation helpers, grouped review errors, and final submit gating.
+- Character roster rail now includes search + sort (`name`, `level`, `location`) and concise single-line cards (`Name Lv.x LevelName`); detailed XP/build text remains in the right-side detail panel.
 - Settings now persists and applies a `reduced_motion` preference used by screen transitions and podium preview animation.
 - `ui_components.gd` now applies shared hover-motion emphasis to themed buttons (unless reduced motion suppresses runtime tween usage in consuming screens).
 - Added automated character roundtrip tests:

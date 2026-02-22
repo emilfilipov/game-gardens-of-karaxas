@@ -56,8 +56,6 @@ var character_row_level_overrides: Dictionary = {}
 var register_mode = false
 var current_screen_name = "auth"
 var screen_nodes: Dictionary = {}
-var suppress_character_tab_changed = false
-var last_character_tab_index = 0
 
 var header_title: Label
 var menu_button: Button
@@ -86,7 +84,6 @@ var character_rows_scroll: ScrollContainer
 var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
 var character_preview_widget: Control
-var character_detail_chips: HBoxContainer
 var character_list_title_label: Label
 var character_refresh_button: Button
 var character_search_input: LineEdit
@@ -429,7 +426,7 @@ func _build_ui() -> void:
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_title.add_theme_font_size_override("font_size", 34)
-	header_title.add_theme_color_override("font_color", Color(0.95, 0.90, 0.79))
+	header_title.add_theme_color_override("font_color", UI_TOKENS.color("text_primary"))
 	header.add_child(header_title)
 
 	var right_header_slot = Control.new()
@@ -722,9 +719,6 @@ func _build_account_screen() -> VBoxContainer:
 	details_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	details_panel.add_child(details_inner)
 	details_inner.add_child(_label("Character Details", 20, "text_secondary"))
-	character_detail_chips = HBoxContainer.new()
-	character_detail_chips.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
-	details_inner.add_child(character_detail_chips)
 	character_details_label = RichTextLabel.new()
 	character_details_label.fit_content = false
 	character_details_label.bbcode_enabled = false
@@ -1582,13 +1576,6 @@ func _labeled_control(label_text: String, control: Control) -> Control:
 	wrap.add_child(control)
 	return wrap
 
-func _chip(text_value: String) -> Control:
-	var chip = UI_COMPONENTS.panel_card(Vector2(0, 30), false)
-	var label = _label(text_value, -1, "text_secondary")
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	chip.add_child(label)
-	return chip
-
 func _clear_children(node: Node) -> void:
 	if node == null:
 		return
@@ -1640,32 +1627,12 @@ func _selected_create_appearance_key() -> String:
 	return "human_male"
 
 func _on_character_tabs_changed(index: int) -> void:
-	if suppress_character_tab_changed:
-		return
-	if last_character_tab_index == 1 and index != 1 and create_dirty:
-		call_deferred("_confirm_leave_create_tab", index)
-		return
-	last_character_tab_index = index
 	if character_tabs == null:
 		return
 	if index == 1:
 		_set_create_step(create_step_tabs.current_tab if create_step_tabs != null else 0)
 		return
 	_hide_skill_tooltip()
-
-func _confirm_leave_create_tab(target_tab: int) -> void:
-	var accepted = await _show_confirm_dialog(
-		"Discard Character Draft?",
-		"You have unsaved character creator changes. Leave Create Character and discard them?"
-	)
-	if accepted:
-		create_dirty = false
-		last_character_tab_index = target_tab
-		return
-	suppress_character_tab_changed = true
-	character_tabs.current_tab = 1
-	suppress_character_tab_changed = false
-	last_character_tab_index = 1
 
 func _mark_create_dirty() -> void:
 	create_dirty = true
@@ -1916,15 +1883,19 @@ func _load_texture_from_path(path: String):
 	return ImageTexture.create_from_image(image)
 
 func _character_location_text(row: Dictionary) -> String:
+	var level_name = _character_level_name(row)
+	var x = row.get("location_x", null)
+	var y = row.get("location_y", null)
+	if x != null and y != null:
+		return "%s (%s, %s)" % [level_name, str(x), str(y)]
+	return level_name
+
+func _character_level_name(row: Dictionary) -> String:
 	var level_name = "Default"
 	if row.get("level_name", null) != null:
 		level_name = str(row.get("level_name"))
 	elif row.get("level_id", null) != null:
 		level_name = "Level #" + str(row.get("level_id"))
-	var x = row.get("location_x", null)
-	var y = row.get("location_y", null)
-	if x != null and y != null:
-		return "%s (%s, %s)" % [level_name, str(x), str(y)]
 	return level_name
 
 func _set_selected_character(index: int) -> void:
@@ -2007,10 +1978,10 @@ func _render_character_rows() -> void:
 		if character_delete_button != null:
 			character_delete_button.disabled = true
 		return
-	character_rows_container.custom_minimum_size = Vector2(roster_min_width, float(visible_indices.size() * 126))
+	character_rows_container.custom_minimum_size = Vector2(roster_min_width, float(visible_indices.size() * 96))
 	for row_index in visible_indices:
 		var row: Dictionary = characters[row_index]
-		var card = UI_COMPONENTS.panel_card(Vector2(roster_min_width, 116), row_index == selected_character_index)
+		var card = UI_COMPONENTS.panel_card(Vector2(roster_min_width, 86), row_index == selected_character_index)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var card_pad = MarginContainer.new()
 		card_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("md"))
@@ -2018,17 +1989,18 @@ func _render_character_rows() -> void:
 		card_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("md"))
 		card_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("sm"))
 		card.add_child(card_pad)
-		var card_inner = VBoxContainer.new()
+		var card_inner = HBoxContainer.new()
 		card_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
 		card_pad.add_child(card_inner)
 
 		var summary_button = UI_COMPONENTS.button_secondary(
-			"%s  |  Lv.%s"
+			"%s Lv.%s %s"
 			% [
 				str(row.get("name", "Unnamed")),
 				str(row.get("level", 1)),
+				_character_level_name(row),
 			],
-			Vector2(maxf(220.0, roster_min_width - float(UI_TOKENS.spacing("lg") * 2)), UI_TOKENS.size("button_h_lg"))
+			Vector2(maxf(220.0, roster_min_width - float(UI_TOKENS.spacing("lg") * 2)), 44)
 		)
 		summary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		summary_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -2037,9 +2009,6 @@ func _render_character_rows() -> void:
 			_set_selected_character(row_index)
 		)
 		card_inner.add_child(summary_button)
-		var location_label = _label("Location: " + _character_location_text(row), -1, "text_muted")
-		location_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		card_inner.add_child(location_label)
 		character_rows_container.add_child(card)
 
 func _remaining_create_points() -> int:
@@ -2453,7 +2422,6 @@ func _on_auth_submit() -> void:
 	await _load_characters()
 	_show_screen("account")
 	character_tabs.current_tab = 0
-	last_character_tab_index = 0
 
 func _apply_session(payload: Dictionary) -> void:
 	access_token = str(payload.get("access_token", ""))
@@ -2488,7 +2456,6 @@ func _logout_session_local() -> void:
 	settings_mfa_last_uri = ""
 	settings_mfa_last_qr_svg = ""
 	create_dirty = false
-	last_character_tab_index = 0
 
 func _logout_account() -> void:
 	await _persist_active_character_location()
@@ -2594,8 +2561,6 @@ func _on_character_selected(index: int) -> void:
 func _render_character_details(index: int) -> void:
 	if index < 0 or index >= characters.size():
 		character_details_label.text = "Choose a character from the list."
-		if character_detail_chips != null:
-			_clear_children(character_detail_chips)
 		if character_preview_widget != null:
 			character_preview_widget.call("set_character", "human_male", "Selected Character")
 		if character_play_button != null:
@@ -2607,11 +2572,6 @@ func _render_character_details(index: int) -> void:
 		return
 	var row: Dictionary = characters[index]
 	var location_text = _character_location_text(row)
-	if character_detail_chips != null:
-		_clear_children(character_detail_chips)
-		character_detail_chips.add_child(_chip("Level " + str(row.get("level", 1))))
-		character_detail_chips.add_child(_chip("Zone " + str(row.get("level_name", row.get("level_id", "Default")))))
-		character_detail_chips.add_child(_chip("At " + location_text))
 	character_details_label.text = (
 		"Name: %s\nLevel: %s\nXP: %s (next %s)\nAppearance: %s\nRace: %s\nBackground: %s\nAffiliation: %s\nLocation: %s"
 		% [
@@ -2693,7 +2653,6 @@ func _on_create_character_pressed() -> void:
 		character_search_input.text = ""
 	await _load_characters()
 	character_tabs.current_tab = 0
-	last_character_tab_index = 0
 
 func _on_character_delete_pressed() -> void:
 	if selected_character_index < 0 or selected_character_index >= characters.size():

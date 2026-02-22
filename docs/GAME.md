@@ -40,7 +40,7 @@ create/select characters, and enter gameplay sessions.
    - Action buttons do not change the current preview selection.
    - Character List now uses a 3-column flow: roster rail (left), large selected-character preview/podium (center), and detail/action panel (right).
    - Roster rail includes quick character search/filter by name or location text.
-   - Roster rail now includes sort modes (name, level, location) and concise cards (`name`, `level`, `location`) to avoid duplicate detail text.
+   - Roster rail now includes sort modes (name, level, location) and concise single-row cards in the format `Name Lv.x LevelName` (no coordinate text on cards).
    - Roster rail enforces minimum card/list widths so entries cannot collapse into invisible rows on narrow layouts or splitter drift.
    - Character roster rendering now runs a deferred post-layout pass and auto-clears stale filters that hide all rows, so newly created characters reliably appear.
    - Character rows render as fixed-size selection cards; `Play` and `Delete` actions are bound to the selected character in the right detail panel.
@@ -51,7 +51,6 @@ create/select characters, and enter gameplay sessions.
 5. Character creation now runs as a multi-step flow and persists selected identity/build choices:
    - Step flow: `Appearance` -> `Identity` -> `Stats & Skills` -> `Review`.
    - Step navigation enforces validation and shows grouped errors before final submit.
-   - Leaving create flow with unsaved draft changes prompts for confirmation.
    - Appearance step includes preset and scaffold options (`sex`, `skin tone`, `hair style`, `hair color`, `face`, `stance`) wired to live podium preview.
    - Allocated stat points and selected starter skills are sent in the character create payload.
    - Point budget is enforced client-side from content domains and validated server-side.
