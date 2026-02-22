@@ -219,7 +219,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Screens are card-based (combined auth, character creation, character selection, update, play) instead of one-off ad hoc layouts.
 - Post-login routing now always lands on `Character List`; empty accounts remain on that tab and show empty-state guidance instead of auto-switching to `Create Character`.
 - Character creation tables are content-driven (`character_options`, `stats`, `skills`) and submit allocated stat/skill payloads directly to `/characters`.
+- Character creator appearance selector now derives from discovered local art and falls back to a single guaranteed preset (`human_male`) when optional variants are unavailable.
 - Character List now exposes both auto-refresh (after create/delete) and an explicit manual `Refresh` action.
+- Character List roster rail now includes client-side text search/filter against name and location metadata.
 - Character List row rendering now uses fixed-height themed cards with:
   - selectable row header button for preview binding,
   - action controls centralized in the selected-character detail panel,

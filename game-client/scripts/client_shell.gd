@@ -84,6 +84,7 @@ var character_details_label: RichTextLabel
 var character_preview_texture: TextureRect
 var character_list_title_label: Label
 var character_refresh_button: Button
+var character_search_input: LineEdit
 var character_play_button: Button
 var character_delete_button: Button
 var character_level_override_option: OptionButton
@@ -599,6 +600,12 @@ func _build_account_screen() -> VBoxContainer:
 	character_refresh_button = UI_COMPONENTS.button_primary("Refresh", Vector2(124, 38))
 	character_refresh_button.pressed.connect(_on_character_refresh_pressed)
 	roster_header.add_child(character_refresh_button)
+	character_search_input = _line_edit("Search characters")
+	character_search_input.custom_minimum_size = Vector2(0, 34)
+	character_search_input.text_changed.connect(func(_value: String) -> void:
+		_render_character_rows()
+	)
+	roster_inner.add_child(character_search_input)
 	character_rows_scroll = ScrollContainer.new()
 	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -700,26 +707,29 @@ func _build_account_screen() -> VBoxContainer:
 	create_right.size_flags_stretch_ratio = 0.77
 	create_body.add_child(create_right)
 
+	var identity_panel = UI_COMPONENTS.panel_card(Vector2(0, 118), false)
+	create_right.add_child(identity_panel)
 	var identity_row = HBoxContainer.new()
 	identity_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	create_right.add_child(identity_row)
+	identity_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	identity_panel.add_child(identity_row)
 	create_name_input = _line_edit("Character Name")
-	create_name_input.custom_minimum_size = Vector2(120, 36)
+	create_name_input.custom_minimum_size = Vector2(170, 36)
 	identity_row.add_child(_labeled_control("Name", create_name_input))
-	create_sex_option = _option(["Male", "Female"])
-	create_sex_option.custom_minimum_size = Vector2(120, 36)
+	create_sex_option = _option([])
+	create_sex_option.custom_minimum_size = Vector2(170, 36)
 	create_sex_option.item_selected.connect(func(_index: int) -> void:
 		_refresh_create_character_preview()
 	)
 	identity_row.add_child(_labeled_control("Sex", create_sex_option))
 	create_race_option = _option(["Human"])
-	create_race_option.custom_minimum_size = Vector2(120, 36)
+	create_race_option.custom_minimum_size = Vector2(170, 36)
 	identity_row.add_child(_labeled_control("Race", create_race_option))
 	create_background_option = _option(["Drifter"])
-	create_background_option.custom_minimum_size = Vector2(120, 36)
+	create_background_option.custom_minimum_size = Vector2(170, 36)
 	identity_row.add_child(_labeled_control("Background", create_background_option))
 	create_affiliation_option = _option(["Unaffiliated"])
-	create_affiliation_option.custom_minimum_size = Vector2(120, 36)
+	create_affiliation_option.custom_minimum_size = Vector2(170, 36)
 	identity_row.add_child(_labeled_control("Affiliation", create_affiliation_option))
 
 	var create_tables = HSplitContainer.new()
@@ -777,6 +787,7 @@ func _build_account_screen() -> VBoxContainer:
 	create_status_label.text = " "
 	create_status_label.visible = true
 	create_root.add_child(create_status_label)
+	_populate_create_sex_option()
 	_populate_character_creation_tables(content_domains.get("character_options", {}))
 	_refresh_create_character_preview()
 
@@ -1322,10 +1333,45 @@ func _clear_children(node: Node) -> void:
 func _refresh_create_character_preview() -> void:
 	if create_preview_texture == null:
 		return
-	var appearance_key = "human_male"
-	if create_sex_option != null and create_sex_option.selected == 1:
-		appearance_key = "human_female"
+	var appearance_key = _selected_create_appearance_key()
 	create_preview_texture.texture = _resolve_character_texture(appearance_key)
+
+func _available_create_appearance_choices() -> Array[Dictionary]:
+	var choices: Array[Dictionary] = []
+	var male_texture = _resolve_character_texture("human_male")
+	if male_texture != null:
+		choices.append({"key": "human_male", "label": "Male"})
+	var female_texture = _resolve_character_texture("human_female")
+	if female_texture != null:
+		choices.append({"key": "human_female", "label": "Female"})
+	if choices.is_empty():
+		choices.append({"key": "human_male", "label": "Male"})
+	return choices
+
+func _populate_create_sex_option() -> void:
+	if create_sex_option == null:
+		return
+	var choices = _available_create_appearance_choices()
+	create_sex_option.clear()
+	for entry in choices:
+		var label = str(entry.get("label", "Male"))
+		var key = str(entry.get("key", "human_male"))
+		create_sex_option.add_item(label)
+		var index = create_sex_option.get_item_count() - 1
+		create_sex_option.set_item_metadata(index, key)
+	create_sex_option.selected = 0 if create_sex_option.get_item_count() > 0 else -1
+	_sanitize_option_popup(create_sex_option)
+
+func _selected_create_appearance_key() -> String:
+	if create_sex_option == null or create_sex_option.get_item_count() <= 0:
+		return "human_male"
+	var selected_index = max(0, create_sex_option.selected)
+	var metadata = create_sex_option.get_item_metadata(selected_index)
+	if metadata is String:
+		var value = str(metadata).strip_edges().to_lower()
+		if not value.is_empty():
+			return value
+	return "human_male"
 
 func _refresh_selected_character_preview() -> void:
 	if character_preview_texture == null:
@@ -1399,12 +1445,29 @@ func _set_selected_character(index: int) -> void:
 	_render_character_details(index)
 	_render_character_rows()
 
+func _filtered_character_indices() -> Array[int]:
+	var indices: Array[int] = []
+	var query = ""
+	if character_search_input != null:
+		query = character_search_input.text.strip_edges().to_lower()
+	for index in range(characters.size()):
+		if query.is_empty():
+			indices.append(index)
+			continue
+		var row: Dictionary = characters[index]
+		var name = str(row.get("name", "")).to_lower()
+		var location = _character_location_text(row).to_lower()
+		if name.contains(query) or location.contains(query):
+			indices.append(index)
+	return indices
+
 func _render_character_rows() -> void:
 	if character_rows_container == null:
 		return
 	_clear_children(character_rows_container)
 	character_rows_container.custom_minimum_size = Vector2.ZERO
-	if characters.is_empty():
+	var visible_indices = _filtered_character_indices()
+	if visible_indices.is_empty():
 		var empty_card = UI_COMPONENTS.panel_card(Vector2(0, 140), false)
 		empty_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var empty_pad = MarginContainer.new()
@@ -1413,7 +1476,10 @@ func _render_character_rows() -> void:
 		empty_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("md"))
 		empty_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("md"))
 		empty_card.add_child(empty_pad)
-		var empty_label = _label("No characters yet. Open Create Character to make your first hero.", -1, "text_secondary")
+		var empty_text = "No matching characters. Adjust search or create a new character."
+		if characters.is_empty():
+			empty_text = "No characters yet. Open Create Character to make your first hero."
+		var empty_label = _label(empty_text, -1, "text_secondary")
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		empty_pad.add_child(empty_label)
 		character_rows_container.add_child(empty_card)
@@ -1422,11 +1488,10 @@ func _render_character_rows() -> void:
 		if character_delete_button != null:
 			character_delete_button.disabled = true
 		return
-	character_rows_container.custom_minimum_size = Vector2(0, float(characters.size() * 126))
-	for index in range(characters.size()):
-		var row: Dictionary = characters[index]
-		var row_index = index
-		var card = UI_COMPONENTS.panel_card(Vector2(0, 116), index == selected_character_index)
+	character_rows_container.custom_minimum_size = Vector2(0, float(visible_indices.size() * 126))
+	for row_index in visible_indices:
+		var row: Dictionary = characters[row_index]
+		var card = UI_COMPONENTS.panel_card(Vector2(0, 116), row_index == selected_character_index)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var card_pad = MarginContainer.new()
 		card_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("sm"))
@@ -1439,7 +1504,7 @@ func _render_character_rows() -> void:
 		card_pad.add_child(card_inner)
 
 		var summary_button = UI_COMPONENTS.button_secondary(
-			"%s  |  Lv.%s  |  XP %s (next %s)"
+			"%s  |  Lv.%s  |  XP %s/%s"
 			% [
 				str(row.get("name", "Unnamed")),
 				str(row.get("level", 1)),
@@ -1921,7 +1986,6 @@ func _logout_account() -> void:
 func _load_characters() -> void:
 	if access_token == "":
 		return
-	account_status_label.text = "Loading characters..."
 	if session_is_admin:
 		await _refresh_admin_levels_cache()
 	var response = await _api_request(HTTPClient.METHOD_GET, "/characters", null, true)
@@ -1982,9 +2046,9 @@ func _refresh_character_override_selector(row: Dictionary) -> void:
 	if character_level_override_option == null:
 		return
 	character_level_override_option.visible = session_is_admin
-	var parent = character_level_override_option.get_parent()
-	if parent is Control:
-		parent.visible = session_is_admin
+	var parent_control := character_level_override_option.get_parent() as Control
+	if parent_control != null:
+		parent_control.visible = session_is_admin
 	if not session_is_admin:
 		return
 	var character_id = int(row.get("id", -1))
@@ -2047,7 +2111,7 @@ func _on_create_character_pressed() -> void:
 		create_status_label.text = "Character name must be at least 2 characters."
 		return
 	create_status_label.text = "Creating character..."
-	var appearance_key = "human_male" if create_sex_option.selected == 0 else "human_female"
+	var appearance_key = _selected_create_appearance_key()
 	var stats_payload: Dictionary = {}
 	for key in create_stat_keys:
 		stats_payload[key] = int(create_stat_values.get(key, 0))
@@ -2088,7 +2152,6 @@ func _on_character_delete_pressed() -> void:
 		account_status_label.text = "Select a character first."
 		return
 	var row: Dictionary = characters[selected_character_index]
-	account_status_label.text = "Deleting " + str(row.get("name", "character")) + "..."
 	var response = await _api_request(
 		HTTPClient.METHOD_DELETE,
 		"/characters/%s" % str(row.get("id")),
@@ -2110,7 +2173,6 @@ func _on_character_play_pressed() -> void:
 	if character_id <= 0:
 		account_status_label.text = "Invalid character selection."
 		return
-	account_status_label.text = "Starting session..."
 	active_character_id = character_id
 	var select_response = await _api_request(
 		HTTPClient.METHOD_POST,
@@ -2921,6 +2983,7 @@ func _populate_character_options_from_content() -> void:
 	var options: Dictionary = content_domains.get("character_options", {})
 	if create_race_option == null:
 		return
+	_populate_create_sex_option()
 	_fill_option(create_race_option, _content_labels(options.get("race", options.get("races", [])), ["Human"]))
 	_fill_option(create_background_option, _content_labels(options.get("background", options.get("backgrounds", [])), ["Drifter"]))
 	_fill_option(create_affiliation_option, _content_labels(options.get("affiliation", options.get("affiliations", [])), ["Unaffiliated"]))

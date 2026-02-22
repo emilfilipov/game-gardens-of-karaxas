@@ -5,10 +5,6 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| GOK-MMO-280 | ⬜ | 3 | Character List v2 polish pass: add roster search/filter, selected-card highlight animation, and denser card metadata chips while keeping fixed-size row cards and scroll stability. |
-| GOK-MMO-281 | ⬜ | 3 | Character Creator v1 baseline flow hardening: enforce one-preset fallback contract (`human_male`) when content catalogs are unavailable, lock required fields, and guarantee create submission succeeds with minimal data. |
-| GOK-MMO-282 | ⬜ | 3 | Character Creator ergonomics pass: improve section spacing/alignment, tighten stat/skill panel sizing, and add clearer step-like visual grouping without introducing multi-scene complexity yet. |
-| GOK-MMO-283 | ⬜ | 2 | Character flow QA pass: add deterministic refresh hooks after create/delete/play transitions and remove stale status text flashes across account surfaces. |
 | GOK-MMO-284 | ⬜ | 2 | Character flow regression checklist + screenshots: capture login -> list -> create -> play happy path and assert empty-account + one-character + multi-character behavior. |
 | GOK-MMO-254 | ⬜ | 4 | Implement isometric runtime foundation in Godot and make it the authoritative render/movement math path: build shared projection helpers (`world<->iso screen`, tile picking, depth key), integrate into gameplay scene, and add deterministic fixture tests for transform round-trip and depth sorting stability. |
 | GOK-MMO-255 | ⬜ | 4 | Replace top-down world renderer with isometric draw pipeline: floor tile pass, prop pass, actor pass, and foreground/occluder pass with stable ordering (`floor_order`, `render_layer`, `sort_y`, `sort_x`, `stable_id`), plus fallback diagnostics overlay for sorting conflicts. |
@@ -44,6 +40,10 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-282 | ✅ | 3 | Character Creator ergonomics pass: grouped identity controls into a dedicated panel, tightened control widths, and improved layout consistency without introducing multi-scene flow complexity. |
+| GOK-MMO-280 | ✅ | 3 | Character List v2 polish pass: added roster search/filter and denser metadata presentation while preserving fixed-size row cards and stable scroll behavior. |
+| GOK-MMO-283 | ✅ | 2 | Character flow QA pass: deterministic refresh hooks remain in place after create/delete/play transitions and stale non-error account status flashes were removed from the account shell. |
+| GOK-MMO-281 | ✅ | 3 | Character Creator v1 baseline hardened with discovered-art appearance options and guaranteed single-preset fallback (`human_male`) when optional variants are missing. |
 | GOK-MMO-279 | ✅ | 2 | Updated canonical docs for the new account-shell behavior: auth focus-chain contract, compact auth shell sizing, simplified MFA settings structure, and selected-character panel action model. |
 | GOK-MMO-278 | ✅ | 3 | Refactored Character List into a 3-column flow (roster rail, center podium preview, right detail/actions) with selected-character bound `Play`/`Delete` controls and admin spawn-override selector on the detail panel. |
 | GOK-MMO-277 | ✅ | 2 | Simplified settings MFA UI: removed redundant hint/status layers, converted to compact toggle row, and switched to inline two-column QR/info enrollment layout with refresh/copy controls. |

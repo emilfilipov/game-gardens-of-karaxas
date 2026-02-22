@@ -38,6 +38,7 @@ create/select characters, and enter gameplay sessions.
    - Character preview/details update only when the character card row itself is clicked.
    - Action buttons do not change the current preview selection.
    - Character List now uses a 3-column flow: roster rail (left), large selected-character preview/podium (center), and detail/action panel (right).
+   - Roster rail includes quick character search/filter by name or location text.
    - Character rows render as fixed-size selection cards; `Play` and `Delete` actions are bound to the selected character in the right detail panel.
    - Admin spawn-level override is now managed on the selected-character detail panel.
    - Character list auto-refreshes after create/delete events.
@@ -46,6 +47,7 @@ create/select characters, and enter gameplay sessions.
 5. Character creation persists selected identity and allocated points:
    - Allocated stat points and selected starter skills are sent in the character create payload.
    - Point budget is enforced client-side from content domains and validated server-side.
+   - If appearance options are unavailable, creator falls back to a single safe preset (`human_male`) so character creation remains functional.
 6. Enter gameplay session from the chosen character row (`Play` action on that row only).
    - World/session opens in a dedicated gameplay scene (separate from account cards).
    - Auth, account, editor, and gameplay flows are now hosted in one Godot client shell (no separate Swing launcher UI flow).
