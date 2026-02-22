@@ -64,11 +64,11 @@ create/select characters, and enter gameplay sessions.
    - `Video` includes screen mode (`Borderless Fullscreen` / `Windowed`).
    - `Audio` includes mute toggle and master volume slider.
    - `Security` includes MFA setup/status and a compact MFA toggle flow for all users.
-   - Settings tabs now render inside themed section cards for consistent visual structure (Video, Audio, Security).
+   - Settings tabs render inside themed section cards for consistent visual structure (Video, Audio, Security).
 - MFA toggle is now a single ON/OFF control with no OTP entry requirement in settings.
-- When MFA is ON, QR enrollment is rendered inline inside the Security panel (not a popup).
-- Security panel exposes `Refresh QR` and `Copy URI` actions for re-enrollment/recovery.
-   - Login requires MFA code only when the account's MFA toggle is enabled; rotating or retaining a secret while MFA is OFF must not block password-only login.
+- Security tab now shows MFA as a compact switch row and a two-column inline setup area (QR on the left, secret/URI info on the right) with `Refresh QR` and `Copy URI`.
+- Disabling MFA clears the stored MFA secret; re-enabling issues a fresh enrollment secret/QR.
+   - Login requires MFA code only when the account's MFA toggle is enabled; MFA-OFF accounts must not be OTP-gated.
 
 ## Required Frontend Screens (Godot)
 - Combined authentication screen (login/register toggle in a single centered block) with integrated updater/release-notes panel.

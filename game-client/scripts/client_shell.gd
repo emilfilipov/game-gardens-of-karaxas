@@ -118,11 +118,10 @@ var settings_status_label: Label
 var settings_screen_mode: OptionButton
 var settings_audio_mute: Button
 var settings_audio_volume: HSlider
-var settings_mfa_status_label: Label
 var settings_mfa_toggle: Button
 var settings_mfa_qr_texture: TextureRect
 var settings_mfa_qr_placeholder: Label
-var settings_mfa_secret_output: TextEdit
+var settings_mfa_info_label: RichTextLabel
 var settings_mfa_refresh_button: Button
 var settings_mfa_enabled_state = false
 var settings_mfa_last_secret = ""
@@ -449,7 +448,7 @@ func _build_auth_screen() -> VBoxContainer:
 	shell_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shell_content.add_child(body)
 
-	var auth_panel = UI_COMPONENTS.panel_card(Vector2(430, 560), false)
+	var auth_panel = UI_COMPONENTS.panel_card(Vector2(430, 470), false)
 	auth_panel.size_flags_stretch_ratio = 0.42
 	body.add_child(auth_panel)
 
@@ -493,14 +492,17 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_button_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	auth_inner.add_child(auth_button_row)
 	auth_submit_button = UI_COMPONENTS.button_primary("Login", Vector2(0, 42))
+	auth_submit_button.focus_mode = Control.FOCUS_ALL
 	auth_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_submit_button.pressed.connect(_on_auth_submit)
 	auth_button_row.add_child(auth_submit_button)
 	auth_toggle_button = _button("Create Account")
+	auth_toggle_button.focus_mode = Control.FOCUS_ALL
 	auth_toggle_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_toggle_button.pressed.connect(_on_auth_toggle_mode)
 	auth_button_row.add_child(auth_toggle_button)
 	var auth_exit_button = _button("Exit")
+	auth_exit_button.focus_mode = Control.FOCUS_ALL
 	auth_exit_button.custom_minimum_size = Vector2(110, 42)
 	auth_exit_button.pressed.connect(_handle_exit_request)
 	auth_button_row.add_child(auth_exit_button)
@@ -512,7 +514,7 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_inner.add_child(auth_status_label)
 	auth_inner.add_spacer(true)
 
-	var update_panel = UI_COMPONENTS.panel_card(Vector2(640, 560), false)
+	var update_panel = UI_COMPONENTS.panel_card(Vector2(640, 470), false)
 	update_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	update_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	update_panel.size_flags_stretch_ratio = 0.58
@@ -530,7 +532,7 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_release_notes.scroll_active = true
 	auth_release_notes.bbcode_enabled = false
 	auth_release_notes.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	auth_release_notes.custom_minimum_size = Vector2(0, 400)
+	auth_release_notes.custom_minimum_size = Vector2(0, 300)
 	auth_release_notes.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	update_inner.add_child(auth_release_notes)
 	auth_update_button = UI_COMPONENTS.button_primary("Update & Restart")
@@ -539,6 +541,7 @@ func _build_auth_screen() -> VBoxContainer:
 	update_inner.add_child(auth_update_button)
 
 	_apply_auth_mode()
+	_configure_auth_focus_chain()
 	return wrap
 
 func _build_account_screen() -> VBoxContainer:
@@ -816,7 +819,6 @@ func _build_settings_screen() -> VBoxContainer:
 
 	var title = _label("Settings", 30)
 	content.add_child(title)
-	content.add_child(_label("Video, audio, and account security preferences.", -1, "text_secondary"))
 
 	var tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -881,36 +883,28 @@ func _build_settings_screen() -> VBoxContainer:
 	security_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	security_card.add_child(security_inner)
 	security_inner.add_child(_label("Multi-factor Authentication", 20, "text_secondary"))
-	settings_mfa_status_label = _label("MFA: Loading...", -1, "text_secondary")
-	security_inner.add_child(settings_mfa_status_label)
 
 	var mfa_toggle_row = HBoxContainer.new()
 	mfa_toggle_row.add_theme_constant_override("separation", 8)
 	security_inner.add_child(mfa_toggle_row)
-	settings_mfa_toggle = _button("MFA: OFF")
+	settings_mfa_toggle = UI_COMPONENTS.button_primary("MFA", Vector2(170, 36))
+	settings_mfa_toggle.focus_mode = Control.FOCUS_ALL
 	settings_mfa_toggle.toggle_mode = true
-	settings_mfa_toggle.custom_minimum_size = Vector2(160, 36)
 	settings_mfa_toggle.toggled.connect(func(pressed: bool) -> void:
 		if suppress_settings_events:
 			return
 		call_deferred("_on_settings_mfa_toggle_requested", pressed)
 	)
 	mfa_toggle_row.add_child(settings_mfa_toggle)
-	var toggle_help = _label("Toggle ON to enforce authenticator codes on login.", -1, "text_muted")
-	toggle_help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	toggle_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	mfa_toggle_row.add_child(toggle_help)
-
-	var mfa_button_row = HBoxContainer.new()
-	mfa_button_row.add_theme_constant_override("separation", 8)
-	security_inner.add_child(mfa_button_row)
+	mfa_toggle_row.add_spacer(true)
 	settings_mfa_refresh_button = UI_COMPONENTS.button_primary("Refresh QR")
 	settings_mfa_refresh_button.disabled = true
 	settings_mfa_refresh_button.pressed.connect(func() -> void:
 		await _generate_settings_mfa_secret()
 	)
-	mfa_button_row.add_child(settings_mfa_refresh_button)
+	mfa_toggle_row.add_child(settings_mfa_refresh_button)
 	var copy_uri = _button("Copy URI")
+	copy_uri.focus_mode = Control.FOCUS_ALL
 	copy_uri.pressed.connect(func() -> void:
 		if settings_mfa_last_uri.strip_edges().is_empty():
 			settings_status_label.text = "No provisioning URI available yet."
@@ -918,26 +912,40 @@ func _build_settings_screen() -> VBoxContainer:
 		DisplayServer.clipboard_set(settings_mfa_last_uri)
 		settings_status_label.text = "Provisioning URI copied."
 	)
-	mfa_button_row.add_child(copy_uri)
+	mfa_toggle_row.add_child(copy_uri)
 
-	var qr_panel = UI_COMPONENTS.panel_card(Vector2(260, 260), false)
-	security_inner.add_child(qr_panel)
+	var mfa_content_row = HBoxContainer.new()
+	mfa_content_row.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	mfa_content_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	security_inner.add_child(mfa_content_row)
+
+	var qr_panel = UI_COMPONENTS.panel_card(Vector2(320, 320), false)
+	qr_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	qr_panel.size_flags_stretch_ratio = 0.46
+	mfa_content_row.add_child(qr_panel)
 	settings_mfa_qr_texture = TextureRect.new()
 	settings_mfa_qr_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	settings_mfa_qr_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	settings_mfa_qr_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
 	qr_panel.add_child(settings_mfa_qr_texture)
-	settings_mfa_qr_placeholder = _label("Enable MFA to generate QR.", -1, "text_muted")
+	settings_mfa_qr_placeholder = _label("Turn MFA on to generate a QR code.", -1, "text_muted")
 	settings_mfa_qr_placeholder.set_anchors_preset(Control.PRESET_FULL_RECT)
 	settings_mfa_qr_placeholder.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	settings_mfa_qr_placeholder.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	qr_panel.add_child(settings_mfa_qr_placeholder)
 
-	settings_mfa_secret_output = TextEdit.new()
-	settings_mfa_secret_output.editable = false
-	settings_mfa_secret_output.custom_minimum_size = Vector2(640, 120)
-	settings_mfa_secret_output.text = "MFA is OFF. Toggle ON to generate setup details."
-	security_inner.add_child(settings_mfa_secret_output)
+	var mfa_info_panel = UI_COMPONENTS.panel_card(Vector2(420, 320), false)
+	mfa_info_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mfa_info_panel.size_flags_stretch_ratio = 0.54
+	mfa_content_row.add_child(mfa_info_panel)
+	settings_mfa_info_label = RichTextLabel.new()
+	settings_mfa_info_label.bbcode_enabled = false
+	settings_mfa_info_label.scroll_active = true
+	settings_mfa_info_label.fit_content = false
+	settings_mfa_info_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	settings_mfa_info_label.text = "MFA is OFF.\nEnable MFA to generate setup details."
+	settings_mfa_info_label.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
+	mfa_info_panel.add_child(settings_mfa_info_label)
 
 	var action_row = HBoxContainer.new()
 	action_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
@@ -1770,6 +1778,31 @@ func _apply_auth_mode() -> void:
 		auth_otp_input.clear()
 		if auth_email_input.text.strip_edges().is_empty():
 			_load_last_email_pref()
+	_configure_auth_focus_chain()
+
+func _set_focus_link(current: Control, next: Control) -> void:
+	if current == null or next == null:
+		return
+	current.focus_next = current.get_path_to(next)
+	next.focus_previous = next.get_path_to(current)
+
+func _configure_auth_focus_chain() -> void:
+	if (
+		auth_email_input == null
+		or auth_password_input == null
+		or auth_submit_button == null
+		or auth_toggle_button == null
+	):
+		return
+	if register_mode:
+		_set_focus_link(auth_display_name_input, auth_email_input)
+		_set_focus_link(auth_email_input, auth_password_input)
+		_set_focus_link(auth_password_input, auth_submit_button)
+	else:
+		_set_focus_link(auth_email_input, auth_password_input)
+		_set_focus_link(auth_password_input, auth_otp_input)
+		_set_focus_link(auth_otp_input, auth_submit_button)
+	_set_focus_link(auth_submit_button, auth_toggle_button)
 
 func _set_auth_status(message: String) -> void:
 	auth_status_label.text = message
@@ -1812,13 +1845,14 @@ func _on_auth_submit() -> void:
 		)
 	else:
 		_set_auth_status("Logging in...")
+		var otp_value = auth_otp_input.text.strip_edges()
 		response = await _api_request(
 			HTTPClient.METHOD_POST,
 			"/auth/login",
 			{
 				"email": email,
 				"password": password,
-				"otp_code": auth_otp_input.text.strip_edges(),
+				"otp_code": null if otp_value.is_empty() else otp_value,
 				"client_version": client_version,
 				"client_content_version_key": client_content_version_key,
 			},
@@ -2276,17 +2310,13 @@ func _show_confirm_dialog(title: String, text_value: String) -> bool:
 func _refresh_settings_mfa_status() -> void:
 	if access_token.is_empty():
 		return
-	settings_mfa_status_label.text = "MFA: Loading..."
 	var response = await _api_request(HTTPClient.METHOD_GET, "/auth/mfa/status", null, true)
 	if not response.get("ok", false):
-		settings_mfa_status_label.text = "MFA: unavailable"
 		settings_status_label.text = _friendly_error(response)
 		return
 	var body = response.get("json", {})
 	var enabled = bool(body.get("enabled", false))
-	var configured = bool(body.get("configured", false))
 	settings_mfa_enabled_state = enabled
-	settings_mfa_status_label.text = "MFA: " + ("ON" if enabled else ("Configured (OFF)" if configured else "Not Configured"))
 	suppress_settings_events = true
 	settings_mfa_toggle.button_pressed = enabled
 	settings_mfa_toggle.text = "MFA: ON" if enabled else "MFA: OFF"
@@ -2296,8 +2326,9 @@ func _refresh_settings_mfa_status() -> void:
 	if enabled:
 		await _fetch_settings_mfa_qr(false)
 		return
-	settings_mfa_secret_output.text = "MFA is OFF. Toggle ON to generate setup details."
-	_clear_settings_mfa_qr_preview("MFA is OFF. Toggle ON to generate QR.")
+	if settings_mfa_info_label != null:
+		settings_mfa_info_label.text = "MFA is OFF.\nEnable MFA to generate setup details."
+	_clear_settings_mfa_qr_preview("MFA is OFF.")
 
 func _clear_settings_mfa_qr_preview(message: String) -> void:
 	if settings_mfa_qr_texture != null:
@@ -2310,7 +2341,8 @@ func _apply_settings_mfa_qr(secret: String, uri: String, qr_svg: String) -> void
 	settings_mfa_last_secret = secret
 	settings_mfa_last_uri = uri
 	settings_mfa_last_qr_svg = qr_svg
-	settings_mfa_secret_output.text = "Secret:\n%s\n\nProvisioning URI:\n%s" % [secret, uri]
+	if settings_mfa_info_label != null:
+		settings_mfa_info_label.text = "MFA is ON.\n\nSecret:\n%s\n\nProvisioning URI:\n%s" % [secret, uri]
 	if settings_mfa_qr_texture == null:
 		return
 	var image = Image.new()
@@ -2354,7 +2386,6 @@ func _on_settings_mfa_toggle_requested(requested_enabled: bool) -> void:
 	if access_token.is_empty():
 		return
 	if requested_enabled == settings_mfa_enabled_state:
-		settings_mfa_toggle.text = "MFA: ON" if requested_enabled else "MFA: OFF"
 		return
 	var endpoint = "/auth/mfa/enable" if requested_enabled else "/auth/mfa/disable"
 	settings_status_label.text = "Updating MFA..."

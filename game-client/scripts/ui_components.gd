@@ -37,7 +37,7 @@ static func line_edit(placeholder: String, secret: bool = false, min_size: Vecto
 		input.custom_minimum_size = Vector2(UI_TOKENS.size("input_w"), UI_TOKENS.size("input_h"))
 	else:
 		input.custom_minimum_size = min_size
-	input.focus_mode = Control.FOCUS_CLICK
+	input.focus_mode = Control.FOCUS_ALL
 	return input
 
 

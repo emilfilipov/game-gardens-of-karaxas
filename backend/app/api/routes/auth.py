@@ -710,8 +710,10 @@ def mfa_disable(
     db: Session = Depends(get_db),
 ):
     user = _load_context_user(context, db)
-    secret = (user.mfa_totp_secret or "").strip()
+    secret_was_configured = bool((user.mfa_totp_secret or "").strip())
     user.mfa_enabled = False
+    user.mfa_enabled_at = None
+    user.mfa_totp_secret = None
     db.add(user)
     write_security_event(
         db,
@@ -719,7 +721,7 @@ def mfa_disable(
         severity="critical",
         actor_user_id=user.id,
         session_id=context.session.id,
-        detail={"email": user.email},
+        detail={"email": user.email, "secret_cleared": secret_was_configured},
     )
     db.commit()
-    return MfaStatusResponse(enabled=False, configured=bool(secret))
+    return MfaStatusResponse(enabled=False, configured=False)

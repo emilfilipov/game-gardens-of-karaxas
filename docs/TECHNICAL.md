@@ -254,6 +254,7 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Combined auth panel now includes a direct `Exit` button alongside login/register actions.
 - Register mode now uses `Register` + `Back` actions (instead of `Use Login`) for clearer return-to-login flow.
 - Pressing Enter in auth inputs submits login/register depending on current toggle mode.
+- Auth screen now enforces explicit Tab/Shift+Tab focus chains across visible auth inputs for both Login and Register modes.
 - Auth form pre-validates email/password/display-name constraints client-side to mirror backend schema and reduce avoidable 422 responses.
 - Login form includes an optional MFA OTP field and forwards `otp_code` on login when provided.
 - Auth error mapping includes explicit UX strings for wrong credentials (`This account doesn't exist`) and common connectivity failures (offline, timeout, server unavailable, SSL errors).
@@ -267,8 +268,9 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Video settings support `Borderless Fullscreen` and `Windowed` modes and apply immediately on change.
 - Audio settings support mute toggle and master volume slider (persisted for runtime audio integration).
 - Security settings expose MFA status plus a single toggle-based enable/disable flow that does not require OTP entry in settings.
-- MFA setup/enrollment QR now renders inline in the Security panel (backend-provided SVG), with `Refresh QR` and `Copy URI` helpers.
+- MFA setup/enrollment QR now renders inline in a two-column Security panel (QR preview + secret/URI details), with `Refresh QR` and `Copy URI` helpers.
 - MFA settings toggle executes enable/disable directly, automatically reverts visual toggle state on API failure, and refreshes status from `/auth/mfa/status` after each successful toggle.
+- MFA disable now clears the stored TOTP secret server-side (`mfa_totp_secret=NULL`, `mfa_enabled=false`) so later re-enable always requires fresh QR enrollment.
 - Login MFA challenge now triggers only when `mfa_enabled=true`; accounts with a configured secret but MFA toggled OFF must be able to authenticate without OTP.
 - Automatic login remains a persisted user setting, but launcher startup always requires manual login to keep startup deterministic on the auth screen.
 - Stored auto-login refresh tokens are only used after an authenticated session updates settings, and are not consumed during app startup.

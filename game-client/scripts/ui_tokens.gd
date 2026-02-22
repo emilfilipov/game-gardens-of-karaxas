@@ -38,7 +38,7 @@ const SIZES: Dictionary = {
 	"shell_wide_w": 1560,
 	"shell_wide_h": 860,
 	"shell_auth_w": 1180,
-	"shell_auth_h": 680,
+	"shell_auth_h": 560,
 	"radius": 4,
 	"radius_lg": 8,
 	"radius_xl": 12,

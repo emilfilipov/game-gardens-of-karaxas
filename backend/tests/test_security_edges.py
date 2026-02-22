@@ -122,6 +122,7 @@ def test_mfa_toggle_endpoints_accept_empty_payload() -> None:
 
     disabled = mfa_disable(None, context=context, db=db)
     assert disabled.enabled is False
-    assert disabled.configured is True
+    assert disabled.configured is False
     db.refresh(user)
     assert user.mfa_enabled is False
+    assert user.mfa_totp_secret is None
