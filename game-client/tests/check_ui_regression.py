@@ -21,6 +21,13 @@ def fail(message: str) -> int:
     return 1
 
 
+def normalized_text_bytes(path: Path) -> bytes:
+    # Normalize line endings so Windows and Linux checkouts hash identically.
+    text = path.read_text(encoding="utf-8")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return text.encode("utf-8")
+
+
 def main() -> int:
     if not MANIFEST_PATH.exists():
         return fail(f"manifest missing: {MANIFEST_PATH}")
@@ -49,7 +56,7 @@ def main() -> int:
     for path in SOURCES + [MANIFEST_PATH]:
         if not path.exists():
             return fail(f"source missing for signature: {path}")
-        digest.update(path.read_bytes())
+        digest.update(normalized_text_bytes(path))
     signature = digest.hexdigest()
 
     update = os.getenv("UPDATE_UI_GOLDEN", "0").strip() == "1"
