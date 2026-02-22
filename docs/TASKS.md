@@ -39,6 +39,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| GOK-MMO-300 | ✅ | 2 | Added launcher-side contract test (`KaraxasBackendClientCharacterFlowTest`) that programmatically creates a character against a mocked `/characters` backend and verifies list roundtrip parsing. |
+| GOK-MMO-299 | ✅ | 2 | Added backend route regression test (`test_character_list_roundtrip.py`) validating create->list flow returns all newly created character rows in order. |
+| GOK-MMO-298 | ✅ | 2 | Added character-flow diagnostics in Godot shell logs for create/list requests and loaded row counts to accelerate backend-communication troubleshooting. |
+| GOK-MMO-297 | ✅ | 2 | Reworked top chrome to a centered global game title with fixed right cog slot and removed per-screen left-aligned mega heading swaps. |
+| GOK-MMO-296 | ✅ | 2 | Reduced global title font footprint and preserved symmetric header slots so the top-right menu no longer appears visually stretched/mis-shapen. |
 | GOK-MMO-295 | ✅ | 2 | Normalized BoxContainer spacer direction (`add_spacer(false)`) across auth/settings cards so control groups anchor to top instead of drifting to bottom alignment. |
 | GOK-MMO-294 | ✅ | 2 | Added global stylebox content insets for shared card/button/input surfaces to enforce consistent left-right/internal padding without per-screen one-off margins. |
 | GOK-MMO-293 | ✅ | 2 | Widened root shell gutters to improve horizontal breathing room and prevent account/settings/admin panels from hugging viewport edges. |

@@ -369,20 +369,29 @@ func _build_ui() -> void:
 	header.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	layout.add_child(header)
 
+	var left_header_slot = Control.new()
+	left_header_slot.custom_minimum_size = Vector2(UI_TOKENS.size("menu_square"), UI_TOKENS.size("menu_square"))
+	header.add_child(left_header_slot)
+
 	header_title = Label.new()
 	header_title.text = "Gardens of Karaxas"
-	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_title.add_theme_font_size_override("font_size", 52)
+	header_title.add_theme_font_size_override("font_size", 34)
 	header_title.add_theme_color_override("font_color", Color(0.95, 0.90, 0.79))
 	header.add_child(header_title)
+
+	var right_header_slot = Control.new()
+	right_header_slot.custom_minimum_size = Vector2(UI_TOKENS.size("menu_square"), UI_TOKENS.size("menu_square"))
+	header.add_child(right_header_slot)
 
 	menu_button = Button.new()
 	menu_button.text = "..."
 	menu_button.custom_minimum_size = Vector2(UI_TOKENS.size("menu_square"), UI_TOKENS.size("menu_square"))
 	menu_button.focus_mode = Control.FOCUS_CLICK
 	menu_button.pressed.connect(_on_menu_button_pressed)
-	header.add_child(menu_button)
+	menu_button.set_anchors_preset(Control.PRESET_FULL_RECT)
+	right_header_slot.add_child(menu_button)
 
 	menu_popup = PopupMenu.new()
 	add_child(menu_popup)
@@ -1553,6 +1562,8 @@ func _render_character_rows() -> void:
 		# If a stale filter hides all rows, clear it and re-render so roster cannot appear empty.
 		character_search_input.text = ""
 		visible_indices = _filtered_character_indices()
+	if characters.size() > 0 and visible_indices.is_empty():
+		_append_log("Character roster render mismatch: characters=%d visible=%d query='%s'" % [characters.size(), visible_indices.size(), character_search_input.text if character_search_input != null else ""])
 	if visible_indices.is_empty():
 		var empty_card = UI_COMPONENTS.panel_card(Vector2(roster_min_width, 140), false)
 		empty_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1881,24 +1892,10 @@ func _show_screen(name: String) -> void:
 	footer_status.visible = not in_world
 	if name == "account" and access_token != "":
 		call_deferred("_refresh_account_screen_deferred")
-	if name == "auth":
-		header_title.text = "Gardens of Karaxas"
-	elif name == "world":
+	if name == "world":
 		header_title.text = ""
-	elif name == "settings":
-		header_title.text = "Settings"
-	elif name == "level_editor":
-		header_title.text = "Level Editor"
-	elif name == "level_order":
-		header_title.text = "Level Order"
-	elif name == "asset_editor":
-		header_title.text = "Asset Editor"
-	elif name == "content_versions":
-		header_title.text = "Content Versions"
-	elif name == "logs":
-		header_title.text = "Log Viewer"
 	else:
-		header_title.text = "Account"
+		header_title.text = "Gardens of Karaxas"
 
 func _current_screen() -> String:
 	return current_screen_name
@@ -2077,10 +2074,14 @@ func _load_characters() -> void:
 		await _refresh_admin_levels_cache()
 	var response = await _api_request(HTTPClient.METHOD_GET, "/characters", null, true)
 	if not response.get("ok", false):
+		_append_log("Character list request failed status=%s body=%s" % [str(response.get("status", 0)), str(response.get("text", ""))])
 		account_status_label.text = _friendly_error(response)
 		return
 	var payload = response.get("json", [])
 	characters = payload if payload is Array else []
+	_append_log("Character list loaded count=%d" % characters.size())
+	if character_list_title_label != null:
+		character_list_title_label.text = "Character List (%d)" % characters.size()
 	if characters.is_empty():
 		selected_character_index = -1
 		_render_character_details(-1)
@@ -2110,6 +2111,8 @@ func _refresh_admin_levels_cache() -> void:
 func _on_character_refresh_pressed() -> void:
 	if access_token == "":
 		return
+	if character_search_input != null:
+		character_search_input.text = ""
 	await _load_characters()
 	account_status_label.text = " "
 
@@ -2219,8 +2222,10 @@ func _on_create_character_pressed() -> void:
 	}
 	var response = await _api_request(HTTPClient.METHOD_POST, "/characters", payload, true)
 	if not response.get("ok", false):
+		_append_log("Create character failed status=%s body=%s" % [str(response.get("status", 0)), str(response.get("text", ""))])
 		create_status_label.text = _friendly_error(response)
 		return
+	_append_log("Create character succeeded name=%s" % name)
 	create_name_input.clear()
 	for key in create_stat_keys:
 		create_stat_values[key] = 0
@@ -2232,6 +2237,8 @@ func _on_create_character_pressed() -> void:
 			button.button_pressed = false
 	_populate_character_creation_tables(content_domains.get("character_options", {}))
 	create_status_label.text = " "
+	if character_search_input != null:
+		character_search_input.text = ""
 	await _load_characters()
 	character_tabs.current_tab = 0
 

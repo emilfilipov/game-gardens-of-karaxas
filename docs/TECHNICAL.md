@@ -239,6 +239,11 @@ This is the single source of truth for technical architecture, stack decisions, 
 - Global spacing tokens (`xs..xl`) were increased and re-applied to account/settings rails to reduce control crowding and border clipping.
 - BoxContainer spacer usage was normalized to end-spacers (`add_spacer(false)`) so settings controls pin to the top of each card instead of drifting toward the bottom.
 - Root screen gutters were widened to keep account/settings/admin shells off viewport edges and maintain consistent left-right breathing room.
+- Header chrome now uses a centered title with symmetric fixed-width side slots; the cog button is anchored in the right slot and screen-name title swapping is disabled for non-world screens.
+- Character load/create flows now emit client log diagnostics for `/characters` fetch/create status and loaded row counts to speed up list-render incident triage.
+- Added automated character roundtrip tests:
+  - backend route-level create->list regression (`backend/tests/test_character_list_roundtrip.py`),
+  - launcher client contract regression with mocked `/characters` backend (`launcher/src/test/kotlin/com/gok/launcher/KaraxasBackendClientCharacterFlowTest.kt`).
 - Screen switching in `client_shell.gd` now applies short fade-in transitions to improve perceived fluidity while preserving deterministic screen ownership.
 - Footer text is version-only; transient welcome/status chatter is no longer rendered in footer/account surfaces.
 - Dropdown popups are sanitized to non-checkable list behavior (no radio/check glyphs), and skill buttons use a themed custom tooltip popup instead of default tooltip behavior.

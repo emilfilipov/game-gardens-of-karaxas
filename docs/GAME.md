@@ -94,6 +94,7 @@ create/select characters, and enter gameplay sessions.
 - Shared spacing/padding now comes from a single token set (`xs..xl`) and was increased to reduce crowding and clipped-edge visuals in dense account/settings surfaces.
 - Global screen gutters (left/right/top/bottom) are now wider so shell panels do not sit flush against viewport edges.
 - Card surfaces now apply consistent internal content padding to avoid border-clipping of text and controls.
+- Top chrome now keeps one centered game title (`Gardens of Karaxas`) with a fixed-size right cog slot; per-screen left-aligned mega headings are removed.
 - Screen swaps use subtle fade transitions for smoother flow between auth/account/settings/admin/gameplay surfaces.
 - Footer text is reserved for build/version display only; transient welcome/status text is suppressed.
 
