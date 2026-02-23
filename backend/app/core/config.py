@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     chat_write_rate_limit_max_per_account: int = 30
     chat_write_rate_limit_lockout_seconds: int = 30
     runtime_gameplay_config_path: str = "/app/runtime/gameplay_config.json"
+    runtime_gameplay_staged_config_path: str = "/app/runtime/gameplay_config.staged.json"
+    runtime_gameplay_backup_config_path: str = "/app/runtime/gameplay_config.backup.json"
+    runtime_gameplay_signature_pin: str = ""
 
     db_host: str
     db_port: int = 5432

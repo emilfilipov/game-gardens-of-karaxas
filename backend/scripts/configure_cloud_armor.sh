@@ -2,11 +2,11 @@
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-}"
-POLICY_NAME="${POLICY_NAME:-karaxas-backend-policy}"
+POLICY_NAME="${POLICY_NAME:-children-of-ikphelion-backend-policy}"
 BACKEND_SERVICE="${BACKEND_SERVICE:-}"
 
 if [[ -z "$PROJECT_ID" ]]; then
-  echo "Usage: PROJECT_ID=<gcp-project> [POLICY_NAME=karaxas-backend-policy] [BACKEND_SERVICE=<https-lb-backend-service>] $0" >&2
+  echo "Usage: PROJECT_ID=<gcp-project> [POLICY_NAME=children-of-ikphelion-backend-policy] [BACKEND_SERVICE=<https-lb-backend-service>] $0" >&2
   exit 1
 fi
 

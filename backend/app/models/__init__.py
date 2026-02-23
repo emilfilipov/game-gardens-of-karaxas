@@ -3,7 +3,10 @@ from app.models.character import Character
 from app.models.chat import ChatChannel, ChatMember, ChatMessage
 from app.models.content import ContentBundle, ContentVersion
 from app.models.guild import Guild, GuildMember
+from app.models.gameplay import GameplayActionAudit
+from app.models.instance import WorldInstance, WorldInstanceMember
 from app.models.level import Level
+from app.models.party import Party, PartyInvite, PartyMember
 from app.models.publish_drain import PublishDrainEvent, PublishDrainSessionAudit
 from app.models.release_record import ReleaseRecord
 from app.models.release_policy import ReleasePolicy
@@ -22,6 +25,12 @@ __all__ = [
     "Friendship",
     "Guild",
     "GuildMember",
+    "GameplayActionAudit",
+    "Party",
+    "PartyMember",
+    "PartyInvite",
+    "WorldInstance",
+    "WorldInstanceMember",
     "Level",
     "AdminActionAudit",
     "PublishDrainEvent",

@@ -16,6 +16,7 @@ class LevelSummaryResponse(BaseModel):
     schema_version: int
     width: int
     height: int
+    is_town_hub: bool = False
 
 
 class LevelLayerCell(BaseModel):
@@ -59,6 +60,7 @@ class LevelResponse(BaseModel):
     height: int
     spawn_x: int
     spawn_y: int
+    is_town_hub: bool = False
     layers: dict[int, list[LevelLayerCell]]
     objects: list[LevelObjectPlacement]
     transitions: list[LevelTransition]
@@ -77,6 +79,7 @@ class LevelSaveRequest(BaseModel):
     height: int = Field(default=24, ge=8, le=100_000)
     spawn_x: int = Field(default=1, ge=0, le=100_000)
     spawn_y: int = Field(default=1, ge=0, le=100_000)
+    is_town_hub: bool = False
     layers: dict[int, list[LevelLayerCell]] = Field(default_factory=dict)
     objects: list[LevelObjectPlacement] = Field(default_factory=list)
     transitions: list[LevelTransition] = Field(default_factory=list)

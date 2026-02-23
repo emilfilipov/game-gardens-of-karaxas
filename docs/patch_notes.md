@@ -1,5 +1,10 @@
-- Added backend-authored world entry bootstrap endpoint `POST /characters/{id}/world-bootstrap` to return selected character state, resolved level payload, spawn coordinates, runtime config descriptor/domains, and version policy snapshot in one contract.
-- Updated Godot play flow to consume the world bootstrap contract instead of stitching world state from multiple API calls.
-- Added authenticated request recovery in Godot shell: on protected-call `401`, perform `/auth/refresh` and retry once; if refresh fails, safely reset to auth screen.
-- Added runtime gameplay config signature verification and local cache fallback (`runtime_gameplay_cache.json`) so valid config can still load when runtime-config endpoint is temporarily unavailable.
-- Updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`, `docs/TASKS.md`) for the online best-practice implementation batch.
+- Added party system v1 (`/party`) with create/invite/accept/decline/leave/kick/promote-owner and integrated party-aware world instance routing.
+- Added deterministic world instance lifecycle service (`solo/party/hub`) with reconnect metadata and runtime endpoints (`/instances/current`, `/instances/heartbeat`).
+- Added hub-scoped realtime presence behavior: zone presence fanout is limited to hub levels and hub join/leave websocket events are deduplicated.
+- Added server-authoritative gameplay resolver (`/gameplay/resolve-action`) with movement sanity checks, action-rate guardrails, nonce replay protection, XP/level updates, and loot grants.
+- Added character inventory persistence and preset foundation (`preset_key`) to support hard archetype templates for future authored starts.
+- Hardened runtime gameplay config pipeline with schema/domain validation, signature pin enforcement, and admin staged publish/rollback endpoints (`/content/runtime-config/status|stage|publish|rollback`).
+- Added dedicated `Security Scan` GitHub Actions workflow and post-deploy smoke loop in backend deploy workflow (`health/deep` + online auth/character/gameplay smoke harness).
+- Expanded observability with auth result counters, websocket disconnect reason counters, and instance occupancy/assignment metrics exposed in ops metrics.
+- Continued naming migration pass for Children of Ikphelion across backend defaults/scripts/build metadata and added Steam dual-distribution technical plan document (`docs/STEAM_DUAL_DISTRIBUTION.md`).
+- Updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`, `docs/TASKS.md`) to reflect completed backlog implementation and preset-ready direction.

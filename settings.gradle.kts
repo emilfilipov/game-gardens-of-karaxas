@@ -1,3 +1,3 @@
-rootProject.name = "gardens-of-karaxas"
+rootProject.name = "children-of-ikphelion"
 
 include("launcher")

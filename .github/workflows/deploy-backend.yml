@@ -69,6 +69,11 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Deploy Cloud Run backend
         env:
           PROJECT_ID: ${{ vars.KARAXAS_GCP_PROJECT_ID }}
@@ -94,3 +99,14 @@ jobs:
         run: |
           chmod +x backend/scripts/deploy_cloud_run.sh
           backend/scripts/deploy_cloud_run.sh
+
+      - name: Post-deploy smoke checks
+        env:
+          REGION: ${{ vars.KARAXAS_REGION }}
+          SERVICE_NAME: ${{ vars.KARAXAS_SERVICE_NAME }}
+        run: |
+          SERVICE_URL="$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --format='get(status.url)')"
+          chmod +x backend/scripts/smoke_test_backend.sh
+          backend/scripts/smoke_test_backend.sh "$SERVICE_URL"
+          pip install -r backend/requirements.txt
+          python3 backend/scripts/smoke_online_loop.py --base-url "$SERVICE_URL"

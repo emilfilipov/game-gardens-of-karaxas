@@ -36,6 +36,8 @@ var characters: Array = []
 var selected_character_index = -1
 var active_level_id: int = -1
 var active_level_name = "Default"
+var active_instance_id = ""
+var active_instance_kind = "solo"
 var active_world_ready = false
 var active_character_id: int = -1
 var ui_theme: Theme
@@ -1809,7 +1811,8 @@ func _set_auth_status(message: String) -> void:
 	auth_status_label.text = message
 
 func _set_footer_status(_message: String) -> void:
-	footer_status.text = footer_version_text
+	var cfg_key = client_content_version_key if not client_content_version_key.is_empty() else DEFAULT_CONTENT_VERSION
+	footer_status.text = "%s | cfg:%s" % [footer_version_text, cfg_key]
 
 func _refresh_account_screen_deferred() -> void:
 	if access_token == "":
@@ -1896,6 +1899,8 @@ func _logout_session_local() -> void:
 	active_character_id = -1
 	active_level_id = -1
 	active_level_name = "Default"
+	active_instance_id = ""
+	active_instance_kind = "solo"
 	active_world_ready = false
 	character_row_level_overrides.clear()
 	_clear_children(character_rows_container)
@@ -2083,6 +2088,9 @@ func _on_character_play_pressed() -> void:
 		account_status_label.text = "World bootstrap missing level payload."
 		return
 	var spawn_data: Dictionary = bootstrap_body.get("spawn", {})
+	var instance_data: Dictionary = bootstrap_body.get("instance", {})
+	active_instance_id = str(instance_data.get("id", ""))
+	active_instance_kind = str(instance_data.get("kind", "solo"))
 	var spawn_world = Vector2(
 		float(spawn_data.get("world_x", 112)),
 		float(spawn_data.get("world_y", 112))
@@ -2105,7 +2113,7 @@ func _on_character_play_pressed() -> void:
 		world_canvas.call("configure_runtime", runtime_payload)
 
 	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world, level_data)
-	world_status_label.text = "WASD to move. Level: %s" % active_level_name
+	world_status_label.text = "WASD to move. Level: %s | Instance: %s" % [active_level_name, active_instance_kind]
 	_append_log("Character " + str(active_character_id) + " entered world level=" + active_level_name)
 	active_world_ready = true
 	account_status_label.text = " "
@@ -2833,7 +2841,9 @@ func _refresh_release_summary() -> void:
 			notes = str(release_summary.get("latest_build_release_notes", "")).strip_edges()
 		if notes.is_empty():
 			notes = "No release notes available."
-		auth_release_notes.text = notes
+		var build_version = str(release_summary.get("latest_version", client_version))
+		var content_version = str(release_summary.get("latest_content_version_key", client_content_version_key))
+		auth_release_notes.text = "[b]Build:[/b] %s\n[b]Content:[/b] %s\n\n%s" % [build_version, content_version, notes]
 	else:
 		release_summary = {}
 		auth_release_notes.text = "Unable to load release notes."
@@ -3079,6 +3089,10 @@ func _friendly_error(response: Dictionary) -> String:
 	if code == 409 and register_mode:
 		return "This account already exists."
 	if code == 426:
+		if error_code == "force_update":
+			return "A required update is available. Click Update & Restart to continue."
+		if error_code == "content_contract_mismatch":
+			return "Content update required. Click Update & Restart to sync your client."
 		return "A new version is required. Click Update & Restart when ready."
 	if code == 0:
 		var lower = message.to_lower()

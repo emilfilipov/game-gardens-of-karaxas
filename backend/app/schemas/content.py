@@ -22,7 +22,20 @@ class RuntimeGameplayConfigResponse(BaseModel):
     content_contract_signature: str
     fetched_at: datetime
     source_path: str
+    schema_version: int = 1
+    version: int = 1
     domains: dict[str, dict]
+
+
+class RuntimeGameplayConfigStatusResponse(BaseModel):
+    active: dict
+    staged: dict
+    signature_pin: str | None = None
+    timestamp: str
+
+
+class RuntimeGameplayConfigStageRequest(BaseModel):
+    payload: dict = Field(default_factory=dict)
 
 
 class ContentVersionSummaryResponse(BaseModel):

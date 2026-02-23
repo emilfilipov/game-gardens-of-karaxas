@@ -41,6 +41,7 @@ from app.schemas.auth import (
 )
 from app.schemas.common import VersionStatus
 from app.services.content import content_contract_signature
+from app.services.observability import record_auth_login_result
 from app.services.security_events import write_security_event
 from app.services.rate_limit import (
     AUTH_ACCOUNT_RULE,
@@ -263,6 +264,7 @@ def login(
 
     user = db.execute(select(User).where(User.email == payload.email.lower())).scalar_one_or_none()
     if user is None or not verify_password(payload.password, user.password_hash):
+        record_auth_login_result(False)
         rate_limiter.record_failure("auth_ip", ip_key, AUTH_IP_RULE)
         rate_limiter.record_failure("auth_account", account_key, AUTH_ACCOUNT_RULE)
         write_security_event(
@@ -280,6 +282,7 @@ def login(
     try:
         _assert_user_mfa(user, payload.otp_code)
     except HTTPException:
+        record_auth_login_result(False)
         rate_limiter.record_failure("auth_ip", ip_key, AUTH_IP_RULE)
         rate_limiter.record_failure("auth_account", account_key, AUTH_ACCOUNT_RULE)
         write_security_event(
@@ -351,6 +354,7 @@ def login(
         last_seen_at=datetime.now(UTC),
     )
     db.add(session)
+    record_auth_login_result(True)
     write_security_event(
         db,
         event_type="login_success",
@@ -584,6 +588,14 @@ def me(context: AuthContext = Depends(get_auth_context)):
         "email": context.user.email,
         "display_name": context.user.display_name,
         "is_admin": context.user.is_admin,
+        "session_runtime": {
+            "party_id": context.session.current_party_id,
+            "instance_id": context.session.current_instance_id,
+            "character_id": context.session.current_character_id,
+            "level_id": context.session.current_level_id,
+            "location_x": context.session.current_location_x,
+            "location_y": context.session.current_location_y,
+        },
         "version_status": {
             "client_version": context.version_status.client_version,
             "latest_version": context.version_status.latest_version,

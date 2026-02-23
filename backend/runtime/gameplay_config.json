@@ -1,63 +1,108 @@
 {
   "meta": {
+    "schema_version": 1,
     "config_key": "runtime_gameplay_v1",
-    "title": "Children of Ikphelion Runtime Gameplay Config",
-    "mode": "backend_file"
+    "version": 1,
+    "title": "Children of Ikphelion Runtime Gameplay Config"
   },
-  "character_options": {
-    "point_budget": 10,
-    "race": [
-      { "value": "human", "label": "Human", "description": "Balanced and adaptable." }
-    ],
-    "background": [
-      { "value": "drifter", "label": "Drifter", "description": "A survivor from the lower reaches." }
-    ],
-    "affiliation": [
-      { "value": "unaffiliated", "label": "Unaffiliated", "description": "No sworn faction." }
-    ]
-  },
-  "stats": {
-    "max_per_stat": 10,
-    "entries": [
-      { "key": "strength", "label": "Strength", "description": "Physical power and melee scaling." },
-      { "key": "agility", "label": "Agility", "description": "Movement, attack speed, and evasion scaling." },
-      { "key": "intellect", "label": "Intellect", "description": "Spell power and mana efficiency scaling." },
-      { "key": "vitality", "label": "Vitality", "description": "Maximum health and sustain scaling." }
-    ]
-  },
-  "skills": {
-    "entries": [
-      {
-        "key": "ember",
-        "label": "Ember",
-        "description": "Project a compact burst of fire.",
-        "damage_base": 20.0,
-        "intelligence_scale": 0.35,
-        "cooldown": 3.0
-      },
-      {
-        "key": "cleave",
-        "label": "Cleave",
-        "description": "A wide, heavy melee sweep.",
-        "damage_base": 14.0,
-        "strength_scale": 0.5,
-        "cooldown": 4.0
-      },
-      {
-        "key": "quick_strike",
-        "label": "Quick Strike",
-        "description": "A fast precision attack.",
-        "damage_base": 16.0,
-        "agility_scale": 0.45,
-        "cooldown": 2.5
-      },
-      {
-        "key": "bandage",
-        "label": "Bandage",
-        "description": "Recover health over a brief window.",
-        "heal_base": 18.0,
-        "cooldown": 8.0
+  "domains": {
+    "character_options": {
+      "point_budget": 10,
+      "race": [
+        {"value": "human", "label": "Human", "description": "Balanced and adaptable."}
+      ],
+      "background": [
+        {"value": "drifter", "label": "Drifter", "description": "A survivor from the lower reaches."}
+      ],
+      "affiliation": [
+        {"value": "unaffiliated", "label": "Unaffiliated", "description": "No sworn faction."}
+      ]
+    },
+    "character_presets": {
+      "entries": [
+        {
+          "key": "wanderer",
+          "label": "Wanderer",
+          "description": "Balanced starter template.",
+          "appearance_key": "human_male",
+          "race": "Human",
+          "background": "Drifter",
+          "affiliation": "Unaffiliated",
+          "point_budget": 10,
+          "stats": {"strength": 2, "agility": 2, "intellect": 2, "vitality": 2},
+          "skills": {"ember": 1},
+          "starting_inventory": [{"item_key": "traveler_knife", "qty": 1}]
+        }
+      ]
+    },
+    "stats": {
+      "max_per_stat": 10,
+      "entries": [
+        {"key": "strength", "label": "Strength", "description": "Physical power and melee scaling."},
+        {"key": "agility", "label": "Agility", "description": "Movement, attack speed, and evasion scaling."},
+        {"key": "intellect", "label": "Intellect", "description": "Spell power and mana efficiency scaling."},
+        {"key": "vitality", "label": "Vitality", "description": "Maximum health and sustain scaling."}
+      ]
+    },
+    "skills": {
+      "entries": [
+        {
+          "key": "ember",
+          "label": "Ember",
+          "description": "Project a compact burst of fire.",
+          "damage_base": 20.0,
+          "intelligence_scale": 0.35,
+          "cooldown": 3.0
+        },
+        {
+          "key": "cleave",
+          "label": "Cleave",
+          "description": "A wide, heavy melee sweep.",
+          "damage_base": 14.0,
+          "strength_scale": 0.5,
+          "cooldown": 4.0
+        },
+        {
+          "key": "quick_strike",
+          "label": "Quick Strike",
+          "description": "A fast precision attack.",
+          "damage_base": 16.0,
+          "agility_scale": 0.45,
+          "cooldown": 2.5
+        },
+        {
+          "key": "bandage",
+          "label": "Bandage",
+          "description": "Recover health over a brief window.",
+          "heal_base": 18.0,
+          "cooldown": 8.0
+        }
+      ]
+    },
+    "movement": {
+      "player_speed_tiles": 4.6,
+      "player_radius": 14.0
+    },
+    "combat": {
+      "resource_pool": "mana",
+      "basic_attack": {"damage": 8.0, "range": 1.3, "cooldown": 0.45},
+      "abilities": [
+        {"key": "ember", "damage": 20.0, "resource_cost": 8.0, "cooldown": 3.0, "scaling_stat": "intellect", "range": 4.0, "max_targets": 1},
+        {"key": "cleave", "damage": 14.0, "resource_cost": 10.0, "cooldown": 4.0, "scaling_stat": "strength", "range": 2.2, "max_targets": 3},
+        {"key": "quick_strike", "damage": 16.0, "resource_cost": 6.0, "cooldown": 2.5, "scaling_stat": "agility", "range": 1.8, "max_targets": 1},
+        {"key": "bandage", "heal": 18.0, "resource_cost": 4.0, "cooldown": 8.0}
+      ]
+    },
+    "progression": {
+      "xp_per_level": 100,
+      "xp_per_enemy": 12
+    },
+    "loot": {
+      "tiers": {
+        "1": ["scrap_shard", "cracked_rune", "worn_buckle"],
+        "2": ["ember_shard", "iron_fang"],
+        "3": ["misted_core"]
       }
-    ]
+    }
   }
 }

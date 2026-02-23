@@ -20,6 +20,18 @@ class UserSession(Base):
     drain_event_id: Mapped[int | None] = mapped_column(ForeignKey("publish_drain_events.id", ondelete="SET NULL"), nullable=True, index=True)
     drain_deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     drain_reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    current_party_id: Mapped[str | None] = mapped_column(ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)
+    current_instance_id: Mapped[str | None] = mapped_column(
+        ForeignKey("world_instances.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    current_character_id: Mapped[int | None] = mapped_column(
+        ForeignKey("characters.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    current_level_id: Mapped[int | None] = mapped_column(
+        ForeignKey("levels.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    current_location_x: Mapped[int | None] = mapped_column(nullable=True)
+    current_location_y: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

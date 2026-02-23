@@ -14,6 +14,8 @@ from app.schemas.content import (
     ContentBundleUpsertRequest,
     ContentPublishDrainSummaryResponse,
     RuntimeGameplayConfigResponse,
+    RuntimeGameplayConfigStageRequest,
+    RuntimeGameplayConfigStatusResponse,
     ContentSchemaRegistryResponse,
     ContentValidationIssueResponse,
     ContentValidationResponse,
@@ -22,7 +24,14 @@ from app.schemas.content import (
     ContentVersionDetailResponse,
     ContentVersionSummaryResponse,
 )
-from app.services.runtime_config import load_runtime_gameplay_config
+from app.services.runtime_config import (
+    RuntimeConfigValidationError,
+    load_runtime_gameplay_config,
+    publish_staged_runtime_gameplay_config,
+    rollback_runtime_gameplay_config,
+    runtime_gameplay_config_status,
+    stage_runtime_gameplay_config,
+)
 from app.services.content import (
     CONTENT_SCHEMA_VERSION,
     CONTENT_STATE_ACTIVE,
@@ -172,13 +181,95 @@ def bootstrap_content(db: Session = Depends(get_db)):
 
 @router.get("/runtime-config", response_model=RuntimeGameplayConfigResponse)
 def runtime_gameplay_config_endpoint():
-    runtime_cfg = load_runtime_gameplay_config()
+    try:
+        runtime_cfg = load_runtime_gameplay_config()
+    except RuntimeConfigValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"message": "Runtime config unavailable", "code": "runtime_config_unavailable", "error": str(exc)},
+        ) from exc
     return RuntimeGameplayConfigResponse(
         config_key=runtime_cfg.config_key,
         content_contract_signature=runtime_cfg.content_contract_signature,
         fetched_at=runtime_cfg.fetched_at,
         source_path=runtime_cfg.source_path,
+        schema_version=runtime_cfg.schema_version,
+        version=runtime_cfg.version,
         domains=runtime_cfg.domains,
+    )
+
+
+@router.get("/runtime-config/status", response_model=RuntimeGameplayConfigStatusResponse)
+def runtime_gameplay_config_status_endpoint(
+    context: AuthContext = Depends(require_admin_context),
+):
+    return RuntimeGameplayConfigStatusResponse(**runtime_gameplay_config_status())
+
+
+@router.post("/runtime-config/stage", response_model=RuntimeGameplayConfigResponse)
+def runtime_gameplay_config_stage_endpoint(
+    payload: RuntimeGameplayConfigStageRequest,
+    context: AuthContext = Depends(require_admin_context),
+):
+    try:
+        staged = stage_runtime_gameplay_config(payload.payload)
+    except RuntimeConfigValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": "Runtime config stage validation failed", "code": "runtime_config_invalid", "error": str(exc)},
+        ) from exc
+    return RuntimeGameplayConfigResponse(
+        config_key=staged.config_key,
+        content_contract_signature=staged.content_contract_signature,
+        fetched_at=staged.fetched_at,
+        source_path=staged.source_path,
+        schema_version=staged.schema_version,
+        version=staged.version,
+        domains=staged.domains,
+    )
+
+
+@router.post("/runtime-config/publish", response_model=RuntimeGameplayConfigResponse)
+def runtime_gameplay_config_publish_endpoint(
+    context: AuthContext = Depends(require_admin_context),
+):
+    try:
+        active = publish_staged_runtime_gameplay_config()
+    except RuntimeConfigValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": "Runtime config publish failed", "code": "runtime_config_publish_failed", "error": str(exc)},
+        ) from exc
+    return RuntimeGameplayConfigResponse(
+        config_key=active.config_key,
+        content_contract_signature=active.content_contract_signature,
+        fetched_at=active.fetched_at,
+        source_path=active.source_path,
+        schema_version=active.schema_version,
+        version=active.version,
+        domains=active.domains,
+    )
+
+
+@router.post("/runtime-config/rollback", response_model=RuntimeGameplayConfigResponse)
+def runtime_gameplay_config_rollback_endpoint(
+    context: AuthContext = Depends(require_admin_context),
+):
+    try:
+        active = rollback_runtime_gameplay_config()
+    except RuntimeConfigValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": "Runtime config rollback failed", "code": "runtime_config_rollback_failed", "error": str(exc)},
+        ) from exc
+    return RuntimeGameplayConfigResponse(
+        config_key=active.config_key,
+        content_contract_signature=active.content_contract_signature,
+        fetched_at=active.fetched_at,
+        source_path=active.source_path,
+        schema_version=active.schema_version,
+        version=active.version,
+        domains=active.domains,
     )
 
 

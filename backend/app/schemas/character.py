@@ -8,6 +8,7 @@ from app.schemas.level import LevelLayerCell, LevelObjectPlacement, LevelTransit
 
 class CharacterCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=64)
+    preset_key: str = Field(default="wanderer", min_length=1, max_length=64)
     appearance_key: str = Field(default="human_male", min_length=1, max_length=64)
     appearance_profile: dict = Field(default_factory=dict)
     race: str = Field(default="Human", min_length=1, max_length=64)
@@ -15,6 +16,7 @@ class CharacterCreateRequest(BaseModel):
     affiliation: str = Field(default="Unaffiliated", min_length=1, max_length=64)
     stat_points_total: int = Field(default=20, ge=1, le=200)
     equipment: dict[str, str] = Field(default_factory=dict)
+    inventory: list[dict] = Field(default_factory=list)
     stats: dict[str, int] = Field(default_factory=dict)
     skills: dict[str, int] = Field(default_factory=dict)
 
@@ -22,6 +24,7 @@ class CharacterCreateRequest(BaseModel):
 class CharacterResponse(BaseModel):
     id: int
     name: str
+    preset_key: str
     level_id: int | None = None
     location_x: int | None = None
     location_y: int | None = None
@@ -36,6 +39,7 @@ class CharacterResponse(BaseModel):
     stat_points_total: int
     stat_points_used: int
     equipment: dict[str, str]
+    inventory: list[dict]
     stats: dict[str, int]
     skills: dict[str, int]
     is_selected: bool
@@ -65,6 +69,7 @@ class CharacterWorldLevelResponse(BaseModel):
     height: int
     spawn_x: int
     spawn_y: int
+    is_town_hub: bool = False
     layers: dict[int, list[LevelLayerCell]] = Field(default_factory=dict)
     objects: list[LevelObjectPlacement] = Field(default_factory=list)
     transitions: list[LevelTransition] = Field(default_factory=list)
@@ -83,10 +88,20 @@ class CharacterWorldRuntimeDescriptor(BaseModel):
     content_contract_signature: str
 
 
+class CharacterWorldInstanceResponse(BaseModel):
+    id: str
+    kind: str
+    level_id: int
+    party_id: str | None = None
+    restored: bool = False
+    expires_at: datetime | None = None
+
+
 class CharacterWorldBootstrapResponse(BaseModel):
     character: CharacterResponse
     level: CharacterWorldLevelResponse
     spawn: CharacterWorldSpawnResponse
+    instance: CharacterWorldInstanceResponse
     runtime: CharacterWorldRuntimeDescriptor
     runtime_domains: dict[str, dict] = Field(default_factory=dict)
     player_runtime: dict[str, Any] = Field(default_factory=dict)

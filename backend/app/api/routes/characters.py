@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import AuthContext, get_auth_context, get_db, require_admin_context
 from app.models.character import Character
 from app.models.level import Level
+from app.models.session import UserSession
 from app.schemas.character import (
     CharacterCreateRequest,
     CharacterWorldBootstrapRequest,
@@ -28,6 +29,8 @@ from app.services.content import (
     CONTENT_DOMAIN_STATS,
     get_active_snapshot,
 )
+from app.services.instance_manager import assign_session_world_instance
+from app.services.party_manager import get_active_party_for_user
 from app.services.runtime_config import load_runtime_gameplay_config
 
 router = APIRouter(prefix="/characters", tags=["characters"])
@@ -132,6 +135,31 @@ def _default_equipment(db: Session) -> dict[str, str]:
         if slot and item_key and slot not in defaults:
             defaults[slot] = item_key
     return defaults
+
+
+def _preset_catalog() -> dict[str, dict]:
+    runtime = load_runtime_gameplay_config()
+    presets = runtime.domains.get("character_presets", {})
+    entries = presets.get("entries", [])
+    if not isinstance(entries, list):
+        return {}
+    catalog: dict[str, dict] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        key = str(entry.get("key", "")).strip().lower()
+        if not key:
+            continue
+        catalog[key] = entry
+    return catalog
+
+
+def _preset_entry(preset_key: str) -> dict:
+    catalog = _preset_catalog()
+    normalized = preset_key.strip().lower()
+    if normalized and normalized in catalog:
+        return catalog[normalized]
+    return catalog.get("wanderer", {})
 
 
 def _normalize_equipment_selection(db: Session, raw_equipment: dict[str, str]) -> dict[str, str]:
@@ -245,6 +273,7 @@ def _to_response(character: Character, xp_per_level: int) -> CharacterResponse:
     return CharacterResponse(
         id=character.id,
         name=character.name,
+        preset_key=character.preset_key,
         level_id=character.level_id,
         location_x=character.location_x,
         location_y=character.location_y,
@@ -259,6 +288,7 @@ def _to_response(character: Character, xp_per_level: int) -> CharacterResponse:
         stat_points_total=character.stat_points_total,
         stat_points_used=character.stat_points_used,
         equipment=character.equipment,
+        inventory=character.inventory if isinstance(character.inventory, list) else [],
         stats=character.stats,
         skills=character.skills,
         is_selected=character.is_selected,
@@ -436,14 +466,19 @@ def create_character(
             detail={"message": "Character name already exists", "code": "character_name_taken"},
         )
 
-    configured_budget = _point_budget(db)
+    preset = _preset_entry(payload.preset_key)
+    configured_budget = int(preset.get("point_budget", _point_budget(db)))
     allowed_stats = _allowed_stat_keys(db)
     allowed_skills = _allowed_skill_keys(db)
     max_per_stat = _stat_max_value(db)
     default_equipment = _default_equipment(db)
+    preset_stats = preset.get("stats", {}) if isinstance(preset.get("stats", {}), dict) else {}
+    preset_skills = preset.get("skills", {}) if isinstance(preset.get("skills", {}), dict) else {}
 
     normalized_stats: dict[str, int] = {}
-    for key, value in payload.stats.items():
+    merged_stats = dict(preset_stats)
+    merged_stats.update(payload.stats)
+    for key, value in merged_stats.items():
         normalized_key = key.strip().lower()
         if normalized_key not in allowed_stats:
             raise HTTPException(
@@ -458,7 +493,9 @@ def create_character(
         normalized_stats[normalized_key] = value
 
     normalized_skills: dict[str, int] = {}
-    for key, value in payload.skills.items():
+    merged_skills = dict(preset_skills)
+    merged_skills.update(payload.skills)
+    for key, value in merged_skills.items():
         normalized_key = key.strip().lower()
         if normalized_key not in allowed_skills:
             raise HTTPException(
@@ -486,23 +523,25 @@ def create_character(
     character = Character(
         user_id=context.user.id,
         name=normalized_name,
+        preset_key=str(payload.preset_key).strip().lower() or "wanderer",
         level_id=default_spawn[0] if default_spawn is not None else None,
         location_x=default_spawn[1] if default_spawn is not None else None,
         location_y=default_spawn[2] if default_spawn is not None else None,
-        appearance_key=payload.appearance_key.strip(),
+        appearance_key=str(preset.get("appearance_key", payload.appearance_key)).strip(),
         appearance_profile=_normalize_appearance_profile(
             db,
             payload.appearance_profile,
-            payload.appearance_key.strip(),
+            str(preset.get("appearance_key", payload.appearance_key)).strip(),
         ),
-        race=_normalize_catalog_choice(db, "race", payload.race, "Human"),
-        background=_normalize_catalog_choice(db, "background", payload.background, "Drifter"),
-        affiliation=_normalize_catalog_choice(db, "affiliation", payload.affiliation, "Unaffiliated"),
+        race=_normalize_catalog_choice(db, "race", str(preset.get("race", payload.race)), "Human"),
+        background=_normalize_catalog_choice(db, "background", str(preset.get("background", payload.background)), "Drifter"),
+        affiliation=_normalize_catalog_choice(db, "affiliation", str(preset.get("affiliation", payload.affiliation)), "Unaffiliated"),
         stat_points_total=configured_budget,
         stat_points_used=stat_points_used,
         level=1,
         experience=0,
         equipment=merged_equipment,
+        inventory=list(preset.get("starting_inventory", [])) if isinstance(preset.get("starting_inventory", []), list) else [],
         stats=normalized_stats,
         skills=normalized_skills,
         is_selected=False,
@@ -593,10 +632,26 @@ def bootstrap_character_world(
         height=target_level.height,
         spawn_x=target_level.spawn_x,
         spawn_y=target_level.spawn_y,
+        is_town_hub=bool(target_level.is_town_hub),
         layers=_parse_level_layers(target_level),
         objects=_parse_level_objects(target_level),
         transitions=_parse_level_transitions(target_level),
     )
+    active_party = get_active_party_for_user(db, context.user.id)
+    assignment = assign_session_world_instance(
+        db,
+        session=context.session,
+        user_id=context.user.id,
+        character_id=character.id,
+        level_id=target_level.id,
+        party_id=active_party.id if active_party is not None else None,
+        is_hub_level=bool(target_level.is_town_hub),
+    )
+    context.session.current_location_x = world_x
+    context.session.current_location_y = world_y
+    db.add(context.session)
+    db.commit()
+    db.refresh(character)
     return CharacterWorldBootstrapResponse(
         character=_to_response(character, xp_per_level=_xp_per_level(db)),
         level=level_payload,
@@ -607,6 +662,14 @@ def bootstrap_character_world(
             world_y=world_y,
             source=spawn_source,
         ),
+        instance={
+            "id": assignment.instance_id,
+            "kind": assignment.instance_kind,
+            "level_id": assignment.level_id,
+            "party_id": assignment.party_id,
+            "restored": assignment.restored,
+            "expires_at": assignment.expires_at,
+        },
         runtime=CharacterWorldRuntimeDescriptor(
             config_key=runtime_cfg.config_key,
             content_contract_signature=runtime_cfg.content_contract_signature,
@@ -703,6 +766,13 @@ def update_character_location(
     character.location_x = payload.location_x
     character.location_y = payload.location_y
     db.add(character)
+    session = db.get(UserSession, context.session.id)
+    if session is not None:
+        session.current_level_id = level_id
+        session.current_location_x = payload.location_x
+        session.current_location_y = payload.location_y
+        session.current_character_id = character.id
+        db.add(session)
     db.commit()
     return {
         "ok": True,

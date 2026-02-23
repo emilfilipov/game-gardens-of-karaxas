@@ -1,0 +1,54 @@
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "backend/**"
+      - ".github/workflows/security-scan.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install scan dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install pip-audit bandit
+
+      - name: Dependency vulnerability scan (pip-audit)
+        continue-on-error: true
+        run: |
+          pip-audit -r backend/requirements.txt -f json -o pip-audit-report.json
+
+      - name: Static security scan (bandit)
+        continue-on-error: true
+        run: |
+          bandit -r backend/app -f json -o bandit-report.json
+
+      - name: Upload security scan reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-reports-${{ github.sha }}
+          path: |
+            pip-audit-report.json
+            bandit-report.json
+          if-no-files-found: warn
+
+      - name: Security scan summary
+        run: |
+          echo "Security scan completed. See uploaded artifacts for detailed reports."

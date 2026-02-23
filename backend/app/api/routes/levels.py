@@ -412,6 +412,7 @@ def _to_summary(level: Level) -> LevelSummaryResponse:
         schema_version=max(int(level.schema_version or 1), SCHEMA_VERSION_LAYERED),
         width=level.width,
         height=level.height,
+        is_town_hub=bool(level.is_town_hub),
     )
 
 
@@ -436,6 +437,7 @@ def _to_response(level: Level) -> LevelResponse:
         height=level.height,
         spawn_x=level.spawn_x,
         spawn_y=level.spawn_y,
+        is_town_hub=bool(level.is_town_hub),
         layers={
             layer_id: [
                 LevelLayerCell(
@@ -591,6 +593,7 @@ def save_level(
             height=payload.height,
             spawn_x=payload.spawn_x,
             spawn_y=payload.spawn_y,
+            is_town_hub=payload.is_town_hub,
             wall_cells=wall_cells,
             layer_cells=layer_cells_for_storage,
             object_placements=object_placements,
@@ -608,6 +611,7 @@ def save_level(
         existing.height = payload.height
         existing.spawn_x = payload.spawn_x
         existing.spawn_y = payload.spawn_y
+        existing.is_town_hub = payload.is_town_hub
         existing.wall_cells = wall_cells
         existing.layer_cells = layer_cells_for_storage
         existing.object_placements = object_placements

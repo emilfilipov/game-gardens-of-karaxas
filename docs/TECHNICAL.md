@@ -36,12 +36,19 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Character lifecycle:
   - list/create/select/delete
   - location persistence
+  - preset-aware character bootstrap (`preset_key` baseline support)
 - Content/config delivery:
   - runtime gameplay config endpoint (`/content/runtime-config`)
   - fallback snapshot endpoint (`/content/bootstrap`)
 - World entry bootstrap:
   - character world bootstrap endpoint (`/characters/{id}/world-bootstrap`)
   - returns selected character snapshot, resolved level payload, spawn coordinates, runtime config descriptor/domains, and release/version policy snapshot.
+- Party/instance lifecycle:
+  - party v1 endpoint group (`/party`) for invite/accept/leave/kick/promote-owner flow
+  - deterministic world instances (`solo/party/hub`) with session-bound assignment and reconnect metadata
+  - runtime instance endpoints (`/instances/current`, `/instances/heartbeat`)
+- Gameplay authority:
+  - gameplay action resolver (`/gameplay/resolve-action`) for server-side movement sanity, replay/rate checks, skill validation, xp/level progression, and loot grants.
 - Release/version enforcement and publish-drain notifications
 
 ## Gameplay Config Model (Non-DB-Everything)
@@ -54,6 +61,11 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - response contract consumed via `/content/runtime-config`
   - client validates runtime config signature against canonicalized payload before applying
   - client caches last valid runtime config to `runtime_gameplay_cache.json` and falls back to cache when backend is temporarily unavailable.
+  - staged/publish/rollback lifecycle:
+    - `GET /content/runtime-config/status`
+    - `POST /content/runtime-config/stage`
+    - `POST /content/runtime-config/publish`
+    - `POST /content/runtime-config/rollback`
 
 ## Auth Recovery and Request Resilience
 - Godot client now uses authenticated request retry policy:
@@ -77,16 +89,29 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Request/security hardening in API middleware.
 - Rate limiting and session drain policy retained.
 - Gameplay-critical operations should be validated server-side before persistence.
+- Anti-cheat v1 guards are active in gameplay action ingestion:
+  - movement sanity checks,
+  - action rate limiting,
+  - nonce replay detection,
+  - security event hooks for suspicious behavior.
 
 ## CI/CD Scope
 - Release packaging/upload workflow:
   - `.github/workflows/release.yml`
 - Backend deploy workflow:
   - `.github/workflows/deploy-backend.yml`
+- Security scan workflow:
+  - `.github/workflows/security-scan.yml`
 - Trigger policy:
   - backend code changes run backend checks/deploy flow,
   - backend markdown-only changes are filtered out from deploy execution,
+  - deploy workflow runs post-deploy backend health + online-loop smoke checks,
   - launcher/game release workflow remains focused on client/launcher packaging.
+
+## Distribution Channels
+- Standalone launcher remains primary (`Velopack + GCS`).
+- Dual-distribution Steam strategy is defined in:
+  - `docs/STEAM_DUAL_DISTRIBUTION.md`
 
 ## Secrets and Variables (Active + Upcoming)
 ### Active
@@ -105,6 +130,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - `KARAXAS_DB_PASSWORD` (secret)
 - `KARAXAS_JWT_SECRET` (secret)
 - `KARAXAS_OPS_API_TOKEN` (secret)
+- `KARAXAS_RUNTIME_GAMEPLAY_SIGNATURE_PIN` (optional secret/var for signature pin hardening)
 
 ## Testing and Checks
 - Backend syntax sanity:

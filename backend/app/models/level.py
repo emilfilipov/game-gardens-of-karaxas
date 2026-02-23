@@ -18,6 +18,7 @@ class Level(Base):
     height: Mapped[int] = mapped_column(Integer, nullable=False, default=24)
     spawn_x: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     spawn_y: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    is_town_hub: Mapped[bool] = mapped_column(nullable=False, default=False, index=True)
     wall_cells: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     layer_cells: Mapped[dict[str, list[dict]]] = mapped_column(JSON, nullable=False, default=dict)
     object_placements: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)

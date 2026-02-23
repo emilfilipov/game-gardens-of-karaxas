@@ -17,13 +17,14 @@ from app.core.logging import configure_logging
 from app.db.session import SessionLocal
 from app.models.chat import ChatChannel
 from app.services.content import ensure_content_seed
+from app.services.instance_manager import expire_stale_instances
 from app.services.release_policy import ensure_release_policy
 from app.services.session_drain import finalize_due_publish_drains
 from app.services.ws_ticket import purge_expired_ws_tickets
 
 app = FastAPI(title="children-of-ikphelion-backend", version="0.1.0")
 configure_logging()
-logger = logging.getLogger("karaxas.api")
+logger = logging.getLogger("children-of-ikphelion.api")
 
 _cors_origins = [entry.strip() for entry in settings.cors_allowed_origins.split(",") if entry.strip()]
 if _cors_origins:
@@ -43,6 +44,7 @@ def startup_seed() -> None:
     try:
         ensure_content_seed(db)
         ensure_release_policy(db)
+        expire_stale_instances(db)
         finalize_due_publish_drains(db)
         purge_expired_ws_tickets(db)
         global_channel = db.execute(

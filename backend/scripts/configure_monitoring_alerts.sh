@@ -2,11 +2,11 @@
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-}"
-SERVICE_NAME="${SERVICE_NAME:-karaxas-backend}"
+SERVICE_NAME="${SERVICE_NAME:-children-of-ikphelion-backend}"
 NOTIFICATION_CHANNEL="${NOTIFICATION_CHANNEL:-}"
 
 if [[ -z "$PROJECT_ID" ]]; then
-  echo "Usage: PROJECT_ID=<gcp-project> [SERVICE_NAME=karaxas-backend] [NOTIFICATION_CHANNEL=projects/.../notificationChannels/...] $0" >&2
+  echo "Usage: PROJECT_ID=<gcp-project> [SERVICE_NAME=children-of-ikphelion-backend] [NOTIFICATION_CHANNEL=projects/.../notificationChannels/...] $0" >&2
   exit 1
 fi
 

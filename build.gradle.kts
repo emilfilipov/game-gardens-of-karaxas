@@ -3,7 +3,7 @@ plugins {
     kotlin("plugin.serialization") version "1.9.22" apply false
 }
 
-group = "com.gok"
+group = "com.childrenofikphelion"
 version = "0.1.0"
 
 allprojects {

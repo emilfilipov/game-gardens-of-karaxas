@@ -8,11 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.character import Character
+from app.models.level import Level
 from app.models.session import UserSession
 from app.models.user import User
 from app.services.observability import (
     record_transition_fallback,
     record_transition_handoff,
+    record_ws_disconnect,
     record_zone_preload_latency_ms,
     record_zone_scope_update,
 )
@@ -30,6 +32,7 @@ async def events_ws(websocket: WebSocket):
     client_version = websocket.query_params.get("client_version") or "0.0.0"
     client_content_version_key = websocket.query_params.get("client_content_version_key")
     if ws_ticket is None:
+        record_ws_disconnect("missing_ticket")
         await websocket.close(code=4401, reason="Missing ticket")
         return
 
@@ -39,6 +42,7 @@ async def events_ws(websocket: WebSocket):
         user_id = ticket_result.user_id
         session_id = ticket_result.session_id
     except WsTicketError:
+        record_ws_disconnect("invalid_ticket")
         await websocket.close(code=4401, reason="Invalid ticket")
         db.close()
         return
@@ -47,9 +51,11 @@ async def events_ws(websocket: WebSocket):
         session = db.get(UserSession, session_id)
         user = db.get(User, user_id)
         if session is None or user is None or session.user_id != user_id:
+            record_ws_disconnect("invalid_session")
             await websocket.close(code=4401, reason="Invalid session")
             return
         if session.revoked_at is not None:
+            record_ws_disconnect("session_revoked")
             await websocket.close(code=4401, reason="Session revoked")
             return
 
@@ -71,6 +77,7 @@ async def events_ws(websocket: WebSocket):
                     }
                 )
             )
+            record_ws_disconnect("force_update_required")
             await websocket.close(code=4401, reason="Update required")
             return
 
@@ -87,8 +94,15 @@ async def events_ws(websocket: WebSocket):
                     }
                 )
             )
+            record_ws_disconnect("publish_drain_forced_logout")
             await websocket.close(code=4401, reason="Publish drain cutoff reached")
             return
+
+        initial_hub_zone = False
+        if session.current_level_id is not None:
+            current_level = db.get(Level, session.current_level_id)
+            if current_level is not None:
+                initial_hub_zone = bool(current_level.is_town_hub)
 
         await realtime_hub.connect(
             websocket,
@@ -96,6 +110,9 @@ async def events_ws(websocket: WebSocket):
                 user_id=user_id,
                 channel_id=None,
                 client_version=client_version,
+                instance_id=session.current_instance_id,
+                party_id=session.current_party_id,
+                is_hub_zone=initial_hub_zone,
                 zone_level_id=(
                     db.execute(
                         select(Character.level_id).where(
@@ -111,6 +128,10 @@ async def events_ws(websocket: WebSocket):
                 {
                     "type": "connected",
                     "user_id": user_id,
+                    "instance_id": session.current_instance_id,
+                    "party_id": session.current_party_id,
+                    "level_id": session.current_level_id,
+                    "is_hub_zone": initial_hub_zone,
                 }
             )
         )
@@ -149,10 +170,12 @@ async def events_ws(websocket: WebSocket):
                 raw_adjacent = payload.get("adjacent_level_ids")
                 adjacent = raw_adjacent if isinstance(raw_adjacent, list) else []
                 allow_adjacent_preview = bool(payload.get("allow_adjacent_preview", True))
+                is_hub_zone = bool(payload.get("is_hub_zone", False))
                 meta = await realtime_hub.update_zone_scope(
                     websocket,
                     zone_level_id=level_id,
                     adjacent_level_ids=adjacent,
+                    is_hub_zone=is_hub_zone,
                     allow_adjacent_preview=allow_adjacent_preview,
                 )
                 record_zone_scope_update()
@@ -162,6 +185,7 @@ async def events_ws(websocket: WebSocket):
                             "type": "zone_scope_ack",
                             "level_id": meta.zone_level_id if meta is not None else None,
                             "adjacent_level_ids": list(meta.adjacent_level_ids) if meta is not None else [],
+                            "is_hub_zone": bool(meta.is_hub_zone) if meta is not None else is_hub_zone,
                             "allow_adjacent_preview": bool(meta.allow_adjacent_preview) if meta is not None else allow_adjacent_preview,
                         }
                     )
@@ -195,6 +219,10 @@ async def events_ws(websocket: WebSocket):
                     level_id = 0
                 if level_id <= 0:
                     continue
+                level_row = db.get(Level, level_id)
+                if level_row is None or not bool(level_row.is_town_hub):
+                    # Presence fanout is intentionally constrained to hub zones only.
+                    continue
                 character_id = payload.get("character_id")
                 try:
                     character_id = int(character_id) if character_id is not None else None
@@ -224,6 +252,7 @@ async def events_ws(websocket: WebSocket):
                     },
                 )
     except WebSocketDisconnect:
+        record_ws_disconnect("client_disconnect")
         pass
     finally:
         await realtime_hub.disconnect(websocket)

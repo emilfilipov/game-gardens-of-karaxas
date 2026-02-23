@@ -22,6 +22,11 @@ class _MetricsState:
     zone_scope_updates_total: int = 0
     zone_broadcast_events_total: int = 0
     zone_broadcast_recipients_total: int = 0
+    auth_login_success_total: int = 0
+    auth_login_failure_total: int = 0
+    ws_disconnect_reason_counts: dict[str, int] = field(default_factory=dict)
+    instance_assignments_by_kind: dict[str, int] = field(default_factory=dict)
+    instance_restores_total: int = 0
 
 
 _state = _MetricsState()
@@ -71,6 +76,28 @@ def record_zone_broadcast(recipients: int) -> None:
         _state.zone_broadcast_recipients_total += max(0, int(recipients))
 
 
+def record_auth_login_result(success: bool) -> None:
+    with _lock:
+        if success:
+            _state.auth_login_success_total += 1
+        else:
+            _state.auth_login_failure_total += 1
+
+
+def record_ws_disconnect(reason: str) -> None:
+    normalized = (reason or "unknown").strip().lower() or "unknown"
+    with _lock:
+        _state.ws_disconnect_reason_counts[normalized] = int(_state.ws_disconnect_reason_counts.get(normalized, 0)) + 1
+
+
+def record_instance_assignment(kind: str, restored: bool) -> None:
+    normalized = (kind or "unknown").strip().lower() or "unknown"
+    with _lock:
+        _state.instance_assignments_by_kind[normalized] = int(_state.instance_assignments_by_kind.get(normalized, 0)) + 1
+        if restored:
+            _state.instance_restores_total += 1
+
+
 def _sample_stats(samples: list[float]) -> dict[str, float]:
     if not samples:
         return {"count": 0.0, "avg_ms": 0.0, "p95_ms": 0.0}
@@ -99,6 +126,11 @@ def zone_runtime_stats() -> dict[str, object]:
         scope_updates = _state.zone_scope_updates_total
         zone_broadcast_events = _state.zone_broadcast_events_total
         zone_broadcast_recipients = _state.zone_broadcast_recipients_total
+        auth_success = _state.auth_login_success_total
+        auth_failure = _state.auth_login_failure_total
+        ws_disconnect_reason_counts = dict(_state.ws_disconnect_reason_counts)
+        instance_assignments_by_kind = dict(_state.instance_assignments_by_kind)
+        instance_restores_total = _state.instance_restores_total
     return {
         "preload_latency_ms": {
             "success": _sample_stats(success_samples),
@@ -114,6 +146,13 @@ def zone_runtime_stats() -> dict[str, object]:
             "events_total": int(zone_broadcast_events),
             "recipients_total": int(zone_broadcast_recipients),
         },
+        "auth_logins": {
+            "success_total": int(auth_success),
+            "failure_total": int(auth_failure),
+        },
+        "ws_disconnect_reasons": ws_disconnect_reason_counts,
+        "instance_assignments_by_kind": instance_assignments_by_kind,
+        "instance_restores_total": int(instance_restores_total),
     }
 
 
@@ -129,6 +168,11 @@ def reset_runtime_metrics_for_tests() -> None:
         _state.zone_broadcast_events_total = 0
         _state.zone_broadcast_recipients_total = 0
         _state.forced_logout_events = 0
+        _state.auth_login_success_total = 0
+        _state.auth_login_failure_total = 0
+        _state.ws_disconnect_reason_counts.clear()
+        _state.instance_assignments_by_kind.clear()
+        _state.instance_restores_total = 0
 
 
 def build_publish_drain_metrics(db: Session) -> dict[str, int]:

@@ -35,6 +35,7 @@ Play model:
 - Current character creator and isometric runtime work are retained and iterated forward.
 - Existing proven online hub/list/create UX patterns are reused as baseline while visual polish continues.
 - Character location persistence includes level/floor and coordinates.
+- Character creation now supports **preset-key** foundations (hard archetype templates) so future authored presets can define baseline look and starter gameplay leaning (for example caster-leaning vs melee-leaning starts).
 
 ## Authority Model
 - Server is authoritative for gameplay-relevant values and progression.
@@ -47,6 +48,7 @@ Gameplay values sourced from backend include (minimum):
 - movement and recovery tuning,
 - progression breakpoints (xp curves, rewards),
 - stat/skill metadata relevant to gameplay evaluation.
+- character preset catalogs for base archetype identity and starter allocations.
 
 ## Data Ownership Boundaries
 - Database stores durable progression and account state:

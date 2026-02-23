@@ -26,3 +26,4 @@ Children of Ikphelion is an online isometric ARPG project with a Godot client ru
 - Windows packaging script: `scripts/pack.ps1`
 - Release automation: `.github/workflows/release.yml`
 - Installer/updater behavior: `docs/INSTALLER.md`
+- Standalone + Steam dual-channel plan: `docs/STEAM_DUAL_DISTRIBUTION.md`
