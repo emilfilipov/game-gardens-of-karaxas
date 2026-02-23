@@ -24,7 +24,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 ## Client Surfaces (Current)
 - Auth (`login/register`)
 - Account hub (character list/create/select/play)
-- Character creation preset picker (runtime-config driven `preset_key` selection)
+- Character creation preset picker (runtime-config driven `preset_key`) with player-selected `sex` (`appearance_key`) and name-only onboarding fields
 - Settings (including MFA controls)
 - Admin tooling (for admin users)
 - World runtime (isometric)

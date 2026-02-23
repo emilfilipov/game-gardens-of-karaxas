@@ -1,4 +1,4 @@
-- Added curated hard character preset catalog in runtime gameplay config with class-leaning starters (`wanderer`, `vanguard`, `arcanist`, `strider`) including baseline appearance/stats/skills/inventory.
-- Wired create-character preset UX in Godot: preset dropdown now applies defaults to identity fields, stats, skills, and point budget while preserving user override control.
-- Updated create-character API payload wiring to send `preset_key` explicitly so selected preset is persisted server-side.
-- Cleared remaining preset backlog tasks and updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`, `docs/TASKS.md`) to reflect implemented preset flow.
+- Simplified character creation UI to name + preset + sex only; removed race/background/affiliation and manual stat/skill allocation controls from the create screen.
+- Updated create-character payload in Godot client to send only essential creation fields (`name`, `preset_key`, `appearance_key`) and rely on backend preset defaults for the rest.
+- Updated backend character creation to respect client-selected `appearance_key` (male/female) while still applying preset-driven gameplay defaults.
+- Updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`) to reflect the streamlined creation flow.

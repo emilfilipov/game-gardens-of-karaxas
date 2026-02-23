@@ -90,13 +90,9 @@ var character_refresh_button: Button
 var create_name_input: LineEdit
 var create_preset_option: OptionButton
 var create_sex_option: OptionButton
-var create_race_option: OptionButton
-var create_background_option: OptionButton
-var create_affiliation_option: OptionButton
+var create_preset_description_label: Label
 var create_preview_texture: TextureRect
 var create_points_left_label: Label
-var create_stats_grid: GridContainer
-var create_skills_grid: GridContainer
 var create_status_label: Label
 var create_submit_button: Button
 var create_stat_keys: Array[String] = []
@@ -688,61 +684,22 @@ func _build_account_screen() -> VBoxContainer:
 		_refresh_create_character_preview()
 	)
 	identity_row.add_child(_labeled_control("Sex", create_sex_option))
-	create_race_option = _option(["Human"])
-	create_race_option.custom_minimum_size = Vector2(120, 36)
-	identity_row.add_child(_labeled_control("Race", create_race_option))
-	create_background_option = _option(["Drifter"])
-	create_background_option.custom_minimum_size = Vector2(120, 36)
-	identity_row.add_child(_labeled_control("Background", create_background_option))
-	create_affiliation_option = _option(["Unaffiliated"])
-	create_affiliation_option.custom_minimum_size = Vector2(120, 36)
-	identity_row.add_child(_labeled_control("Affiliation", create_affiliation_option))
-
-	var create_tables = HSplitContainer.new()
-	create_tables.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_right.add_child(create_tables)
-
-	var stats_panel = UI_COMPONENTS.panel_card(Vector2(510, 360), false)
-	stats_panel.custom_minimum_size = Vector2(490, 320)
-	stats_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stats_panel.size_flags_stretch_ratio = 0.48
-	create_tables.add_child(stats_panel)
-	var stats_inner = VBoxContainer.new()
-	stats_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	stats_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stats_panel.add_child(stats_inner)
-	var stats_title = _label("Stats", 20, "text_secondary")
-	stats_inner.add_child(stats_title)
-	create_stats_grid = GridContainer.new()
-	create_stats_grid.columns = 5
-	create_stats_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_stats_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("xs"))
-	create_stats_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("xs"))
-	stats_inner.add_child(create_stats_grid)
-
-	var skills_panel = UI_COMPONENTS.panel_card(Vector2(560, 360), false)
-	skills_panel.custom_minimum_size = Vector2(560, 320)
-	skills_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	skills_panel.size_flags_stretch_ratio = 0.52
-	create_tables.add_child(skills_panel)
-	var skills_inner = VBoxContainer.new()
-	skills_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	skills_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	skills_panel.add_child(skills_inner)
-	var skills_title = _label("Skills", 20, "text_secondary")
-	skills_inner.add_child(skills_title)
-	create_skills_grid = GridContainer.new()
-	create_skills_grid.columns = 6
-	create_skills_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_skills_grid.add_theme_constant_override("h_separation", UI_TOKENS.spacing("xs"))
-	create_skills_grid.add_theme_constant_override("v_separation", UI_TOKENS.spacing("xs"))
-	skills_inner.add_child(create_skills_grid)
+	var preset_info_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	preset_info_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_right.add_child(preset_info_panel)
+	var preset_info_inner = VBoxContainer.new()
+	preset_info_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	preset_info_panel.add_child(preset_info_inner)
+	var preset_info_title = _label("Preset Overview", 20, "text_secondary")
+	preset_info_inner.add_child(preset_info_title)
+	create_preset_description_label = _label("Select a preset to view its summary.", -1, "text_secondary")
+	create_preset_description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	create_preset_description_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preset_info_inner.add_child(create_preset_description_label)
 
 	var footer_row = HBoxContainer.new()
 	footer_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	create_right.add_child(footer_row)
-	create_points_left_label = _label("10/10 points left", 16, "text_secondary")
-	footer_row.add_child(create_points_left_label)
 	footer_row.add_spacer(false)
 	create_submit_button = UI_COMPONENTS.button_primary("Create Character")
 	create_submit_button.custom_minimum_size = Vector2(220, 42)
@@ -1337,69 +1294,28 @@ func _selected_create_preset() -> Dictionary:
 		"skills": {},
 	}
 
-func _select_option_by_text(option: OptionButton, target: String) -> void:
-	if option == null:
-		return
-	var normalized = target.strip_edges().to_lower()
-	if normalized.is_empty():
-		return
-	for item_index in range(option.get_item_count()):
-		if option.get_item_text(item_index).strip_edges().to_lower() == normalized:
-			option.selected = item_index
-			return
-
 func _apply_selected_preset_to_creation() -> void:
-	if create_stats_grid == null or create_skills_grid == null:
-		return
 	var preset: Dictionary = _selected_create_preset()
 	var preset_appearance = str(preset.get("appearance_key", "human_male")).strip_edges().to_lower()
 	if create_sex_option != null:
 		create_sex_option.selected = 1 if preset_appearance == "human_female" else 0
-	_select_option_by_text(create_race_option, str(preset.get("race", "Human")))
-	_select_option_by_text(create_background_option, str(preset.get("background", "Drifter")))
-	_select_option_by_text(create_affiliation_option, str(preset.get("affiliation", "Unaffiliated")))
 
 	create_point_budget = max(1, int(preset.get("point_budget", create_point_budget)))
 
-	for stat_key in create_stat_keys:
-		create_stat_values[stat_key] = 0
-		var value_label = create_stat_value_labels.get(stat_key)
-		if value_label is Label:
-			value_label.text = "0"
-
-	for skill_key in create_skill_keys:
-		create_skill_values[skill_key] = 0
-		var skill_button = create_skill_buttons.get(skill_key)
-		if skill_button is Button:
-			skill_button.button_pressed = false
-
-	var preset_stats_value: Variant = preset.get("stats", {})
-	if preset_stats_value is Dictionary:
-		var preset_stats: Dictionary = preset_stats_value
-		for key in preset_stats.keys():
-			var stat_key = str(key).strip_edges().to_lower()
-			if not create_stat_values.has(stat_key):
-				continue
-			var stat_value = clampi(int(preset_stats.get(key, 0)), 0, create_stat_max_per_entry)
-			create_stat_values[stat_key] = stat_value
-			var stat_label = create_stat_value_labels.get(stat_key)
-			if stat_label is Label:
-				stat_label.text = str(stat_value)
-
+	var skill_list: Array[String] = []
 	var preset_skills_value: Variant = preset.get("skills", {})
 	if preset_skills_value is Dictionary:
 		var preset_skills: Dictionary = preset_skills_value
-		for key in preset_skills.keys():
-			var skill_key = str(key).strip_edges().to_lower()
-			if not create_skill_values.has(skill_key):
+		for raw_key in preset_skills.keys():
+			var value = int(preset_skills.get(raw_key, 0))
+			if value <= 0:
 				continue
-			var enabled = int(preset_skills.get(key, 0)) > 0
-			create_skill_values[skill_key] = 1 if enabled else 0
-			var button = create_skill_buttons.get(skill_key)
-			if button is Button:
-				button.button_pressed = enabled
-
-	_refresh_create_points_label()
+			skill_list.append(str(raw_key).replace("_", " ").capitalize())
+	skill_list.sort()
+	if create_preset_description_label != null:
+		var description = str(preset.get("description", "Preset starter profile.")).strip_edges()
+		var skills_text = "Starter skills: " + ", ".join(skill_list) if not skill_list.is_empty() else "Starter skills: none"
+		create_preset_description_label.text = "%s\n\n%s" % [description, skills_text]
 	_refresh_create_character_preview()
 
 func _preset_entries_from_content() -> Array:
@@ -1707,8 +1623,6 @@ func _hide_skill_tooltip() -> void:
 		skill_tooltip_popup.hide()
 
 func _populate_character_creation_tables(options: Dictionary) -> void:
-	if create_stats_grid == null or create_skills_grid == null:
-		return
 	create_point_budget = max(1, int(options.get("point_budget", 10)))
 	create_stat_max_per_entry = max(1, int(content_domains.get("stats", {}).get("max_per_stat", 10)))
 	create_stat_values.clear()
@@ -1717,101 +1631,6 @@ func _populate_character_creation_tables(options: Dictionary) -> void:
 	create_skill_buttons.clear()
 	create_stat_keys.clear()
 	create_skill_keys.clear()
-	_clear_children(create_stats_grid)
-	_clear_children(create_skills_grid)
-
-	var stat_entries: Array = content_domains.get("stats", {}).get("entries", [])
-	if stat_entries.is_empty():
-		stat_entries = [
-			{"key": "strength", "label": "Strength", "description": "Power for heavy melee attacks."},
-			{"key": "agility", "label": "Agility", "description": "Speed for movement and recovery."},
-			{"key": "intellect", "label": "Intellect", "description": "Arcane output and spell control."},
-			{"key": "vitality", "label": "Vitality", "description": "Base health and toughness."},
-			{"key": "resolve", "label": "Resolve", "description": "Resistance against control effects."},
-			{"key": "endurance", "label": "Endurance", "description": "Stamina and sustained effort."},
-			{"key": "dexterity", "label": "Dexterity", "description": "Precision for weapons and tools."},
-			{"key": "willpower", "label": "Willpower", "description": "Mental focus and channeling."},
-		]
-
-	for entry in stat_entries:
-		if not (entry is Dictionary):
-			continue
-		var key = str(entry.get("key", "")).strip_edges().to_lower()
-		if key.is_empty():
-			continue
-		var stat_key = key
-		create_stat_keys.append(stat_key)
-		create_stat_values[stat_key] = 0
-
-		var stat_label = _label(str(entry.get("label", key.capitalize())))
-		stat_label.custom_minimum_size = Vector2(120, 40)
-		create_stats_grid.add_child(stat_label)
-
-		var minus = _button("-")
-		minus.custom_minimum_size = Vector2(32, 32)
-		create_stats_grid.add_child(minus)
-
-		var value_label = _label("0")
-		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		value_label.custom_minimum_size = Vector2(32, 32)
-		create_stats_grid.add_child(value_label)
-		create_stat_value_labels[stat_key] = value_label
-
-		var plus = _button("+")
-		plus.custom_minimum_size = Vector2(32, 32)
-		create_stats_grid.add_child(plus)
-
-		var description = _label(str(entry.get("description", "Placeholder description.")))
-		description.custom_minimum_size = Vector2(170, 40)
-		description.clip_text = true
-		description.tooltip_text = str(entry.get("tooltip", entry.get("description", "Placeholder tooltip.")))
-		create_stats_grid.add_child(description)
-
-		minus.pressed.connect(func() -> void:
-			_adjust_create_stat(stat_key, -1, value_label)
-		)
-		plus.pressed.connect(func() -> void:
-			_adjust_create_stat(stat_key, 1, value_label)
-		)
-
-	var skill_entries: Array = content_domains.get("skills", {}).get("entries", [])
-	if skill_entries.is_empty():
-		skill_entries = [
-			{"key": "ember", "label": "Ember"},
-			{"key": "cleave", "label": "Cleave"},
-			{"key": "quick_strike", "label": "Quick Strike"},
-			{"key": "bandage", "label": "Bandage"},
-		]
-
-	for entry in skill_entries:
-		if not (entry is Dictionary):
-			continue
-		var key = str(entry.get("key", "")).strip_edges().to_lower()
-		if key.is_empty():
-			continue
-		var skill_key = key
-		create_skill_keys.append(skill_key)
-		create_skill_values[skill_key] = 0
-		var skill_button = _button(str(entry.get("label", skill_key)))
-		skill_button.toggle_mode = true
-		skill_button.custom_minimum_size = Vector2(74, 74)
-		var tooltip_text = _skill_tooltip(entry)
-		skill_button.tooltip_text = ""
-		skill_button.toggled.connect(func(pressed: bool) -> void:
-			_toggle_create_skill(skill_key, pressed)
-		)
-		skill_button.mouse_entered.connect(func() -> void:
-			_show_skill_tooltip(tooltip_text, skill_button)
-		)
-		skill_button.mouse_exited.connect(_hide_skill_tooltip)
-		create_skill_buttons[skill_key] = skill_button
-		create_skills_grid.add_child(skill_button)
-
-	while create_skills_grid.get_child_count() < 24:
-		var placeholder = PanelContainer.new()
-		placeholder.custom_minimum_size = Vector2(74, 74)
-		create_skills_grid.add_child(placeholder)
-
 	_apply_selected_preset_to_creation()
 
 func _on_menu_button_pressed() -> void:
@@ -2167,37 +1986,16 @@ func _on_create_character_pressed() -> void:
 		return
 	create_status_label.text = "Creating character..."
 	var appearance_key = "human_male" if create_sex_option.selected == 0 else "human_female"
-	var stats_payload: Dictionary = {}
-	for key in create_stat_keys:
-		stats_payload[key] = int(create_stat_values.get(key, 0))
-	var skills_payload: Dictionary = {}
-	for key in create_skill_keys:
-		skills_payload[key] = int(create_skill_values.get(key, 0))
 	var payload = {
 		"name": name,
 		"preset_key": _selected_create_preset_key(),
 		"appearance_key": appearance_key,
-		"race": create_race_option.get_item_text(create_race_option.selected),
-		"background": create_background_option.get_item_text(create_background_option.selected),
-		"affiliation": create_affiliation_option.get_item_text(create_affiliation_option.selected),
-		"stat_points_total": create_point_budget,
-		"stats": stats_payload,
-		"skills": skills_payload,
-		"equipment": {},
 	}
 	var response = await _api_request(HTTPClient.METHOD_POST, "/characters", payload, true)
 	if not response.get("ok", false):
 		create_status_label.text = _friendly_error(response)
 		return
 	create_name_input.clear()
-	for key in create_stat_keys:
-		create_stat_values[key] = 0
-	for key in create_skill_keys:
-		create_skill_values[key] = 0
-	for key in create_skill_buttons.keys():
-		var button = create_skill_buttons.get(key)
-		if button is Button:
-			button.button_pressed = false
 	_populate_character_options_from_content()
 	create_status_label.text = " "
 	await _load_characters()
@@ -3108,12 +2906,9 @@ func _save_runtime_config_cache(runtime_body: Dictionary) -> void:
 
 func _populate_character_options_from_content() -> void:
 	var options: Dictionary = content_domains.get("character_options", {})
-	if create_race_option == null:
+	if create_preset_option == null:
 		return
 	_populate_character_presets_from_content()
-	_fill_option(create_race_option, _content_labels(options.get("race", options.get("races", [])), ["Human"]))
-	_fill_option(create_background_option, _content_labels(options.get("background", options.get("backgrounds", [])), ["Drifter"]))
-	_fill_option(create_affiliation_option, _content_labels(options.get("affiliation", options.get("affiliations", [])), ["Unaffiliated"]))
 	_populate_character_creation_tables(options)
 
 func _content_labels(source: Variant, fallback: Array) -> Array:

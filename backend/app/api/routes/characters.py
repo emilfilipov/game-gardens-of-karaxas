@@ -520,6 +520,9 @@ def create_character(
         )
 
     default_spawn = _first_level_spawn(db)
+    requested_appearance_key = str(payload.appearance_key).strip()
+    resolved_appearance_key = requested_appearance_key or str(preset.get("appearance_key", "human_male")).strip()
+
     character = Character(
         user_id=context.user.id,
         name=normalized_name,
@@ -527,11 +530,11 @@ def create_character(
         level_id=default_spawn[0] if default_spawn is not None else None,
         location_x=default_spawn[1] if default_spawn is not None else None,
         location_y=default_spawn[2] if default_spawn is not None else None,
-        appearance_key=str(preset.get("appearance_key", payload.appearance_key)).strip(),
+        appearance_key=resolved_appearance_key,
         appearance_profile=_normalize_appearance_profile(
             db,
             payload.appearance_profile,
-            str(preset.get("appearance_key", payload.appearance_key)).strip(),
+            resolved_appearance_key,
         ),
         race=_normalize_catalog_choice(db, "race", str(preset.get("race", payload.race)), "Human"),
         background=_normalize_catalog_choice(db, "background", str(preset.get("background", payload.background)), "Drifter"),
