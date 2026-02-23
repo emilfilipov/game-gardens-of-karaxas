@@ -1,10 +1,5 @@
-- Re-enabled the online Godot client shell (`client_shell.gd`) as runtime entrypoint and switched bootstrap scene to use it.
-- Restored online auth/account/character/MFA-driven flow baseline while preserving the current isometric world runtime integration.
-- Added backend file-based runtime gameplay config source at `backend/runtime/gameplay_config.json`.
-- Added backend runtime gameplay config service (`runtime_config.py`) and new API endpoint `GET /content/runtime-config`.
-- Updated client content bootstrap logic to prefer `/content/runtime-config` and fallback to `/content/bootstrap`.
-- Updated backend container build to include runtime config files (`COPY backend/runtime /app/runtime`).
-- Renamed user-facing product surfaces from Gardens of Karaxas to Children of Ikphelion across launcher/game client/docs/release artifacts.
-- Updated packaging identifiers/artifact names to `ChildrenOfIkphelion` in `scripts/pack.ps1` and release workflow mutable feed object names.
-- Updated canonical docs (`GAME`, `TECHNICAL`) and rebuilt task tracking for the online ARPG pivot.
-- Updated UI regression harness to validate active online shell (`client_shell.gd`) instead of the retired single-player shell.
+- Added backend-authored world entry bootstrap endpoint `POST /characters/{id}/world-bootstrap` to return selected character state, resolved level payload, spawn coordinates, runtime config descriptor/domains, and version policy snapshot in one contract.
+- Updated Godot play flow to consume the world bootstrap contract instead of stitching world state from multiple API calls.
+- Added authenticated request recovery in Godot shell: on protected-call `401`, perform `/auth/refresh` and retry once; if refresh fails, safely reset to auth screen.
+- Added runtime gameplay config signature verification and local cache fallback (`runtime_gameplay_cache.json`) so valid config can still load when runtime-config endpoint is temporarily unavailable.
+- Updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`, `docs/TASKS.md`) for the online best-practice implementation batch.

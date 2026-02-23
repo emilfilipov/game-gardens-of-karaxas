@@ -39,6 +39,9 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Content/config delivery:
   - runtime gameplay config endpoint (`/content/runtime-config`)
   - fallback snapshot endpoint (`/content/bootstrap`)
+- World entry bootstrap:
+  - character world bootstrap endpoint (`/characters/{id}/world-bootstrap`)
+  - returns selected character snapshot, resolved level payload, spawn coordinates, runtime config descriptor/domains, and release/version policy snapshot.
 - Release/version enforcement and publish-drain notifications
 
 ## Gameplay Config Model (Non-DB-Everything)
@@ -48,6 +51,17 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - `backend/runtime/gameplay_config.json`
 - Runtime service:
   - `backend/app/services/runtime_config.py`
+  - response contract consumed via `/content/runtime-config`
+  - client validates runtime config signature against canonicalized payload before applying
+  - client caches last valid runtime config to `runtime_gameplay_cache.json` and falls back to cache when backend is temporarily unavailable.
+
+## Auth Recovery and Request Resilience
+- Godot client now uses authenticated request retry policy:
+  - first request with current bearer token,
+  - on `401` (non-auth endpoints), execute `/auth/refresh`,
+  - retry original request once on successful refresh,
+  - if refresh fails, clear local session and route user to auth screen.
+- Error decoding now supports both legacy FastAPI `detail` payloads and wrapped `{ "error": ... }` payload shape from API middleware.
 
 ## Data Boundaries
 - **DB durable state**:

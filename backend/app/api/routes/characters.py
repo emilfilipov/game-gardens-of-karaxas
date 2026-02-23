@@ -10,10 +10,16 @@ from app.models.character import Character
 from app.models.level import Level
 from app.schemas.character import (
     CharacterCreateRequest,
+    CharacterWorldBootstrapRequest,
+    CharacterWorldBootstrapResponse,
+    CharacterWorldLevelResponse,
+    CharacterWorldRuntimeDescriptor,
+    CharacterWorldSpawnResponse,
     CharacterLevelAssignRequest,
     CharacterLocationUpdateRequest,
     CharacterResponse,
 )
+from app.schemas.common import VersionStatus
 from app.services.content import (
     CONTENT_DOMAIN_ASSETS,
     CONTENT_DOMAIN_CHARACTER_OPTIONS,
@@ -22,6 +28,7 @@ from app.services.content import (
     CONTENT_DOMAIN_STATS,
     get_active_snapshot,
 )
+from app.services.runtime_config import load_runtime_gameplay_config
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -35,6 +42,8 @@ APPEARANCE_OPTION_KEYS = (
     "stance",
     "lighting_profile",
 )
+WORLD_TILE_SIZE = 32
+WORLD_TILE_OFFSET = 16
 
 
 def _xp_per_level(db: Session) -> int:
@@ -265,6 +274,140 @@ def _first_level_spawn(db: Session) -> tuple[int, int, int] | None:
     return level.id, level.spawn_x, level.spawn_y
 
 
+def _tile_to_world(tile_value: int) -> int:
+    return tile_value * WORLD_TILE_SIZE + WORLD_TILE_OFFSET
+
+
+def _world_to_tile(world_value: int) -> int:
+    return max(0, int(round((world_value - WORLD_TILE_OFFSET) / float(WORLD_TILE_SIZE))))
+
+
+def _parse_level_layers(level: Level) -> dict[int, list[dict]]:
+    raw_layers = level.layer_cells if isinstance(level.layer_cells, dict) else {}
+    if not raw_layers:
+        fallback_walls = level.wall_cells if isinstance(level.wall_cells, list) else []
+        return {
+            1: [
+                {"x": int(cell.get("x", 0)), "y": int(cell.get("y", 0)), "asset_key": "wall_block"}
+                for cell in fallback_walls
+                if isinstance(cell, dict)
+            ]
+        }
+    parsed: dict[int, list[dict]] = {}
+    for raw_key, raw_cells in raw_layers.items():
+        try:
+            layer_id = int(raw_key)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(raw_cells, list):
+            continue
+        parsed_cells: list[dict] = []
+        for cell in raw_cells:
+            if not isinstance(cell, dict):
+                continue
+            parsed_cells.append(
+                {
+                    "x": int(cell.get("x", 0)),
+                    "y": int(cell.get("y", 0)),
+                    "asset_key": str(cell.get("asset_key", "decor")).strip().lower() or "decor",
+                }
+            )
+        parsed[layer_id] = parsed_cells
+    return parsed
+
+
+def _parse_level_objects(level: Level) -> list[dict]:
+    raw_objects = level.object_placements if isinstance(level.object_placements, list) else []
+    parsed: list[dict] = []
+    for raw in raw_objects:
+        if not isinstance(raw, dict):
+            continue
+        transform = raw.get("transform", {}) if isinstance(raw.get("transform", {}), dict) else {}
+        parsed.append(
+            {
+                "object_id": str(raw.get("object_id", "")).strip().lower(),
+                "asset_key": str(raw.get("asset_key", "")).strip().lower(),
+                "layer_id": int(raw.get("layer_id", 0)),
+                "transform": {
+                    "x": float(transform.get("x", 0.0)),
+                    "y": float(transform.get("y", 0.0)),
+                    "z": float(transform.get("z", 0.0)),
+                    "rotation_deg": float(transform.get("rotation_deg", 0.0)),
+                    "scale_x": float(transform.get("scale_x", 1.0)),
+                    "scale_y": float(transform.get("scale_y", 1.0)),
+                    "pivot_x": float(transform.get("pivot_x", 0.5)),
+                    "pivot_y": float(transform.get("pivot_y", 1.0)),
+                },
+            }
+        )
+    return parsed
+
+
+def _parse_level_transitions(level: Level) -> list[dict]:
+    raw_transitions = level.transitions if isinstance(level.transitions, list) else []
+    parsed: list[dict] = []
+    for raw in raw_transitions:
+        if not isinstance(raw, dict):
+            continue
+        parsed.append(
+            {
+                "x": int(raw.get("x", 0)),
+                "y": int(raw.get("y", 0)),
+                "transition_type": str(raw.get("transition_type", "")).strip().lower(),
+                "destination_level_id": int(raw.get("destination_level_id", 0)),
+            }
+        )
+    return parsed
+
+
+def _resolve_world_spawn(character: Character, level: Level, override_applied: bool) -> tuple[int, int, int, int, str]:
+    if not override_applied and character.location_x is not None and character.location_y is not None:
+        stored_x = int(character.location_x)
+        stored_y = int(character.location_y)
+        # Existing data can contain tile coordinates (legacy/new character defaults) or world coordinates.
+        if 0 <= stored_x < int(level.width) and 0 <= stored_y < int(level.height):
+            world_x = _tile_to_world(stored_x)
+            world_y = _tile_to_world(stored_y)
+            return stored_x, stored_y, world_x, world_y, "saved_tile_location"
+        tile_x = _world_to_tile(stored_x)
+        tile_y = _world_to_tile(stored_y)
+        return tile_x, tile_y, stored_x, stored_y, "saved_world_location"
+
+    spawn_tile_x = int(level.spawn_x)
+    spawn_tile_y = int(level.spawn_y)
+    return (
+        spawn_tile_x,
+        spawn_tile_y,
+        _tile_to_world(spawn_tile_x),
+        _tile_to_world(spawn_tile_y),
+        "level_spawn",
+    )
+
+
+def _apply_selected_character(db: Session, user_id: int, character_id: int) -> None:
+    rows = db.execute(select(Character).where(Character.user_id == user_id)).scalars().all()
+    for row in rows:
+        row.is_selected = row.id == character_id
+        db.add(row)
+
+
+def _version_status_model(context: AuthContext) -> VersionStatus:
+    evaluated = context.version_status
+    return VersionStatus(
+        client_version=evaluated.client_version,
+        latest_version=evaluated.latest_version,
+        min_supported_version=evaluated.min_supported_version,
+        client_content_version_key=evaluated.client_content_version_key,
+        latest_content_version_key=evaluated.latest_content_version_key,
+        min_supported_content_version_key=evaluated.min_supported_content_version_key,
+        enforce_after=evaluated.enforce_after,
+        update_available=evaluated.update_available,
+        content_update_available=evaluated.content_update_available,
+        force_update=evaluated.force_update,
+        update_feed_url=evaluated.update_feed_url,
+    )
+
+
 @router.get("", response_model=list[CharacterResponse])
 def list_characters(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
     xp_per_level = _xp_per_level(db)
@@ -386,12 +529,96 @@ def select_character(character_id: int, context: AuthContext = Depends(get_auth_
             detail={"message": "Character not found", "code": "character_not_found"},
         )
 
-    rows = db.execute(select(Character).where(Character.user_id == context.user.id)).scalars().all()
-    for row in rows:
-        row.is_selected = row.id == character_id
-        db.add(row)
+    _apply_selected_character(db, context.user.id, character_id)
     db.commit()
     return {"ok": True, "character_id": character_id}
+
+
+@router.post("/{character_id}/world-bootstrap", response_model=CharacterWorldBootstrapResponse)
+def bootstrap_character_world(
+    character_id: int,
+    payload: CharacterWorldBootstrapRequest,
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    character = db.get(Character, character_id)
+    if character is None or character.user_id != context.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Character not found", "code": "character_not_found"},
+        )
+
+    override_level_id = payload.override_level_id
+    override_applied = False
+    if override_level_id is not None:
+        if not context.user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"message": "Admin access required for override level", "code": "admin_required"},
+            )
+        override_applied = True
+
+    target_level: Level | None = None
+    if override_level_id is not None:
+        target_level = db.get(Level, override_level_id)
+    elif character.level_id is not None:
+        target_level = db.get(Level, character.level_id)
+
+    if target_level is None:
+        target_level = db.execute(select(Level).order_by(Level.order_index.asc(), Level.id.asc()).limit(1)).scalar_one_or_none()
+        if target_level is not None and not override_applied:
+            character.level_id = target_level.id
+            character.location_x = target_level.spawn_x
+            character.location_y = target_level.spawn_y
+            db.add(character)
+
+    if target_level is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": "No playable level is available", "code": "no_playable_level"},
+        )
+
+    _apply_selected_character(db, context.user.id, character_id)
+    db.commit()
+    db.refresh(character)
+
+    tile_x, tile_y, world_x, world_y, spawn_source = _resolve_world_spawn(character, target_level, override_applied)
+    runtime_cfg = load_runtime_gameplay_config()
+
+    level_payload = CharacterWorldLevelResponse(
+        id=target_level.id,
+        name=target_level.name,
+        descriptive_name=target_level.descriptive_name,
+        width=target_level.width,
+        height=target_level.height,
+        spawn_x=target_level.spawn_x,
+        spawn_y=target_level.spawn_y,
+        layers=_parse_level_layers(target_level),
+        objects=_parse_level_objects(target_level),
+        transitions=_parse_level_transitions(target_level),
+    )
+    return CharacterWorldBootstrapResponse(
+        character=_to_response(character, xp_per_level=_xp_per_level(db)),
+        level=level_payload,
+        spawn=CharacterWorldSpawnResponse(
+            tile_x=tile_x,
+            tile_y=tile_y,
+            world_x=world_x,
+            world_y=world_y,
+            source=spawn_source,
+        ),
+        runtime=CharacterWorldRuntimeDescriptor(
+            config_key=runtime_cfg.config_key,
+            content_contract_signature=runtime_cfg.content_contract_signature,
+        ),
+        runtime_domains=runtime_cfg.domains,
+        player_runtime={
+            "player_level": character.level,
+            "player_stats": character.stats if isinstance(character.stats, dict) else {},
+            "equipment_bonus_stats": {},
+        },
+        version_status=_version_status_model(context),
+    )
 
 
 @router.delete("/{character_id}")

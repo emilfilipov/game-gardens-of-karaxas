@@ -21,7 +21,8 @@ Play model:
 3. Optional MFA challenge during login when enabled.
 4. User enters account/character hub.
 5. User creates/selects character and presses `Play`.
-6. Client joins a gameplay instance (solo/party) or hub zone based on destination.
+6. Client requests backend world bootstrap for the selected character (resolved level + spawn + runtime tuning snapshot).
+7. Client joins a gameplay instance (solo/party) or hub zone based on destination.
 
 ## Online ARPG Model
 - **Solo default**: entering gameplay without a party creates or joins a private instance for that character/session.
@@ -38,6 +39,7 @@ Play model:
 ## Authority Model
 - Server is authoritative for gameplay-relevant values and progression.
 - Client is authoritative only for presentation/input intent.
+- World entry context is backend-authored per session bootstrap (character + location + runtime tuning hash + version policy snapshot).
 
 Gameplay values sourced from backend include (minimum):
 - combat coefficients and base values,

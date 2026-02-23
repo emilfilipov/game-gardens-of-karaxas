@@ -1,7 +1,10 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.common import VersionStatus
+from app.schemas.level import LevelLayerCell, LevelObjectPlacement, LevelTransition
 
 class CharacterCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=64)
@@ -48,3 +51,43 @@ class CharacterLocationUpdateRequest(BaseModel):
     level_id: int | None = Field(default=None, ge=1)
     location_x: int = Field(ge=0, le=1_000_000)
     location_y: int = Field(ge=0, le=1_000_000)
+
+
+class CharacterWorldBootstrapRequest(BaseModel):
+    override_level_id: int | None = Field(default=None, ge=1)
+
+
+class CharacterWorldLevelResponse(BaseModel):
+    id: int
+    name: str
+    descriptive_name: str
+    width: int
+    height: int
+    spawn_x: int
+    spawn_y: int
+    layers: dict[int, list[LevelLayerCell]] = Field(default_factory=dict)
+    objects: list[LevelObjectPlacement] = Field(default_factory=list)
+    transitions: list[LevelTransition] = Field(default_factory=list)
+
+
+class CharacterWorldSpawnResponse(BaseModel):
+    tile_x: int
+    tile_y: int
+    world_x: int
+    world_y: int
+    source: str
+
+
+class CharacterWorldRuntimeDescriptor(BaseModel):
+    config_key: str
+    content_contract_signature: str
+
+
+class CharacterWorldBootstrapResponse(BaseModel):
+    character: CharacterResponse
+    level: CharacterWorldLevelResponse
+    spawn: CharacterWorldSpawnResponse
+    runtime: CharacterWorldRuntimeDescriptor
+    runtime_domains: dict[str, dict] = Field(default_factory=dict)
+    player_runtime: dict[str, Any] = Field(default_factory=dict)
+    version_status: VersionStatus

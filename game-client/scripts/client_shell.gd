@@ -45,6 +45,7 @@ var logs_root_path = ""
 var prefs_path = ""
 var level_draft_path = ""
 var asset_draft_path = ""
+var runtime_cache_path = ""
 var settings_dirty = false
 var suppress_settings_events = false
 var character_texture_cache: Dictionary = {}
@@ -2058,68 +2059,52 @@ func _on_character_play_pressed() -> void:
 		return
 	account_status_label.text = "Starting session..."
 	active_character_id = character_id
-	var select_response = await _api_request(
+	var bootstrap_payload: Dictionary = {}
+	var override_level_id = int(character_row_level_overrides.get(character_id, -1))
+	if session_is_admin and override_level_id > 0:
+		bootstrap_payload["override_level_id"] = override_level_id
+	var bootstrap_response = await _api_request(
 		HTTPClient.METHOD_POST,
-		"/characters/%s/select" % str(character_id),
-		{},
+		"/characters/%s/world-bootstrap" % str(character_id),
+		bootstrap_payload,
 		true
 	)
-	if not select_response.get("ok", false):
-		account_status_label.text = _friendly_error(select_response)
+	if not bootstrap_response.get("ok", false):
+		account_status_label.text = _friendly_error(bootstrap_response)
 		return
 
-	var level_data: Dictionary = {}
-	var override_level_id = int(character_row_level_overrides.get(character_id, -1))
-	var override_applied = session_is_admin and override_level_id > 0
-	if override_applied:
-		var assign_response = await _api_request(
-			HTTPClient.METHOD_POST,
-			"/characters/%s/level" % str(character_id),
-			{"level_id": override_level_id},
-			true
-		)
-		if not assign_response.get("ok", false):
-			account_status_label.text = _friendly_error(assign_response)
-			return
-		row["level_id"] = override_level_id
-		row["location_x"] = null
-		row["location_y"] = null
-
-	var level_id = row.get("level_id", null)
-	if level_id != null:
-		var level_response = await _api_request(HTTPClient.METHOD_GET, "/levels/%s" % str(level_id), null, true)
-		if level_response.get("ok", false):
-			level_data = level_response.get("json", {})
+	var bootstrap_body: Dictionary = bootstrap_response.get("json", {})
+	var character_payload = bootstrap_body.get("character", {})
+	if character_payload is Dictionary:
+		characters[selected_character_index] = character_payload
+		row = character_payload
+	var level_data: Dictionary = bootstrap_body.get("level", {})
 	if level_data.is_empty():
-		var first_level = await _api_request(HTTPClient.METHOD_GET, "/levels/first", null, true)
-		if first_level.get("ok", false):
-			level_data = first_level.get("json", {})
-	if level_data.is_empty():
-		level_data = {
-			"id": -1,
-			"name": "Default",
-			"descriptive_name": "Default",
-			"width": 80,
-			"height": 48,
-			"spawn_x": 3,
-			"spawn_y": 3,
-		}
-		account_status_label.text = "Loaded fallback world."
+		account_status_label.text = "World bootstrap missing level payload."
+		return
+	var spawn_data: Dictionary = bootstrap_body.get("spawn", {})
+	var spawn_world = Vector2(
+		float(spawn_data.get("world_x", 112)),
+		float(spawn_data.get("world_y", 112))
+	)
 
 	active_level_id = int(level_data.get("id", -1))
 	active_level_name = str(level_data.get("descriptive_name", level_data.get("name", "Default")))
 	var width_tiles = int(level_data.get("width", 64))
 	var height_tiles = int(level_data.get("height", 48))
-	var spawn_tile_x = int(level_data.get("spawn_x", 3))
-	var spawn_tile_y = int(level_data.get("spawn_y", 3))
-	var spawn_world = Vector2(
-		float(spawn_tile_x) * 32.0 + 16.0,
-		float(spawn_tile_y) * 32.0 + 16.0
-	)
-	if not override_applied and row.get("location_x", null) != null and row.get("location_y", null) != null:
-		spawn_world = Vector2(float(row.get("location_x")), float(row.get("location_y")))
 
-	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world)
+	var runtime_payload: Dictionary = {}
+	var runtime_domains = bootstrap_body.get("runtime_domains", {})
+	if runtime_domains is Dictionary:
+		runtime_payload = runtime_domains.duplicate(true)
+	var player_runtime = bootstrap_body.get("player_runtime", {})
+	if player_runtime is Dictionary:
+		for key in player_runtime.keys():
+			runtime_payload[key] = player_runtime.get(key)
+	if world_canvas.has_method("configure_runtime"):
+		world_canvas.call("configure_runtime", runtime_payload)
+
+	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world, level_data)
 	world_status_label.text = "WASD to move. Level: %s" % active_level_name
 	_append_log("Character " + str(active_character_id) + " entered world level=" + active_level_name)
 	active_world_ready = true
@@ -2857,12 +2842,14 @@ func _refresh_content_bootstrap() -> void:
 	var runtime_response = await _api_request(HTTPClient.METHOD_GET, "/content/runtime-config", null, false)
 	if runtime_response.get("ok", false):
 		var runtime_body: Dictionary = runtime_response.get("json", {})
-		client_content_contract = str(runtime_body.get("content_contract_signature", "")).strip_edges()
-		client_content_version_key = str(runtime_body.get("config_key", "runtime_gameplay_v1")).strip_edges()
-		if client_content_version_key.is_empty():
-			client_content_version_key = "runtime_gameplay_v1"
-		content_domains = runtime_body.get("domains", {})
-		_populate_character_options_from_content()
+		if _apply_runtime_config_payload(runtime_body):
+			_save_runtime_config_cache(runtime_body)
+			return
+		_append_log("Runtime config payload failed validation. Falling back to cached/bootstrap payloads.")
+
+	var cached_runtime = _load_runtime_config_cache()
+	if _apply_runtime_config_payload(cached_runtime):
+		_append_log("Loaded runtime config from local cache.")
 		return
 
 	var bootstrap_response = await _api_request(HTTPClient.METHOD_GET, "/content/bootstrap", null, false)
@@ -2873,6 +2860,73 @@ func _refresh_content_bootstrap() -> void:
 	client_content_version_key = str(bootstrap_body.get("content_version_key", DEFAULT_CONTENT_VERSION))
 	content_domains = bootstrap_body.get("domains", {})
 	_populate_character_options_from_content()
+
+func _apply_runtime_config_payload(runtime_body: Dictionary) -> bool:
+	if runtime_body.is_empty():
+		return false
+	var signature = str(runtime_body.get("content_contract_signature", "")).strip_edges().to_lower()
+	var config_key = str(runtime_body.get("config_key", "runtime_gameplay_v1")).strip_edges()
+	var domains = runtime_body.get("domains", {})
+	if not (domains is Dictionary):
+		return false
+	if signature.length() != 64:
+		return false
+	if not _verify_runtime_signature(domains, signature):
+		_append_log("Runtime config signature verification failed.")
+		return false
+	client_content_contract = signature
+	client_content_version_key = config_key if not config_key.is_empty() else "runtime_gameplay_v1"
+	content_domains = domains
+	_populate_character_options_from_content()
+	return true
+
+func _verify_runtime_signature(domains: Dictionary, expected_signature: String) -> bool:
+	var computed = _hash_sha256(_canonical_json(domains))
+	if computed.is_empty():
+		return false
+	return computed == expected_signature.to_lower()
+
+func _canonical_json(value: Variant) -> String:
+	if value is Dictionary:
+		var dict_value: Dictionary = value
+		var keys = dict_value.keys()
+		keys.sort()
+		var chunks: Array[String] = []
+		for key in keys:
+			chunks.append(JSON.stringify(str(key)) + ":" + _canonical_json(dict_value.get(key)))
+		return "{" + ",".join(chunks) + "}"
+	if value is Array:
+		var array_value: Array = value
+		var chunks: Array[String] = []
+		for entry in array_value:
+			chunks.append(_canonical_json(entry))
+		return "[" + ",".join(chunks) + "]"
+	return JSON.stringify(value)
+
+func _hash_sha256(text_value: String) -> String:
+	var ctx = HashingContext.new()
+	var started = ctx.start(HashingContext.HASH_SHA256)
+	if started != OK:
+		return ""
+	ctx.update(text_value.to_utf8_buffer())
+	return ctx.finish().hex_encode().to_lower()
+
+func _load_runtime_config_cache() -> Dictionary:
+	var cached = _read_json_file(runtime_cache_path)
+	if not (cached is Dictionary):
+		return {}
+	return cached
+
+func _save_runtime_config_cache(runtime_body: Dictionary) -> void:
+	if runtime_cache_path.is_empty() or runtime_body.is_empty():
+		return
+	var payload = {
+		"config_key": str(runtime_body.get("config_key", "runtime_gameplay_v1")).strip_edges(),
+		"content_contract_signature": str(runtime_body.get("content_contract_signature", "")).strip_edges().to_lower(),
+		"domains": runtime_body.get("domains", {}),
+		"saved_at": Time.get_datetime_string_from_system(true, true),
+	}
+	_write_json_file(runtime_cache_path, payload)
 
 func _populate_character_options_from_content() -> void:
 	var options: Dictionary = content_domains.get("character_options", {})
@@ -2903,6 +2957,24 @@ func _fill_option(option: OptionButton, values: Array) -> void:
 	option.selected = 0 if option.get_item_count() > 0 else -1
 
 func _api_request(method: int, path: String, payload: Variant, requires_auth: bool) -> Dictionary:
+	return await _api_request_internal(method, path, payload, requires_auth, true)
+
+func _api_request_internal(
+	method: int,
+	path: String,
+	payload: Variant,
+	requires_auth: bool,
+	allow_refresh_retry: bool
+) -> Dictionary:
+	var response = await _raw_api_request(method, path, payload, requires_auth)
+	var status_code = int(response.get("status", 0))
+	if requires_auth and allow_refresh_retry and status_code == 401 and not path.begins_with("/auth/"):
+		if await _refresh_access_session():
+			return await _api_request_internal(method, path, payload, requires_auth, false)
+		await _handle_auth_session_failure(response)
+	return response
+
+func _raw_api_request(method: int, path: String, payload: Variant, requires_auth: bool) -> Dictionary:
 	var request = HTTPRequest.new()
 	add_child(request)
 	request.timeout = 20.0
@@ -2946,24 +3018,63 @@ func _api_request(method: int, path: String, payload: Variant, requires_auth: bo
 		"json": parsed if not parsed.has("_array") else parsed["_array"],
 	}
 
+func _refresh_access_session() -> bool:
+	if refresh_token.is_empty():
+		return false
+	var response = await _raw_api_request(
+		HTTPClient.METHOD_POST,
+		"/auth/refresh",
+		{
+			"refresh_token": refresh_token,
+			"client_version": client_version,
+			"client_content_version_key": client_content_version_key,
+		},
+		false
+	)
+	if not response.get("ok", false):
+		return false
+	var payload = response.get("json", {})
+	if not (payload is Dictionary):
+		return false
+	_apply_session(payload)
+	_append_log("Session refreshed successfully.")
+	return true
+
+func _handle_auth_session_failure(response: Dictionary) -> void:
+	var reason = _friendly_error(response)
+	_append_log("Session recovery failed. Returning to auth screen.")
+	_logout_session_local()
+	auth_status_label.text = reason
+	_show_screen("auth")
+
+func _error_detail_from_payload(payload: Variant) -> Dictionary:
+	if payload is Dictionary:
+		var dict_payload: Dictionary = payload
+		var wrapped = dict_payload.get("error", null)
+		if wrapped is Dictionary:
+			return wrapped
+		var detail = dict_payload.get("detail", null)
+		if detail is Dictionary:
+			return detail
+		if dict_payload.has("message") or dict_payload.has("code"):
+			return dict_payload
+	return {}
+
 func _friendly_error(response: Dictionary) -> String:
 	var code = int(response.get("status", 0))
 	var payload: Variant = response.get("json", {})
-	var detail: Variant = null
-	if payload is Dictionary:
-		detail = payload.get("detail", null)
+	var detail: Dictionary = _error_detail_from_payload(payload)
+	var error_code = str(detail.get("code", "")).strip_edges().to_lower()
 	var message = ""
-	if detail is Dictionary:
+	if not detail.is_empty():
 		message = str(detail.get("message", "")).strip_edges()
-	elif detail is String:
-		message = str(detail).strip_edges()
 	if message.is_empty():
 		message = str(response.get("text", "")).strip_edges()
 	if message.is_empty():
 		message = str(response.get("message", "")).strip_edges()
-	if code == 401 and message.to_lower().contains("invalid mfa"):
+	if code == 401 and (error_code == "invalid_mfa_code" or message.to_lower().contains("invalid mfa")):
 		return "Invalid MFA code."
-	if code == 401:
+	if code == 401 and error_code in {"invalid_credentials", "unauthorized"}:
 		return "This account doesn't exist."
 	if code == 409 and register_mode:
 		return "This account already exists."
@@ -3015,6 +3126,7 @@ func _resolve_paths() -> void:
 	prefs_path = _path_join(install_root_path, "launcher_prefs.properties")
 	level_draft_path = _path_join(install_root_path, "level_editor_local_draft.json")
 	asset_draft_path = _path_join(install_root_path, "asset_editor_local_draft.json")
+	runtime_cache_path = _path_join(install_root_path, "runtime_gameplay_cache.json")
 	DirAccess.make_dir_recursive_absolute(logs_root_path)
 
 func _apply_window_icon() -> void:
