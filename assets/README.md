@@ -11,3 +11,12 @@ Suggested structure:
 - `data/` - gameplay/config data files
 
 Keep large source files and export pipelines documented alongside final runtime assets.
+
+## Sellsword V1 Pack
+- Runtime pack root: `assets/characters/sellsword_v1/`
+- Metadata: `assets/characters/sellsword_v1/catalog.json`
+- Generated sheets: `assets/characters/sellsword_v1/sheets/`
+- Layered-ready sources: `assets/characters/sellsword_v1/layers/`
+
+Generation command:
+- `python3 tools/generate_sellsword_sprite_pack.py`

@@ -159,7 +159,7 @@ def _preset_entry(preset_key: str) -> dict:
     normalized = preset_key.strip().lower()
     if normalized and normalized in catalog:
         return catalog[normalized]
-    return catalog.get("wanderer", {})
+    return catalog.get("sellsword", {})
 
 
 def _normalize_equipment_selection(db: Session, raw_equipment: dict[str, str]) -> dict[str, str]:
@@ -526,7 +526,7 @@ def create_character(
     character = Character(
         user_id=context.user.id,
         name=normalized_name,
-        preset_key=str(payload.preset_key).strip().lower() or "wanderer",
+        preset_key=str(payload.preset_key).strip().lower() or "sellsword",
         level_id=default_spawn[0] if default_spawn is not None else None,
         location_x=default_spawn[1] if default_spawn is not None else None,
         location_y=default_spawn[2] if default_spawn is not None else None,

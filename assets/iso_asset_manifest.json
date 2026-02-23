@@ -22,6 +22,26 @@
       "frame_count": 1
     },
     {
+      "key": "sellsword_male_idle_96",
+      "path": "assets/characters/sellsword_v1/sheets/sellsword_male_idle_8dir_8f_96.png",
+      "category": "character",
+      "width": 768,
+      "height": 768,
+      "pivot_x": 0.5,
+      "pivot_y": 0.92,
+      "frame_count": 64
+    },
+    {
+      "key": "sellsword_female_idle_96",
+      "path": "assets/characters/sellsword_v1/sheets/sellsword_female_idle_8dir_8f_96.png",
+      "category": "character",
+      "width": 768,
+      "height": 768,
+      "pivot_x": 0.5,
+      "pivot_y": 0.92,
+      "frame_count": 64
+    },
+    {
       "key": "grass_tile",
       "path": "assets/tiles/karaxas_grass_tile_32.png",
       "category": "tile",

@@ -59,9 +59,9 @@ def _fallback_domains() -> dict[str, dict]:
         "character_presets": {
             "entries": [
                 {
-                    "key": "wanderer",
-                    "label": "Wanderer",
-                    "description": "Balanced adventurer starting template.",
+                    "key": "sellsword",
+                    "label": "Sellsword",
+                    "description": "Hardened sword-for-hire template.",
                     "appearance_key": "human_male",
                     "race": "Human",
                     "background": "Drifter",

@@ -1,4 +1,5 @@
-- Simplified character creation UI to name + preset + sex only; removed race/background/affiliation and manual stat/skill allocation controls from the create screen.
-- Updated create-character payload in Godot client to send only essential creation fields (`name`, `preset_key`, `appearance_key`) and rely on backend preset defaults for the rest.
-- Updated backend character creation to respect client-selected `appearance_key` (male/female) while still applying preset-driven gameplay defaults.
-- Updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`) to reflect the streamlined creation flow.
+- Added reproducible Sellsword V1 art generator (`python3 tools/generate_sellsword_sprite_pack.py`) producing 96x96 male/female sheets, layered source slices, and catalog metadata.
+- Added Sellsword V1 runtime assets (`assets/characters/sellsword_v1`) with 8-direction support and animations: idle, walk, run, attack, cast, hurt, death, sit_crossed_legs, sit_kneel.
+- Wired animated directional character rendering in Godot podium previews and in-world actor rendering using the new sprite catalog.
+- Consolidated runtime preset catalog to `sellsword` and aligned defaults/fallbacks (`preset_key`) across backend, client, and smoke harness.
+- Updated canonical docs and asset docs to reflect the new art pipeline and runtime usage.

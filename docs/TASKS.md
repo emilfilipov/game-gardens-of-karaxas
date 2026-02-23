@@ -28,8 +28,9 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | COI-ONLINE-016 | ✅ | 5 | Implemented anti-cheat trust-boundary v1 on server action ingestion: movement sanity checks, action rate guardrails, action nonce replay protection, and security-event hook emission. |
 | COI-ONLINE-017 | ✅ | 3 | Added Steam dual-distribution implementation plan document (`docs/STEAM_DUAL_DISTRIBUTION.md`) while keeping standalone launcher/update flow intact. |
 | COI-ONLINE-018 | ✅ | 3 | Restored backend deploy CI workflow (`deploy-backend.yml`) with backend-only change filtering and Cloud Run deploy path separated from launcher/game release workflow. |
-| COI-ONLINE-019 | ✅ | 3 | Authored initial hard character preset catalog in runtime gameplay config (`wanderer`, `vanguard`, `arcanist`, `strider`) with baseline appearance/stats/skills/inventory leaning to support class-like starts. |
+| COI-ONLINE-019 | ✅ | 3 | Authored initial hard character preset catalog in runtime gameplay config and then consolidated it to a single production preset (`sellsword`) with male/female selection handled through `appearance_key`. |
 | COI-ONLINE-020 | ✅ | 3 | Wired curated preset selection UX in Godot character creation: preset dropdown, preset-to-fields/stat/skill/budget application, preview sync, and `preset_key` posting to backend character create API. |
+| COI-ONLINE-021 | ✅ | 4 | Implemented Sellsword V1 character art pipeline: generated 96x96 layered-ready male/female sprite sheets (8 directions; idle/walk/run/attack/cast/hurt/death/sit-crossed/sit-kneel), added runtime catalog metadata, and wired animated directional preview + world actor rendering. |
 
 ## Archived / Superseded
 | Task ID | Status | Complexity | Detailed Description |

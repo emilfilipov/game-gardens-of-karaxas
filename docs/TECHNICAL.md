@@ -28,6 +28,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Settings (including MFA controls)
 - Admin tooling (for admin users)
 - World runtime (isometric)
+- Character art runtime resolves directional animated frames from `assets/characters/sellsword_v1/catalog.json` for both podium preview and in-world actor rendering.
 
 ## Backend Responsibilities
 - Auth/session lifecycle:
@@ -141,6 +142,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - `./gradlew :launcher:test`
 - UI regression harness:
   - `python3 game-client/tests/check_ui_regression.py`
+- Sellsword art pack generation:
+  - `python3 tools/generate_sellsword_sprite_pack.py`
 
 ## Documentation Rule
 `docs/TECHNICAL.md` is canonical for technical decisions.

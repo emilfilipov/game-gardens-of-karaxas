@@ -13,6 +13,8 @@ const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
 const GRID_UNIT_PIXELS: float = 32.0
 const DEFAULT_PLAYER_SPEED_TILES: float = 4.6
 const DEFAULT_PLAYER_RADIUS: float = 14.0
+const CHARACTER_DIRECTIONS: Array[String] = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"]
+const CHARACTER_FRAME_SIZE: int = 96
 
 var world_width_tiles: int = 80
 var world_height_tiles: int = 48
@@ -57,6 +59,14 @@ var player_mana: float = 60.0
 var player_regen_health: float = 0.8
 var player_regen_mana: float = 2.1
 var player_level: int = 1
+var player_appearance_key: String = "human_male"
+var player_animation: String = "idle"
+var player_animation_time: float = 0.0
+var player_action_lock: float = 0.0
+var character_sprite_catalog: Dictionary = {}
+var character_sprite_catalog_root: String = ""
+var character_sheet_cache: Dictionary = {}
+var character_frame_cache: Dictionary = {}
 
 var basic_attack_cfg: Dictionary = {
 	"damage": 8.0,
@@ -172,6 +182,13 @@ func configure_runtime(runtime_cfg: Dictionary) -> void:
 
 	_emit_combat_state()
 
+func set_player_appearance(appearance_key: String) -> void:
+	var normalized = appearance_key.strip_edges().to_lower()
+	if normalized.is_empty():
+		normalized = "human_male"
+	player_appearance_key = normalized
+	queue_redraw()
+
 func set_world_position(world_position: Vector2) -> void:
 	player_tile_position = _clamp_tile_position(_world_pixels_to_tile(world_position))
 	queue_redraw()
@@ -189,23 +206,33 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
 	set_process(false)
 	_build_default_floor()
+	_load_character_sprite_catalog()
 
 func _process(delta: float) -> void:
 	if not _active:
 		return
 	if _transition_cooldown > 0.0:
 		_transition_cooldown = maxf(0.0, _transition_cooldown - delta)
+	player_animation_time += delta
+	if player_action_lock > 0.0:
+		player_action_lock = maxf(0.0, player_action_lock - delta)
 	_update_cooldowns(delta)
 	_update_player_regen(delta)
 	_handle_combat_inputs()
 
 	var axis: Vector2 = _movement_axis()
+	var moved = false
 	if axis != Vector2.ZERO:
 		var next_pos: Vector2 = _clamp_tile_position(player_tile_position + axis.normalized() * player_speed_tiles * delta)
 		if not _is_blocked(next_pos):
+			moved = true
 			player_tile_position = next_pos
 			player_facing = _axis_to_facing(axis)
 			emit_signal("player_position_changed", _tile_to_world_pixels(player_tile_position))
+	if player_health <= 0.0:
+		player_animation = "death"
+	elif player_action_lock <= 0.0:
+		player_animation = "walk" if moved else "idle"
 
 	_update_enemies(delta)
 	_check_pickup_action()
@@ -282,6 +309,8 @@ func _cast_basic_attack() -> void:
 	if float(ability_cooldowns.get("basic_attack", 0.0)) > 0.0:
 		return
 	ability_cooldowns["basic_attack"] = float(basic_attack_cfg.get("cooldown", 0.45))
+	player_animation = "attack"
+	player_action_lock = maxf(player_action_lock, 0.35)
 	var damage = float(basic_attack_cfg.get("damage", 8.0)) + _stat_value("strength") * 0.7
 	var range_tiles = float(basic_attack_cfg.get("range", 1.3))
 	_apply_damage_to_targets(damage, range_tiles, 1)
@@ -302,6 +331,8 @@ func _cast_ability(ability_key: String) -> void:
 	ability_cooldowns[key] = maxf(0.1, float(ability.get("cooldown", 1.0)))
 
 	if key == "bandage":
+		player_animation = "cast"
+		player_action_lock = maxf(player_action_lock, 0.30)
 		var heal_amount = float(ability.get("heal", 15.0)) + _stat_value("willpower") * 0.7
 		player_health = minf(player_max_health, player_health + heal_amount)
 		_emit_combat_state()
@@ -314,6 +345,8 @@ func _cast_ability(ability_key: String) -> void:
 	if key == "cleave":
 		max_targets = maxi(max_targets, 3)
 	var range_tiles = float(ability.get("range", 2.0))
+	player_animation = "cast" if key == "ember" else "attack"
+	player_action_lock = maxf(player_action_lock, 0.35)
 	_apply_damage_to_targets(scaled_damage, range_tiles, max_targets)
 	_emit_combat_state()
 
@@ -362,6 +395,9 @@ func _update_enemies(delta: float) -> void:
 		elif dist <= attack_range and attack_timer <= 0.0:
 			var attack_damage = float(enemy.get("attack_damage", 4.0))
 			player_health = maxf(0.0, player_health - attack_damage)
+			if player_health > 0.0:
+				player_animation = "hurt"
+				player_action_lock = maxf(player_action_lock, 0.24)
 			enemy["attack_timer"] = maxf(0.2, float(enemy.get("attack_cooldown", 1.2)))
 			_emit_combat_state()
 		enemies[i] = enemy
@@ -655,11 +691,130 @@ func _draw_npc(center: Vector2, npc: Dictionary) -> void:
 	draw_string(get_theme_default_font(), center + Vector2(-28.0, -36.0), label, HORIZONTAL_ALIGNMENT_LEFT, 120.0, 11, UI_TOKENS.color("text_secondary"))
 
 func _draw_actor(center: Vector2, facing: String) -> void:
+	var sprite = _resolve_actor_frame(player_appearance_key, player_animation, facing, player_animation_time)
+	if sprite != null:
+		var draw_pos = center + Vector2(-float(CHARACTER_FRAME_SIZE) * 0.5, -82.0)
+		draw_texture(sprite, draw_pos)
+		return
 	var body_rect = Rect2(center + Vector2(-8.0, -30.0), Vector2(16.0, 26.0))
 	draw_rect(body_rect, UI_TOKENS.color("button_primary"), true)
 	draw_rect(body_rect, UI_TOKENS.color("panel_bg_deep"), false, 1.0)
 	draw_circle(center + Vector2(0.0, -36.0), 7.0, UI_TOKENS.color("panel_border"))
 	draw_string(get_theme_default_font(), center + Vector2(-10.0, 14.0), facing, HORIZONTAL_ALIGNMENT_LEFT, 24.0, 12, UI_TOKENS.color("text_primary"))
+
+func _load_character_sprite_catalog() -> void:
+	if not character_sprite_catalog.is_empty():
+		return
+	var candidates: Array[String] = []
+	candidates.append("res://../assets/characters/sellsword_v1/catalog.json")
+	candidates.append("res://assets/characters/sellsword_v1/catalog.json")
+	candidates.append(ProjectSettings.globalize_path("res://../assets/characters/sellsword_v1/catalog.json"))
+	candidates.append(ProjectSettings.globalize_path("res://assets/characters/sellsword_v1/catalog.json"))
+	candidates.append(OS.get_executable_path().get_base_dir().path_join("assets/characters/sellsword_v1/catalog.json"))
+	for path in candidates:
+		var payload: Variant = _read_json_file(path)
+		if payload is Dictionary and not payload.is_empty():
+			character_sprite_catalog = payload
+			character_sprite_catalog_root = path.get_base_dir()
+			return
+
+func _read_json_file(path: String) -> Variant:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return {}
+	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var text = file.get_as_text()
+	file.close()
+	if text.strip_edges().is_empty():
+		return {}
+	var parsed = JSON.parse_string(text)
+	return parsed if parsed != null else {}
+
+func _resolve_sheet_texture(path: String):
+	if path.is_empty():
+		return null
+	if character_sheet_cache.has(path):
+		var cached = character_sheet_cache.get(path)
+		if cached is Texture2D:
+			return cached
+	var texture: Variant = _load_texture(path)
+	if texture != null:
+		character_sheet_cache[path] = texture
+	return texture
+
+func _load_texture(path: String):
+	if path.is_empty():
+		return null
+	var image = Image.new()
+	if path.begins_with("res://"):
+		if image.load(path) == OK:
+			return ImageTexture.create_from_image(image)
+		var res = load(path)
+		return res if res is Texture2D else null
+	if not FileAccess.file_exists(path):
+		return null
+	if image.load(path) != OK:
+		return null
+	return ImageTexture.create_from_image(image)
+
+func _resolve_actor_frame(appearance_key: String, animation_key: String, direction_key: String, elapsed: float):
+	_load_character_sprite_catalog()
+	if character_sprite_catalog.is_empty():
+		return null
+	var models_value: Variant = character_sprite_catalog.get("models", {})
+	if not (models_value is Dictionary):
+		return null
+	var models: Dictionary = models_value
+	var appearance = appearance_key.strip_edges().to_lower()
+	if appearance.is_empty():
+		appearance = "human_male"
+	var model_value: Variant = models.get(appearance, {})
+	if not (model_value is Dictionary):
+		model_value = models.get("human_male", {})
+	if not (model_value is Dictionary):
+		return null
+	var model: Dictionary = model_value
+	var animations_value: Variant = model.get("animations", {})
+	if not (animations_value is Dictionary):
+		return null
+	var animations: Dictionary = animations_value
+	var anim_name = animation_key.strip_edges().to_lower()
+	if anim_name.is_empty() or not animations.has(anim_name):
+		anim_name = "idle"
+	var anim_value: Variant = animations.get(anim_name, {})
+	if not (anim_value is Dictionary):
+		return null
+	var anim: Dictionary = anim_value
+	var frames = max(1, int(anim.get("frames", 1)))
+	var fps = max(1, int(anim.get("fps", 8)))
+	var frame = int(floor(elapsed * float(fps))) % frames
+	var direction = direction_key.strip_edges().to_upper()
+	var row = CHARACTER_DIRECTIONS.find(direction)
+	if row < 0:
+		row = 0
+
+	var rel_path = str(anim.get("sheet", "")).strip_edges()
+	if rel_path.is_empty():
+		return null
+	var sheet_path = rel_path
+	if character_sprite_catalog_root.begins_with("res://"):
+		sheet_path = character_sprite_catalog_root + "/" + rel_path
+	else:
+		sheet_path = character_sprite_catalog_root.path_join(rel_path)
+	var cache_key = "%s|%s|%s|%d" % [appearance, anim_name, direction, frame]
+	if character_frame_cache.has(cache_key):
+		var cached_frame = character_frame_cache.get(cache_key)
+		if cached_frame is Texture2D:
+			return cached_frame
+	var sheet = _resolve_sheet_texture(sheet_path)
+	if sheet == null:
+		return null
+	var atlas := AtlasTexture.new()
+	atlas.atlas = sheet
+	atlas.region = Rect2(frame * CHARACTER_FRAME_SIZE, row * CHARACTER_FRAME_SIZE, CHARACTER_FRAME_SIZE, CHARACTER_FRAME_SIZE)
+	character_frame_cache[cache_key] = atlas
+	return atlas
 
 func _draw_foreground(center: Vector2, asset_key: String) -> void:
 	var alpha = 0.26

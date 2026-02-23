@@ -125,7 +125,7 @@ def run(base_url: str) -> None:
     code, create_char = _request(
         "POST",
         f"{base}/characters",
-        {"name": f"smokechar_{suffix}", "preset_key": "wanderer", "stats": {}, "skills": {}, "equipment": {}},
+        {"name": f"smokechar_{suffix}", "preset_key": "sellsword", "stats": {}, "skills": {}, "equipment": {}},
         headers=auth_headers,
     )
     _assert(code == 200, f"character create failed: {code} {create_char}")

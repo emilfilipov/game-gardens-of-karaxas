@@ -3,10 +3,12 @@ extends Control
 const WORLD_CANVAS_SCENE = preload("res://scripts/world_canvas.gd")
 const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
 const UI_COMPONENTS = preload("res://scripts/ui_components.gd")
+const CHARACTER_PODIUM_PREVIEW_SCENE = preload("res://scripts/character_podium_preview.gd")
 
 const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
 const DEFAULT_CONTENT_VERSION = "unknown"
+const CHARACTER_DIRECTIONS: Array[String] = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"]
 
 const MENU_UPDATE = 1
 const MENU_LOG_VIEWER = 2
@@ -51,6 +53,10 @@ var runtime_cache_path = ""
 var settings_dirty = false
 var suppress_settings_events = false
 var character_texture_cache: Dictionary = {}
+var character_sheet_cache: Dictionary = {}
+var character_sprite_cache: Dictionary = {}
+var character_sprite_catalog: Dictionary = {}
+var character_sprite_catalog_root = ""
 var admin_levels_cache: Array = []
 var character_row_level_overrides: Dictionary = {}
 
@@ -83,7 +89,7 @@ var character_tabs: TabContainer
 var character_rows_scroll: ScrollContainer
 var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
-var character_preview_texture: TextureRect
+var character_preview_texture: Control
 var character_list_title_label: Label
 var character_refresh_button: Button
 
@@ -91,7 +97,7 @@ var create_name_input: LineEdit
 var create_preset_option: OptionButton
 var create_sex_option: OptionButton
 var create_preset_description_label: Label
-var create_preview_texture: TextureRect
+var create_preview_texture: Control
 var create_points_left_label: Label
 var create_status_label: Label
 var create_submit_button: Button
@@ -621,10 +627,9 @@ func _build_account_screen() -> VBoxContainer:
 	var preview_panel = UI_COMPONENTS.panel_card(Vector2(320, 240), false)
 	preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_right_inner.add_child(preview_panel)
-	character_preview_texture = TextureRect.new()
-	character_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	character_preview_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	character_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	character_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
+	if character_preview_texture.has_method("configure"):
+		character_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false)
 	preview_panel.add_child(character_preview_texture)
 	var details_title = _label("Character Details", 18, "text_secondary")
 	list_right_inner.add_child(details_title)
@@ -656,10 +661,9 @@ func _build_account_screen() -> VBoxContainer:
 	var create_preview_panel = UI_COMPONENTS.panel_card(Vector2(220, 460), false)
 	create_preview_panel.size_flags_stretch_ratio = 0.23
 	create_body.add_child(create_preview_panel)
-	create_preview_texture = TextureRect.new()
-	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	create_preview_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	create_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	create_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
+	if create_preview_texture.has_method("configure"):
+		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false)
 	create_preview_panel.add_child(create_preview_texture)
 
 	var create_right = VBoxContainer.new()
@@ -671,7 +675,7 @@ func _build_account_screen() -> VBoxContainer:
 	var identity_row = HBoxContainer.new()
 	identity_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	create_right.add_child(identity_row)
-	create_preset_option = _option(["Wanderer"])
+	create_preset_option = _option(["Sellsword"])
 	create_preset_option.custom_minimum_size = Vector2(140, 36)
 	create_preset_option.item_selected.connect(_on_create_preset_selected)
 	identity_row.add_child(_labeled_control("Preset", create_preset_option))
@@ -1257,23 +1261,27 @@ func _refresh_create_character_preview() -> void:
 	var appearance_key = "human_male"
 	if create_sex_option != null and create_sex_option.selected == 1:
 		appearance_key = "human_female"
-	create_preview_texture.texture = _resolve_character_texture(appearance_key)
+	if create_preview_texture.has_method("set_character"):
+		create_preview_texture.call("set_character", appearance_key, "Sellsword")
+	else:
+		if create_preview_texture is TextureRect:
+			create_preview_texture.texture = _resolve_character_texture(appearance_key)
 
 func _on_create_preset_selected(_index: int) -> void:
 	_apply_selected_preset_to_creation()
 
 func _selected_create_preset_key() -> String:
 	if create_preset_option == null:
-		return "wanderer"
+		return "sellsword"
 	if create_preset_option.selected < 0 or create_preset_option.selected >= create_preset_option.get_item_count():
-		return "wanderer"
+		return "sellsword"
 	var metadata: Variant = create_preset_option.get_item_metadata(create_preset_option.selected)
 	if metadata is String:
 		var key = str(metadata).strip_edges().to_lower()
 		if not key.is_empty():
 			return key
 	var fallback = create_preset_option.get_item_text(create_preset_option.selected).strip_edges().to_lower()
-	return fallback if not fallback.is_empty() else "wanderer"
+	return fallback if not fallback.is_empty() else "sellsword"
 
 func _selected_create_preset() -> Dictionary:
 	var selected_key = _selected_create_preset_key()
@@ -1283,8 +1291,8 @@ func _selected_create_preset() -> Dictionary:
 	if not create_preset_catalog.is_empty() and create_preset_catalog[0] is Dictionary:
 		return create_preset_catalog[0]
 	return {
-		"key": "wanderer",
-		"label": "Wanderer",
+		"key": "sellsword",
+		"label": "Sellsword",
 		"appearance_key": "human_male",
 		"race": "Human",
 		"background": "Drifter",
@@ -1343,9 +1351,9 @@ func _preset_entries_from_content() -> Array:
 	if normalized.is_empty():
 		normalized.append(
 			{
-				"key": "wanderer",
-				"label": "Wanderer",
-				"description": "Balanced starter template.",
+				"key": "sellsword",
+				"label": "Sellsword",
+				"description": "Hardened sword-for-hire starter.",
 				"appearance_key": "human_male",
 				"race": "Human",
 				"background": "Drifter",
@@ -1382,18 +1390,125 @@ func _refresh_selected_character_preview() -> void:
 	if character_preview_texture == null:
 		return
 	if selected_character_index < 0 or selected_character_index >= characters.size():
-		character_preview_texture.texture = null
+		if character_preview_texture.has_method("set_character"):
+			character_preview_texture.call("set_character", "human_male", "")
+		elif character_preview_texture is TextureRect:
+			character_preview_texture.texture = null
 		return
 	var row: Dictionary = characters[selected_character_index]
 	var appearance_key = str(row.get("appearance_key", "human_male"))
-	character_preview_texture.texture = _resolve_character_texture(appearance_key)
+	if character_preview_texture.has_method("set_character"):
+		character_preview_texture.call("set_character", appearance_key, str(row.get("name", "")))
+	else:
+		if character_preview_texture is TextureRect:
+			character_preview_texture.texture = _resolve_character_texture(appearance_key)
+
+func _load_character_sprite_catalog() -> void:
+	if not character_sprite_catalog.is_empty():
+		return
+	var candidates: Array[String] = []
+	candidates.append("res://../assets/characters/sellsword_v1/catalog.json")
+	candidates.append("res://assets/characters/sellsword_v1/catalog.json")
+	candidates.append(ProjectSettings.globalize_path("res://../assets/characters/sellsword_v1/catalog.json"))
+	candidates.append(ProjectSettings.globalize_path("res://assets/characters/sellsword_v1/catalog.json"))
+	candidates.append(_path_join(install_root_path, "assets/characters/sellsword_v1/catalog.json"))
+	candidates.append(_path_join(install_root_path, "game-client/assets/characters/sellsword_v1/catalog.json"))
+	candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "assets/characters/sellsword_v1/catalog.json"))
+
+	for path in candidates:
+		var payload: Variant = _read_json_file(path)
+		if payload is Dictionary and not payload.is_empty():
+			character_sprite_catalog = payload
+			character_sprite_catalog_root = path.get_base_dir()
+			_append_log("Character sprite catalog loaded from " + path)
+			return
+
+func _resolve_character_sheet(sheet_path: String):
+	var key = sheet_path.strip_edges()
+	if key.is_empty():
+		return null
+	if character_sheet_cache.has(key):
+		var cached = character_sheet_cache.get(key)
+		if cached is Texture2D:
+			return cached
+	var texture: Variant = _load_texture_from_path(key)
+	if texture != null:
+		character_sheet_cache[key] = texture
+	return texture
+
+func _resolve_character_texture_directional(
+	appearance_key: String,
+	direction: String = "S",
+	animation: String = "idle",
+	frame_index: int = 0
+):
+	_load_character_sprite_catalog()
+	var key = appearance_key.strip_edges().to_lower()
+	if key.is_empty():
+		key = "human_male"
+	var direction_key = direction.strip_edges().to_upper()
+	if CHARACTER_DIRECTIONS.find(direction_key) < 0:
+		direction_key = "S"
+	var animation_key = animation.strip_edges().to_lower()
+	if animation_key.is_empty():
+		animation_key = "idle"
+	var cache_key = "%s|%s|%s|%d" % [key, direction_key, animation_key, frame_index]
+	if character_sprite_cache.has(cache_key):
+		var cached_frame = character_sprite_cache.get(cache_key)
+		if cached_frame is Texture2D:
+			return cached_frame
+
+	var models_value: Variant = character_sprite_catalog.get("models", {})
+	if not (models_value is Dictionary):
+		return _resolve_character_texture(key)
+	var models: Dictionary = models_value
+	var model: Dictionary = models.get(key, {})
+	if model.is_empty():
+		model = models.get("human_male", {})
+	if model.is_empty():
+		return _resolve_character_texture(key)
+
+	var anims_value: Variant = model.get("animations", {})
+	if not (anims_value is Dictionary):
+		return _resolve_character_texture(key)
+	var anims: Dictionary = anims_value
+	var anim_value: Variant = anims.get(animation_key, {})
+	if not (anim_value is Dictionary):
+		anim_value = anims.get("idle", {})
+	if not (anim_value is Dictionary):
+		return _resolve_character_texture(key)
+	var anim_meta: Dictionary = anim_value
+	var frames = max(1, int(anim_meta.get("frames", 1)))
+	var frame_w = int(character_sprite_catalog.get("frame_size", 96))
+	var frame_h = frame_w
+	var row_index = max(0, CHARACTER_DIRECTIONS.find(direction_key))
+	var frame = int(posmod(frame_index, frames))
+	var sheet_rel = str(anim_meta.get("sheet", "")).strip_edges()
+	if sheet_rel.is_empty():
+		return _resolve_character_texture(key)
+
+	var sheet_path = sheet_rel
+	if character_sprite_catalog_root.begins_with("res://"):
+		sheet_path = character_sprite_catalog_root + "/" + sheet_rel
+	else:
+		sheet_path = _path_join(character_sprite_catalog_root, sheet_rel)
+	var sheet_texture = _resolve_character_sheet(sheet_path)
+	if sheet_texture == null:
+		return _resolve_character_texture(key)
+
+	var atlas := AtlasTexture.new()
+	atlas.atlas = sheet_texture
+	atlas.region = Rect2(frame * frame_w, row_index * frame_h, frame_w, frame_h)
+	character_sprite_cache[cache_key] = atlas
+	return atlas
 
 func _resolve_character_texture(appearance_key: String):
 	var key = appearance_key.strip_edges().to_lower()
 	if key.is_empty():
 		key = "human_male"
-	if character_texture_cache.has(key):
-		var cached = character_texture_cache.get(key)
+	var fallback_key = "%s|fallback" % key
+	if character_texture_cache.has(fallback_key):
+		var cached = character_texture_cache.get(fallback_key)
 		if cached is Texture2D:
 			return cached
 
@@ -1407,7 +1522,7 @@ func _resolve_character_texture(appearance_key: String):
 	for path in candidates:
 		var texture = _load_texture_from_path(path)
 		if texture != null:
-			character_texture_cache[key] = texture
+			character_texture_cache[fallback_key] = texture
 			return texture
 	return null
 
@@ -2077,6 +2192,8 @@ func _on_character_play_pressed() -> void:
 			runtime_payload[key] = player_runtime.get(key)
 	if world_canvas.has_method("configure_runtime"):
 		world_canvas.call("configure_runtime", runtime_payload)
+	if world_canvas.has_method("set_player_appearance"):
+		world_canvas.call("set_player_appearance", str(row.get("appearance_key", "human_male")))
 
 	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world, level_data)
 	world_status_label.text = "WASD to move. Level: %s | Instance: %s" % [active_level_name, active_instance_kind]

@@ -15,7 +15,7 @@ class Character(Base):
     location_x: Mapped[int | None] = mapped_column(Integer, nullable=True)
     location_y: Mapped[int | None] = mapped_column(Integer, nullable=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
-    preset_key: Mapped[str] = mapped_column(String(64), nullable=False, default="wanderer")
+    preset_key: Mapped[str] = mapped_column(String(64), nullable=False, default="sellsword")
     appearance_key: Mapped[str] = mapped_column(String(64), nullable=False, default="human_male")
     race: Mapped[str] = mapped_column(String(64), nullable=False, default="Human")
     background: Mapped[str] = mapped_column(String(64), nullable=False, default="Drifter")

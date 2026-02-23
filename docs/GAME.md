@@ -37,6 +37,10 @@ Play model:
 - Character location persistence includes level/floor and coordinates.
 - Character creation now focuses on a minimal onboarding flow: **preset + sex + name**.
 - Race/background/affiliation/manual stat allocation are no longer player-facing in creation and are sourced from preset/runtime defaults.
+- Current production model preset: **Sellsword** with male/female variants.
+- Character art baseline is now 96x96 per frame, 8-direction, with starter animation set:
+  - idle, walk, run, attack, cast, hurt, death, sit_crossed_legs, sit_kneel.
+- Base model starts unarmed and is dressed in rugged leather brigandine/boots for both male and female variants.
 
 ## Authority Model
 - Server is authoritative for gameplay-relevant values and progression.
