@@ -22,21 +22,21 @@
       "frame_count": 1
     },
     {
-      "key": "sellsword_male_idle_96",
-      "path": "assets/characters/sellsword_v1/sheets/sellsword_male_idle_8dir_8f_96.png",
+      "key": "sellsword_male_idle_384",
+      "path": "assets/characters/sellsword_v1/sheets/sellsword_male_idle_8dir_8f_384.png",
       "category": "character",
-      "width": 768,
-      "height": 768,
+      "width": 3072,
+      "height": 3072,
       "pivot_x": 0.5,
       "pivot_y": 0.92,
       "frame_count": 64
     },
     {
-      "key": "sellsword_female_idle_96",
-      "path": "assets/characters/sellsword_v1/sheets/sellsword_female_idle_8dir_8f_96.png",
+      "key": "sellsword_female_idle_384",
+      "path": "assets/characters/sellsword_v1/sheets/sellsword_female_idle_8dir_8f_384.png",
       "category": "character",
-      "width": 768,
-      "height": 768,
+      "width": 3072,
+      "height": 3072,
       "pivot_x": 0.5,
       "pivot_y": 0.92,
       "frame_count": 64
