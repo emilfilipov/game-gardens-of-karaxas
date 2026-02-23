@@ -14,12 +14,18 @@ var _drag_threshold: float = 18.0
 var _reduced_motion: bool = false
 var _idle_phase: float = 0.0
 var _lighting_profile: String = "warm_torchlight"
+var _show_controls: bool = true
+var _show_title: bool = true
+var _interactive: bool = true
+var _world_scale_mode: bool = false
+var _display_scale: float = 1.0
 
 var _title_label: Label
 var _texture: TextureRect
 var _direction_label: Label
 var _rotate_left: Button
 var _rotate_right: Button
+var _controls_row: HBoxContainer
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -27,9 +33,26 @@ func _ready() -> void:
 	_refresh_texture()
 	set_process(true)
 
-func configure(loader: Callable, reduced_motion: bool) -> void:
+func configure(
+	loader: Callable,
+	reduced_motion: bool,
+	show_controls: bool = true,
+	show_title: bool = true,
+	interactive: bool = true,
+	world_scale_mode: bool = false
+) -> void:
 	_loader = loader
 	_reduced_motion = reduced_motion
+	_show_controls = show_controls
+	_show_title = show_title
+	_interactive = interactive
+	_world_scale_mode = world_scale_mode
+	_display_scale = 0.33 if _world_scale_mode else 1.0
+	mouse_filter = Control.MOUSE_FILTER_STOP if _interactive else Control.MOUSE_FILTER_IGNORE
+	if _controls_row != null:
+		_controls_row.visible = _show_controls
+	if _title_label != null and not _show_title:
+		_title_label.visible = false
 	_refresh_texture()
 
 func set_reduced_motion(enabled: bool) -> void:
@@ -40,7 +63,7 @@ func set_character(appearance_key: String, title: String = "") -> void:
 	if _appearance_key.is_empty():
 		_appearance_key = "human_male"
 	if _title_label != null:
-		_title_label.visible = not title.is_empty()
+		_title_label.visible = _show_title and not title.is_empty()
 		_title_label.text = title
 	_refresh_texture()
 
@@ -94,10 +117,11 @@ func _build_ui() -> void:
 	_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview_shell.add_child(_texture)
 
-	var controls = HBoxContainer.new()
-	controls.add_theme_constant_override("separation", 8)
-	root.add_child(controls)
-	controls.add_spacer(false)
+	_controls_row = HBoxContainer.new()
+	_controls_row.add_theme_constant_override("separation", 8)
+	_controls_row.visible = _show_controls
+	root.add_child(_controls_row)
+	_controls_row.add_spacer(false)
 
 	_rotate_left = Button.new()
 	_rotate_left.text = "<"
@@ -105,13 +129,13 @@ func _build_ui() -> void:
 	_rotate_left.pressed.connect(func() -> void:
 		rotate_by(-1)
 	)
-	controls.add_child(_rotate_left)
+	_controls_row.add_child(_rotate_left)
 
 	_direction_label = Label.new()
 	_direction_label.text = "Facing: S"
 	_direction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_direction_label.custom_minimum_size = Vector2(130, 32)
-	controls.add_child(_direction_label)
+	_controls_row.add_child(_direction_label)
 
 	_rotate_right = Button.new()
 	_rotate_right.text = ">"
@@ -119,10 +143,12 @@ func _build_ui() -> void:
 	_rotate_right.pressed.connect(func() -> void:
 		rotate_by(1)
 	)
-	controls.add_child(_rotate_right)
-	controls.add_spacer(false)
+	_controls_row.add_child(_rotate_right)
+	_controls_row.add_spacer(false)
 
 func _gui_input(event: InputEvent) -> void:
+	if not _interactive:
+		return
 	if event is InputEventMouseButton:
 		var button_event: InputEventMouseButton = event
 		if button_event.button_index == MOUSE_BUTTON_LEFT:
@@ -139,11 +165,11 @@ func _process(delta: float) -> void:
 	if _texture == null:
 		return
 	if _reduced_motion:
-		_texture.scale = Vector2.ONE
+		_texture.scale = Vector2.ONE * _display_scale
 		return
 	_idle_phase += delta
 	var pulse: float = 1.0 + sin(_idle_phase * 1.35) * 0.015
-	_texture.scale = Vector2(pulse, pulse)
+	_texture.scale = Vector2(pulse, pulse) * _display_scale
 
 func _refresh_texture() -> void:
 	if _texture == null:

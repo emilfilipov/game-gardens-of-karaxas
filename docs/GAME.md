@@ -35,12 +35,16 @@ Play model:
 - Current character creator and isometric runtime work are retained and iterated forward.
 - Existing proven online hub/list/create UX patterns are reused as baseline while visual polish continues.
 - Account hub now uses side navigation (no list/create tabs) with large center podium previews in both list and create flows.
+- Character list/create now include a dual-preview setup:
+  - large primary podium preview for inspection/rotation,
+  - smaller in-world-scale inset preview synced to the same facing direction.
 - Character location persistence includes level/floor and coordinates.
 - Character creation now focuses on a minimal onboarding flow: **preset + sex + name**.
 - Race/background/affiliation/manual stat allocation are no longer player-facing in creation and are sourced from preset/runtime defaults.
 - Current production model preset: **Sellsword** with male/female variants.
-- Character art baseline is now 96x96 per frame, 8-direction, with starter animation set:
+- Character art source baseline is now **384x384 per frame** (4x upgrade), 8-direction, with starter animation set:
   - idle, walk, run, attack, cast, hurt, death, sit_crossed_legs, sit_kneel.
+- Runtime world rendering downsamples these source frames to gameplay scale to keep readability and performance stable.
 - Base model starts unarmed and is dressed in rugged leather brigandine/boots for both male and female variants.
 
 ## Authority Model

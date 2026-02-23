@@ -20,7 +20,8 @@ PACK_ROOT = ROOT / "assets/characters/sellsword_v1"
 SHEETS_DIR = PACK_ROOT / "sheets"
 LAYERS_DIR = PACK_ROOT / "layers"
 
-FRAME_SIZE = 96
+BASE_FRAME_SIZE = 96
+FRAME_SIZE = 384
 DIRECTIONS = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"]
 ANIMATIONS = {
     "idle": {"frames": 8, "fps": 8},
@@ -63,6 +64,8 @@ GENDER_TINTS = {
 def _ensure_dirs() -> None:
     SHEETS_DIR.mkdir(parents=True, exist_ok=True)
     LAYERS_DIR.mkdir(parents=True, exist_ok=True)
+    for stale in SHEETS_DIR.glob("*.png"):
+        stale.unlink()
 
 
 def _dir_profile(direction: str) -> Dict[str, int]:
@@ -112,7 +115,7 @@ def _motion(anim: str, frame: int, frame_count: int) -> Dict[str, float]:
 
 
 def _draw_layered_character(gender: str, anim: str, direction: str, frame: int, frame_count: int) -> Image.Image:
-    img = Image.new("RGBA", (FRAME_SIZE, FRAME_SIZE), (0, 0, 0, 0))
+    img = Image.new("RGBA", (BASE_FRAME_SIZE, BASE_FRAME_SIZE), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     profile = _dir_profile(direction)
     mot = _motion(anim, frame, frame_count)
@@ -209,7 +212,9 @@ def _draw_layered_character(gender: str, anim: str, direction: str, frame: int, 
     outline_img = Image.new("RGBA", img.size, PALETTE["outline"])
     img = Image.composite(outline_img, img, edge_mask)
 
-    return img
+    if FRAME_SIZE == BASE_FRAME_SIZE:
+        return img
+    return img.resize((FRAME_SIZE, FRAME_SIZE), resample=Image.Resampling.NEAREST)
 
 
 def _write_sheet(gender: str, anim: str, frame_count: int) -> str:
@@ -229,32 +234,42 @@ def _write_layer_sources() -> None:
     for gender in ("male", "female"):
         layer_root = LAYERS_DIR / gender
         layer_root.mkdir(parents=True, exist_ok=True)
-        base = Image.new("RGBA", (FRAME_SIZE, FRAME_SIZE), (0, 0, 0, 0))
+        for stale in layer_root.glob("*.png"):
+            stale.unlink()
+        base = Image.new("RGBA", (BASE_FRAME_SIZE, BASE_FRAME_SIZE), (0, 0, 0, 0))
         draw = ImageDraw.Draw(base)
         tint = GENDER_TINTS[gender]
         draw.rounded_rectangle((34, 16, 62, 33), 5, fill=tint["skin"])
         draw.rounded_rectangle((30, 34, 66, 62), 5, fill=PALETTE["brigandine"])
         draw.rectangle((34, 63, 62, 80), fill=PALETTE["cloth"])
+        if FRAME_SIZE != BASE_FRAME_SIZE:
+            base = base.resize((FRAME_SIZE, FRAME_SIZE), resample=Image.Resampling.NEAREST)
         base.save(layer_root / "base_body.png", "PNG")
 
-        hair = Image.new("RGBA", (FRAME_SIZE, FRAME_SIZE), (0, 0, 0, 0))
+        hair = Image.new("RGBA", (BASE_FRAME_SIZE, BASE_FRAME_SIZE), (0, 0, 0, 0))
         h = ImageDraw.Draw(hair)
         h.rounded_rectangle((33, 13, 63, 26), 4, fill=tint["hair"])
         if gender == "female":
             h.rectangle((32, 22, 35, 34), fill=tint["hair"])
             h.rectangle((61, 22, 64, 34), fill=tint["hair"])
+        if FRAME_SIZE != BASE_FRAME_SIZE:
+            hair = hair.resize((FRAME_SIZE, FRAME_SIZE), resample=Image.Resampling.NEAREST)
         hair.save(layer_root / "hair_default.png", "PNG")
 
-        armor = Image.new("RGBA", (FRAME_SIZE, FRAME_SIZE), (0, 0, 0, 0))
+        armor = Image.new("RGBA", (BASE_FRAME_SIZE, BASE_FRAME_SIZE), (0, 0, 0, 0))
         a = ImageDraw.Draw(armor)
         a.rounded_rectangle((30, 34, 66, 60), 4, fill=PALETTE["brigandine_shade"])
         a.rectangle((34, 43, 62, 45), fill=PALETTE["belt"])
+        if FRAME_SIZE != BASE_FRAME_SIZE:
+            armor = armor.resize((FRAME_SIZE, FRAME_SIZE), resample=Image.Resampling.NEAREST)
         armor.save(layer_root / "armor_brigandine.png", "PNG")
 
-        boots = Image.new("RGBA", (FRAME_SIZE, FRAME_SIZE), (0, 0, 0, 0))
+        boots = Image.new("RGBA", (BASE_FRAME_SIZE, BASE_FRAME_SIZE), (0, 0, 0, 0))
         b = ImageDraw.Draw(boots)
         b.rectangle((36, 77, 44, 82), fill=PALETTE["boot"])
         b.rectangle((52, 77, 60, 82), fill=PALETTE["boot"])
+        if FRAME_SIZE != BASE_FRAME_SIZE:
+            boots = boots.resize((FRAME_SIZE, FRAME_SIZE), resample=Image.Resampling.NEAREST)
         boots.save(layer_root / "boots_leather.png", "PNG")
 
 

@@ -31,6 +31,9 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | COI-ONLINE-019 | ✅ | 3 | Authored initial hard character preset catalog in runtime gameplay config and then consolidated it to a single production preset (`sellsword`) with male/female selection handled through `appearance_key`. |
 | COI-ONLINE-020 | ✅ | 3 | Wired curated preset selection UX in Godot character creation: preset dropdown, preset-to-fields/stat/skill/budget application, preview sync, and `preset_key` posting to backend character create API. |
 | COI-ONLINE-021 | ✅ | 4 | Implemented Sellsword V1 character art pipeline: generated 96x96 layered-ready male/female sprite sheets (8 directions; idle/walk/run/attack/cast/hurt/death/sit-crossed/sit-kneel), added runtime catalog metadata, and wired animated directional preview + world actor rendering. |
+| COI-ONLINE-023 | ✅ | 4 | Account-hub UI regression recovery: replaced unstable split-container composition with fixed side-navigation + dedicated list/create view containers, restored centered non-world title behavior, and reinstated themed confirmation dialogs for character create/delete actions. |
+| COI-ONLINE-024 | ✅ | 3 | Added dual preview for list/create flows: large podium preview plus inset world-scale mirror preview, with rotation/facing synchronization from primary preview drag/arrow controls. |
+| COI-ONLINE-025 | ✅ | 4 | Upgraded Sellsword pipeline to 4x source fidelity (384 frame size), regenerated catalog/runtime sheets, and updated in-world actor rendering to downscale source frames to gameplay draw size for stable readability/performance. |
 
 ## Archived / Superseded
 | Task ID | Status | Complexity | Detailed Description |

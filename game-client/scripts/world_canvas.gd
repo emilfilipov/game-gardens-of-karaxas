@@ -14,7 +14,9 @@ const GRID_UNIT_PIXELS: float = 32.0
 const DEFAULT_PLAYER_SPEED_TILES: float = 4.6
 const DEFAULT_PLAYER_RADIUS: float = 14.0
 const CHARACTER_DIRECTIONS: Array[String] = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"]
-const CHARACTER_FRAME_SIZE: int = 96
+const DEFAULT_CHARACTER_SOURCE_FRAME_SIZE: int = 96
+const ACTOR_WORLD_DRAW_SIZE: float = 96.0
+const ACTOR_WORLD_BOTTOM_OFFSET: float = 82.0
 
 var world_width_tiles: int = 80
 var world_height_tiles: int = 48
@@ -65,6 +67,7 @@ var player_animation_time: float = 0.0
 var player_action_lock: float = 0.0
 var character_sprite_catalog: Dictionary = {}
 var character_sprite_catalog_root: String = ""
+var character_source_frame_size: int = DEFAULT_CHARACTER_SOURCE_FRAME_SIZE
 var character_sheet_cache: Dictionary = {}
 var character_frame_cache: Dictionary = {}
 
@@ -693,8 +696,9 @@ func _draw_npc(center: Vector2, npc: Dictionary) -> void:
 func _draw_actor(center: Vector2, facing: String) -> void:
 	var sprite = _resolve_actor_frame(player_appearance_key, player_animation, facing, player_animation_time)
 	if sprite != null:
-		var draw_pos = center + Vector2(-float(CHARACTER_FRAME_SIZE) * 0.5, -82.0)
-		draw_texture(sprite, draw_pos)
+		var draw_size = Vector2(ACTOR_WORLD_DRAW_SIZE, ACTOR_WORLD_DRAW_SIZE)
+		var draw_pos = center + Vector2(-draw_size.x * 0.5, -ACTOR_WORLD_BOTTOM_OFFSET)
+		draw_texture_rect(sprite, Rect2(draw_pos, draw_size), false)
 		return
 	var body_rect = Rect2(center + Vector2(-8.0, -30.0), Vector2(16.0, 26.0))
 	draw_rect(body_rect, UI_TOKENS.color("button_primary"), true)
@@ -716,6 +720,8 @@ func _load_character_sprite_catalog() -> void:
 		if payload is Dictionary and not payload.is_empty():
 			character_sprite_catalog = payload
 			character_sprite_catalog_root = path.get_base_dir()
+			character_source_frame_size = maxi(16, int(character_sprite_catalog.get("frame_size", DEFAULT_CHARACTER_SOURCE_FRAME_SIZE)))
+			character_frame_cache.clear()
 			return
 
 func _read_json_file(path: String) -> Variant:
@@ -812,7 +818,8 @@ func _resolve_actor_frame(appearance_key: String, animation_key: String, directi
 		return null
 	var atlas := AtlasTexture.new()
 	atlas.atlas = sheet
-	atlas.region = Rect2(frame * CHARACTER_FRAME_SIZE, row * CHARACTER_FRAME_SIZE, CHARACTER_FRAME_SIZE, CHARACTER_FRAME_SIZE)
+	var source_size = character_source_frame_size
+	atlas.region = Rect2(frame * source_size, row * source_size, source_size, source_size)
 	character_frame_cache[cache_key] = atlas
 	return atlas
 

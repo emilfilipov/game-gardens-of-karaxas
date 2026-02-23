@@ -25,10 +25,14 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Auth (`login/register`)
 - Account hub (character list/create/select/play) using side-navigation view switching instead of tab containers
 - Character creation preset picker (runtime-config driven `preset_key`) with player-selected `sex` (`appearance_key`) and name-only onboarding fields
+- Character list/create dual preview stack:
+  - large podium preview for authored inspection/rotation,
+  - inset top-right world-scale mirror preview synchronized to the same direction.
 - Settings (including MFA controls)
 - Admin tooling (for admin users)
 - World runtime (isometric)
 - Character art runtime resolves directional animated frames from `assets/characters/sellsword_v1/catalog.json` for both podium preview and in-world actor rendering; the Sellsword generator outputs textured/colorized sheets (not silhouette placeholders).
+- Sellsword source sheets are generated at `384x384` frame size (4x baseline). World runtime draws actors at gameplay size (`96x96`) via draw-time downscale, so source fidelity can increase without forcing world camera/actor scale inflation.
 
 ## Backend Responsibilities
 - Auth/session lifecycle:

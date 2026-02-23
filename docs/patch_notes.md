@@ -1,10 +1,5 @@
-- Added reproducible Sellsword V1 art generator (`python3 tools/generate_sellsword_sprite_pack.py`) producing 96x96 male/female sheets, layered source slices, and catalog metadata.
-- Added Sellsword V1 runtime assets (`assets/characters/sellsword_v1`) with 8-direction support and animations: idle, walk, run, attack, cast, hurt, death, sit_crossed_legs, sit_kneel.
-- Wired animated directional character rendering in Godot podium previews and in-world actor rendering using the new sprite catalog.
-- Consolidated runtime preset catalog to `sellsword` and aligned defaults/fallbacks (`preset_key`) across backend, client, and smoke harness.
-- Updated canonical docs and asset docs to reflect the new art pipeline and runtime usage.
-- Fixed a Godot startup parse regression in auth error handling (`client_shell.gd`) that caused a gray screen due to invalid GDScript set-literal syntax.
-- Reworked the account hub layout into side-navigation views (no Character List/Create tabs), with larger center podium previews for both list and create flows.
-- Fixed character-list rendering regression by removing invalid button property usage in row rendering and simplifying row content.
-- Restored non-world header behavior to centered game title (`Children of Ikphelion`) and tightened cog-menu popup positioning.
-- Fixed Sellsword sprite generation output to preserve full color/texture (removed silhouette-only compositing issue) and regenerated runtime sheets.
+- Fixed account-hub layout regressions by stabilizing list/create view containers and restoring centered non-world title behavior.
+- Restored themed confirmation dialogs for character creation and deletion actions.
+- Added dual character preview in list/create views: a large podium preview plus a synchronized inset in-world-scale mirror preview.
+- Upgraded Sellsword sprite generation to 4x source fidelity (`384x384` per frame) and cleaned old generated sheet outputs during regeneration.
+- Updated world actor rendering to downscale high-fidelity source frames to gameplay draw size so world readability/performance stay stable.

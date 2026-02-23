@@ -93,6 +93,7 @@ var character_rows_scroll: ScrollContainer
 var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
 var character_preview_texture: Control
+var character_preview_world_inset: Control
 var character_list_title_label: Label
 var character_refresh_button: Button
 var character_spawn_override_option: OptionButton
@@ -102,6 +103,7 @@ var create_preset_option: OptionButton
 var create_sex_option: OptionButton
 var create_preset_description_label: Label
 var create_preview_texture: Control
+var create_preview_world_inset: Control
 var create_points_left_label: Label
 var create_status_label: Label
 var create_submit_button: Button
@@ -602,12 +604,12 @@ func _build_account_screen() -> VBoxContainer:
 	account_list_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	account_list_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	views_root.add_child(account_list_panel)
-	var list_split = HSplitContainer.new()
+	var list_split = HBoxContainer.new()
 	list_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	account_list_panel.add_child(list_split)
 	var list_left = UI_COMPONENTS.panel_card(Vector2(340, 0), false)
 	list_left.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_left.size_flags_stretch_ratio = 0.24
 	list_split.add_child(list_left)
 	var list_left_inner = VBoxContainer.new()
 	list_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -635,16 +637,37 @@ func _build_account_screen() -> VBoxContainer:
 	var list_center = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	list_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_center.size_flags_stretch_ratio = 0.54
 	list_split.add_child(list_center)
+	var list_center_host = Control.new()
+	list_center_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	list_center_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_center_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_center.add_child(list_center_host)
 	character_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if character_preview_texture.has_method("configure"):
-		character_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false)
-	list_center.add_child(character_preview_texture)
+		character_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, true, true, false)
+	character_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	list_center_host.add_child(character_preview_texture)
+	var list_world_inset_shell = UI_COMPONENTS.panel_card(Vector2(184, 164), false)
+	list_world_inset_shell.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	list_world_inset_shell.offset_left = -194
+	list_world_inset_shell.offset_top = 10
+	list_world_inset_shell.offset_right = -10
+	list_world_inset_shell.offset_bottom = 174
+	list_center_host.add_child(list_world_inset_shell)
+	character_preview_world_inset = CHARACTER_PODIUM_PREVIEW_SCENE.new()
+	if character_preview_world_inset.has_method("configure"):
+		character_preview_world_inset.call("configure", Callable(self, "_resolve_character_texture_directional"), true, false, false, false, true)
+	character_preview_world_inset.set_anchors_preset(Control.PRESET_FULL_RECT)
+	list_world_inset_shell.add_child(character_preview_world_inset)
+	if character_preview_texture.has_signal("direction_changed"):
+		character_preview_texture.connect("direction_changed", func(direction: String) -> void:
+			if character_preview_world_inset != null and character_preview_world_inset.has_method("set_direction"):
+				character_preview_world_inset.call("set_direction", direction)
+		)
 
 	var list_right = UI_COMPONENTS.panel_card(Vector2(300, 0), false)
 	list_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_right.size_flags_stretch_ratio = 0.22
 	list_split.add_child(list_right)
 	var list_right_inner = VBoxContainer.new()
 	list_right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -692,12 +715,12 @@ func _build_account_screen() -> VBoxContainer:
 	account_create_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	account_create_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	views_root.add_child(account_create_panel)
-	var create_split = HSplitContainer.new()
+	var create_split = HBoxContainer.new()
 	create_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	account_create_panel.add_child(create_split)
 	var create_left = UI_COMPONENTS.panel_card(Vector2(320, 0), false)
 	create_left.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_left.size_flags_stretch_ratio = 0.24
 	create_split.add_child(create_left)
 	var create_left_inner = VBoxContainer.new()
 	create_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -726,16 +749,37 @@ func _build_account_screen() -> VBoxContainer:
 	var create_center = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	create_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_center.size_flags_stretch_ratio = 0.54
 	create_split.add_child(create_center)
+	var create_center_host = Control.new()
+	create_center_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	create_center_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_center_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_center.add_child(create_center_host)
 	create_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if create_preview_texture.has_method("configure"):
-		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false)
-	create_center.add_child(create_preview_texture)
+		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, true, true, false)
+	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	create_center_host.add_child(create_preview_texture)
+	var create_world_inset_shell = UI_COMPONENTS.panel_card(Vector2(184, 164), false)
+	create_world_inset_shell.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	create_world_inset_shell.offset_left = -194
+	create_world_inset_shell.offset_top = 10
+	create_world_inset_shell.offset_right = -10
+	create_world_inset_shell.offset_bottom = 174
+	create_center_host.add_child(create_world_inset_shell)
+	create_preview_world_inset = CHARACTER_PODIUM_PREVIEW_SCENE.new()
+	if create_preview_world_inset.has_method("configure"):
+		create_preview_world_inset.call("configure", Callable(self, "_resolve_character_texture_directional"), true, false, false, false, true)
+	create_preview_world_inset.set_anchors_preset(Control.PRESET_FULL_RECT)
+	create_world_inset_shell.add_child(create_preview_world_inset)
+	if create_preview_texture.has_signal("direction_changed"):
+		create_preview_texture.connect("direction_changed", func(direction: String) -> void:
+			if create_preview_world_inset != null and create_preview_world_inset.has_method("set_direction"):
+				create_preview_world_inset.call("set_direction", direction)
+		)
 
 	var create_right = UI_COMPONENTS.panel_card(Vector2(300, 0), false)
 	create_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_right.size_flags_stretch_ratio = 0.22
 	create_split.add_child(create_right)
 	var create_right_inner = VBoxContainer.new()
 	create_right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -746,7 +790,7 @@ func _build_account_screen() -> VBoxContainer:
 	create_preset_description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	create_preset_description_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_right_inner.add_child(create_preset_description_label)
-	create_right_inner.add_child(_label("Drag or use arrows under preview to rotate.", -1, "text_muted"))
+	create_right_inner.add_child(_label("Large preview + inset mirror world scale.", -1, "text_muted"))
 
 	_populate_character_options_from_content()
 	_set_account_view("list")
@@ -1297,6 +1341,10 @@ func _refresh_create_character_preview() -> void:
 		appearance_key = "human_female"
 	if create_preview_texture.has_method("set_character"):
 		create_preview_texture.call("set_character", appearance_key, "Sellsword")
+		if create_preview_world_inset != null and create_preview_world_inset.has_method("set_character"):
+			create_preview_world_inset.call("set_character", appearance_key, "")
+		if create_preview_texture.has_method("current_direction") and create_preview_world_inset != null and create_preview_world_inset.has_method("set_direction"):
+			create_preview_world_inset.call("set_direction", str(create_preview_texture.call("current_direction")))
 	else:
 		if create_preview_texture is TextureRect:
 			create_preview_texture.texture = _resolve_character_texture(appearance_key)
@@ -1425,11 +1473,16 @@ func _refresh_selected_character_preview() -> void:
 		return
 	if selected_character_index < 0 or selected_character_index >= characters.size():
 		_clear_character_preview(character_preview_texture)
+		_clear_character_preview(character_preview_world_inset)
 		return
 	var row: Dictionary = characters[selected_character_index]
 	var appearance_key = str(row.get("appearance_key", "human_male"))
 	if character_preview_texture.has_method("set_character"):
 		character_preview_texture.call("set_character", appearance_key, str(row.get("name", "")))
+		if character_preview_world_inset != null and character_preview_world_inset.has_method("set_character"):
+			character_preview_world_inset.call("set_character", appearance_key, "")
+		if character_preview_texture.has_method("current_direction") and character_preview_world_inset != null and character_preview_world_inset.has_method("set_direction"):
+			character_preview_world_inset.call("set_direction", str(character_preview_texture.call("current_direction")))
 	else:
 		if character_preview_texture is TextureRect:
 			character_preview_texture.texture = _resolve_character_texture(appearance_key)
@@ -1980,6 +2033,8 @@ func _logout_session_local() -> void:
 	_clear_children(character_rows_container)
 	character_details_label.text = "Choose a character from the list."
 	_clear_character_preview(character_preview_texture)
+	_clear_character_preview(character_preview_world_inset)
+	_clear_character_preview(create_preview_world_inset)
 	auth_password_input.clear()
 	auth_otp_input.clear()
 	settings_mfa_last_secret = ""
@@ -2010,6 +2065,7 @@ func _load_characters() -> void:
 		selected_character_index = -1
 		character_details_label.text = "No characters yet. Create your first character."
 		_clear_character_preview(character_preview_texture)
+		_clear_character_preview(character_preview_world_inset)
 	else:
 		var selected_index = 0
 		for idx in range(characters.size()):
@@ -2062,16 +2118,13 @@ func _render_character_details(index: int) -> void:
 	var row: Dictionary = characters[index]
 	var location_text = _character_location_text(row)
 	character_details_label.text = (
-		"[Character Details]\n\nName: %s\nLevel: %s\nXP: %s (next %s)\nAppearance: %s\nRace: %s\nBackground: %s\nAffiliation: %s\nLocation: %s"
+		"Name: %s\nLevel: %s\nXP: %s (next %s)\nAppearance: %s\nLocation: %s"
 		% [
 			str(row.get("name", "")),
 			str(row.get("level", 1)),
 			str(row.get("experience", 0)),
 			str(row.get("experience_to_next_level", 100)),
 			str(row.get("appearance_key", "human_male")),
-			str(row.get("race", "Human")),
-			str(row.get("background", "Drifter")),
-			str(row.get("affiliation", "Unaffiliated")),
 			location_text,
 			]
 	)
@@ -2109,6 +2162,10 @@ func _on_create_character_pressed() -> void:
 	if name.length() < 2:
 		create_status_label.text = "Character name must be at least 2 characters."
 		return
+	var create_confirmed = await _show_confirm_dialog("Create Character", "Create character '%s'?" % name)
+	if not create_confirmed:
+		create_status_label.text = "Creation cancelled."
+		return
 	create_status_label.text = "Creating character..."
 	var appearance_key = "human_male" if create_sex_option.selected == 0 else "human_female"
 	var payload = {
@@ -2131,6 +2188,13 @@ func _on_character_delete_pressed() -> void:
 		account_status_label.text = "Select a character first."
 		return
 	var row: Dictionary = characters[selected_character_index]
+	var delete_confirmed = await _show_confirm_dialog(
+		"Delete Character",
+		"Delete '%s'? This cannot be undone." % str(row.get("name", "character"))
+	)
+	if not delete_confirmed:
+		account_status_label.text = "Delete cancelled."
+		return
 	account_status_label.text = "Deleting " + str(row.get("name", "character")) + "..."
 	var response = await _api_request(
 		HTTPClient.METHOD_DELETE,
