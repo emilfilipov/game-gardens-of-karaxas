@@ -5,8 +5,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| COI-ONLINE-019 | ⬜ | 3 | Author final character preset catalog content (base appearance archetypes + personality/class-leaning starter skill/stat defaults) once design values are provided. |
-| COI-ONLINE-020 | ⬜ | 3 | Wire curated preset selection UX in character creation once preset art/content payloads are finalized. |
+| _None_ | - | - | Backlog is currently clear for the online baseline. New tasks should be added as gameplay/asset design requirements are finalized. |
 
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
@@ -29,6 +28,8 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | COI-ONLINE-016 | ✅ | 5 | Implemented anti-cheat trust-boundary v1 on server action ingestion: movement sanity checks, action rate guardrails, action nonce replay protection, and security-event hook emission. |
 | COI-ONLINE-017 | ✅ | 3 | Added Steam dual-distribution implementation plan document (`docs/STEAM_DUAL_DISTRIBUTION.md`) while keeping standalone launcher/update flow intact. |
 | COI-ONLINE-018 | ✅ | 3 | Restored backend deploy CI workflow (`deploy-backend.yml`) with backend-only change filtering and Cloud Run deploy path separated from launcher/game release workflow. |
+| COI-ONLINE-019 | ✅ | 3 | Authored initial hard character preset catalog in runtime gameplay config (`wanderer`, `vanguard`, `arcanist`, `strider`) with baseline appearance/stats/skills/inventory leaning to support class-like starts. |
+| COI-ONLINE-020 | ✅ | 3 | Wired curated preset selection UX in Godot character creation: preset dropdown, preset-to-fields/stat/skill/budget application, preview sync, and `preset_key` posting to backend character create API. |
 
 ## Archived / Superseded
 | Task ID | Status | Complexity | Detailed Description |

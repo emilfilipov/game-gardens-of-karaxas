@@ -88,6 +88,7 @@ var character_list_title_label: Label
 var character_refresh_button: Button
 
 var create_name_input: LineEdit
+var create_preset_option: OptionButton
 var create_sex_option: OptionButton
 var create_race_option: OptionButton
 var create_background_option: OptionButton
@@ -101,8 +102,10 @@ var create_submit_button: Button
 var create_stat_keys: Array[String] = []
 var create_skill_keys: Array[String] = []
 var create_stat_values: Dictionary = {}
+var create_stat_value_labels: Dictionary = {}
 var create_skill_values: Dictionary = {}
 var create_skill_buttons: Dictionary = {}
+var create_preset_catalog: Array = []
 var create_point_budget: int = 10
 var create_stat_max_per_entry: int = 10
 
@@ -672,6 +675,10 @@ func _build_account_screen() -> VBoxContainer:
 	var identity_row = HBoxContainer.new()
 	identity_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	create_right.add_child(identity_row)
+	create_preset_option = _option(["Wanderer"])
+	create_preset_option.custom_minimum_size = Vector2(140, 36)
+	create_preset_option.item_selected.connect(_on_create_preset_selected)
+	identity_row.add_child(_labeled_control("Preset", create_preset_option))
 	create_name_input = _line_edit("Character Name")
 	create_name_input.custom_minimum_size = Vector2(120, 36)
 	identity_row.add_child(_labeled_control("Name", create_name_input))
@@ -746,8 +753,7 @@ func _build_account_screen() -> VBoxContainer:
 	create_status_label.text = " "
 	create_status_label.visible = true
 	create_root.add_child(create_status_label)
-	_populate_character_creation_tables(content_domains.get("character_options", {}))
-	_refresh_create_character_preview()
+	_populate_character_options_from_content()
 
 	return wrap
 
@@ -1296,6 +1302,166 @@ func _refresh_create_character_preview() -> void:
 		appearance_key = "human_female"
 	create_preview_texture.texture = _resolve_character_texture(appearance_key)
 
+func _on_create_preset_selected(_index: int) -> void:
+	_apply_selected_preset_to_creation()
+
+func _selected_create_preset_key() -> String:
+	if create_preset_option == null:
+		return "wanderer"
+	if create_preset_option.selected < 0 or create_preset_option.selected >= create_preset_option.get_item_count():
+		return "wanderer"
+	var metadata: Variant = create_preset_option.get_item_metadata(create_preset_option.selected)
+	if metadata is String:
+		var key = str(metadata).strip_edges().to_lower()
+		if not key.is_empty():
+			return key
+	var fallback = create_preset_option.get_item_text(create_preset_option.selected).strip_edges().to_lower()
+	return fallback if not fallback.is_empty() else "wanderer"
+
+func _selected_create_preset() -> Dictionary:
+	var selected_key = _selected_create_preset_key()
+	for entry in create_preset_catalog:
+		if entry is Dictionary and str(entry.get("key", "")).strip_edges().to_lower() == selected_key:
+			return entry
+	if not create_preset_catalog.is_empty() and create_preset_catalog[0] is Dictionary:
+		return create_preset_catalog[0]
+	return {
+		"key": "wanderer",
+		"label": "Wanderer",
+		"appearance_key": "human_male",
+		"race": "Human",
+		"background": "Drifter",
+		"affiliation": "Unaffiliated",
+		"point_budget": 10,
+		"stats": {},
+		"skills": {},
+	}
+
+func _select_option_by_text(option: OptionButton, target: String) -> void:
+	if option == null:
+		return
+	var normalized = target.strip_edges().to_lower()
+	if normalized.is_empty():
+		return
+	for item_index in range(option.get_item_count()):
+		if option.get_item_text(item_index).strip_edges().to_lower() == normalized:
+			option.selected = item_index
+			return
+
+func _apply_selected_preset_to_creation() -> void:
+	if create_stats_grid == null or create_skills_grid == null:
+		return
+	var preset: Dictionary = _selected_create_preset()
+	var preset_appearance = str(preset.get("appearance_key", "human_male")).strip_edges().to_lower()
+	if create_sex_option != null:
+		create_sex_option.selected = 1 if preset_appearance == "human_female" else 0
+	_select_option_by_text(create_race_option, str(preset.get("race", "Human")))
+	_select_option_by_text(create_background_option, str(preset.get("background", "Drifter")))
+	_select_option_by_text(create_affiliation_option, str(preset.get("affiliation", "Unaffiliated")))
+
+	create_point_budget = max(1, int(preset.get("point_budget", create_point_budget)))
+
+	for stat_key in create_stat_keys:
+		create_stat_values[stat_key] = 0
+		var value_label = create_stat_value_labels.get(stat_key)
+		if value_label is Label:
+			value_label.text = "0"
+
+	for skill_key in create_skill_keys:
+		create_skill_values[skill_key] = 0
+		var skill_button = create_skill_buttons.get(skill_key)
+		if skill_button is Button:
+			skill_button.button_pressed = false
+
+	var preset_stats_value: Variant = preset.get("stats", {})
+	if preset_stats_value is Dictionary:
+		var preset_stats: Dictionary = preset_stats_value
+		for key in preset_stats.keys():
+			var stat_key = str(key).strip_edges().to_lower()
+			if not create_stat_values.has(stat_key):
+				continue
+			var stat_value = clampi(int(preset_stats.get(key, 0)), 0, create_stat_max_per_entry)
+			create_stat_values[stat_key] = stat_value
+			var stat_label = create_stat_value_labels.get(stat_key)
+			if stat_label is Label:
+				stat_label.text = str(stat_value)
+
+	var preset_skills_value: Variant = preset.get("skills", {})
+	if preset_skills_value is Dictionary:
+		var preset_skills: Dictionary = preset_skills_value
+		for key in preset_skills.keys():
+			var skill_key = str(key).strip_edges().to_lower()
+			if not create_skill_values.has(skill_key):
+				continue
+			var enabled = int(preset_skills.get(key, 0)) > 0
+			create_skill_values[skill_key] = 1 if enabled else 0
+			var button = create_skill_buttons.get(skill_key)
+			if button is Button:
+				button.button_pressed = enabled
+
+	_refresh_create_points_label()
+	_refresh_create_character_preview()
+
+func _preset_entries_from_content() -> Array:
+	var presets_value: Variant = content_domains.get("character_presets", {})
+	var preset_domain: Dictionary = {}
+	if presets_value is Dictionary:
+		preset_domain = presets_value
+	var entries_value: Variant = preset_domain.get("entries", [])
+	var raw_entries: Array = []
+	if entries_value is Array:
+		raw_entries = entries_value
+	var normalized: Array = []
+	for entry_value in raw_entries:
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		var key = str(entry.get("key", "")).strip_edges().to_lower()
+		if key.is_empty():
+			continue
+		var normalized_entry: Dictionary = entry.duplicate(true)
+		normalized_entry["key"] = key
+		if str(normalized_entry.get("label", "")).strip_edges().is_empty():
+			normalized_entry["label"] = key.capitalize()
+		normalized.append(normalized_entry)
+	if normalized.is_empty():
+		normalized.append(
+			{
+				"key": "wanderer",
+				"label": "Wanderer",
+				"description": "Balanced starter template.",
+				"appearance_key": "human_male",
+				"race": "Human",
+				"background": "Drifter",
+				"affiliation": "Unaffiliated",
+				"point_budget": 10,
+				"stats": {},
+				"skills": {},
+			}
+		)
+	return normalized
+
+func _populate_character_presets_from_content() -> void:
+	var previously_selected = _selected_create_preset_key()
+	create_preset_catalog = _preset_entries_from_content()
+	if create_preset_option == null:
+		return
+	create_preset_option.clear()
+	var selected_index = 0
+	for entry_index in range(create_preset_catalog.size()):
+		var entry_value: Variant = create_preset_catalog[entry_index]
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		var label = str(entry.get("label", "Preset"))
+		var key = str(entry.get("key", "")).strip_edges().to_lower()
+		create_preset_option.add_item(label)
+		create_preset_option.set_item_metadata(entry_index, key)
+		if key == previously_selected:
+			selected_index = entry_index
+	_sanitize_option_popup(create_preset_option)
+	create_preset_option.selected = selected_index
+
 func _refresh_selected_character_preview() -> void:
 	if character_preview_texture == null:
 		return
@@ -1546,6 +1712,7 @@ func _populate_character_creation_tables(options: Dictionary) -> void:
 	create_point_budget = max(1, int(options.get("point_budget", 10)))
 	create_stat_max_per_entry = max(1, int(content_domains.get("stats", {}).get("max_per_stat", 10)))
 	create_stat_values.clear()
+	create_stat_value_labels.clear()
 	create_skill_values.clear()
 	create_skill_buttons.clear()
 	create_stat_keys.clear()
@@ -1588,6 +1755,7 @@ func _populate_character_creation_tables(options: Dictionary) -> void:
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		value_label.custom_minimum_size = Vector2(32, 32)
 		create_stats_grid.add_child(value_label)
+		create_stat_value_labels[stat_key] = value_label
 
 		var plus = _button("+")
 		plus.custom_minimum_size = Vector2(32, 32)
@@ -1644,8 +1812,7 @@ func _populate_character_creation_tables(options: Dictionary) -> void:
 		placeholder.custom_minimum_size = Vector2(74, 74)
 		create_skills_grid.add_child(placeholder)
 
-	_refresh_create_points_label()
-	_refresh_create_character_preview()
+	_apply_selected_preset_to_creation()
 
 func _on_menu_button_pressed() -> void:
 	_populate_menu()
@@ -2008,6 +2175,7 @@ func _on_create_character_pressed() -> void:
 		skills_payload[key] = int(create_skill_values.get(key, 0))
 	var payload = {
 		"name": name,
+		"preset_key": _selected_create_preset_key(),
 		"appearance_key": appearance_key,
 		"race": create_race_option.get_item_text(create_race_option.selected),
 		"background": create_background_option.get_item_text(create_background_option.selected),
@@ -2030,7 +2198,7 @@ func _on_create_character_pressed() -> void:
 		var button = create_skill_buttons.get(key)
 		if button is Button:
 			button.button_pressed = false
-	_populate_character_creation_tables(content_domains.get("character_options", {}))
+	_populate_character_options_from_content()
 	create_status_label.text = " "
 	await _load_characters()
 	character_tabs.current_tab = 0
@@ -2942,6 +3110,7 @@ func _populate_character_options_from_content() -> void:
 	var options: Dictionary = content_domains.get("character_options", {})
 	if create_race_option == null:
 		return
+	_populate_character_presets_from_content()
 	_fill_option(create_race_option, _content_labels(options.get("race", options.get("races", [])), ["Human"]))
 	_fill_option(create_background_option, _content_labels(options.get("background", options.get("backgrounds", [])), ["Drifter"]))
 	_fill_option(create_affiliation_option, _content_labels(options.get("affiliation", options.get("affiliations", [])), ["Unaffiliated"]))

@@ -24,6 +24,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 ## Client Surfaces (Current)
 - Auth (`login/register`)
 - Account hub (character list/create/select/play)
+- Character creation preset picker (runtime-config driven `preset_key` selection)
 - Settings (including MFA controls)
 - Admin tooling (for admin users)
 - World runtime (isometric)
@@ -59,6 +60,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Runtime service:
   - `backend/app/services/runtime_config.py`
   - response contract consumed via `/content/runtime-config`
+  - includes curated `character_presets` entries that seed create-flow defaults (appearance/stat/skill/inventory leaning) while the client can still submit overrides.
   - client validates runtime config signature against canonicalized payload before applying
   - client caches last valid runtime config to `runtime_gameplay_cache.json` and falls back to cache when backend is temporarily unavailable.
   - staged/publish/rollback lifecycle:

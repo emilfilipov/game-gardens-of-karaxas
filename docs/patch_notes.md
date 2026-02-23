@@ -1,10 +1,4 @@
-- Added party system v1 (`/party`) with create/invite/accept/decline/leave/kick/promote-owner and integrated party-aware world instance routing.
-- Added deterministic world instance lifecycle service (`solo/party/hub`) with reconnect metadata and runtime endpoints (`/instances/current`, `/instances/heartbeat`).
-- Added hub-scoped realtime presence behavior: zone presence fanout is limited to hub levels and hub join/leave websocket events are deduplicated.
-- Added server-authoritative gameplay resolver (`/gameplay/resolve-action`) with movement sanity checks, action-rate guardrails, nonce replay protection, XP/level updates, and loot grants.
-- Added character inventory persistence and preset foundation (`preset_key`) to support hard archetype templates for future authored starts.
-- Hardened runtime gameplay config pipeline with schema/domain validation, signature pin enforcement, and admin staged publish/rollback endpoints (`/content/runtime-config/status|stage|publish|rollback`).
-- Added dedicated `Security Scan` GitHub Actions workflow and post-deploy smoke loop in backend deploy workflow (`health/deep` + online auth/character/gameplay smoke harness).
-- Expanded observability with auth result counters, websocket disconnect reason counters, and instance occupancy/assignment metrics exposed in ops metrics.
-- Continued naming migration pass for Children of Ikphelion across backend defaults/scripts/build metadata and added Steam dual-distribution technical plan document (`docs/STEAM_DUAL_DISTRIBUTION.md`).
-- Updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`, `docs/TASKS.md`) to reflect completed backlog implementation and preset-ready direction.
+- Added curated hard character preset catalog in runtime gameplay config with class-leaning starters (`wanderer`, `vanguard`, `arcanist`, `strider`) including baseline appearance/stats/skills/inventory.
+- Wired create-character preset UX in Godot: preset dropdown now applies defaults to identity fields, stats, skills, and point budget while preserving user override control.
+- Updated create-character API payload wiring to send `preset_key` explicitly so selected preset is persisted server-side.
+- Cleared remaining preset backlog tasks and updated canonical docs (`docs/GAME.md`, `docs/TECHNICAL.md`, `docs/TASKS.md`) to reflect implemented preset flow.

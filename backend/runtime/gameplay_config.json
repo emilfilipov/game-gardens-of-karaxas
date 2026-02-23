@@ -32,6 +32,45 @@
           "stats": {"strength": 2, "agility": 2, "intellect": 2, "vitality": 2},
           "skills": {"ember": 1},
           "starting_inventory": [{"item_key": "traveler_knife", "qty": 1}]
+        },
+        {
+          "key": "vanguard",
+          "label": "Vanguard",
+          "description": "Front-line fighter with a melee-leaning baseline.",
+          "appearance_key": "human_male",
+          "race": "Human",
+          "background": "Drifter",
+          "affiliation": "Unaffiliated",
+          "point_budget": 10,
+          "stats": {"strength": 4, "agility": 2, "intellect": 0, "vitality": 3},
+          "skills": {"cleave": 1},
+          "starting_inventory": [{"item_key": "rusted_sword", "qty": 1}]
+        },
+        {
+          "key": "arcanist",
+          "label": "Arcanist",
+          "description": "Caster-leaning baseline focused on intellect.",
+          "appearance_key": "human_female",
+          "race": "Human",
+          "background": "Drifter",
+          "affiliation": "Unaffiliated",
+          "point_budget": 10,
+          "stats": {"strength": 0, "agility": 2, "intellect": 5, "vitality": 2},
+          "skills": {"ember": 1},
+          "starting_inventory": [{"item_key": "ember_focus", "qty": 1}]
+        },
+        {
+          "key": "strider",
+          "label": "Strider",
+          "description": "Mobile skirmisher baseline with agility focus.",
+          "appearance_key": "human_female",
+          "race": "Human",
+          "background": "Drifter",
+          "affiliation": "Unaffiliated",
+          "point_budget": 10,
+          "stats": {"strength": 2, "agility": 5, "intellect": 1, "vitality": 1},
+          "skills": {"quick_strike": 1},
+          "starting_inventory": [{"item_key": "scout_blade", "qty": 1}]
         }
       ]
     },

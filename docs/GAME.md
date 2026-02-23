@@ -35,7 +35,7 @@ Play model:
 - Current character creator and isometric runtime work are retained and iterated forward.
 - Existing proven online hub/list/create UX patterns are reused as baseline while visual polish continues.
 - Character location persistence includes level/floor and coordinates.
-- Character creation now supports **preset-key** foundations (hard archetype templates) so future authored presets can define baseline look and starter gameplay leaning (for example caster-leaning vs melee-leaning starts).
+- Character creation now includes a **preset selector** backed by runtime config (`wanderer`, `vanguard`, `arcanist`, `strider`) so starts can be class-leaning while still allowing user customization before creation.
 
 ## Authority Model
 - Server is authoritative for gameplay-relevant values and progression.
