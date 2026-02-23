@@ -5,7 +5,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Task Backlog
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
-| _None_ | - | - | Backlog is currently clear for the online baseline. New tasks should be added as gameplay/asset design requirements are finalized. |
+| COI-ONLINE-022 | ⬜ | 3 | Optional art-tool integration backlog item: formalize external artist workflow for `Aseprite`/`Krita` and import automation into the repo pipeline. Scope includes (1) canonical folder/naming/export conventions for layered source files and runtime sprite sheets, (2) optional CLI export wrappers where tooling is available locally, (3) validation script updates to fail on malformed/partial packs, and (4) concise contributor documentation for handoff between art authoring and runtime ingest. Deferred until active art production requires it. |
 
 ## Completed Tasks
 | Task ID | Status | Complexity | Detailed Description |
