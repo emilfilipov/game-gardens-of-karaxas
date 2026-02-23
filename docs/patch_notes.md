@@ -3,3 +3,4 @@
 - Wired animated directional character rendering in Godot podium previews and in-world actor rendering using the new sprite catalog.
 - Consolidated runtime preset catalog to `sellsword` and aligned defaults/fallbacks (`preset_key`) across backend, client, and smoke harness.
 - Updated canonical docs and asset docs to reflect the new art pipeline and runtime usage.
+- Fixed a Godot startup parse regression in auth error handling (`client_shell.gd`) that caused a gray screen due to invalid GDScript set-literal syntax.

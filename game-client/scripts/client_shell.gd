@@ -3165,7 +3165,7 @@ func _friendly_error(response: Dictionary) -> String:
 		message = str(response.get("message", "")).strip_edges()
 	if code == 401 and (error_code == "invalid_mfa_code" or message.to_lower().contains("invalid mfa")):
 		return "Invalid MFA code."
-	if code == 401 and error_code in {"invalid_credentials", "unauthorized"}:
+	if code == 401 and error_code in ["invalid_credentials", "unauthorized"]:
 		return "This account doesn't exist."
 	if code == 409 and register_mode:
 		return "This account already exists."
