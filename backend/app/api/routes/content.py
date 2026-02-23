@@ -13,6 +13,7 @@ from app.schemas.content import (
     ContentBootstrapResponse,
     ContentBundleUpsertRequest,
     ContentPublishDrainSummaryResponse,
+    RuntimeGameplayConfigResponse,
     ContentSchemaRegistryResponse,
     ContentValidationIssueResponse,
     ContentValidationResponse,
@@ -21,6 +22,7 @@ from app.schemas.content import (
     ContentVersionDetailResponse,
     ContentVersionSummaryResponse,
 )
+from app.services.runtime_config import load_runtime_gameplay_config
 from app.services.content import (
     CONTENT_SCHEMA_VERSION,
     CONTENT_STATE_ACTIVE,
@@ -165,6 +167,18 @@ def bootstrap_content(db: Session = Depends(get_db)):
         content_version_key=snapshot.content_version_key,
         fetched_at=snapshot.loaded_at,
         domains=snapshot.domains,
+    )
+
+
+@router.get("/runtime-config", response_model=RuntimeGameplayConfigResponse)
+def runtime_gameplay_config_endpoint():
+    runtime_cfg = load_runtime_gameplay_config()
+    return RuntimeGameplayConfigResponse(
+        config_key=runtime_cfg.config_key,
+        content_contract_signature=runtime_cfg.content_contract_signature,
+        fetched_at=runtime_cfg.fetched_at,
+        source_path=runtime_cfg.source_path,
+        domains=runtime_cfg.domains,
     )
 
 

@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     jwt_secret: str
-    jwt_issuer: str = "karaxas"
-    jwt_audience: str = "karaxas-client"
+    jwt_issuer: str = "children-of-ikphelion"
+    jwt_audience: str = "children-of-ikphelion-client"
     jwt_access_ttl_minutes: int = 15
     jwt_refresh_ttl_days: int = 30
     jwt_refresh_ttl_days_admin: int = 7
@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     chat_write_rate_limit_max_per_ip: int = 40
     chat_write_rate_limit_max_per_account: int = 30
     chat_write_rate_limit_lockout_seconds: int = 30
+    runtime_gameplay_config_path: str = "/app/runtime/gameplay_config.json"
 
     db_host: str
     db_port: int = 5432

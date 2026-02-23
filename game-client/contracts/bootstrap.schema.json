@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gardensofkaraxas/contracts/runtime-bootstrap-v1.schema.json",
-  "title": "Gardens of Karaxas Runtime Bootstrap v1",
+  "$id": "https://childrenofikphelion/contracts/runtime-bootstrap-v1.schema.json",
+  "title": "Children of Ikphelion Runtime Bootstrap v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

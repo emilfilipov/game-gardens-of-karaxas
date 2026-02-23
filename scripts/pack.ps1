@@ -66,13 +66,13 @@ $iconPath = $iconCandidates | Where-Object { Test-Path $_ } | Select-Object -Fir
 $launcherIcon = if ($iconPath -and (Test-Path $iconPath)) { @("--icon", $iconPath) } else { @() }
 $gameIcon = if ($iconPath -and (Test-Path $iconPath)) { @("--icon", $iconPath) } else { @() }
 
-jpackage --type app-image --input (Split-Path $launcherJar) --main-jar (Split-Path $launcherJar -Leaf) --name "GardensOfKaraxasLauncher" --app-version $Version --dest $launcherImageDir @launcherIcon
+jpackage --type app-image --input (Split-Path $launcherJar) --main-jar (Split-Path $launcherJar -Leaf) --name "ChildrenOfIkphelionLauncher" --app-version $Version --dest $launcherImageDir @launcherIcon
 if (-not $launcherOnlyMode) {
-  jpackage --type app-image --input (Split-Path $gameJar) --main-jar (Split-Path $gameJar -Leaf) --name "GardensOfKaraxas" --app-version $Version --dest $gameImageDir @gameIcon
+  jpackage --type app-image --input (Split-Path $gameJar) --main-jar (Split-Path $gameJar -Leaf) --name "ChildrenOfIkphelion" --app-version $Version --dest $gameImageDir @gameIcon
 }
 
-$launcherApp = Join-Path $launcherImageDir "GardensOfKaraxasLauncher"
-$gameApp = Join-Path $gameImageDir "GardensOfKaraxas"
+$launcherApp = Join-Path $launcherImageDir "ChildrenOfIkphelionLauncher"
+$gameApp = Join-Path $gameImageDir "ChildrenOfIkphelion"
 
 if (-not (Test-Path $launcherApp)) { throw "Missing launcher app image at $launcherApp" }
 if (-not $launcherOnlyMode -and -not (Test-Path $gameApp)) { throw "Missing game app image at $gameApp" }
@@ -204,7 +204,7 @@ if ($repoUrl -and $repoUrl.Trim().Length -gt 0) {
 }
 
 $vpkIcon = if ($iconPath -and (Test-Path $iconPath)) { @("--icon", $iconPath) } else { @() }
-vpk pack --packId GardensOfKaraxas --packVersion $Version --packDir $payloadDir --mainExe GardensOfKaraxasLauncher.exe --packTitle "Gardens of Karaxas" --outputDir $releasesDir --channel win @vpkIcon
+vpk pack --packId ChildrenOfIkphelion --packVersion $Version --packDir $payloadDir --mainExe ChildrenOfIkphelionLauncher.exe --packTitle "Children of Ikphelion" --outputDir $releasesDir --channel win @vpkIcon
 
 if (-not (Test-Path $wrapperProject)) {
   throw "Missing setup wrapper project at $wrapperProject"

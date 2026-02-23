@@ -1,4 +1,4 @@
-# Gardens of Karaxas v{{version}}
+# Children of Ikphelion v{{version}}
 
 Release Date: {{date}}
 

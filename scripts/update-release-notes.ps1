@@ -12,7 +12,7 @@ $date = (Get-Date).ToString("yyyy-MM-dd")
 if (Test-Path $templatePath) {
   $notes = Get-Content $templatePath -Raw
 } else {
-  $notes = "# Gardens of Karaxas v{{version}}`n`nRelease Date: {{date}}`n`n## Changes`n{{changelog}}"
+  $notes = "# Children of Ikphelion v{{version}}`n`nRelease Date: {{date}}`n`n## Changes`n{{changelog}}"
 }
 
 $changelog = ""

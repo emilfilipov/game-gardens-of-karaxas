@@ -1,33 +1,37 @@
 {
   "required_builders": [
-    "_build_main_menu_screen",
-    "_build_create_screen",
-    "_build_load_screen",
-    "_build_settings_screen",
-    "_build_admin_screen",
-    "_build_world_screen"
-  ],
-  "forbidden_snippets": [
     "_build_auth_screen",
     "_build_account_screen",
-    "mfa_enabled",
-    "ws_connection_tickets"
+    "_build_world_screen",
+    "_build_log_screen",
+    "_build_settings_screen",
+    "_build_level_editor_screen",
+    "_build_asset_editor_screen",
+    "_build_content_versions_screen"
+  ],
+  "forbidden_snippets": [
+    "MENU_NEW_GAME",
+    "_create_save_slot",
+    "single-player shell"
   ],
   "required_snippets": [
-    "MENU_NEW_GAME",
-    "MENU_LOAD_GAME",
-    "MENU_SETTINGS",
+    "DEFAULT_API_BASE_URL",
     "MENU_UPDATE",
-    "MENU_ADMIN",
-    "MENU_EXIT",
-    "_create_save_slot",
-    "_load_level",
-    "_on_update_pressed",
-    "_on_world_use_item_pressed",
-    "_refresh_world_inventory_view",
-    "_build_world_runtime_config",
-    "_build_keybind_rows",
-    "_admin_apply_level_canvas_overlays"
+    "MENU_LOGOUT",
+    "MENU_SETTINGS",
+    "_on_auth_submit",
+    "_on_auth_toggle_mode",
+    "_refresh_account_screen_deferred",
+    "_on_create_character_pressed",
+    "_refresh_settings_mfa_status",
+    "_on_settings_mfa_toggle_requested",
+    "_refresh_content_bootstrap",
+    "_on_world_position_changed",
+    "_on_character_play_pressed",
+    "_show_screen(\"auth\")",
+    "_build_account_screen",
+    "MENU_LEVEL_EDITOR",
+    "MENU_ASSET_EDITOR"
   ],
   "golden_images": [
     "game-client/tests/goldens/main_menu_shell.png",

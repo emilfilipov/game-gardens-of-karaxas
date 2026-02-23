@@ -1,0 +1,96 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend_code: ${{ steps.filter.outputs.backend_code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Filter backend changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend_code:
+              - "backend/**"
+              - "!backend/**/*.md"
+              - "!backend/**/*.MD"
+              - ".github/workflows/deploy-backend.yml"
+
+  backend-checks:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend_code == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend deps
+        run: pip install -r backend/requirements.txt
+
+      - name: Backend syntax sanity
+        run: python3 -m compileall backend/app
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [changes, backend-checks]
+    if: (needs.changes.outputs.backend_code == 'true' || github.event_name == 'workflow_dispatch') && vars.KARAXAS_GCP_PROJECT_ID != '' && vars.KARAXAS_REGION != '' && vars.KARAXAS_SERVICE_NAME != '' && vars.KARAXAS_CLOUD_SQL_INSTANCE != '' && vars.KARAXAS_AR_REPO != '' && vars.KARAXAS_IMAGE_NAME != '' && vars.KARAXAS_DB_NAME != '' && vars.KARAXAS_DB_USER != '' && secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' && secrets.KARAXAS_JWT_SECRET != '' && secrets.KARAXAS_OPS_API_TOKEN != '' && secrets.KARAXAS_DB_PASSWORD != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Cloud Run backend
+        env:
+          PROJECT_ID: ${{ vars.KARAXAS_GCP_PROJECT_ID }}
+          REGION: ${{ vars.KARAXAS_REGION }}
+          SERVICE_NAME: ${{ vars.KARAXAS_SERVICE_NAME }}
+          CLOUD_SQL_INSTANCE: ${{ vars.KARAXAS_CLOUD_SQL_INSTANCE }}
+          AR_REPO: ${{ vars.KARAXAS_AR_REPO }}
+          IMAGE_NAME: ${{ vars.KARAXAS_IMAGE_NAME }}
+          DB_NAME: ${{ vars.KARAXAS_DB_NAME }}
+          DB_USER: ${{ vars.KARAXAS_DB_USER }}
+          DB_PORT: ${{ vars.KARAXAS_DB_PORT }}
+          DB_SSLMODE: ${{ vars.KARAXAS_DB_SSLMODE }}
+          CORS_ALLOWED_ORIGINS: ${{ vars.KARAXAS_CORS_ALLOWED_ORIGINS }}
+          JWT_ISSUER: ${{ vars.KARAXAS_JWT_ISSUER }}
+          JWT_AUDIENCE: ${{ vars.KARAXAS_JWT_AUDIENCE }}
+          VERSION_GRACE_MINUTES_DEFAULT: ${{ vars.KARAXAS_VERSION_GRACE_MINUTES_DEFAULT }}
+          JWT_SECRET: ${{ secrets.KARAXAS_JWT_SECRET }}
+          OPS_API_TOKEN: ${{ secrets.KARAXAS_OPS_API_TOKEN }}
+          DB_PASSWORD: ${{ secrets.KARAXAS_DB_PASSWORD }}
+          ALLOW_PLAIN_ENV_SECRETS: "true"
+          SKIP_BOOTSTRAP: "1"
+          IMAGE_TAG: "${{ github.sha }}"
+        run: |
+          chmod +x backend/scripts/deploy_cloud_run.sh
+          backend/scripts/deploy_cloud_run.sh

@@ -1,10 +1,10 @@
 ; Engine configuration file.
-; Godot 4.x project scaffold for Gardens of Karaxas runtime host migration.
+; Godot 4.x project scaffold for Children of Ikphelion runtime host migration.
 
 config_version=5
 
 [application]
-config/name="Gardens of Karaxas - Game Client"
+config/name="Children of Ikphelion - Game Client"
 run/main_scene="res://scenes/bootstrap.tscn"
 config/icon="res://assets/game_icon.png"
 

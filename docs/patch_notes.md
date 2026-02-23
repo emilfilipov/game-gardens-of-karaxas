@@ -1,12 +1,10 @@
-- Added playable combat runtime in world view with `basic attack`, `Ember`, `Cleave`, `Quick Strike`, and `Bandage`, including cooldown/resource tracking and HUD state updates.
-- Added enemy prototype system with config-driven spawn catalog, chase/attack AI, death handling, quest kill events, and loot drops.
-- Added inventory/equipment world loop (`pickup/use/equip/drop`) with stack handling and equipment bonuses applied to combat stats.
-- Added NPC interaction + quest progression v1 with acceptance flow and kill-goal updates persisted in local saves.
-- Upgraded Level Editor to tool-first interaction via `level_editor_canvas.gd` (active layer, brush asset, mode, grid/collision overlays) while retaining optional advanced JSON editing.
-- Upgraded Asset Editor to structured searchable forms (key/label/layer/collision/description) with inline validation and unique-key guards.
-- Expanded settings with keybinding capture, gamepad toggle/deadzone controls, UI scale, high-contrast toggle, and runtime keybind propagation.
-- Hardened save/config IO with atomic writes, timestamped backups, automatic backup recovery, and a load-screen restore action.
-- Added explicit config schema at `game-client/assets/config/schema/game_config.schema.json` and generated field reference docs in `docs/CONFIG_FIELDS.md`.
-- Added release-notes visibility in both main menu and world UI for player-facing change summaries.
-- Updated UI regression harness signature/sources for the new world + editor architecture.
-- Updated task tracking so GOK-SPRPG-023 through GOK-SPRPG-034 are recorded as completed and backlog now starts at GOK-SPRPG-035.
+- Re-enabled the online Godot client shell (`client_shell.gd`) as runtime entrypoint and switched bootstrap scene to use it.
+- Restored online auth/account/character/MFA-driven flow baseline while preserving the current isometric world runtime integration.
+- Added backend file-based runtime gameplay config source at `backend/runtime/gameplay_config.json`.
+- Added backend runtime gameplay config service (`runtime_config.py`) and new API endpoint `GET /content/runtime-config`.
+- Updated client content bootstrap logic to prefer `/content/runtime-config` and fallback to `/content/bootstrap`.
+- Updated backend container build to include runtime config files (`COPY backend/runtime /app/runtime`).
+- Renamed user-facing product surfaces from Gardens of Karaxas to Children of Ikphelion across launcher/game client/docs/release artifacts.
+- Updated packaging identifiers/artifact names to `ChildrenOfIkphelion` in `scripts/pack.ps1` and release workflow mutable feed object names.
+- Updated canonical docs (`GAME`, `TECHNICAL`) and rebuilt task tracking for the online ARPG pivot.
+- Updated UI regression harness to validate active online shell (`client_shell.gd`) instead of the retired single-player shell.

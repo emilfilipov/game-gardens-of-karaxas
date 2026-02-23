@@ -21,7 +21,7 @@ from app.services.release_policy import ensure_release_policy
 from app.services.session_drain import finalize_due_publish_drains
 from app.services.ws_ticket import purge_expired_ws_tickets
 
-app = FastAPI(title="karaxas-backend", version="0.1.0")
+app = FastAPI(title="children-of-ikphelion-backend", version="0.1.0")
 configure_logging()
 logger = logging.getLogger("karaxas.api")
 

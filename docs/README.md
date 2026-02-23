@@ -1,6 +1,6 @@
-# Gardens of Karaxas
+# Children of Ikphelion
 
-Gardens of Karaxas is a single-player isometric ARPG project with a Godot runtime and a launcher/updater distribution pipeline.
+Children of Ikphelion is an online isometric ARPG project with a Godot client runtime, Kotlin launcher/updater, and FastAPI backend services.
 
 ## Canonical Documentation
 - `docs/GAME.md` - product/game scope and player-facing behavior.
@@ -9,6 +9,7 @@ Gardens of Karaxas is a single-player isometric ARPG project with a Godot runtim
 ## Project Structure
 - `launcher/` - Kotlin bootstrap/updater orchestration.
 - `game-client/` - Godot 4.x runtime shell, world scene, and admin tooling.
+- `backend/` - FastAPI online services (auth/session/characters/content/runtime config/events).
 - `assets/` - shared game assets.
 - `docs/` - canonical + supporting documentation.
 - `scripts/` - packaging/release scripts.

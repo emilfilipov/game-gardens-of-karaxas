@@ -249,8 +249,8 @@ jobs:
             "RELEASES",
             "assets.win.json",
             "releases.win.json",
-            "GardensOfKaraxas-win-Setup.exe",
-            "GardensOfKaraxas-win-Portable.zip"
+            "ChildrenOfIkphelion-win-Setup.exe",
+            "ChildrenOfIkphelion-win-Portable.zip"
           )
           foreach ($name in $mutableFeedObjects) {
             $target = "$feedPrefix/$name"

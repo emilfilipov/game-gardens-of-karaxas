@@ -70,7 +70,7 @@ func _build_shell() -> void:
     margin.add_child(column)
 
     _title_label = Label.new()
-    _title_label.text = "Gardens of Karaxas - Godot Runtime"
+    _title_label.text = "Children of Ikphelion - Godot Runtime"
     _title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     _title_label.add_theme_color_override("font_color", Color(0.95, 0.90, 0.78))
     _title_label.add_theme_font_size_override("font_size", 28)

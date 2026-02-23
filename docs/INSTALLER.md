@@ -14,7 +14,7 @@ powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 -Version 1.0.0
 Artifacts are written to `releases/windows/`.
 
 ## Runtime behavior
-- Installed executable launches Godot single-player shell.
+- Installed executable launches Godot online client shell.
 - Update control is available from main menu (`Update`).
 - Updater uses packaged `UpdateHelper.exe`.
 - Feed URL source order:
@@ -24,7 +24,7 @@ Artifacts are written to `releases/windows/`.
 
 ## Local install path
 Default install root:
-`%LOCALAPPDATA%\GardensOfKaraxas`
+`%LOCALAPPDATA%\ChildrenOfIkphelion`
 
 Logs:
 - launcher logs: `<install_root>\logs\launcher.log`

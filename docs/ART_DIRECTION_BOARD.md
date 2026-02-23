@@ -1,4 +1,4 @@
-# Gardens of Karaxas - Art/Tech Reference Board (GOK-MMO-174)
+# Children of Ikphelion - Art/Tech Reference Board (GOK-MMO-174)
 
 This board locks the visual-direction baseline for the isometric migration.
 

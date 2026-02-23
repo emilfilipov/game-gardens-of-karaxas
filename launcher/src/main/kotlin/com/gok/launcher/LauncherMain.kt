@@ -228,7 +228,7 @@ object LauncherMain {
                     JOptionPane.showMessageDialog(
                         null,
                         "Unable to launch the Godot game runtime.\nPlease run Update or reinstall the client.",
-                        "Gardens of Karaxas",
+                        "Children of Ikphelion",
                         JOptionPane.ERROR_MESSAGE,
                     )
                 }
@@ -277,7 +277,7 @@ object LauncherMain {
     }
 
     private fun createAndShow(autoPlay: Boolean = false) {
-        val frame = JFrame("Gardens of Karaxas")
+        val frame = JFrame("Children of Ikphelion")
         frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
         frame.isUndecorated = true
         frame.minimumSize = Dimension(1280, 720)
@@ -293,7 +293,7 @@ object LauncherMain {
             border = rootPanelDefaultBorder
         }
 
-        val screenTitle = JLabel("Gardens of Karaxas", SwingConstants.CENTER).apply {
+        val screenTitle = JLabel("Children of Ikphelion", SwingConstants.CENTER).apply {
             foreground = textColor
             font = Font(THEME_FONT_FAMILY, Font.BOLD, 56)
             border = BorderFactory.createEmptyBorder(4, 0, 4, 0)
@@ -7143,7 +7143,12 @@ object LauncherMain {
         val gameExe = if (!overridePath.isNullOrBlank()) {
             Paths.get(overridePath)
         } else {
-            root.resolve("game").resolve("GardensOfKaraxas.exe")
+            val preferred = root.resolve("game").resolve("ChildrenOfIkphelion.exe")
+            if (Files.exists(preferred)) {
+                preferred
+            } else {
+                root.resolve("game").resolve("GardensOfKaraxas.exe")
+            }
         }
         if (!Files.exists(gameExe)) {
             status.text = "Game executable not found: ${gameExe.toAbsolutePath()}"
@@ -7530,9 +7535,15 @@ object LauncherMain {
         val userDir = Paths.get(System.getProperty("user.dir")).toAbsolutePath()
         val envRoot = System.getenv("VELOPACK_APPROOT")?.takeIf { it.isNotBlank() }?.let { Paths.get(it).toAbsolutePath() }
         val localAppData = System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }?.let {
+            Paths.get(it, "ChildrenOfIkphelion").toAbsolutePath()
+        }
+        val localAppDataLegacy = System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }?.let {
             Paths.get(it, "GardensOfKaraxas").toAbsolutePath()
         }
         val homeAppData = System.getProperty("user.home")?.let {
+            Paths.get(it, "AppData", "Local", "ChildrenOfIkphelion").toAbsolutePath()
+        }
+        val homeAppDataLegacy = System.getProperty("user.home")?.let {
             Paths.get(it, "AppData", "Local", "GardensOfKaraxas").toAbsolutePath()
         }
         val javaHome = System.getProperty("java.home")?.let { Paths.get(it).toAbsolutePath() }
@@ -7551,7 +7562,16 @@ object LauncherMain {
             jarDir != null -> jarDir
             else -> null
         }
-        val candidates = listOfNotNull(envRoot, localAppData, homeAppData, fromCodeSource, fromJavaHome, userDir)
+        val candidates = listOfNotNull(
+            envRoot,
+            localAppData,
+            localAppDataLegacy,
+            homeAppData,
+            homeAppDataLegacy,
+            fromCodeSource,
+            fromJavaHome,
+            userDir
+        )
         val withGame = candidates.firstOrNull { Files.exists(it.resolve("game")) }
         val withApp = candidates.firstOrNull { Files.exists(it.resolve("app")) }
         return withGame ?: withApp ?: fromCodeSource ?: fromJavaHome ?: userDir
@@ -7716,9 +7736,11 @@ object LauncherMain {
         roots.add(payloadRoot)
         System.getenv("VELOPACK_APPROOT")?.takeIf { it.isNotBlank() }?.let { roots.add(Paths.get(it)) }
         System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }?.let {
+            roots.add(Paths.get(it, "ChildrenOfIkphelion"))
             roots.add(Paths.get(it, "GardensOfKaraxas"))
         }
         System.getProperty("user.home")?.let {
+            roots.add(Paths.get(it, "AppData", "Local", "ChildrenOfIkphelion"))
             roots.add(Paths.get(it, "AppData", "Local", "GardensOfKaraxas"))
         }
         return roots.distinct()
@@ -7992,7 +8014,7 @@ object LauncherMain {
                 StandardOpenOption.TRUNCATE_EXISTING,
                 StandardOpenOption.WRITE
             ).use { output ->
-                properties.store(output, "Gardens of Karaxas launcher preferences")
+                properties.store(output, "Children of Ikphelion launcher preferences")
             }
         } catch (ex: Exception) {
             log("Failed to save launcher preferences.", ex)

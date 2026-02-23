@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY backend/alembic.ini /app/alembic.ini
 COPY backend/alembic /app/alembic
 COPY backend/app /app/app
+COPY backend/runtime /app/runtime
 
 RUN chown -R app:app /app
 USER app

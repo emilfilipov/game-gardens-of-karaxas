@@ -17,6 +17,14 @@ class ContentBootstrapResponse(BaseModel):
     domains: dict[str, dict]
 
 
+class RuntimeGameplayConfigResponse(BaseModel):
+    config_key: str
+    content_contract_signature: str
+    fetched_at: datetime
+    source_path: str
+    domains: dict[str, dict]
+
+
 class ContentVersionSummaryResponse(BaseModel):
     id: int
     version_key: str
