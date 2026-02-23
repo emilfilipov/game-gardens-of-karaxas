@@ -13,7 +13,7 @@ import math
 from pathlib import Path
 from typing import Dict, Tuple
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 PACK_ROOT = ROOT / "assets/characters/sellsword_v1"
@@ -202,13 +202,12 @@ def _draw_layered_character(gender: str, anim: str, direction: str, frame: int, 
     clasp_y = torso_top + 6
     draw.rectangle((cx - 1, clasp_y, cx + 1, clasp_y + 3), fill=PALETTE["metal"])
 
-    # Outline pass.
+    # Outline pass. Keep interior colors intact and draw border only around the silhouette.
     alpha = img.split()[-1]
-    outline = alpha.filter(ImageFilter.MaxFilter(size=3))
+    expanded = alpha.filter(ImageFilter.MaxFilter(size=3))
+    edge_mask = ImageChops.subtract(expanded, alpha)
     outline_img = Image.new("RGBA", img.size, PALETTE["outline"])
-    img = Image.composite(outline_img, img, outline)
-    img.alpha_composite(Image.new("RGBA", img.size, (0, 0, 0, 0)))
-    img = Image.alpha_composite(img, Image.new("RGBA", img.size, (0, 0, 0, 0)))
+    img = Image.composite(outline_img, img, edge_mask)
 
     return img
 

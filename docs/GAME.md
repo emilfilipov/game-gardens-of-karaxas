@@ -34,6 +34,7 @@ Play model:
 - Character list/create/select/play remains a first-class flow in the client.
 - Current character creator and isometric runtime work are retained and iterated forward.
 - Existing proven online hub/list/create UX patterns are reused as baseline while visual polish continues.
+- Account hub now uses side navigation (no list/create tabs) with large center podium previews in both list and create flows.
 - Character location persistence includes level/floor and coordinates.
 - Character creation now focuses on a minimal onboarding flow: **preset + sex + name**.
 - Race/background/affiliation/manual stat allocation are no longer player-facing in creation and are sourced from preset/runtime defaults.

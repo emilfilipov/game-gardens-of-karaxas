@@ -4,3 +4,7 @@
 - Consolidated runtime preset catalog to `sellsword` and aligned defaults/fallbacks (`preset_key`) across backend, client, and smoke harness.
 - Updated canonical docs and asset docs to reflect the new art pipeline and runtime usage.
 - Fixed a Godot startup parse regression in auth error handling (`client_shell.gd`) that caused a gray screen due to invalid GDScript set-literal syntax.
+- Reworked the account hub layout into side-navigation views (no Character List/Create tabs), with larger center podium previews for both list and create flows.
+- Fixed character-list rendering regression by removing invalid button property usage in row rendering and simplifying row content.
+- Restored non-world header behavior to centered game title (`Children of Ikphelion`) and tightened cog-menu popup positioning.
+- Fixed Sellsword sprite generation output to preserve full color/texture (removed silhouette-only compositing issue) and regenerated runtime sheets.

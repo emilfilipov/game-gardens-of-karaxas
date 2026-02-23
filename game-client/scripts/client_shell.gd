@@ -19,7 +19,6 @@ const MENU_LOGOUT_CHARACTER = 7
 const MENU_LEVEL_EDITOR = 8
 const MENU_ASSET_EDITOR = 9
 const MENU_CONTENT_VERSIONS = 10
-const MENU_LEVEL_ORDER = 11
 
 var api_base_url = DEFAULT_API_BASE_URL
 var client_version = DEFAULT_CLIENT_VERSION
@@ -85,13 +84,18 @@ var auth_update_button: Button
 
 var account_container: VBoxContainer
 var account_status_label: Label
-var character_tabs: TabContainer
+var account_nav_list_button: Button
+var account_nav_create_button: Button
+var account_list_panel: VBoxContainer
+var account_create_panel: VBoxContainer
+var account_view_mode = "list"
 var character_rows_scroll: ScrollContainer
 var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
 var character_preview_texture: Control
 var character_list_title_label: Label
 var character_refresh_button: Button
+var character_spawn_override_option: OptionButton
 
 var create_name_input: LineEdit
 var create_preset_option: OptionButton
@@ -374,14 +378,14 @@ func _build_ui() -> void:
 
 	header_title = Label.new()
 	header_title.text = "Children of Ikphelion"
-	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_title.add_theme_font_size_override("font_size", 52)
+	header_title.add_theme_font_size_override("font_size", 46)
 	header_title.add_theme_color_override("font_color", Color(0.95, 0.90, 0.79))
 	header.add_child(header_title)
 
 	menu_button = Button.new()
-	menu_button.text = "..."
+	menu_button.text = "⚙"
 	menu_button.custom_minimum_size = Vector2(UI_TOKENS.size("menu_square"), UI_TOKENS.size("menu_square"))
 	menu_button.focus_mode = Control.FOCUS_CLICK
 	menu_button.pressed.connect(_on_menu_button_pressed)
@@ -559,40 +563,55 @@ func _build_account_screen() -> VBoxContainer:
 	)
 	var wrap = shell["wrap"] as VBoxContainer
 	var content_root = shell["content"] as VBoxContainer
+	var root_split = HBoxContainer.new()
+	root_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	content_root.add_child(root_split)
 
+	var nav_panel = UI_COMPONENTS.panel_card(Vector2(210, 0), false)
+	nav_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_split.add_child(nav_panel)
+	var nav_inner = VBoxContainer.new()
+	nav_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	nav_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	nav_panel.add_child(nav_inner)
+	account_nav_list_button = UI_COMPONENTS.button_primary("Character List", Vector2(0, 42))
+	account_nav_list_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	account_nav_list_button.pressed.connect(func() -> void:
+		_set_account_view("list")
+	)
+	nav_inner.add_child(account_nav_list_button)
+	account_nav_create_button = UI_COMPONENTS.button_secondary("Create Character", Vector2(0, 42))
+	account_nav_create_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	account_nav_create_button.pressed.connect(func() -> void:
+		_set_account_view("create")
+	)
+	nav_inner.add_child(account_nav_create_button)
+	nav_inner.add_spacer(false)
 	account_status_label = _label(" ", -1, "text_secondary")
 	account_status_label.text = " "
-	content_root.add_child(account_status_label)
+	account_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nav_inner.add_child(account_status_label)
 
-	character_tabs = TabContainer.new()
-	character_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	character_tabs.focus_mode = Control.FOCUS_NONE
-	content_root.add_child(character_tabs)
+	var views_root = Control.new()
+	views_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	views_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_split.add_child(views_root)
 
-	var list_tab = VBoxContainer.new()
-	list_tab.name = "Character List"
-	list_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	character_tabs.add_child(list_tab)
-
-	var list_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	list_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_tab.add_child(list_shell)
-	var list_shell_inner = VBoxContainer.new()
-	list_shell_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_shell_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_shell.add_child(list_shell_inner)
-
+	account_list_panel = VBoxContainer.new()
+	account_list_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	account_list_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	views_root.add_child(account_list_panel)
 	var list_split = HSplitContainer.new()
 	list_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_shell_inner.add_child(list_split)
-
-	var list_left = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	list_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_left.size_flags_stretch_ratio = 0.72
+	account_list_panel.add_child(list_split)
+	var list_left = UI_COMPONENTS.panel_card(Vector2(340, 0), false)
+	list_left.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_left.size_flags_stretch_ratio = 0.24
 	list_split.add_child(list_left)
 	var list_left_inner = VBoxContainer.new()
-	list_left_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	list_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_left_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	list_left.add_child(list_left_inner)
 	var list_header = HBoxContainer.new()
 	list_header.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
@@ -609,113 +628,128 @@ func _build_account_screen() -> VBoxContainer:
 	character_rows_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	list_left_inner.add_child(character_rows_scroll)
 	character_rows_container = VBoxContainer.new()
-	character_rows_container.add_theme_constant_override("separation", 8)
+	character_rows_container.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	character_rows_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	character_rows_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_rows_scroll.add_child(character_rows_container)
 
-	var list_right = UI_COMPONENTS.panel_card(Vector2(360, 420), false)
-	list_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_right.size_flags_stretch_ratio = 0.28
-	list_split.add_child(list_right)
-	var list_right_inner = VBoxContainer.new()
-	list_right_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_right.add_child(list_right_inner)
-	var preview_title = _label("Character Preview", 18, "text_secondary")
-	list_right_inner.add_child(preview_title)
-	var preview_panel = UI_COMPONENTS.panel_card(Vector2(320, 240), false)
-	preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_right_inner.add_child(preview_panel)
+	var list_center = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	list_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_center.size_flags_stretch_ratio = 0.54
+	list_split.add_child(list_center)
 	character_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if character_preview_texture.has_method("configure"):
 		character_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false)
-	preview_panel.add_child(character_preview_texture)
+	list_center.add_child(character_preview_texture)
+
+	var list_right = UI_COMPONENTS.panel_card(Vector2(300, 0), false)
+	list_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_right.size_flags_stretch_ratio = 0.22
+	list_split.add_child(list_right)
+	var list_right_inner = VBoxContainer.new()
+	list_right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_right_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	list_right.add_child(list_right_inner)
 	var details_title = _label("Character Details", 18, "text_secondary")
 	list_right_inner.add_child(details_title)
 	character_details_label = RichTextLabel.new()
 	character_details_label.fit_content = false
 	character_details_label.bbcode_enabled = false
-	character_details_label.custom_minimum_size = Vector2(320, 220)
 	character_details_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_details_label.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	list_right_inner.add_child(character_details_label)
+	character_spawn_override_option = _option([])
+	character_spawn_override_option.custom_minimum_size = Vector2(0, 36)
+	character_spawn_override_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	character_spawn_override_option.item_selected.connect(func(item_index: int) -> void:
+		if selected_character_index < 0 or selected_character_index >= characters.size():
+			return
+		var row: Dictionary = characters[selected_character_index]
+		var row_character_id = int(row.get("id", -1))
+		if row_character_id <= 0:
+			return
+		var selected_level_id = character_spawn_override_option.get_item_id(item_index)
+		if selected_level_id <= 0:
+			character_row_level_overrides.erase(row_character_id)
+		else:
+			character_row_level_overrides[row_character_id] = selected_level_id
+	)
+	list_right_inner.add_child(_labeled_control("Spawn Override (Admin)", character_spawn_override_option))
+	var actions = HBoxContainer.new()
+	actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	list_right_inner.add_child(actions)
+	var play_button = UI_COMPONENTS.button_primary("Play", Vector2(0, 38))
+	play_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	play_button.pressed.connect(_on_character_play_pressed)
+	actions.add_child(play_button)
+	var delete_button = _button("Delete")
+	delete_button.custom_minimum_size = Vector2(0, 38)
+	delete_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	delete_button.pressed.connect(_on_character_delete_pressed)
+	actions.add_child(delete_button)
 
-	var create_tab = VBoxContainer.new()
-	create_tab.name = "Create Character"
-	create_tab.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	character_tabs.add_child(create_tab)
-
-	var create_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	create_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_tab.add_child(create_shell)
-	var create_root = VBoxContainer.new()
-	create_root.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	create_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_shell.add_child(create_root)
-
-	var create_body = HSplitContainer.new()
-	create_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_root.add_child(create_body)
-
-	var create_preview_panel = UI_COMPONENTS.panel_card(Vector2(220, 460), false)
-	create_preview_panel.size_flags_stretch_ratio = 0.23
-	create_body.add_child(create_preview_panel)
-	create_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
-	if create_preview_texture.has_method("configure"):
-		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false)
-	create_preview_panel.add_child(create_preview_texture)
-
-	var create_right = VBoxContainer.new()
-	create_right.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	create_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_right.size_flags_stretch_ratio = 0.77
-	create_body.add_child(create_right)
-
-	var identity_row = HBoxContainer.new()
-	identity_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	create_right.add_child(identity_row)
+	account_create_panel = VBoxContainer.new()
+	account_create_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	account_create_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	views_root.add_child(account_create_panel)
+	var create_split = HSplitContainer.new()
+	create_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	account_create_panel.add_child(create_split)
+	var create_left = UI_COMPONENTS.panel_card(Vector2(320, 0), false)
+	create_left.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_left.size_flags_stretch_ratio = 0.24
+	create_split.add_child(create_left)
+	var create_left_inner = VBoxContainer.new()
+	create_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_left_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_left.add_child(create_left_inner)
 	create_preset_option = _option(["Sellsword"])
-	create_preset_option.custom_minimum_size = Vector2(140, 36)
 	create_preset_option.item_selected.connect(_on_create_preset_selected)
-	identity_row.add_child(_labeled_control("Preset", create_preset_option))
+	create_left_inner.add_child(_labeled_control("Preset", create_preset_option))
 	create_name_input = _line_edit("Character Name")
-	create_name_input.custom_minimum_size = Vector2(120, 36)
-	identity_row.add_child(_labeled_control("Name", create_name_input))
+	create_left_inner.add_child(_labeled_control("Name", create_name_input))
 	create_sex_option = _option(["Male", "Female"])
-	create_sex_option.custom_minimum_size = Vector2(120, 36)
 	create_sex_option.item_selected.connect(func(_index: int) -> void:
 		_refresh_create_character_preview()
 	)
-	identity_row.add_child(_labeled_control("Sex", create_sex_option))
-	var preset_info_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	preset_info_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_right.add_child(preset_info_panel)
-	var preset_info_inner = VBoxContainer.new()
-	preset_info_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	preset_info_panel.add_child(preset_info_inner)
-	var preset_info_title = _label("Preset Overview", 20, "text_secondary")
-	preset_info_inner.add_child(preset_info_title)
+	create_left_inner.add_child(_labeled_control("Sex", create_sex_option))
+	create_status_label = _label(" ", -1, "text_secondary")
+	create_status_label.text = " "
+	create_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	create_left_inner.add_child(create_status_label)
+	create_left_inner.add_spacer(false)
+	create_submit_button = UI_COMPONENTS.button_primary("Create Character", Vector2(0, 42))
+	create_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_submit_button.pressed.connect(_on_create_character_pressed)
+	create_left_inner.add_child(create_submit_button)
+
+	var create_center = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	create_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_center.size_flags_stretch_ratio = 0.54
+	create_split.add_child(create_center)
+	create_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
+	if create_preview_texture.has_method("configure"):
+		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false)
+	create_center.add_child(create_preview_texture)
+
+	var create_right = UI_COMPONENTS.panel_card(Vector2(300, 0), false)
+	create_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_right.size_flags_stretch_ratio = 0.22
+	create_split.add_child(create_right)
+	var create_right_inner = VBoxContainer.new()
+	create_right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_right_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_right.add_child(create_right_inner)
+	create_right_inner.add_child(_label("Preset Overview", 18, "text_secondary"))
 	create_preset_description_label = _label("Select a preset to view its summary.", -1, "text_secondary")
 	create_preset_description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	create_preset_description_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	preset_info_inner.add_child(create_preset_description_label)
+	create_right_inner.add_child(create_preset_description_label)
+	create_right_inner.add_child(_label("Drag or use arrows under preview to rotate.", -1, "text_muted"))
 
-	var footer_row = HBoxContainer.new()
-	footer_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	create_right.add_child(footer_row)
-	footer_row.add_spacer(false)
-	create_submit_button = UI_COMPONENTS.button_primary("Create Character")
-	create_submit_button.custom_minimum_size = Vector2(220, 42)
-	create_submit_button.pressed.connect(_on_create_character_pressed)
-	footer_row.add_child(create_submit_button)
-
-	create_status_label = _label(" ", -1, "text_secondary")
-	create_status_label.text = " "
-	create_status_label.visible = true
-	create_root.add_child(create_status_label)
 	_populate_character_options_from_content()
-
+	_set_account_view("list")
 	return wrap
 
 func _build_world_screen() -> VBoxContainer:
@@ -1390,10 +1424,7 @@ func _refresh_selected_character_preview() -> void:
 	if character_preview_texture == null:
 		return
 	if selected_character_index < 0 or selected_character_index >= characters.size():
-		if character_preview_texture.has_method("set_character"):
-			character_preview_texture.call("set_character", "human_male", "")
-		elif character_preview_texture is TextureRect:
-			character_preview_texture.texture = null
+		_clear_character_preview(character_preview_texture)
 		return
 	var row: Dictionary = characters[selected_character_index]
 	var appearance_key = str(row.get("appearance_key", "human_male"))
@@ -1402,6 +1433,14 @@ func _refresh_selected_character_preview() -> void:
 	else:
 		if character_preview_texture is TextureRect:
 			character_preview_texture.texture = _resolve_character_texture(appearance_key)
+
+func _clear_character_preview(target: Control) -> void:
+	if target == null:
+		return
+	if target.has_method("set_character"):
+		target.call("set_character", "human_male", "")
+	elif target is TextureRect:
+		target.texture = null
 
 func _load_character_sprite_catalog() -> void:
 	if not character_sprite_catalog.is_empty():
@@ -1584,89 +1623,39 @@ func _render_character_rows() -> void:
 		empty_pad.add_child(empty_label)
 		character_rows_container.add_child(empty_card)
 		return
-	character_rows_container.custom_minimum_size = Vector2(0, float(characters.size() * 126))
+	character_rows_container.custom_minimum_size = Vector2(0, float(characters.size() * 78))
 	for index in range(characters.size()):
 		var row: Dictionary = characters[index]
 		var row_index = index
-		var row_character_id = int(row.get("id", -1))
-		var card = UI_COMPONENTS.panel_card(Vector2(0, 116), index == selected_character_index)
+		var card = UI_COMPONENTS.panel_card(Vector2(0, 68), index == selected_character_index)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var card_pad = MarginContainer.new()
 		card_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("sm"))
-		card_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("xs"))
+		card_pad.add_theme_constant_override("margin_top", 6)
 		card_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("sm"))
-		card_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("xs"))
+		card_pad.add_theme_constant_override("margin_bottom", 6)
 		card.add_child(card_pad)
-		var card_inner = VBoxContainer.new()
-		card_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+		var card_inner = HBoxContainer.new()
+		card_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
 		card_pad.add_child(card_inner)
-
+		var level_name = str(row.get("level_name", "Level"))
+		if level_name.strip_edges().is_empty():
+			level_name = "Level"
 		var summary_button = UI_COMPONENTS.button_secondary(
-			"%s  |  Lv.%s  |  XP %s (next %s)"
+			"%s Lv.%s %s"
 			% [
 				str(row.get("name", "Unnamed")),
 				str(row.get("level", 1)),
-				str(row.get("experience", 0)),
-				str(row.get("experience_to_next_level", 100)),
+				level_name,
 			],
 			Vector2(0, UI_TOKENS.size("button_h_lg"))
 		)
 		summary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		summary_button.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		summary_button.clip_text = true
 		summary_button.pressed.connect(func() -> void:
 			_set_selected_character(row_index)
 		)
 		card_inner.add_child(summary_button)
-		var location_label = _label("Location: " + _character_location_text(row), -1, "text_muted")
-		card_inner.add_child(location_label)
-
-		var actions = HBoxContainer.new()
-		actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-		card_inner.add_child(actions)
-
-		if session_is_admin:
-			var level_option = OptionButton.new()
-			level_option.custom_minimum_size = Vector2(220, 36)
-			level_option.focus_mode = Control.FOCUS_NONE
-			level_option.add_item("Current location", -1)
-			for level in admin_levels_cache:
-				var level_label = str(level.get("descriptive_name", level.get("name", "Level")))
-				var level_id = int(level.get("id", -1))
-				level_option.add_item(level_label, level_id)
-			var override_level = int(character_row_level_overrides.get(row_character_id, -1))
-			for item_index in range(level_option.get_item_count()):
-				if level_option.get_item_id(item_index) == override_level:
-					level_option.selected = item_index
-					break
-			level_option.item_selected.connect(func(item_index: int) -> void:
-				var selected_level_id = level_option.get_item_id(item_index)
-				if selected_level_id <= 0:
-					character_row_level_overrides.erase(row_character_id)
-				else:
-					character_row_level_overrides[row_character_id] = selected_level_id
-			)
-			_sanitize_option_popup(level_option)
-			actions.add_child(level_option)
-
-		actions.add_spacer(false)
-
-		var play_button = UI_COMPONENTS.button_primary("Play", Vector2(110, 36))
-		play_button.custom_minimum_size = Vector2(110, 36)
-		play_button.pressed.connect(func() -> void:
-			_set_selected_character(row_index)
-			_on_character_play_pressed()
-		)
-		actions.add_child(play_button)
-
-		var delete_button = _button("Delete")
-		delete_button.custom_minimum_size = Vector2(110, 36)
-		delete_button.pressed.connect(func() -> void:
-			_set_selected_character(row_index)
-			_on_character_delete_pressed()
-		)
-		actions.add_child(delete_button)
-
 		character_rows_container.add_child(card)
 
 func _remaining_create_points() -> int:
@@ -1750,11 +1739,14 @@ func _populate_character_creation_tables(options: Dictionary) -> void:
 
 func _on_menu_button_pressed() -> void:
 	_populate_menu()
-	menu_popup.position = Vector2i(
-		int(menu_button.global_position.x + menu_button.size.x - 220),
-		int(menu_button.global_position.y + menu_button.size.y + 2)
-	)
 	menu_popup.reset_size()
+	var popup_size: Vector2 = menu_popup.get_contents_minimum_size()
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var desired_x = menu_button.global_position.x + menu_button.size.x - popup_size.x
+	var desired_y = menu_button.global_position.y + menu_button.size.y + 4.0
+	var clamped_x = int(clampf(desired_x, 8.0, maxf(8.0, viewport_size.x - popup_size.x - 8.0)))
+	var clamped_y = int(clampf(desired_y, 8.0, maxf(8.0, viewport_size.y - popup_size.y - 8.0)))
+	menu_popup.position = Vector2i(clamped_x, clamped_y)
 	menu_popup.popup()
 
 func _populate_menu() -> void:
@@ -1770,7 +1762,6 @@ func _populate_menu() -> void:
 			menu_popup.add_item("Settings", MENU_SETTINGS)
 			if session_is_admin:
 				menu_popup.add_item("Level Editor", MENU_LEVEL_EDITOR)
-				menu_popup.add_item("Level Order", MENU_LEVEL_ORDER)
 				menu_popup.add_item("Asset Editor", MENU_ASSET_EDITOR)
 				menu_popup.add_item("Content Versions", MENU_CONTENT_VERSIONS)
 				menu_popup.add_item("Log Viewer", MENU_LOG_VIEWER)
@@ -1794,10 +1785,6 @@ func _on_menu_item_pressed(item_id: int) -> void:
 			if session_is_admin:
 				_show_screen("level_editor")
 				_refresh_level_editor_levels()
-		MENU_LEVEL_ORDER:
-			if session_is_admin:
-				_show_screen("level_order")
-				_refresh_level_order_list()
 		MENU_ASSET_EDITOR:
 			if session_is_admin:
 				_show_screen("asset_editor")
@@ -1842,25 +1829,11 @@ func _show_screen(name: String) -> void:
 	menu_button.visible = name != "auth"
 	footer_status.visible = not in_world
 	if name == "account" and access_token != "":
+		_set_account_view("list")
 		call_deferred("_refresh_account_screen_deferred")
-	if name == "auth":
-		header_title.text = "Children of Ikphelion"
-	elif name == "world":
-		header_title.text = ""
-	elif name == "settings":
-		header_title.text = "Settings"
-	elif name == "level_editor":
-		header_title.text = "Level Editor"
-	elif name == "level_order":
-		header_title.text = "Level Order"
-	elif name == "asset_editor":
-		header_title.text = "Asset Editor"
-	elif name == "content_versions":
-		header_title.text = "Content Versions"
-	elif name == "logs":
-		header_title.text = "Log Viewer"
-	else:
-		header_title.text = "Account"
+	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header_title.visible = not in_world
+	header_title.text = "Children of Ikphelion"
 
 func _current_screen() -> String:
 	return current_screen_name
@@ -1977,7 +1950,7 @@ func _on_auth_submit() -> void:
 	_apply_auth_mode()
 	await _load_characters()
 	_show_screen("account")
-	character_tabs.current_tab = 0
+	_set_account_view("list")
 
 func _apply_session(payload: Dictionary) -> void:
 	access_token = str(payload.get("access_token", ""))
@@ -2006,7 +1979,7 @@ func _logout_session_local() -> void:
 	character_row_level_overrides.clear()
 	_clear_children(character_rows_container)
 	character_details_label.text = "Choose a character from the list."
-	character_preview_texture.texture = null
+	_clear_character_preview(character_preview_texture)
 	auth_password_input.clear()
 	auth_otp_input.clear()
 	settings_mfa_last_secret = ""
@@ -2036,7 +2009,7 @@ func _load_characters() -> void:
 	if characters.is_empty():
 		selected_character_index = -1
 		character_details_label.text = "No characters yet. Create your first character."
-		character_preview_texture.texture = null
+		_clear_character_preview(character_preview_texture)
 	else:
 		var selected_index = 0
 		for idx in range(characters.size()):
@@ -2047,6 +2020,7 @@ func _load_characters() -> void:
 		_render_character_details(selected_index)
 	_refresh_create_character_preview()
 	_render_character_rows()
+	_refresh_character_spawn_override()
 	account_status_label.text = " "
 
 func _refresh_admin_levels_cache() -> void:
@@ -2065,13 +2039,25 @@ func _on_character_refresh_pressed() -> void:
 	await _load_characters()
 	account_status_label.text = " "
 
+func _set_account_view(mode: String) -> void:
+	account_view_mode = "create" if mode == "create" else "list"
+	if account_list_panel != null:
+		account_list_panel.visible = account_view_mode == "list"
+	if account_create_panel != null:
+		account_create_panel.visible = account_view_mode == "create"
+	if account_nav_list_button != null:
+		account_nav_list_button.disabled = account_view_mode == "list"
+	if account_nav_create_button != null:
+		account_nav_create_button.disabled = account_view_mode == "create"
+
 func _on_character_selected(index: int) -> void:
 	_set_selected_character(index)
 
 func _render_character_details(index: int) -> void:
 	if index < 0 or index >= characters.size():
 		character_details_label.text = "Choose a character from the list."
-		character_preview_texture.texture = null
+		_clear_character_preview(character_preview_texture)
+		_refresh_character_spawn_override()
 		return
 	var row: Dictionary = characters[index]
 	var location_text = _character_location_text(row)
@@ -2087,9 +2073,33 @@ func _render_character_details(index: int) -> void:
 			str(row.get("background", "Drifter")),
 			str(row.get("affiliation", "Unaffiliated")),
 			location_text,
-		]
+			]
 	)
 	_refresh_selected_character_preview()
+	_refresh_character_spawn_override()
+
+func _refresh_character_spawn_override() -> void:
+	if character_spawn_override_option == null:
+		return
+	character_spawn_override_option.clear()
+	character_spawn_override_option.add_item("Current location", -1)
+	if not session_is_admin or selected_character_index < 0 or selected_character_index >= characters.size():
+		character_spawn_override_option.disabled = true
+		_sanitize_option_popup(character_spawn_override_option)
+		return
+	for level in admin_levels_cache:
+		var level_label = str(level.get("descriptive_name", level.get("name", "Level")))
+		var level_id = int(level.get("id", -1))
+		character_spawn_override_option.add_item(level_label, level_id)
+	var row: Dictionary = characters[selected_character_index]
+	var row_character_id = int(row.get("id", -1))
+	var override_level = int(character_row_level_overrides.get(row_character_id, -1))
+	for item_index in range(character_spawn_override_option.get_item_count()):
+		if character_spawn_override_option.get_item_id(item_index) == override_level:
+			character_spawn_override_option.selected = item_index
+			break
+	character_spawn_override_option.disabled = false
+	_sanitize_option_popup(character_spawn_override_option)
 
 func _on_create_character_pressed() -> void:
 	if access_token == "":
@@ -2114,7 +2124,7 @@ func _on_create_character_pressed() -> void:
 	_populate_character_options_from_content()
 	create_status_label.text = " "
 	await _load_characters()
-	character_tabs.current_tab = 0
+	_set_account_view("list")
 
 func _on_character_delete_pressed() -> void:
 	if selected_character_index < 0 or selected_character_index >= characters.size():
