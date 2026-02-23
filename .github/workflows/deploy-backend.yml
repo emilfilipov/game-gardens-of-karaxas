@@ -55,7 +55,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [changes, backend-checks]
-    if: (needs.changes.outputs.backend_code == 'true' || github.event_name == 'workflow_dispatch') && vars.KARAXAS_GCP_PROJECT_ID != '' && vars.KARAXAS_REGION != '' && vars.KARAXAS_SERVICE_NAME != '' && vars.KARAXAS_CLOUD_SQL_INSTANCE != '' && vars.KARAXAS_AR_REPO != '' && vars.KARAXAS_IMAGE_NAME != '' && vars.KARAXAS_DB_NAME != '' && vars.KARAXAS_DB_USER != '' && secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' && secrets.KARAXAS_JWT_SECRET != '' && secrets.KARAXAS_OPS_API_TOKEN != '' && secrets.KARAXAS_DB_PASSWORD != ''
+    if: (needs.changes.outputs.backend_code == 'true' || github.event_name == 'workflow_dispatch') && vars.KARAXAS_GCP_PROJECT_ID != '' && vars.KARAXAS_REGION != '' && vars.KARAXAS_SERVICE_NAME != '' && vars.KARAXAS_CLOUD_SQL_INSTANCE != '' && vars.KARAXAS_AR_REPO != '' && vars.KARAXAS_IMAGE_NAME != '' && vars.KARAXAS_DB_NAME != '' && vars.KARAXAS_DB_USER != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
