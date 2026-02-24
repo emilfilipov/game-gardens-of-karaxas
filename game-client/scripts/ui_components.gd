@@ -19,9 +19,9 @@ static func _style_box(bg: Color, border: Color, radius_name: String = "radius_l
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.24)
 	style.shadow_size = 4
 	style.shadow_offset = Vector2(0, 2)
-	style.content_margin_left = float(UI_TOKENS.spacing("xs"))
+	style.content_margin_left = float(UI_TOKENS.spacing("sm"))
 	style.content_margin_top = float(UI_TOKENS.spacing("xs"))
-	style.content_margin_right = float(UI_TOKENS.spacing("xs"))
+	style.content_margin_right = float(UI_TOKENS.spacing("sm"))
 	style.content_margin_bottom = float(UI_TOKENS.spacing("xs"))
 	return style
 
@@ -94,6 +94,7 @@ static func button_secondary(text_value: String, min_size: Vector2 = Vector2(0, 
 	var pressed = normal.duplicate()
 	pressed.bg_color = UI_TOKENS.color("button_pressed")
 	_apply_button_style(node, normal, hover, pressed)
+	node.add_theme_font_size_override("font_size", 17)
 	return node
 
 
@@ -105,6 +106,7 @@ static func button_primary(text_value: String, min_size: Vector2 = Vector2(0, 0)
 	var pressed = normal.duplicate()
 	pressed.bg_color = UI_TOKENS.color("button_primary_pressed")
 	_apply_button_style(node, normal, hover, pressed)
+	node.add_theme_font_size_override("font_size", 17)
 	return node
 
 

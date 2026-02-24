@@ -238,7 +238,7 @@ func _build_theme() -> void:
 	if body_font_resource is Font:
 		ui_font_body = body_font_resource
 		ui_theme.set_default_font(ui_font_body)
-		ui_theme.set_default_font_size(21)
+		ui_theme.set_default_font_size(20)
 	var heading_font_resource = load("res://assets/fonts/cinzel.ttf")
 	if heading_font_resource is Font:
 		ui_font_heading = heading_font_resource
@@ -430,10 +430,10 @@ func _build_ui() -> void:
 
 	var root = MarginContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_theme_constant_override("margin_left", 24)
-	root.add_theme_constant_override("margin_top", 18)
-	root.add_theme_constant_override("margin_right", 24)
-	root.add_theme_constant_override("margin_bottom", 18)
+	root.add_theme_constant_override("margin_left", 36)
+	root.add_theme_constant_override("margin_top", 26)
+	root.add_theme_constant_override("margin_right", 36)
+	root.add_theme_constant_override("margin_bottom", 24)
 	add_child(root)
 
 	var layout = VBoxContainer.new()
@@ -442,14 +442,14 @@ func _build_ui() -> void:
 	root.add_child(layout)
 
 	var header = HBoxContainer.new()
-	header.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	header.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	layout.add_child(header)
 
 	header_title = Label.new()
 	header_title.text = "Children of Ikphelion"
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_title.add_theme_font_size_override("font_size", 46)
+	header_title.add_theme_font_size_override("font_size", 52)
 	header_title.add_theme_color_override("font_color", Color(0.92, 0.88, 0.81))
 	if ui_font_heading != null:
 		header_title.add_theme_font_override("font", ui_font_heading)
@@ -465,6 +465,11 @@ func _build_ui() -> void:
 	menu_popup = PopupMenu.new()
 	add_child(menu_popup)
 	menu_popup.id_pressed.connect(_on_menu_item_pressed)
+
+	var header_rule = ColorRect.new()
+	header_rule.custom_minimum_size = Vector2(0, 1)
+	header_rule.color = UI_TOKENS.color("divider")
+	layout.add_child(header_rule)
 
 	main_stack = Control.new()
 	main_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -633,18 +638,19 @@ func _build_account_screen() -> VBoxContainer:
 
 	var content_root = MarginContainer.new()
 	content_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content_root.add_theme_constant_override("margin_left", 0)
-	content_root.add_theme_constant_override("margin_top", 0)
-	content_root.add_theme_constant_override("margin_right", 0)
-	content_root.add_theme_constant_override("margin_bottom", 0)
+	content_root.add_theme_constant_override("margin_left", 2)
+	content_root.add_theme_constant_override("margin_top", 4)
+	content_root.add_theme_constant_override("margin_right", 2)
+	content_root.add_theme_constant_override("margin_bottom", 2)
 	wrap.add_child(content_root)
 
 	var root_split = HBoxContainer.new()
 	root_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	root_split.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	content_root.add_child(root_split)
 
 	account_sidebar = UI_COMPONENTS.panel_card(Vector2(250, 0), false)
+	account_sidebar.custom_minimum_size = Vector2(276, 0)
 	account_sidebar.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_split.add_child(account_sidebar)
 	var sidebar_inner = VBoxContainer.new()
@@ -708,12 +714,12 @@ func _build_account_screen() -> VBoxContainer:
 				character_preview_world_inset.call("set_direction", direction)
 		)
 
-	var details_panel = UI_COMPONENTS.panel_card(Vector2(252, 252), false)
+	var details_panel = UI_COMPONENTS.panel_card(Vector2(278, 278), false)
 	details_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	details_panel.offset_left = -262
-	details_panel.offset_top = -262
-	details_panel.offset_right = -10
-	details_panel.offset_bottom = -10
+	details_panel.offset_left = -288
+	details_panel.offset_top = -288
+	details_panel.offset_right = -12
+	details_panel.offset_bottom = -12
 	list_preview_host.add_child(details_panel)
 	var details_inner = VBoxContainer.new()
 	details_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL

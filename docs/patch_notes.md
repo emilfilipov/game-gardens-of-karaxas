@@ -1,4 +1,3 @@
-- Reconciled the 3D migration backlog in `docs/TASKS.md` to remove stale duplication: completed slices remain in the completed table, partially delivered areas are now marked `⏳` with remaining scope, and superseded backlog rows were moved to the archived section.
-- Re-themed the in-game shell UI to match the current Sellsword concept-art style direction (steel/leather palette, lower-clutter panel treatment, and serif display/body typography).
-- Added bundled UI fonts under `game-client/assets/fonts/` (`cinzel.ttf`, `cormorant_garamond.ttf`) with OFL license files for runtime-safe use.
-- Removed the previous static background image dependency from the shell (`main_menu_background.png`) and replaced it with a procedural layered backdrop so the current UI no longer clashes with the updated art direction.
+- Refined the concept-art UI shell composition pass: increased outer layout margins, strengthened title hierarchy, and added clearer section-divider rhythm for better readability.
+- Softened panel/border treatment by tuning tokenized border opacity/radii and component spacing to reduce visual clutter while retaining the grounded steel/leather theme.
+- Rebalanced account-hub layout proportions (sidebar/details panel sizing) and refreshed UI regression signature to lock the updated visual baseline.

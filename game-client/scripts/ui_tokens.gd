@@ -9,8 +9,9 @@ const COLORS: Dictionary = {
 	"panel_bg_highlight": Color(0.24, 0.18, 0.13, 0.93),
 	"row_bg": Color(0.12, 0.11, 0.11, 0.93),
 	"row_bg_selected": Color(0.26, 0.19, 0.14, 0.96),
-	"panel_border": Color(0.62, 0.55, 0.45, 1.0),
-	"panel_border_soft": Color(0.39, 0.34, 0.29, 1.0),
+	"panel_border": Color(0.62, 0.55, 0.45, 0.82),
+	"panel_border_soft": Color(0.39, 0.34, 0.29, 0.56),
+	"divider": Color(0.55, 0.47, 0.38, 0.34),
 	"text_primary": Color(0.93, 0.90, 0.84),
 	"text_secondary": Color(0.81, 0.74, 0.64),
 	"text_muted": Color(0.58, 0.53, 0.47),
@@ -30,10 +31,10 @@ const COLORS: Dictionary = {
 
 const SIZES: Dictionary = {
 	"button_w": 154,
-	"button_h": 38,
+	"button_h": 40,
 	"button_h_lg": 46,
 	"input_w": 240,
-	"input_h": 38,
+	"input_h": 40,
 	"menu_square": 44,
 	"shell_wide_w": 1560,
 	"shell_wide_h": 860,
@@ -47,11 +48,11 @@ const SIZES: Dictionary = {
 }
 
 const SPACING: Dictionary = {
-	"xs": 10,
-	"sm": 14,
+	"xs": 8,
+	"sm": 12,
 	"md": 18,
-	"lg": 24,
-	"xl": 32,
+	"lg": 28,
+	"xl": 36,
 }
 
 static func color(name: String) -> Color:
