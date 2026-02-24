@@ -21,7 +21,11 @@ var _world_scale_mode: bool = false
 var _display_scale: float = 1.0
 
 var _title_label: Label
+var _preview_shell: PanelContainer
 var _texture: TextureRect
+var _ground_strip: ColorRect
+var _ground_anchor: ColorRect
+var _ground_shadow: PanelContainer
 var _direction_label: Label
 var _rotate_left: Button
 var _rotate_right: Button
@@ -53,6 +57,8 @@ func configure(
 		_controls_row.visible = _show_controls
 	if _title_label != null and not _show_title:
 		_title_label.visible = false
+	_apply_preview_surface_style()
+	_layout_preview_surface(1.0)
 	_refresh_texture()
 
 func set_reduced_motion(enabled: bool) -> void:
@@ -108,17 +114,40 @@ func _build_ui() -> void:
 	_title_label.add_theme_font_size_override("font_size", 18)
 	root.add_child(_title_label)
 
-	var preview_shell = PanelContainer.new()
-	preview_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	preview_shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	preview_shell.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	root.add_child(preview_shell)
+	_preview_shell = PanelContainer.new()
+	_preview_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_preview_shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.add_child(_preview_shell)
+	_preview_shell.resized.connect(func() -> void:
+		_layout_preview_surface(1.0)
+	)
+
+	_ground_strip = ColorRect.new()
+	_ground_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_shell.add_child(_ground_strip)
+
+	_ground_shadow = PanelContainer.new()
+	var shadow_style = StyleBoxFlat.new()
+	shadow_style.bg_color = Color(0.0, 0.0, 0.0, 0.36)
+	shadow_style.corner_radius_top_left = 128
+	shadow_style.corner_radius_top_right = 128
+	shadow_style.corner_radius_bottom_left = 128
+	shadow_style.corner_radius_bottom_right = 128
+	_ground_shadow.add_theme_stylebox_override("panel", shadow_style)
+	_ground_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_shell.add_child(_ground_shadow)
+
+	_ground_anchor = ColorRect.new()
+	_ground_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_shell.add_child(_ground_anchor)
 
 	_texture = TextureRect.new()
-	_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_texture.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	preview_shell.add_child(_texture)
+	_texture.stretch_mode = TextureRect.STRETCH_SCALE
+	_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_shell.add_child(_texture)
+	_apply_preview_surface_style()
 
 	_controls_row = HBoxContainer.new()
 	_controls_row.add_theme_constant_override("separation", 8)
@@ -167,12 +196,13 @@ func _gui_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	if _texture == null:
 		return
+	var pulse: float = 1.0
 	if _reduced_motion:
-		_texture.scale = Vector2.ONE * _display_scale
+		_layout_preview_surface(1.0)
 		return
 	_idle_phase += delta
-	var pulse: float = 1.0 + sin(_idle_phase * 1.35) * 0.015
-	_texture.scale = Vector2(pulse, pulse) * _display_scale
+	pulse = 1.0 + sin(_idle_phase * 1.35) * 0.015
+	_layout_preview_surface(pulse)
 
 func _refresh_texture() -> void:
 	if _texture == null:
@@ -194,7 +224,90 @@ func _refresh_texture() -> void:
 			if value is Texture2D:
 				texture = value
 	_texture.texture = texture
+	_layout_preview_surface(1.0)
 	_apply_lighting_profile()
+
+func _apply_preview_surface_style() -> void:
+	if _preview_shell == null:
+		return
+	var style = StyleBoxFlat.new()
+	if _world_scale_mode:
+		style.bg_color = Color(0.03, 0.03, 0.04, 0.78)
+		style.border_color = Color(0.75, 0.59, 0.37, 0.75)
+		style.border_width_left = 1
+		style.border_width_top = 1
+		style.border_width_right = 1
+		style.border_width_bottom = 1
+		style.corner_radius_top_left = 8
+		style.corner_radius_top_right = 8
+		style.corner_radius_bottom_left = 8
+		style.corner_radius_bottom_right = 8
+	else:
+		style.bg_color = Color(0.01, 0.01, 0.01, 0.18)
+		style.corner_radius_top_left = 6
+		style.corner_radius_top_right = 6
+		style.corner_radius_bottom_left = 6
+		style.corner_radius_bottom_right = 6
+	_preview_shell.add_theme_stylebox_override("panel", style)
+
+func _layout_preview_surface(animation_scale: float) -> void:
+	if _preview_shell == null or _texture == null:
+		return
+	var shell_size = _preview_shell.size
+	if shell_size.x <= 1.0 or shell_size.y <= 1.0:
+		return
+
+	var strip_height = maxf(28.0, shell_size.y * (0.16 if _world_scale_mode else 0.13))
+	if _ground_strip != null:
+		_ground_strip.color = Color(0.02, 0.02, 0.03, 0.56) if _world_scale_mode else Color(0.04, 0.03, 0.03, 0.34)
+		_ground_strip.position = Vector2(8.0, shell_size.y - strip_height - 8.0)
+		_ground_strip.size = Vector2(maxf(1.0, shell_size.x - 16.0), strip_height)
+
+	var texture = _texture.texture
+	if texture == null:
+		if _ground_shadow != null:
+			_ground_shadow.visible = false
+		if _ground_anchor != null:
+			_ground_anchor.visible = false
+		_texture.visible = false
+		return
+	_texture.visible = true
+
+	var margin_x = 12.0
+	var top_pad = 8.0
+	var bottom_pad = 12.0
+	var avail_w = maxf(8.0, shell_size.x - margin_x * 2.0)
+	var avail_h = maxf(8.0, shell_size.y - top_pad - bottom_pad)
+	var tex_w = float(texture.get_width())
+	var tex_h = float(texture.get_height())
+	if tex_w <= 0.0 or tex_h <= 0.0:
+		return
+	var fit = minf(avail_w / tex_w, avail_h / tex_h)
+	var draw_w = maxf(1.0, tex_w * fit * _display_scale * animation_scale)
+	var draw_h = maxf(1.0, tex_h * fit * _display_scale * animation_scale)
+	var baseline_y = shell_size.y - 18.0
+	var foot_ratio = 0.86
+	var draw_x = (shell_size.x - draw_w) * 0.5
+	var draw_y = baseline_y - draw_h * foot_ratio
+	if draw_y < top_pad:
+		draw_y = top_pad
+
+	_texture.position = Vector2(draw_x, draw_y)
+	_texture.size = Vector2(draw_w, draw_h)
+
+	var anchor_width = maxf(56.0, draw_w * 0.54)
+	if _ground_anchor != null:
+		_ground_anchor.visible = true
+		_ground_anchor.color = Color(0.86, 0.72, 0.48, 0.52) if _world_scale_mode else Color(0.85, 0.69, 0.45, 0.32)
+		_ground_anchor.position = Vector2((shell_size.x - anchor_width) * 0.5, baseline_y)
+		_ground_anchor.size = Vector2(anchor_width, 1.0)
+
+	if _ground_shadow != null:
+		_ground_shadow.visible = true
+		var shadow_w = maxf(32.0, draw_w * (0.58 if _world_scale_mode else 0.5))
+		var shadow_h = maxf(10.0, draw_h * 0.08)
+		_ground_shadow.position = Vector2((shell_size.x - shadow_w) * 0.5, baseline_y + 2.0)
+		_ground_shadow.size = Vector2(shadow_w, shadow_h)
 
 func _apply_lighting_profile() -> void:
 	if _texture == null:

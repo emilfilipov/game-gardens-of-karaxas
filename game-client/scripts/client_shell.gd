@@ -83,6 +83,7 @@ var auth_release_notes: RichTextLabel
 var auth_update_button: Button
 
 var account_container: VBoxContainer
+var account_sidebar: Control
 var account_status_label: Label
 var account_nav_create_button: Button
 var account_list_panel: Control
@@ -93,7 +94,6 @@ var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
 var character_preview_texture: Control
 var character_preview_world_inset: Control
-var character_refresh_button: Button
 var character_spawn_override_option: OptionButton
 
 var create_name_input: LineEdit
@@ -385,8 +385,8 @@ func _build_ui() -> void:
 	header.add_child(header_title)
 
 	menu_button = Button.new()
-	menu_button.text = "⚙"
-	menu_button.custom_minimum_size = Vector2(UI_TOKENS.size("menu_square"), UI_TOKENS.size("menu_square"))
+	menu_button.text = "Menu"
+	menu_button.custom_minimum_size = Vector2(124, 44)
 	menu_button.focus_mode = Control.FOCUS_CLICK
 	menu_button.pressed.connect(_on_menu_button_pressed)
 	header.add_child(menu_button)
@@ -573,13 +573,13 @@ func _build_account_screen() -> VBoxContainer:
 	root_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	content_root.add_child(root_split)
 
-	var sidebar = UI_COMPONENTS.panel_card(Vector2(250, 0), false)
-	sidebar.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root_split.add_child(sidebar)
+	account_sidebar = UI_COMPONENTS.panel_card(Vector2(250, 0), false)
+	account_sidebar.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_split.add_child(account_sidebar)
 	var sidebar_inner = VBoxContainer.new()
 	sidebar_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sidebar_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	sidebar.add_child(sidebar_inner)
+	account_sidebar.add_child(sidebar_inner)
 
 	account_nav_create_button = UI_COMPONENTS.button_primary("Create Character", Vector2(0, 42))
 	account_nav_create_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -587,10 +587,6 @@ func _build_account_screen() -> VBoxContainer:
 		_set_account_view("list" if account_view_mode == "create" else "create")
 	)
 	sidebar_inner.add_child(account_nav_create_button)
-	character_refresh_button = UI_COMPONENTS.button_secondary("Refresh", Vector2(0, 38))
-	character_refresh_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	character_refresh_button.pressed.connect(_on_character_refresh_pressed)
-	sidebar_inner.add_child(character_refresh_button)
 
 	character_rows_scroll = ScrollContainer.new()
 	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -707,7 +703,20 @@ func _build_account_screen() -> VBoxContainer:
 	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
 	create_preview_host.add_child(create_preview_texture)
 
-	var create_world_inset_shell = Control.new()
+	var create_world_inset_shell = PanelContainer.new()
+	var inset_style = StyleBoxFlat.new()
+	inset_style.bg_color = UI_TOKENS.color("panel_bg_deep")
+	inset_style.bg_color.a = 0.74
+	inset_style.border_color = UI_TOKENS.color("panel_border_soft")
+	inset_style.border_width_left = 1
+	inset_style.border_width_top = 1
+	inset_style.border_width_right = 1
+	inset_style.border_width_bottom = 1
+	inset_style.corner_radius_top_left = UI_TOKENS.size("radius")
+	inset_style.corner_radius_top_right = UI_TOKENS.size("radius")
+	inset_style.corner_radius_bottom_left = UI_TOKENS.size("radius")
+	inset_style.corner_radius_bottom_right = UI_TOKENS.size("radius")
+	create_world_inset_shell.add_theme_stylebox_override("panel", inset_style)
 	create_world_inset_shell.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	create_world_inset_shell.offset_left = -188
 	create_world_inset_shell.offset_top = 10
@@ -732,20 +741,25 @@ func _build_account_screen() -> VBoxContainer:
 	create_options_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_options_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	create_options.add_child(create_options_inner)
+	create_name_input = _line_edit("Character Name")
+	create_options_inner.add_child(create_name_input)
+	create_name_input.tooltip_text = "Character Name"
 	create_preset_option = _option(["Sellsword"])
 	create_preset_option.item_selected.connect(_on_create_preset_selected)
-	create_options_inner.add_child(_labeled_control("Preset", create_preset_option))
-	create_name_input = _line_edit("Character Name")
-	create_options_inner.add_child(_labeled_control("Name", create_name_input))
+	create_preset_option.tooltip_text = "Character Type"
+	create_options_inner.add_child(create_preset_option)
 	create_sex_option = _option(["Male", "Female"])
+	create_sex_option.tooltip_text = "Sex"
 	create_sex_option.item_selected.connect(func(_index: int) -> void:
 		_refresh_create_character_preview()
 	)
-	create_options_inner.add_child(_labeled_control("Sex", create_sex_option))
+	create_options_inner.add_child(create_sex_option)
+	create_options_inner.add_child(_label("Character Type Lore", -1, "text_secondary"))
 	create_preset_description_label = _label("Select a preset to view its summary.", -1, "text_secondary")
 	create_preset_description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	create_preset_description_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_options_inner.add_child(_labeled_control("Preset Overview", create_preset_description_label))
+	create_options_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_options_inner.add_child(create_preset_description_label)
+	create_options_inner.add_spacer(true)
 	create_status_label = _label(" ", -1, "text_secondary")
 	create_status_label.text = " "
 	create_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -754,6 +768,12 @@ func _build_account_screen() -> VBoxContainer:
 	create_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	create_submit_button.pressed.connect(_on_create_character_pressed)
 	create_options_inner.add_child(create_submit_button)
+	var create_back_button = UI_COMPONENTS.button_secondary("Back to Character List", Vector2(0, 42))
+	create_back_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_back_button.pressed.connect(func() -> void:
+		_set_account_view("list")
+	)
+	create_options_inner.add_child(create_back_button)
 
 	_populate_character_options_from_content()
 	_set_account_view("list")
@@ -1300,10 +1320,15 @@ func _refresh_create_character_preview() -> void:
 	if create_preview_texture == null:
 		return
 	var appearance_key = "human_male"
+	var title = "Character Type"
+	if create_preset_option != null and create_preset_option.selected >= 0 and create_preset_option.selected < create_preset_option.get_item_count():
+		title = create_preset_option.get_item_text(create_preset_option.selected).strip_edges()
+		if title.is_empty():
+			title = "Character Type"
 	if create_sex_option != null and create_sex_option.selected == 1:
 		appearance_key = "human_female"
 	if create_preview_texture.has_method("set_character"):
-		create_preview_texture.call("set_character", appearance_key, "Sellsword")
+		create_preview_texture.call("set_character", appearance_key, title)
 		if create_preview_world_inset != null and create_preview_world_inset.has_method("set_character"):
 			create_preview_world_inset.call("set_character", appearance_key, "")
 		if create_preview_texture.has_method("current_direction") and create_preview_world_inset != null and create_preview_world_inset.has_method("set_direction"):
@@ -1354,21 +1379,9 @@ func _apply_selected_preset_to_creation() -> void:
 		create_sex_option.selected = 1 if preset_appearance == "human_female" else 0
 
 	create_point_budget = max(1, int(preset.get("point_budget", create_point_budget)))
-
-	var skill_list: Array[String] = []
-	var preset_skills_value: Variant = preset.get("skills", {})
-	if preset_skills_value is Dictionary:
-		var preset_skills: Dictionary = preset_skills_value
-		for raw_key in preset_skills.keys():
-			var value = int(preset_skills.get(raw_key, 0))
-			if value <= 0:
-				continue
-			skill_list.append(str(raw_key).replace("_", " ").capitalize())
-	skill_list.sort()
 	if create_preset_description_label != null:
 		var description = str(preset.get("description", "Preset starter profile.")).strip_edges()
-		var skills_text = "Starter skills: " + ", ".join(skill_list) if not skill_list.is_empty() else "Starter skills: none"
-		create_preset_description_label.text = "%s\n\n%s" % [description, skills_text]
+		create_preset_description_label.text = description if not description.is_empty() else "Preset starter profile."
 	_refresh_create_character_preview()
 
 func _preset_entries_from_content() -> Array:
@@ -1626,12 +1639,7 @@ func _render_character_rows() -> void:
 	_clear_children(character_rows_container)
 	character_rows_container.custom_minimum_size = Vector2.ZERO
 	if characters.is_empty():
-		var empty_button = UI_COMPONENTS.button_secondary("Create Character", Vector2(0, 42))
-		empty_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		empty_button.pressed.connect(func() -> void:
-			_set_account_view("create")
-		)
-		character_rows_container.add_child(empty_button)
+		character_rows_container.add_child(_label("No characters yet.", -1, "text_muted"))
 		return
 	character_rows_container.custom_minimum_size = Vector2(0, float(characters.size() * 78))
 	for index in range(characters.size()):
@@ -1839,8 +1847,7 @@ func _show_screen(name: String) -> void:
 	menu_button.visible = name != "auth"
 	footer_status.visible = not in_world
 	if name == "account" and access_token != "":
-		_set_account_view("list")
-		call_deferred("_refresh_account_screen_deferred")
+		_set_account_view("list", true)
 	if name == "auth":
 		call_deferred("_refresh_release_summary_deferred")
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1963,9 +1970,7 @@ func _on_auth_submit() -> void:
 	_set_auth_status(" ")
 	register_mode = false
 	_apply_auth_mode()
-	await _load_characters()
 	_show_screen("account")
-	_set_account_view("list")
 
 func _apply_session(payload: Dictionary) -> void:
 	access_token = str(payload.get("access_token", ""))
@@ -2028,6 +2033,7 @@ func _load_characters() -> void:
 		character_details_label.text = "Create a character to begin."
 		_clear_character_preview(character_preview_texture)
 		_clear_character_preview(character_preview_world_inset)
+		_set_account_view("create", false)
 	else:
 		var selected_index = 0
 		for idx in range(characters.size()):
@@ -2036,6 +2042,7 @@ func _load_characters() -> void:
 				break
 		selected_character_index = selected_index
 		_render_character_details(selected_index)
+		_set_account_view("list", false)
 	_refresh_create_character_preview()
 	_render_character_rows()
 	_refresh_character_spawn_override()
@@ -2051,22 +2058,18 @@ func _refresh_admin_levels_cache() -> void:
 	var payload = response.get("json", [])
 	admin_levels_cache = payload if payload is Array else []
 
-func _on_character_refresh_pressed() -> void:
-	if access_token == "":
-		return
-	await _load_characters()
-	account_status_label.text = " "
-
-func _set_account_view(mode: String) -> void:
+func _set_account_view(mode: String, refresh_list: bool = true) -> void:
 	account_view_mode = "create" if mode == "create" else "list"
+	if account_sidebar != null:
+		account_sidebar.visible = account_view_mode == "list"
 	if account_list_panel != null:
 		account_list_panel.visible = account_view_mode == "list"
 	if account_create_panel != null:
 		account_create_panel.visible = account_view_mode == "create"
 	if account_nav_create_button != null:
 		account_nav_create_button.text = "Back to Character List" if account_view_mode == "create" else "Create Character"
-	if character_refresh_button != null:
-		character_refresh_button.disabled = account_view_mode != "list"
+	if refresh_list and account_view_mode == "list" and access_token != "" and _current_screen() == "account":
+		call_deferred("_refresh_account_screen_deferred")
 
 func _on_character_selected(index: int) -> void:
 	_set_selected_character(index)
@@ -2143,7 +2146,7 @@ func _on_create_character_pressed() -> void:
 	_populate_character_options_from_content()
 	create_status_label.text = " "
 	await _load_characters()
-	_set_account_view("list")
+	_set_account_view("list", false)
 
 func _on_character_delete_pressed() -> void:
 	if selected_character_index < 0 or selected_character_index >= characters.size():

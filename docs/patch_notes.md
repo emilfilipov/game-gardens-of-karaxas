@@ -1,5 +1,6 @@
-- Fixed account-hub layout regressions by stabilizing list/create view containers and restoring centered non-world title behavior.
-- Restored themed confirmation dialogs for character creation and deletion actions.
-- Added dual character preview in list/create views: a large podium preview plus a synchronized inset in-world-scale mirror preview.
-- Upgraded Sellsword sprite generation to 4x source fidelity (`384x384` per frame) and cleaned old generated sheet outputs during regeneration.
-- Updated world actor rendering to downscale high-fidelity source frames to gameplay draw size so world readability/performance stay stable.
+- Polished account hub UX: removed manual character-list refresh, switched to automatic refresh on account-view transitions, and removed duplicate create-button behavior.
+- Updated create flow layout: left sidebar is hidden in create mode, create panel fields are reordered (`Character Name`, `Character Type`, `Sex`, `Character Type Lore`), starter-skills text is removed, and footer actions are now `Create Character` above `Back to Character List`.
+- Replaced top-right cog with a rectangular `Menu` button for clearer navigation affordance.
+- Added preview grounding in podium views (baseline anchor + contact shadow + floor strip) to prevent floating character presentation.
+- Improved world-scale inset readability with stronger backdrop contrast and a thin border.
+- Delivered sprite fidelity v2: upgraded procedural sellsword detail pass (materials/shading/features) and increased generated source frame size to `640x640`.

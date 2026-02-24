@@ -35,17 +35,23 @@ Play model:
 - Current character creator and isometric runtime work are retained and iterated forward.
 - Existing proven online hub/list/create UX patterns are reused as baseline while visual polish continues.
 - Account hub now uses side navigation (no list/create tabs) with large center podium previews in both list and create flows.
-- Character list now uses a single left sidebar: top `Create Character` action plus character cards below (no duplicate list sidebar/headline).
+- Character list now uses a single left sidebar with top `Create Character` action plus character cards below (no duplicate list sidebar/headline).
+- Character list refresh is automatic when switching account views/screens (no manual refresh button).
 - Character list/create views now consume the full account content area instead of centered boxed layouts.
+- Character creation view hides the left list sidebar and keeps flow actions on the right panel (`Create Character` above `Back to Character List`).
 - Character list/create now include a dual-preview setup:
   - large primary podium preview for inspection/rotation,
   - smaller in-world-scale inset preview synced to the same facing direction.
+- Character previews now include explicit grounding cues (baseline anchor + contact shadow + floor strip) to avoid floating.
+- Character-creation inset world-scale preview includes stronger backdrop contrast and thin border for visibility.
 - Character details now live in a compact bottom-right square panel over the list preview area.
 - Character location persistence includes level/floor and coordinates.
 - Character creation now focuses on a minimal onboarding flow: **preset + sex + name**.
+- Create-field ordering is now: **Character Name -> Character Type -> Sex -> Character Type Lore**.
+- Starter-skills text is not shown in the create lore panel.
 - Race/background/affiliation/manual stat allocation are no longer player-facing in creation and are sourced from preset/runtime defaults.
 - Current production model preset: **Sellsword** with male/female variants.
-- Character art source baseline is now **384x384 per frame** (4x upgrade), 8-direction, with starter animation set:
+- Character art source baseline is now **640x640 per frame** (fidelity v2), 8-direction, with starter animation set:
   - idle, walk, run, attack, cast, hurt, death, sit_crossed_legs, sit_kneel.
 - Runtime world rendering downsamples these source frames to gameplay scale to keep readability and performance stable.
 - Base model starts unarmed and is dressed in rugged leather brigandine/boots for both male and female variants.
