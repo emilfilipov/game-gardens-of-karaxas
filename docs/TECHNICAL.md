@@ -11,9 +11,9 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Backend API: FastAPI + PostgreSQL (`backend/`)
 - Distribution/update: Velopack + GCS feed
 
-Planned technical migration (roadmap only, pending implementation):
-- Introduce Godot 3D runtime/world pipeline as the primary presentation path with staged feature-flag rollout.
-- Add programmatic Blender headless asset pipeline for character/environment production and export automation.
+3D migration is now in active implementation:
+- Godot 3D runtime/world scaffold exists (`world_canvas_3d.gd`) with runtime renderer mode toggle (`2d`/`3d`) and 3D default fallback.
+- Programmatic Blender headless asset pipeline bootstrap scripts now exist under `tools/blender/`.
 
 ### Directional model
 - Online ARPG with instance-aware gameplay.
@@ -24,6 +24,7 @@ Planned technical migration (roadmap only, pending implementation):
 - Godot scene entrypoint: `game-client/scenes/bootstrap.tscn`
 - Active shell script: `game-client/scripts/client_shell.gd`
 - Isometric world runtime: `game-client/scripts/world_canvas.gd`
+- 3D world runtime scaffold: `game-client/scripts/world_canvas_3d.gd`
 
 ## Client Surfaces (Current)
 - Auth (`login/register`)
@@ -36,21 +37,33 @@ Planned technical migration (roadmap only, pending implementation):
 - Character create submit path no longer uses a confirmation dialog; create requests post directly after validation.
 - Character creation preset picker (runtime-config driven `preset_key`) with player-selected `sex` (`appearance_key`) and name-only onboarding fields
 - Character list/create dual preview stack:
-  - large podium preview for authored inspection/rotation,
-  - inset top-right world-scale mirror preview synchronized to the same direction.
+  - large 3D podium preview for authored inspection/rotation,
+  - inset top-right 3D world-scale mirror preview synchronized to the same direction.
 - Character podium preview now includes grounding anchor visuals (baseline strip + contact shadow) with bottom-foot anchoring to prevent floating.
 - World-scale inset preview now supports higher-contrast backdrop/border styling for readability against busy scene backgrounds.
 - Character details/actions render as a compact bottom-right square overlay on the list preview surface.
 - Create podium preview title text is disabled (no `Character Type` headline above the model).
 - Settings (including MFA controls)
 - Admin tooling (for admin users)
-- World runtime (isometric)
+- World runtime now supports both:
+  - `2d` path (`world_canvas.gd`) for compatibility fallback,
+  - `3d` path (`world_canvas_3d.gd`) as active migration baseline.
 - Character art runtime resolves directional animated frames from `assets/characters/sellsword_v1/catalog.json` for both podium preview and in-world actor rendering; the Sellsword generator outputs textured/colorized sheets (not silhouette placeholders).
 - Sellsword source sheets remain `640x640` at runtime contract size, but fidelity v3 now draws at a 4x larger authored base canvas (`BASE_FRAME_SIZE=640`) with smoother anti-aliased rendering and direction-specific front/side/back pose silhouettes before sheet emission.
+- 3D sellsword baseline templates are generated procedurally in `game-client/scripts/sellsword_3d_factory.gd` and consumed by both preview + 3D world scaffolds.
 - Character list load path now logs API diagnostics (`rows` count + failure status/message) so client logs can confirm frontend/backend `/characters` contract flow for specific accounts.
+- Character actions are now selection-gated in account view (`Play/Delete` disabled until selected character).
 - Asset ingest manifest entries for Sellsword idle sheets track `*_640` assets so release-time ingest validation matches generated sprite-pack outputs.
 - Auth release notes now refresh whenever the auth screen is shown and fall back to local `patch_notes.md`/`release_notes.md` if summary fetch is unavailable.
 - Shared game icon assets are aligned across launcher resources, game-client resources, and installer icons via the `assets/icons/game_icon.*` pipeline, regenerated from root source `icon_2.png`.
+- Starter 3D environment scenes are available at:
+  - `game-client/scenes/environment/ground_tile_stone_3d.tscn`
+  - `game-client/scenes/environment/foliage_grass_a_3d.tscn`
+  - `game-client/scenes/environment/foliage_tree_dead_3d.tscn`
+- Blender automation tooling is available at:
+  - `tools/blender/install_blender.py`
+  - `tools/blender/run_blender_headless.py`
+  - `tools/blender/scripts/generate_sellsword_3d_assets.py`
 
 ## Backend Responsibilities
 - Auth/session lifecycle:
@@ -167,6 +180,10 @@ Planned technical migration (roadmap only, pending implementation):
   - `python3 game-client/tests/check_ui_regression.py`
 - Sellsword art pack generation:
   - `python3 tools/generate_sellsword_sprite_pack.py`
+- Blender toolchain install:
+  - `python3 tools/blender/install_blender.py --version 4.2.3`
+- Blender headless 3D asset export:
+  - `python3 tools/blender/run_blender_headless.py --script tools/blender/scripts/generate_sellsword_3d_assets.py`
 - Asset ingest manifest validation:
   - `python3 tools/validate_asset_ingest.py --manifest assets/iso_asset_manifest.json`
 

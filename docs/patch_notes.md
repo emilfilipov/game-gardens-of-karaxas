@@ -1,2 +1,7 @@
-- Added a detailed, phased Godot 3D migration backlog (camera, runtime, previews, Sellsword templates, 3D level/asset tools, and environment kit) in `docs/TASKS.md`.
-- Added canonical roadmap notes for planned (not yet implemented) Godot 3D transition and programmatic Blender pipeline in `docs/GAME.md` and `docs/TECHNICAL.md`.
+- Added initial Godot 3D runtime scaffold (`world_canvas_3d.gd`) with PoE-inspired camera constants, movement/facing loop, and renderer-mode switching (`2d`/`3d`) from client shell.
+- Replaced account list/create character previews with 3D podium previews (primary + inset) and fixed empty-list preview clearing so no fallback character appears when no rows exist.
+- Disabled account action controls (`Play`, `Delete`, spawn override) until a character is selected.
+- Extended level editor for 3D placement workflow with spawn yaw/z fields and `Objects JSON` support, including automatic `spawn_marker_3d` insertion.
+- Added asset-editor one-click 3D template payload for ground/foliage asset domain bootstrap.
+- Added starter 3D placeable environment scenes: `ground_tile_stone_3d`, `foliage_grass_a_3d`, and `foliage_tree_dead_3d`.
+- Added programmatic Blender toolchain scripts (install, headless runner, and baseline 3D sellsword/ground/foliage export script).

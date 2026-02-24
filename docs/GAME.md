@@ -3,9 +3,9 @@
 ## High Concept
 Children of Ikphelion is an online isometric ARPG.
 
-Planned direction (not implemented yet):
-- Migrate presentation/runtime from 2D isometric rendering to Godot 3D while preserving the ARPG gameplay model.
-- Target gameplay camera feel: angled and distanced readability similar to Path of Exile.
+Current migration direction:
+- Runtime presentation is now on an initial Godot 3D foundation path while preserving the online ARPG gameplay model.
+- Camera target remains angled and distanced readability inspired by Path of Exile (further tuning in active backlog).
 
 Play model:
 - Players primarily run private gameplay instances (solo by default).
@@ -45,24 +45,27 @@ Play model:
 - Character list/create views now consume the full account content area instead of centered boxed layouts.
 - Character creation view hides the left list sidebar and keeps flow actions on the right panel (`Create Character` above `Back to Character List`).
 - Character creation now submits immediately (no create confirmation popup) and the create-preview headline above the model is removed.
-- Character list/create now include a dual-preview setup:
+- Character list/create now include a dual-preview setup using 3D character previews:
   - large primary podium preview for inspection/rotation,
   - smaller in-world-scale inset preview synced to the same facing direction.
 - Character previews now include explicit grounding cues (baseline anchor + contact shadow + floor strip) to avoid floating.
 - Character-creation inset world-scale preview includes stronger backdrop contrast and thin border for visibility.
 - Character details now live in a compact bottom-right square panel over the list preview area.
+- List actions (`Play`, `Delete`) and spawn override controls are disabled until a character is selected.
 - Character location persistence includes level/floor and coordinates.
 - Character creation now focuses on a minimal onboarding flow: **preset + sex + name**.
 - Create-field ordering is now: **Character Name -> Character Type -> Sex -> Character Type Lore**.
 - Starter-skills text is not shown in the create lore panel.
 - Race/background/affiliation/manual stat allocation are no longer player-facing in creation and are sourced from preset/runtime defaults.
 - Current production model preset: **Sellsword** with male/female variants.
+- 3D Sellsword baseline templates now exist for both male/female and are used by new 3D preview/world scaffolds.
 - Character art source baseline is now **640x640 per frame** (fidelity v3 authored detail), 8-direction, with starter animation set:
   - idle, walk, run, attack, cast, hurt, death, sit_crossed_legs, sit_kneel.
 - Directional sprites now render visibly different front/side/back facing poses (including away-from-camera views) with smoother, less blocky model rendering.
 - Runtime world rendering downsamples these source frames to gameplay scale to keep readability and performance stable.
 - Base model starts unarmed and is dressed in rugged leather brigandine/boots for both male and female variants.
 - Game icon assets are sourced from `icon_2.png` and propagated to launcher/client/installer icon targets.
+- Starter 3D environment kit (basic ground + foliage scenes) is now available to seed early level construction.
 
 ## Authority Model
 - Server is authoritative for gameplay-relevant values and progression.

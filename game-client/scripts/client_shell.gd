@@ -1,9 +1,10 @@
 extends Control
 
 const WORLD_CANVAS_SCENE = preload("res://scripts/world_canvas.gd")
+const WORLD_CANVAS_3D_SCENE = preload("res://scripts/world_canvas_3d.gd")
 const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
 const UI_COMPONENTS = preload("res://scripts/ui_components.gd")
-const CHARACTER_PODIUM_PREVIEW_SCENE = preload("res://scripts/character_podium_preview.gd")
+const CHARACTER_PODIUM_PREVIEW_SCENE = preload("res://scripts/character_podium_preview_3d.gd")
 
 const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
@@ -26,6 +27,7 @@ var client_content_version_key = DEFAULT_CONTENT_VERSION
 var client_content_contract = ""
 var release_summary: Dictionary = {}
 var content_domains: Dictionary = {}
+var world_renderer_mode: String = "3d"
 
 var access_token = ""
 var refresh_token = ""
@@ -95,6 +97,8 @@ var character_details_label: RichTextLabel
 var character_preview_texture: Control
 var character_preview_world_inset: Control
 var character_spawn_override_option: OptionButton
+var character_play_button: Button
+var character_delete_button: Button
 
 var create_name_input: LineEdit
 var create_preset_option: OptionButton
@@ -118,6 +122,7 @@ var create_stat_max_per_entry: int = 10
 var world_container: VBoxContainer
 var world_status_label: Label
 var world_canvas: Control
+var world_shell_panel: Control
 
 var log_container: VBoxContainer
 var log_file_option: OptionButton
@@ -150,6 +155,8 @@ var level_editor_width_input: LineEdit
 var level_editor_height_input: LineEdit
 var level_editor_spawn_x_input: LineEdit
 var level_editor_spawn_y_input: LineEdit
+var level_editor_spawn_yaw_input: LineEdit
+var level_editor_spawn_z_input: LineEdit
 var level_editor_asset_option: OptionButton
 var level_editor_layer_option: OptionButton
 var level_editor_show_layer_checks: Dictionary = {}
@@ -157,6 +164,7 @@ var level_editor_canvas_scroll: ScrollContainer
 var level_editor_canvas: Control
 var level_editor_layers_input: TextEdit
 var level_editor_transitions_input: TextEdit
+var level_editor_objects_input: TextEdit
 var level_editor_pending_list: ItemList
 var level_editor_local_drafts: Array = []
 var level_editor_levels_cache: Array = []
@@ -196,6 +204,7 @@ var footer_version_text = ""
 func _ready() -> void:
 	_resolve_paths()
 	_append_log("Godot shell startup.")
+	world_renderer_mode = _resolve_initial_world_renderer_mode()
 	_apply_window_icon()
 	_apply_default_window_mode()
 	_load_client_version()
@@ -675,15 +684,16 @@ func _build_account_screen() -> VBoxContainer:
 	var actions = HBoxContainer.new()
 	actions.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
 	details_inner.add_child(actions)
-	var play_button = UI_COMPONENTS.button_primary("Play", Vector2(0, 36))
-	play_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	play_button.pressed.connect(_on_character_play_pressed)
-	actions.add_child(play_button)
-	var delete_button = _button("Delete")
-	delete_button.custom_minimum_size = Vector2(0, 36)
-	delete_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	delete_button.pressed.connect(_on_character_delete_pressed)
-	actions.add_child(delete_button)
+	character_play_button = UI_COMPONENTS.button_primary("Play", Vector2(0, 36))
+	character_play_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	character_play_button.pressed.connect(_on_character_play_pressed)
+	actions.add_child(character_play_button)
+	character_delete_button = _button("Delete")
+	character_delete_button.custom_minimum_size = Vector2(0, 36)
+	character_delete_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	character_delete_button.pressed.connect(_on_character_delete_pressed)
+	actions.add_child(character_delete_button)
+	_set_character_action_controls_enabled(false)
 
 	account_create_panel = Control.new()
 	account_create_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -787,16 +797,26 @@ func _build_world_screen() -> VBoxContainer:
 	world_status_label.text = "WASD to move."
 	wrap.add_child(world_status_label)
 
-	var world_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	world_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wrap.add_child(world_shell)
-	world_canvas = Control.new()
-	world_canvas.set_script(WORLD_CANVAS_SCENE)
-	world_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	world_canvas.custom_minimum_size = Vector2(800, 460)
-	world_canvas.connect("player_position_changed", _on_world_position_changed)
-	world_shell.add_child(world_canvas)
+	world_shell_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	world_shell_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_child(world_shell_panel)
+	world_canvas = _build_world_canvas_node()
+	world_shell_panel.add_child(world_canvas)
 	return wrap
+
+func _build_world_canvas_node() -> Control:
+	var node = Control.new()
+	node.set_script(WORLD_CANVAS_3D_SCENE if world_renderer_mode == "3d" else WORLD_CANVAS_SCENE)
+	node.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	node.custom_minimum_size = Vector2(800, 460)
+	node.connect("player_position_changed", _on_world_position_changed)
+	return node
+
+func _resolve_initial_world_renderer_mode() -> String:
+	var env_mode = OS.get_environment("COI_WORLD_RENDERER").strip_edges().to_lower()
+	if env_mode == "2d" or env_mode == "3d":
+		return env_mode
+	return "3d"
 
 func _build_log_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
@@ -1070,6 +1090,16 @@ func _build_level_editor_screen() -> VBoxContainer:
 	level_editor_spawn_y_input = _line_edit("3")
 	level_editor_spawn_y_input.custom_minimum_size = Vector2(82, 34)
 	top_row_2.add_child(level_editor_spawn_y_input)
+	top_row_2.add_child(_label("Spawn Yaw"))
+	level_editor_spawn_yaw_input = _line_edit("0")
+	level_editor_spawn_yaw_input.custom_minimum_size = Vector2(82, 34)
+	level_editor_spawn_yaw_input.tooltip_text = "3D spawn heading in degrees."
+	top_row_2.add_child(level_editor_spawn_yaw_input)
+	top_row_2.add_child(_label("Spawn Z"))
+	level_editor_spawn_z_input = _line_edit("0")
+	level_editor_spawn_z_input.custom_minimum_size = Vector2(82, 34)
+	level_editor_spawn_z_input.tooltip_text = "3D spawn elevation."
+	top_row_2.add_child(level_editor_spawn_z_input)
 
 	var split_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	split_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1091,6 +1121,11 @@ func _build_level_editor_screen() -> VBoxContainer:
 	level_editor_transitions_input.custom_minimum_size = Vector2(520, 140)
 	level_editor_transitions_input.text = "[]"
 	left.add_child(level_editor_transitions_input)
+	left.add_child(_label("Objects JSON (3D placements)"))
+	level_editor_objects_input = TextEdit.new()
+	level_editor_objects_input.custom_minimum_size = Vector2(520, 180)
+	level_editor_objects_input.text = "[]"
+	left.add_child(level_editor_objects_input)
 
 	var right = VBoxContainer.new()
 	right.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
@@ -1210,6 +1245,9 @@ func _build_asset_editor_screen() -> VBoxContainer:
 	var save_local = _button("Save Local")
 	save_local.pressed.connect(_save_asset_editor_local_draft)
 	actions.add_child(save_local)
+	var load_3d_template = _button("Load 3D Template")
+	load_3d_template.pressed.connect(_load_asset_editor_3d_template)
+	actions.add_child(load_3d_template)
 	var publish = _button("Publish Changes")
 	publish.pressed.connect(_publish_asset_editor_drafts)
 	actions.add_child(publish)
@@ -1461,8 +1499,10 @@ func _refresh_selected_character_preview() -> void:
 func _clear_character_preview(target: Control) -> void:
 	if target == null:
 		return
-	if target.has_method("set_character"):
-		target.call("set_character", "human_male", "")
+	if target.has_method("clear_character"):
+		target.call("clear_character")
+	elif target.has_method("set_character"):
+		target.call("set_character", "", "")
 	elif target is TextureRect:
 		target.texture = null
 
@@ -1997,6 +2037,7 @@ func _logout_session_local() -> void:
 	_clear_character_preview(character_preview_texture)
 	_clear_character_preview(character_preview_world_inset)
 	_clear_character_preview(create_preview_world_inset)
+	_set_character_action_controls_enabled(false)
 	auth_password_input.clear()
 	auth_otp_input.clear()
 	settings_mfa_last_secret = ""
@@ -2030,6 +2071,7 @@ func _load_characters() -> void:
 		character_details_label.text = "Create a character to begin."
 		_clear_character_preview(character_preview_texture)
 		_clear_character_preview(character_preview_world_inset)
+		_set_character_action_controls_enabled(false)
 		_set_account_view("list", false)
 	else:
 		var selected_index = 0
@@ -2075,6 +2117,8 @@ func _render_character_details(index: int) -> void:
 	if index < 0 or index >= characters.size():
 		character_details_label.text = "Choose a character from the list."
 		_clear_character_preview(character_preview_texture)
+		_clear_character_preview(character_preview_world_inset)
+		_set_character_action_controls_enabled(false)
 		_refresh_character_spawn_override()
 		return
 	var row: Dictionary = characters[index]
@@ -2090,8 +2134,15 @@ func _render_character_details(index: int) -> void:
 			location_text,
 			]
 	)
+	_set_character_action_controls_enabled(true)
 	_refresh_selected_character_preview()
 	_refresh_character_spawn_override()
+
+func _set_character_action_controls_enabled(enabled: bool) -> void:
+	if character_play_button != null:
+		character_play_button.disabled = not enabled
+	if character_delete_button != null:
+		character_delete_button.disabled = not enabled
 
 func _refresh_character_spawn_override() -> void:
 	if character_spawn_override_option == null:
@@ -2552,8 +2603,23 @@ func _load_selected_level_into_editor() -> void:
 	level_editor_height_input.text = str(level.get("height", 48))
 	level_editor_spawn_x_input.text = str(level.get("spawn_x", 3))
 	level_editor_spawn_y_input.text = str(level.get("spawn_y", 3))
+	level_editor_spawn_yaw_input.text = "0"
+	level_editor_spawn_z_input.text = "0"
 	level_editor_layers_input.text = JSON.stringify(level.get("layers", {}), "\t")
 	level_editor_transitions_input.text = JSON.stringify(level.get("transitions", []), "\t")
+	var objects = level.get("objects", [])
+	level_editor_objects_input.text = JSON.stringify(objects, "\t")
+	if objects is Array:
+		for entry in objects:
+			if not (entry is Dictionary):
+				continue
+			if str(entry.get("object_id", "")) != "spawn_marker_3d":
+				continue
+			var transform = entry.get("transform", {})
+			if transform is Dictionary:
+				level_editor_spawn_yaw_input.text = str(transform.get("rotation_deg", 0))
+				level_editor_spawn_z_input.text = str(transform.get("z", 0))
+			break
 	level_editor_status.text = "Level loaded."
 
 func _save_level_editor_local_draft() -> void:
@@ -2569,17 +2635,48 @@ func _save_level_editor_local_draft() -> void:
 	if not (transitions_variant is Array):
 		level_editor_status.text = "Transitions JSON must be an array."
 		return
+	var objects_variant = JSON.parse_string(level_editor_objects_input.text.strip_edges())
+	if not (objects_variant is Array):
+		level_editor_status.text = "Objects JSON must be an array."
+		return
+	var objects_payload: Array = objects_variant.duplicate(true)
+	var spawn_marker = {
+		"object_id": "spawn_marker_3d",
+		"asset_key": "spawn_marker",
+		"layer_id": 0,
+		"transform": {
+			"x": float(level_editor_spawn_x_input.text.to_float()),
+			"y": float(level_editor_spawn_y_input.text.to_float()),
+			"z": float(level_editor_spawn_z_input.text.to_float()),
+			"rotation_deg": float(level_editor_spawn_yaw_input.text.to_float()),
+			"scale_x": 1.0,
+			"scale_y": 1.0,
+			"pivot_x": 0.5,
+			"pivot_y": 1.0,
+		},
+	}
+	var replaced_spawn_marker = false
+	for object_index in range(objects_payload.size()):
+		var row = objects_payload[object_index]
+		if row is Dictionary and str(row.get("object_id", "")) == "spawn_marker_3d":
+			objects_payload[object_index] = spawn_marker
+			replaced_spawn_marker = true
+			break
+	if not replaced_spawn_marker:
+		objects_payload.append(spawn_marker)
+	var schema_version = 3 if not objects_payload.is_empty() else 2
 	var payload = {
 		"name": level_name,
 		"descriptive_name": level_editor_descriptive_input.text.strip_edges(),
 		"order_index": int(level_editor_order_input.text.to_int()),
-		"schema_version": 2,
+		"schema_version": schema_version,
 		"width": max(8, int(level_editor_width_input.text.to_int())),
 		"height": max(8, int(level_editor_height_input.text.to_int())),
 		"spawn_x": max(0, int(level_editor_spawn_x_input.text.to_int())),
 		"spawn_y": max(0, int(level_editor_spawn_y_input.text.to_int())),
 		"layers": layers_variant,
 		"transitions": transitions_variant,
+		"objects": objects_payload,
 	}
 	var replaced = false
 	for idx in range(level_editor_local_drafts.size()):
@@ -2612,7 +2709,19 @@ func _publish_level_editor_drafts() -> void:
 func _refresh_level_editor_pending_view() -> void:
 	level_editor_pending_list.clear()
 	for draft in level_editor_local_drafts:
-		level_editor_pending_list.add_item("%s | %sx%s" % [str(draft.get("name", "")), str(draft.get("width", "")), str(draft.get("height", ""))])
+		var object_count = 0
+		var objects_value = draft.get("objects", [])
+		if objects_value is Array:
+			object_count = objects_value.size()
+		level_editor_pending_list.add_item(
+			"%s | %sx%s | objects:%s"
+			% [
+				str(draft.get("name", "")),
+				str(draft.get("width", "")),
+				str(draft.get("height", "")),
+				str(object_count),
+			]
+		)
 
 func _refresh_level_order_list() -> void:
 	if access_token.is_empty() or not session_is_admin:
@@ -2739,6 +2848,47 @@ func _load_asset_editor_selected_domain_payload() -> void:
 	var domain = asset_editor_domain_option.get_item_text(asset_editor_domain_option.selected)
 	var payload = asset_editor_active_domains.get(domain, {})
 	asset_editor_payload_input.text = JSON.stringify(payload, "\t")
+
+func _load_asset_editor_3d_template() -> void:
+	if asset_editor_domain_option == null or asset_editor_domain_option.get_item_count() == 0:
+		asset_editor_status.text = "Select a domain first."
+		return
+	var domain = asset_editor_domain_option.get_item_text(asset_editor_domain_option.selected).strip_edges()
+	if domain == "No domains" or domain.is_empty():
+		asset_editor_status.text = "Select a valid domain."
+		return
+	var template_payload = {
+		"schema_version": 1,
+		"entries": [
+			{
+				"key": "ground_stone_a",
+				"label": "Ground Stone A",
+				"category": "ground",
+				"scene_path": "res://scenes/environment/ground_tile_stone_3d.tscn",
+				"collision": {"mode": "mesh", "walkable": true},
+				"lod": {"near": 24.0, "far": 80.0},
+			},
+			{
+				"key": "foliage_grass_a",
+				"label": "Foliage Grass A",
+				"category": "foliage",
+				"scene_path": "res://scenes/environment/foliage_grass_a_3d.tscn",
+				"collision": {"mode": "none", "walkable": true},
+				"wind_profile": {"strength": 0.35, "speed": 1.2},
+				"lod": {"near": 18.0, "far": 55.0},
+			},
+			{
+				"key": "foliage_tree_dead_a",
+				"label": "Foliage Dead Tree A",
+				"category": "foliage",
+				"scene_path": "res://scenes/environment/foliage_tree_dead_3d.tscn",
+				"collision": {"mode": "capsule", "radius": 0.45, "height": 3.2},
+				"lod": {"near": 36.0, "far": 120.0},
+			},
+		],
+	}
+	asset_editor_payload_input.text = JSON.stringify(template_payload, "\t")
+	asset_editor_status.text = "Loaded 3D template for domain '%s'." % domain
 
 func _save_asset_editor_local_draft() -> void:
 	if asset_editor_versions_cache.is_empty():
@@ -3009,6 +3159,7 @@ func _refresh_content_bootstrap() -> void:
 	client_content_contract = str(bootstrap_body.get("content_contract_signature", "")).strip_edges()
 	client_content_version_key = str(bootstrap_body.get("content_version_key", DEFAULT_CONTENT_VERSION))
 	content_domains = bootstrap_body.get("domains", {})
+	_apply_world_renderer_mode_from_domains()
 	_populate_character_options_from_content()
 
 func _apply_runtime_config_payload(runtime_body: Dictionary) -> bool:
@@ -3027,8 +3178,40 @@ func _apply_runtime_config_payload(runtime_body: Dictionary) -> bool:
 	client_content_contract = signature
 	client_content_version_key = config_key if not config_key.is_empty() else "runtime_gameplay_v1"
 	content_domains = domains
+	_apply_world_renderer_mode_from_domains()
 	_populate_character_options_from_content()
 	return true
+
+func _resolve_world_renderer_mode_from_domains() -> String:
+	var runtime_client = content_domains.get("runtime_client", {})
+	if runtime_client is Dictionary:
+		var mode = str(runtime_client.get("world_renderer", "")).strip_edges().to_lower()
+		if mode == "2d" or mode == "3d":
+			return mode
+	var mode_fallback = str(content_domains.get("world_renderer", "")).strip_edges().to_lower()
+	if mode_fallback == "2d" or mode_fallback == "3d":
+		return mode_fallback
+	return world_renderer_mode
+
+func _apply_world_renderer_mode_from_domains() -> void:
+	var resolved_mode = _resolve_world_renderer_mode_from_domains()
+	if resolved_mode == world_renderer_mode:
+		return
+	world_renderer_mode = resolved_mode
+	_append_log("Switching world renderer mode to " + world_renderer_mode)
+	_swap_world_canvas_renderer()
+
+func _swap_world_canvas_renderer() -> void:
+	if world_shell_panel == null:
+		return
+	var should_activate = _current_screen() == "world"
+	if world_canvas != null:
+		world_shell_panel.remove_child(world_canvas)
+		world_canvas.queue_free()
+	world_canvas = _build_world_canvas_node()
+	world_shell_panel.add_child(world_canvas)
+	if should_activate and world_canvas.has_method("set_active"):
+		world_canvas.call("set_active", true)
 
 func _verify_runtime_signature(domains: Dictionary, expected_signature: String) -> bool:
 	var computed = _hash_sha256(_canonical_json(domains))

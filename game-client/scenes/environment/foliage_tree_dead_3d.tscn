@@ -1,0 +1,46 @@
+[gd_scene load_steps=5 format=3 uid="uid://coi_foliage_tree_dead_3d"]
+
+[sub_resource type="StandardMaterial3D" id="1"]
+albedo_color = Color(0.30, 0.23, 0.16, 1)
+roughness = 0.9
+
+[sub_resource type="CylinderMesh" id="2"]
+height = 3.0
+bottom_radius = 0.24
+top_radius = 0.11
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id="3"]
+height = 1.2
+bottom_radius = 0.08
+top_radius = 0.03
+radial_segments = 10
+
+[sub_resource type="CapsuleShape3D" id="4"]
+radius = 0.28
+height = 2.9
+
+[node name="FoliageTreeDead3D" type="Node3D"]
+
+[node name="Trunk" type="MeshInstance3D" parent="."]
+mesh = SubResource("2")
+material_override = SubResource("1")
+position = Vector3(0, 1.5, 0)
+
+[node name="BranchA" type="MeshInstance3D" parent="."]
+mesh = SubResource("3")
+material_override = SubResource("1")
+position = Vector3(0.22, 2.1, 0)
+rotation_degrees = Vector3(25, 0, -45)
+
+[node name="BranchB" type="MeshInstance3D" parent="."]
+mesh = SubResource("3")
+material_override = SubResource("1")
+position = Vector3(-0.2, 1.9, 0.05)
+rotation_degrees = Vector3(-18, 35, 52)
+
+[node name="Body" type="StaticBody3D" parent="."]
+
+[node name="Collision" type="CollisionShape3D" parent="Body"]
+shape = SubResource("4")
+position = Vector3(0, 1.45, 0)
