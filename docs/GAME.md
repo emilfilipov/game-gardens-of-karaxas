@@ -52,13 +52,15 @@ Play model:
 - Character-creation inset world-scale preview includes stronger backdrop contrast and thin border for visibility.
 - Character details now live in a compact bottom-right square panel over the list preview area.
 - List actions (`Play`, `Delete`) and spawn override controls are disabled until a character is selected.
+- Account list/create flow now keeps 3D parity behavior on refresh/navigation boundaries (automatic list refresh on account/menu switches, and deterministic preview clear when no row is selected).
 - Character location persistence includes level/floor and coordinates.
 - Character creation now focuses on a minimal onboarding flow: **preset + sex + name**.
 - Create-field ordering is now: **Character Name -> Character Type -> Sex -> Character Type Lore**.
 - Starter-skills text is not shown in the create lore panel.
 - Race/background/affiliation/manual stat allocation are no longer player-facing in creation and are sourced from preset/runtime defaults.
 - Current production model preset: **Sellsword** with male/female variants.
-- 3D Sellsword baseline templates now exist for both male/female and are used by new 3D preview/world scaffolds.
+- 3D Sellsword baseline templates now exist for both male/female and are used by preview/world scaffolds, with male silhouette/material pass aligned to `concept_art/sellsword_front.png` + `concept_art/sellsword_back.png`.
+- 3D character presentation now includes baseline animation set playback (`idle`, `walk`, `run`, `attack`, `cast`, `hurt`, `death`) and directional facing updates across both preview and world scenes.
 - Character art source baseline is now **640x640 per frame** (fidelity v3 authored detail), 8-direction, with starter animation set:
   - idle, walk, run, attack, cast, hurt, death, sit_crossed_legs, sit_kneel.
 - Directional sprites now render visibly different front/side/back facing poses (including away-from-camera views) with smoother, less blocky model rendering.
@@ -66,6 +68,7 @@ Play model:
 - Base model starts unarmed and is dressed in rugged leather brigandine/boots for both male and female variants.
 - Game icon assets are sourced from `icon_2.png` and propagated to launcher/client/installer icon targets.
 - Starter 3D environment kit (basic ground + foliage scenes) is now available to seed early level construction.
+- 3D level runtime now treats authored object placement payloads as primary world content input, including spawn marker heading/elevation and transition trigger evaluation.
 
 ## Authority Model
 - Server is authoritative for gameplay-relevant values and progression.

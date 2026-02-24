@@ -13,7 +13,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 
 3D migration is now in active implementation:
 - Godot 3D runtime/world scaffold exists (`world_canvas_3d.gd`) with runtime renderer mode toggle (`2d`/`3d`) and 3D default fallback.
-- Programmatic Blender headless asset pipeline bootstrap scripts now exist under `tools/blender/`.
+- 3D world runtime now consumes authored object payloads (`objects`) as primary placement source, with spawn-marker yaw/z support, blocker registration, transition trigger checks, and baseline navmesh region generation.
+- Programmatic Blender headless asset pipeline is active under `tools/blender/`, including pinned install, local shared-lib fallback wiring, and GLB export scripts consumed by runtime model loading.
 
 ### Directional model
 - Online ARPG with instance-aware gameplay.
@@ -48,9 +49,15 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - World runtime now supports both:
   - `2d` path (`world_canvas.gd`) for compatibility fallback,
   - `3d` path (`world_canvas_3d.gd`) as active migration baseline.
+- 3D runtime movement now supports runtime-config keybind overrides and walk/run state mapping with animation-state playback.
+- 3D runtime transitions emit `transition_requested` from trigger volumes encoded in level transition payloads.
 - Character art runtime resolves directional animated frames from `assets/characters/sellsword_v1/catalog.json` for both podium preview and in-world actor rendering; the Sellsword generator outputs textured/colorized sheets (not silhouette placeholders).
 - Sellsword source sheets remain `640x640` at runtime contract size, but fidelity v3 now draws at a 4x larger authored base canvas (`BASE_FRAME_SIZE=640`) with smoother anti-aliased rendering and direction-specific front/side/back pose silhouettes before sheet emission.
-- 3D sellsword baseline templates are generated procedurally in `game-client/scripts/sellsword_3d_factory.gd` and consumed by both preview + 3D world scaffolds.
+- 3D sellsword actor loading in `game-client/scripts/sellsword_3d_factory.gd` now prefers generated GLB assets (`assets/3d/generated/*.glb`) and falls back to procedural meshes only when generated assets are unavailable.
+- Factory-managed animation contract now guarantees presence/playback of: `idle`, `walk`, `run`, `attack`, `cast`, `hurt`, `death`.
+- Current generated male sellsword shape/material profile is guided by concept references at:
+  - `concept_art/sellsword_front.png`
+  - `concept_art/sellsword_back.png`
 - Character list load path now logs API diagnostics (`rows` count + failure status/message) so client logs can confirm frontend/backend `/characters` contract flow for specific accounts.
 - Character actions are now selection-gated in account view (`Play/Delete` disabled until selected character).
 - Asset ingest manifest entries for Sellsword idle sheets track `*_640` assets so release-time ingest validation matches generated sprite-pack outputs.
@@ -64,6 +71,12 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - `tools/blender/install_blender.py`
   - `tools/blender/run_blender_headless.py`
   - `tools/blender/scripts/generate_sellsword_3d_assets.py`
+- Generated GLB outputs currently expected by runtime and CI contract checks:
+  - `assets/3d/generated/sellsword_male.glb`
+  - `assets/3d/generated/sellsword_female.glb`
+  - `assets/3d/generated/ground_tile_stone.glb`
+  - `assets/3d/generated/foliage_grass_a.glb`
+  - `assets/3d/generated/foliage_tree_dead_a.glb`
 
 ## Backend Responsibilities
 - Auth/session lifecycle:
@@ -144,8 +157,9 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Trigger policy:
   - backend code changes run backend checks/deploy flow,
   - backend markdown-only changes are filtered out from deploy execution,
+  - release workflow now triggers on markdown/docs changes (only backend path remains ignored),
   - deploy workflow runs post-deploy backend health + online-loop smoke checks,
-  - launcher/game release workflow remains focused on client/launcher packaging.
+  - launcher/game release workflow remains focused on client/launcher packaging and now includes `3D Runtime Contract` validation.
 
 ## Distribution Channels
 - Standalone launcher remains primary (`Velopack + GCS`).
@@ -178,6 +192,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - `./gradlew :launcher:test`
 - UI regression harness:
   - `python3 game-client/tests/check_ui_regression.py`
+- 3D runtime contract harness:
+  - `python3 game-client/tests/check_3d_runtime_contract.py`
 - Sellsword art pack generation:
   - `python3 tools/generate_sellsword_sprite_pack.py`
 - Blender toolchain install:

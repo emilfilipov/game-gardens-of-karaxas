@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / ".tools/blender/manifest.env"
+LOCAL_LIB_ROOT = ROOT / ".tools/blender/libs"
 
 
 def _load_manifest_bin() -> str:
@@ -50,8 +51,25 @@ def main() -> None:
         cmd.append("--")
         cmd.extend(extras)
 
+    env = os.environ.copy()
+    if os.name != "nt" and LOCAL_LIB_ROOT.exists():
+        local_lib_dirs = []
+        for candidate in LOCAL_LIB_ROOT.rglob("lib"):
+            if candidate.is_dir():
+                local_lib_dirs.append(str(candidate))
+        for candidate in LOCAL_LIB_ROOT.rglob("lib64"):
+            if candidate.is_dir():
+                local_lib_dirs.append(str(candidate))
+        for candidate in LOCAL_LIB_ROOT.rglob("x86_64-linux-gnu"):
+            if candidate.is_dir():
+                local_lib_dirs.append(str(candidate))
+        if local_lib_dirs:
+            existing = env.get("LD_LIBRARY_PATH", "").strip()
+            combined = ":".join(local_lib_dirs + ([existing] if existing else []))
+            env["LD_LIBRARY_PATH"] = combined
+
     print("[blender-headless] running", " ".join(cmd))
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
 
 if __name__ == "__main__":

@@ -810,6 +810,8 @@ func _build_world_canvas_node() -> Control:
 	node.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	node.custom_minimum_size = Vector2(800, 460)
 	node.connect("player_position_changed", _on_world_position_changed)
+	if node.has_signal("transition_requested"):
+		node.connect("transition_requested", _on_world_transition_requested)
 	return node
 
 func _resolve_initial_world_renderer_mode() -> String:
@@ -2107,6 +2109,10 @@ func _set_account_view(mode: String, refresh_list: bool = true) -> void:
 		account_create_panel.visible = account_view_mode == "create"
 	if account_nav_create_button != null:
 		account_nav_create_button.text = "Back to Character List" if account_view_mode == "create" else "Create Character"
+	if account_view_mode == "create":
+		if create_status_label != null:
+			create_status_label.text = " "
+		_refresh_create_character_preview()
 	if refresh_list and account_view_mode == "list" and access_token != "" and _current_screen() == "account":
 		call_deferred("_refresh_account_screen_deferred")
 
@@ -2273,6 +2279,8 @@ func _on_character_play_pressed() -> void:
 	if player_runtime is Dictionary:
 		for key in player_runtime.keys():
 			runtime_payload[key] = player_runtime.get(key)
+	if content_domains is Dictionary and not content_domains.is_empty():
+		runtime_payload["asset_domains"] = content_domains.duplicate(true)
 	if world_canvas.has_method("configure_runtime"):
 		world_canvas.call("configure_runtime", runtime_payload)
 	if world_canvas.has_method("set_player_appearance"):
@@ -2287,6 +2295,13 @@ func _on_character_play_pressed() -> void:
 
 func _on_world_position_changed(position: Vector2) -> void:
 	world_status_label.text = "WASD to move. Level: %s (%d, %d)" % [active_level_name, int(position.x), int(position.y)]
+
+func _on_world_transition_requested(transition: Dictionary) -> void:
+	var target = str(transition.get("to_level_name", transition.get("target_level", transition.get("to_level", "Unknown"))))
+	if target.strip_edges().is_empty():
+		target = "Unknown"
+	world_status_label.text = "Transition trigger reached: %s" % target
+	_append_log("World transition requested level=%s payload=%s" % [target, JSON.stringify(transition)])
 
 func _persist_active_character_location() -> void:
 	if not active_world_ready:

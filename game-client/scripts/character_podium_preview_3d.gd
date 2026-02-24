@@ -13,7 +13,6 @@ var _drag_active: bool = false
 var _drag_anchor_x: float = 0.0
 var _drag_threshold: float = 18.0
 var _reduced_motion: bool = false
-var _idle_phase: float = 0.0
 var _lighting_profile: String = "warm_torchlight"
 var _show_controls: bool = true
 var _show_title: bool = true
@@ -39,7 +38,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_ui()
 	_set_character_internal("")
-	set_process(true)
+	set_process(false)
 
 func configure(
 	loader: Callable,
@@ -281,6 +280,7 @@ func _set_character_internal(appearance_key: String) -> void:
 	_character_root.add_child(_character_model)
 	if _world_scale_mode:
 		_character_model.scale = Vector3.ONE * 0.36
+	SELSWORD_FACTORY.play_animation(_character_model, "idle", 0.0)
 	_apply_direction()
 
 func _apply_direction() -> void:
@@ -318,11 +318,3 @@ func _gui_input(event: InputEvent) -> void:
 		if absf(delta_x) >= _drag_threshold:
 			rotate_by(1 if delta_x > 0.0 else -1)
 			_drag_anchor_x = motion.position.x
-
-func _process(delta: float) -> void:
-	if _reduced_motion or _character_model == null:
-		return
-	_idle_phase += delta
-	var bob_scale = 0.01 if _world_scale_mode else 0.02
-	var bob = sin(_idle_phase * 1.35) * bob_scale
-	_character_model.position.y = bob

@@ -29,3 +29,7 @@ backend/.pytest_cache/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/.mypy_cache/
+
+# Local tooling caches
+.tools/
+**/__pycache__/

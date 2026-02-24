@@ -9,6 +9,7 @@ python3 tools/blender/install_blender.py --version 4.2.3
 ```
 
 The installer writes `.tools/blender/manifest.env` with `BLENDER_BIN`.
+If direct urllib download is blocked by host policy, the installer now falls back to `wget`/`curl` automatically.
 
 ## Run a headless Blender script
 
@@ -24,4 +25,4 @@ python3 tools/blender/run_blender_headless.py --script tools/blender/scripts/gen
 - `assets/3d/generated/foliage_grass_a.glb`
 - `assets/3d/generated/foliage_tree_dead_a.glb`
 
-These are baseline placeholders for runtime integration and should be iterated with authored rigs/materials.
+Sellsword exports now include a baseline armature and baked action set (`idle`, `walk`, `run`, `attack`, `cast`, `hurt`, `death`) for runtime playback.

@@ -12,6 +12,7 @@ import argparse
 import os
 import platform
 import shutil
+import subprocess
 import tarfile
 import urllib.request
 import zipfile
@@ -19,20 +20,22 @@ from pathlib import Path
 
 DEFAULT_VERSION = "4.2.3"
 DEFAULT_ROOT = Path(".tools/blender")
+DEFAULT_BASE_URL = "https://download.blender.org/release"
 
 
-def _platform_descriptor(version: str) -> tuple[str, str]:
+def _platform_descriptor(version: str, base_url: str) -> tuple[str, str]:
     system = platform.system().lower()
+    release_major = ".".join(version.split(".")[:2])
     if system == "linux":
         file_name = f"blender-{version}-linux-x64.tar.xz"
         return (
-            f"https://download.blender.org/release/Blender4.2/{file_name}",
+            f"{base_url}/Blender{release_major}/{file_name}",
             file_name,
         )
     if system == "windows":
         file_name = f"blender-{version}-windows-x64.zip"
         return (
-            f"https://download.blender.org/release/Blender4.2/{file_name}",
+            f"{base_url}/Blender{release_major}/{file_name}",
             file_name,
         )
     raise SystemExit(f"unsupported platform: {system}")
@@ -40,8 +43,22 @@ def _platform_descriptor(version: str) -> tuple[str, str]:
 
 def _download(url: str, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(url) as response, target.open("wb") as out:
-        shutil.copyfileobj(response, out)
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Codex Blender Installer)"})
+    try:
+        with urllib.request.urlopen(req) as response, target.open("wb") as out:
+            shutil.copyfileobj(response, out)
+        return
+    except Exception as exc:
+        print(f"[blender-install] urllib download failed ({exc}); trying wget/curl fallback")
+    wget = shutil.which("wget")
+    if wget:
+        subprocess.run([wget, "-O", str(target), url], check=True)
+        return
+    curl = shutil.which("curl")
+    if curl:
+        subprocess.run([curl, "-L", "-o", str(target), url], check=True)
+        return
+    raise SystemExit("unable to download blender archive: urllib failed and neither wget nor curl is available")
 
 
 def _extract(archive_path: Path, install_root: Path) -> Path:
@@ -74,11 +91,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", default=DEFAULT_VERSION)
     parser.add_argument("--install-root", default=str(DEFAULT_ROOT))
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
     install_root = Path(args.install_root).resolve()
-    url, file_name = _platform_descriptor(args.version)
+    url, file_name = _platform_descriptor(args.version, args.base_url.rstrip("/"))
     archive_path = install_root / file_name
 
     if args.force and install_root.exists():
