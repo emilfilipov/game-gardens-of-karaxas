@@ -26,8 +26,10 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Account hub (character list/create/select/play) using side-navigation view switching instead of tab containers
 - Account hub list view now uses one unified sidebar (top create action + character rows) with no duplicate list column header/sidebar.
 - Character list data refresh is automatic on account view/screen transitions (manual refresh control removed).
+- Account hub list view remains the default even for empty character sets (no forced create-mode redirect on `/characters` empty payloads).
 - Account hub list/create views render full-width inside the shell content region (not centered boxed sub-layouts).
 - Create flow hides the left list sidebar and uses right-panel footer actions (`Create Character` above `Back to Character List`).
+- Character create submit path no longer uses a confirmation dialog; create requests post directly after validation.
 - Character creation preset picker (runtime-config driven `preset_key`) with player-selected `sex` (`appearance_key`) and name-only onboarding fields
 - Character list/create dual preview stack:
   - large podium preview for authored inspection/rotation,
@@ -35,14 +37,16 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Character podium preview now includes grounding anchor visuals (baseline strip + contact shadow) with bottom-foot anchoring to prevent floating.
 - World-scale inset preview now supports higher-contrast backdrop/border styling for readability against busy scene backgrounds.
 - Character details/actions render as a compact bottom-right square overlay on the list preview surface.
+- Create podium preview title text is disabled (no `Character Type` headline above the model).
 - Settings (including MFA controls)
 - Admin tooling (for admin users)
 - World runtime (isometric)
 - Character art runtime resolves directional animated frames from `assets/characters/sellsword_v1/catalog.json` for both podium preview and in-world actor rendering; the Sellsword generator outputs textured/colorized sheets (not silhouette placeholders).
-- Sellsword source sheets are generated at `640x640` frame size (fidelity v2). World runtime still draws actors at gameplay size (`96x96`) via draw-time downscale, so higher source detail does not force world camera/actor scale inflation.
+- Sellsword source sheets remain `640x640` at runtime contract size, but fidelity v3 now draws at a 4x larger authored base canvas (`BASE_FRAME_SIZE=640`) with smoother anti-aliased rendering and direction-specific front/side/back pose silhouettes before sheet emission.
+- Character list load path now logs API diagnostics (`rows` count + failure status/message) so client logs can confirm frontend/backend `/characters` contract flow for specific accounts.
 - Asset ingest manifest entries for Sellsword idle sheets track `*_640` assets so release-time ingest validation matches generated sprite-pack outputs.
 - Auth release notes now refresh whenever the auth screen is shown and fall back to local `patch_notes.md`/`release_notes.md` if summary fetch is unavailable.
-- Shared game icon assets are aligned across launcher resources, game-client resources, and installer icons via the `assets/icons/game_icon.*` pipeline.
+- Shared game icon assets are aligned across launcher resources, game-client resources, and installer icons via the `assets/icons/game_icon.*` pipeline, regenerated from root source `icon_2.png`.
 
 ## Backend Responsibilities
 - Auth/session lifecycle:
@@ -51,6 +55,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - websocket ticket issuance
 - Character lifecycle:
   - list/create/select/delete
+  - `/characters` list is user-scoped (returns only characters owned by the authenticated account, including admin accounts)
   - location persistence
   - preset-aware character bootstrap (`preset_key` baseline support)
 - Content/config delivery:

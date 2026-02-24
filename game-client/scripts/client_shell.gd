@@ -699,7 +699,7 @@ func _build_account_screen() -> VBoxContainer:
 	create_split.add_child(create_preview_host)
 	create_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if create_preview_texture.has_method("configure"):
-		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, true, true, false)
+		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, false, true, false)
 	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
 	create_preview_host.add_child(create_preview_texture)
 
@@ -1320,15 +1320,10 @@ func _refresh_create_character_preview() -> void:
 	if create_preview_texture == null:
 		return
 	var appearance_key = "human_male"
-	var title = "Character Type"
-	if create_preset_option != null and create_preset_option.selected >= 0 and create_preset_option.selected < create_preset_option.get_item_count():
-		title = create_preset_option.get_item_text(create_preset_option.selected).strip_edges()
-		if title.is_empty():
-			title = "Character Type"
 	if create_sex_option != null and create_sex_option.selected == 1:
 		appearance_key = "human_female"
 	if create_preview_texture.has_method("set_character"):
-		create_preview_texture.call("set_character", appearance_key, title)
+		create_preview_texture.call("set_character", appearance_key, "")
 		if create_preview_world_inset != null and create_preview_world_inset.has_method("set_character"):
 			create_preview_world_inset.call("set_character", appearance_key, "")
 		if create_preview_texture.has_method("current_direction") and create_preview_world_inset != null and create_preview_world_inset.has_method("set_direction"):
@@ -2025,15 +2020,17 @@ func _load_characters() -> void:
 	var response = await _api_request(HTTPClient.METHOD_GET, "/characters", null, true)
 	if not response.get("ok", false):
 		account_status_label.text = _friendly_error(response)
+		_append_log("Character list request failed status=%s message=%s" % [str(response.get("status", 0)), account_status_label.text])
 		return
 	var payload = response.get("json", [])
 	characters = payload if payload is Array else []
+	_append_log("Character list loaded rows=%d user=%s" % [characters.size(), session_email])
 	if characters.is_empty():
 		selected_character_index = -1
 		character_details_label.text = "Create a character to begin."
 		_clear_character_preview(character_preview_texture)
 		_clear_character_preview(character_preview_world_inset)
-		_set_account_view("create", false)
+		_set_account_view("list", false)
 	else:
 		var selected_index = 0
 		for idx in range(characters.size()):
@@ -2126,10 +2123,6 @@ func _on_create_character_pressed() -> void:
 	var name = create_name_input.text.strip_edges()
 	if name.length() < 2:
 		create_status_label.text = "Character name must be at least 2 characters."
-		return
-	var create_confirmed = await _show_confirm_dialog("Create Character", "Create character '%s'?" % name)
-	if not create_confirmed:
-		create_status_label.text = "Creation cancelled."
 		return
 	create_status_label.text = "Creating character..."
 	var appearance_key = "human_male" if create_sex_option.selected == 0 else "human_female"

@@ -1,1 +1,6 @@
-- Synced Sellsword idle entries in `assets/iso_asset_manifest.json` to the current `*_640` sheet paths/sizes so release-time asset-ingest validation succeeds.
+- Fixed account hub navigation loop: `Character List` remains the default account view even when no characters exist, so `Back to Character List` no longer auto-switches to create mode.
+- Removed the create-character confirmation popup and submit now executes directly after input validation.
+- Removed the character-type headline above the create podium preview model.
+- Added character-list API diagnostics to client logs so `/characters` load success/failure and row counts are visible per account.
+- Delivered Sellsword sprite fidelity v3: rebuilt directional rendering with clearer front/side/back-facing poses and smoother, less blocky model shading while preserving `640x640` runtime frame contract.
+- Regenerated game icon assets (`assets/icons/game_icon.png`, `assets/icons/game_icon.ico`, launcher/client icon copies) from `icon_2.png`.
