@@ -22,24 +22,24 @@
       "frame_count": 1
     },
     {
-      "key": "sellsword_male_idle_640",
-      "path": "assets/characters/sellsword_v1/sheets/sellsword_male_idle_8dir_8f_640.png",
+      "key": "sellsword_male_idle_512",
+      "path": "assets/characters/sellsword_v1/sheets/sellsword_male_idle_2dir_8f_512.png",
       "category": "character",
-      "width": 5120,
-      "height": 5120,
+      "width": 4096,
+      "height": 1024,
       "pivot_x": 0.5,
       "pivot_y": 0.92,
-      "frame_count": 64
+      "frame_count": 16
     },
     {
-      "key": "sellsword_female_idle_640",
-      "path": "assets/characters/sellsword_v1/sheets/sellsword_female_idle_8dir_8f_640.png",
+      "key": "sellsword_female_idle_512",
+      "path": "assets/characters/sellsword_v1/sheets/sellsword_female_idle_2dir_8f_512.png",
       "category": "character",
-      "width": 5120,
-      "height": 5120,
+      "width": 4096,
+      "height": 1024,
       "pivot_x": 0.5,
       "pivot_y": 0.92,
-      "frame_count": 64
+      "frame_count": 16
     },
     {
       "key": "grass_tile",

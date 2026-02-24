@@ -1,16 +1,10 @@
 {
   "schema_version": 1,
   "pack": "sellsword_v1",
-  "frame_size": 640,
+  "frame_size": 512,
   "directions": [
-    "S",
-    "SW",
-    "W",
-    "NW",
-    "N",
-    "NE",
     "E",
-    "SE"
+    "W"
   ],
   "models": {
     "human_male": {
@@ -18,47 +12,47 @@
       "gender": "male",
       "animations": {
         "idle": {
-          "sheet": "sheets/sellsword_male_idle_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_male_idle_2dir_8f_512.png",
           "frames": 8,
           "fps": 8
         },
         "walk": {
-          "sheet": "sheets/sellsword_male_walk_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_male_walk_2dir_8f_512.png",
           "frames": 8,
           "fps": 10
         },
         "run": {
-          "sheet": "sheets/sellsword_male_run_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_male_run_2dir_8f_512.png",
           "frames": 8,
           "fps": 14
         },
         "attack": {
-          "sheet": "sheets/sellsword_male_attack_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_male_attack_2dir_8f_512.png",
           "frames": 8,
           "fps": 12
         },
         "cast": {
-          "sheet": "sheets/sellsword_male_cast_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_male_cast_2dir_8f_512.png",
           "frames": 8,
           "fps": 12
         },
         "hurt": {
-          "sheet": "sheets/sellsword_male_hurt_8dir_6f_640.png",
+          "sheet": "sheets/sellsword_male_hurt_2dir_6f_512.png",
           "frames": 6,
           "fps": 12
         },
         "death": {
-          "sheet": "sheets/sellsword_male_death_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_male_death_2dir_8f_512.png",
           "frames": 8,
           "fps": 10
         },
         "sit_crossed_legs": {
-          "sheet": "sheets/sellsword_male_sit_crossed_legs_8dir_6f_640.png",
+          "sheet": "sheets/sellsword_male_sit_crossed_legs_2dir_6f_512.png",
           "frames": 6,
           "fps": 6
         },
         "sit_kneel": {
-          "sheet": "sheets/sellsword_male_sit_kneel_8dir_6f_640.png",
+          "sheet": "sheets/sellsword_male_sit_kneel_2dir_6f_512.png",
           "frames": 6,
           "fps": 6
         }
@@ -69,47 +63,47 @@
       "gender": "female",
       "animations": {
         "idle": {
-          "sheet": "sheets/sellsword_female_idle_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_female_idle_2dir_8f_512.png",
           "frames": 8,
           "fps": 8
         },
         "walk": {
-          "sheet": "sheets/sellsword_female_walk_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_female_walk_2dir_8f_512.png",
           "frames": 8,
           "fps": 10
         },
         "run": {
-          "sheet": "sheets/sellsword_female_run_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_female_run_2dir_8f_512.png",
           "frames": 8,
           "fps": 14
         },
         "attack": {
-          "sheet": "sheets/sellsword_female_attack_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_female_attack_2dir_8f_512.png",
           "frames": 8,
           "fps": 12
         },
         "cast": {
-          "sheet": "sheets/sellsword_female_cast_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_female_cast_2dir_8f_512.png",
           "frames": 8,
           "fps": 12
         },
         "hurt": {
-          "sheet": "sheets/sellsword_female_hurt_8dir_6f_640.png",
+          "sheet": "sheets/sellsword_female_hurt_2dir_6f_512.png",
           "frames": 6,
           "fps": 12
         },
         "death": {
-          "sheet": "sheets/sellsword_female_death_8dir_8f_640.png",
+          "sheet": "sheets/sellsword_female_death_2dir_8f_512.png",
           "frames": 8,
           "fps": 10
         },
         "sit_crossed_legs": {
-          "sheet": "sheets/sellsword_female_sit_crossed_legs_8dir_6f_640.png",
+          "sheet": "sheets/sellsword_female_sit_crossed_legs_2dir_6f_512.png",
           "frames": 6,
           "fps": 6
         },
         "sit_kneel": {
-          "sheet": "sheets/sellsword_female_sit_kneel_8dir_6f_640.png",
+          "sheet": "sheets/sellsword_female_sit_kneel_2dir_6f_512.png",
           "frames": 6,
           "fps": 6
         }

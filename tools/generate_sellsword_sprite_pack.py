@@ -20,10 +20,10 @@ PACK_ROOT = ROOT / "assets/characters/sellsword_v1"
 SHEETS_DIR = PACK_ROOT / "sheets"
 LAYERS_DIR = PACK_ROOT / "layers"
 
-# v3 fidelity: 4x larger authored canvas than the original v2 base (160 -> 640).
-BASE_FRAME_SIZE = 640
-FRAME_SIZE = 640
-DIRECTIONS = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"]
+# 2D pivot baseline: high-detail 512 sheets with two gameplay directions (left/right).
+BASE_FRAME_SIZE = 512
+FRAME_SIZE = 512
+DIRECTIONS = ["E", "W"]
 ANIMATIONS = {
     "idle": {"frames": 8, "fps": 8},
     "walk": {"frames": 8, "fps": 10},
@@ -169,7 +169,7 @@ def _draw_layered_character(gender: str, anim: str, direction: str, frame: int, 
     motion = _motion(anim, frame, frame_count)
     tint = GENDER_TINTS[gender]
 
-    unit = canvas / 640.0
+    unit = canvas / float(BASE_FRAME_SIZE)
     side = profile["side"]
     front = profile["front"]
     back = profile["back"]
@@ -566,7 +566,7 @@ def _write_sheet(gender: str, anim: str, frame_count: int) -> str:
         for frame in range(frame_count):
             frame_img = _draw_layered_character(gender, anim, direction, frame, frame_count)
             sheet.alpha_composite(frame_img, (frame * FRAME_SIZE, dir_index * FRAME_SIZE))
-    file_name = f"sellsword_{gender}_{anim}_8dir_{frame_count}f_{FRAME_SIZE}.png"
+    file_name = f"sellsword_{gender}_{anim}_{len(DIRECTIONS)}dir_{frame_count}f_{FRAME_SIZE}.png"
     path = SHEETS_DIR / file_name
     sheet.save(path, "PNG")
     return file_name

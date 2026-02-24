@@ -1,15 +1,15 @@
 extends Control
 
 const WORLD_CANVAS_SCENE = preload("res://scripts/world_canvas.gd")
-const WORLD_CANVAS_3D_SCENE = preload("res://scripts/world_canvas_3d.gd")
 const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
 const UI_COMPONENTS = preload("res://scripts/ui_components.gd")
-const CHARACTER_PODIUM_PREVIEW_SCENE = preload("res://scripts/character_podium_preview_3d.gd")
+const CHARACTER_PODIUM_PREVIEW_SCENE = preload("res://scripts/character_podium_preview.gd")
+const SKILL_TREE_GRAPH_SCENE = preload("res://scripts/skill_tree_graph.gd")
 
 const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
 const DEFAULT_CONTENT_VERSION = "unknown"
-const CHARACTER_DIRECTIONS: Array[String] = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"]
+const CHARACTER_DIRECTIONS: Array[String] = ["E", "W"]
 
 const MENU_UPDATE = 1
 const MENU_LOG_VIEWER = 2
@@ -17,9 +17,6 @@ const MENU_LOGOUT = 3
 const MENU_EXIT = 4
 const MENU_SETTINGS = 6
 const MENU_LOGOUT_CHARACTER = 7
-const MENU_LEVEL_EDITOR = 8
-const MENU_ASSET_EDITOR = 9
-const MENU_CONTENT_VERSIONS = 10
 
 var api_base_url = DEFAULT_API_BASE_URL
 var client_version = DEFAULT_CLIENT_VERSION
@@ -27,7 +24,7 @@ var client_content_version_key = DEFAULT_CONTENT_VERSION
 var client_content_contract = ""
 var release_summary: Dictionary = {}
 var content_domains: Dictionary = {}
-var world_renderer_mode: String = "3d"
+var world_renderer_mode: String = "2d"
 
 var access_token = ""
 var refresh_token = ""
@@ -98,6 +95,7 @@ var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
 var character_preview_texture: Control
 var character_preview_world_inset: Control
+var character_skill_tree_graph: Control
 var character_spawn_override_option: OptionButton
 var character_play_button: Button
 var character_delete_button: Button
@@ -108,6 +106,7 @@ var create_sex_option: OptionButton
 var create_preset_description_label: Label
 var create_preview_texture: Control
 var create_preview_world_inset: Control
+var create_skill_tree_graph: Control
 var create_points_left_label: Label
 var create_status_label: Label
 var create_submit_button: Button
@@ -213,8 +212,6 @@ func _ready() -> void:
 	_build_theme()
 	_build_ui()
 	_load_last_email_pref()
-	_load_level_editor_drafts()
-	_load_asset_editor_drafts()
 	call_deferred("_async_bootstrap")
 
 func _notification(what: int) -> void:
@@ -362,7 +359,7 @@ func _build_ui() -> void:
 	background_art.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var backdrop_base = ColorRect.new()
 	backdrop_base.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop_base.color = Color(0.08, 0.08, 0.09, 1.0)
+	backdrop_base.color = Color(0.90, 0.94, 0.99, 1.0)
 	background_art.add_child(backdrop_base)
 
 	var top_gradient = TextureRect.new()
@@ -370,9 +367,9 @@ func _build_ui() -> void:
 	top_gradient.stretch_mode = TextureRect.STRETCH_SCALE
 	var top_gradient_data := Gradient.new()
 	top_gradient_data.colors = PackedColorArray([
-		Color(0.28, 0.19, 0.14, 0.44),
-		Color(0.13, 0.12, 0.11, 0.24),
-		Color(0.06, 0.06, 0.07, 0.12),
+		Color(0.79, 0.90, 0.99, 0.54),
+		Color(0.92, 0.96, 1.0, 0.30),
+		Color(0.90, 0.94, 0.98, 0.10),
 	])
 	top_gradient_data.offsets = PackedFloat32Array([0.0, 0.52, 1.0])
 	var top_gradient_texture := GradientTexture2D.new()
@@ -390,9 +387,9 @@ func _build_ui() -> void:
 	center_glow.stretch_mode = TextureRect.STRETCH_SCALE
 	var center_glow_gradient := Gradient.new()
 	center_glow_gradient.colors = PackedColorArray([
-		Color(0.48, 0.31, 0.20, 0.26),
-		Color(0.24, 0.17, 0.13, 0.14),
-		Color(0.07, 0.07, 0.08, 0.0),
+		Color(0.96, 0.88, 0.66, 0.34),
+		Color(0.94, 0.95, 0.99, 0.16),
+		Color(0.89, 0.93, 0.98, 0.0),
 	])
 	center_glow_gradient.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
 	var center_glow_texture := GradientTexture2D.new()
@@ -410,7 +407,7 @@ func _build_ui() -> void:
 	left_band.anchor_top = 0.0
 	left_band.anchor_right = 0.17
 	left_band.anchor_bottom = 1.0
-	left_band.color = Color(0.02, 0.02, 0.03, 0.34)
+	left_band.color = Color(0.79, 0.85, 0.95, 0.24)
 	background_art.add_child(left_band)
 
 	var right_band = ColorRect.new()
@@ -418,7 +415,7 @@ func _build_ui() -> void:
 	right_band.anchor_top = 0.0
 	right_band.anchor_right = 1.0
 	right_band.anchor_bottom = 1.0
-	right_band.color = Color(0.02, 0.02, 0.03, 0.34)
+	right_band.color = Color(0.79, 0.85, 0.95, 0.24)
 	background_art.add_child(right_band)
 
 	add_child(background_art)
@@ -450,7 +447,7 @@ func _build_ui() -> void:
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_title.add_theme_font_size_override("font_size", 52)
-	header_title.add_theme_color_override("font_color", Color(0.92, 0.88, 0.81))
+	header_title.add_theme_color_override("font_color", Color(0.17, 0.24, 0.36))
 	if ui_font_heading != null:
 		header_title.add_theme_font_override("font", ui_font_heading)
 	header.add_child(header_title)
@@ -490,18 +487,6 @@ func _build_ui() -> void:
 
 	settings_container = _build_settings_screen()
 	_register_screen("settings", settings_container)
-
-	level_editor_container = _build_level_editor_screen()
-	_register_screen("level_editor", level_editor_container)
-
-	level_order_container = _build_level_order_screen()
-	_register_screen("level_order", level_order_container)
-
-	asset_editor_container = _build_asset_editor_screen()
-	_register_screen("asset_editor", asset_editor_container)
-
-	versions_container = _build_content_versions_screen()
-	_register_screen("content_versions", versions_container)
 
 	footer_status = Label.new()
 	footer_status.text = footer_version_text
@@ -687,21 +672,49 @@ func _build_account_screen() -> VBoxContainer:
 	account_list_panel = Control.new()
 	account_list_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	views_root.add_child(account_list_panel)
+	var list_split = HSplitContainer.new()
+	list_split.set_anchors_preset(Control.PRESET_FULL_RECT)
+	list_split.split_offset = 760
+	account_list_panel.add_child(list_split)
+
+	var list_skill_tree_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	list_skill_tree_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_skill_tree_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_split.add_child(list_skill_tree_panel)
+	var list_tree_inner = VBoxContainer.new()
+	list_tree_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_tree_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	list_skill_tree_panel.add_child(list_tree_inner)
+	list_tree_inner.add_child(_label("Skill Tree", 20, "text_secondary"))
+	character_skill_tree_graph = SKILL_TREE_GRAPH_SCENE.new()
+	character_skill_tree_graph.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_tree_inner.add_child(character_skill_tree_graph)
+
+	var list_right_column = VBoxContainer.new()
+	list_right_column.custom_minimum_size = Vector2(336, 0)
+	list_right_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_right_column.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	list_split.add_child(list_right_column)
+
+	var list_preview_card = UI_COMPONENTS.panel_card(Vector2(0, 320), false)
+	list_preview_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_right_column.add_child(list_preview_card)
 	var list_preview_host = Control.new()
-	list_preview_host.set_anchors_preset(Control.PRESET_FULL_RECT)
-	account_list_panel.add_child(list_preview_host)
+	list_preview_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_preview_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_preview_card.add_child(list_preview_host)
 	character_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if character_preview_texture.has_method("configure"):
-		character_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, true, true, false)
+		character_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, false, true, false)
 	character_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
 	list_preview_host.add_child(character_preview_texture)
 
-	var list_world_inset_shell = Control.new()
+	var list_world_inset_shell = PanelContainer.new()
 	list_world_inset_shell.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	list_world_inset_shell.offset_left = -188
+	list_world_inset_shell.offset_left = -150
 	list_world_inset_shell.offset_top = 10
 	list_world_inset_shell.offset_right = -10
-	list_world_inset_shell.offset_bottom = 168
+	list_world_inset_shell.offset_bottom = 118
 	list_preview_host.add_child(list_world_inset_shell)
 	character_preview_world_inset = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if character_preview_world_inset.has_method("configure"):
@@ -714,13 +727,9 @@ func _build_account_screen() -> VBoxContainer:
 				character_preview_world_inset.call("set_direction", direction)
 		)
 
-	var details_panel = UI_COMPONENTS.panel_card(Vector2(278, 278), false)
-	details_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	details_panel.offset_left = -288
-	details_panel.offset_top = -288
-	details_panel.offset_right = -12
-	details_panel.offset_bottom = -12
-	list_preview_host.add_child(details_panel)
+	var details_panel = UI_COMPONENTS.panel_card(Vector2(0, 278), false)
+	details_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_right_column.add_child(details_panel)
 	var details_inner = VBoxContainer.new()
 	details_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	details_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
@@ -766,15 +775,37 @@ func _build_account_screen() -> VBoxContainer:
 	account_create_panel = Control.new()
 	account_create_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	views_root.add_child(account_create_panel)
-	var create_split = HBoxContainer.new()
+	var create_split = HSplitContainer.new()
 	create_split.set_anchors_preset(Control.PRESET_FULL_RECT)
-	create_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_split.split_offset = 760
 	account_create_panel.add_child(create_split)
 
+	var create_skill_tree_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
+	create_skill_tree_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_skill_tree_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_split.add_child(create_skill_tree_panel)
+	var create_tree_inner = VBoxContainer.new()
+	create_tree_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_tree_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	create_skill_tree_panel.add_child(create_tree_inner)
+	create_tree_inner.add_child(_label("Skill Tree", 20, "text_secondary"))
+	create_skill_tree_graph = SKILL_TREE_GRAPH_SCENE.new()
+	create_skill_tree_graph.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_tree_inner.add_child(create_skill_tree_graph)
+
+	var create_right_column = VBoxContainer.new()
+	create_right_column.custom_minimum_size = Vector2(340, 0)
+	create_right_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_right_column.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_split.add_child(create_right_column)
+
+	var create_preview_card = UI_COMPONENTS.panel_card(Vector2(0, 310), false)
+	create_preview_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_right_column.add_child(create_preview_card)
 	var create_preview_host = Control.new()
 	create_preview_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	create_preview_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_split.add_child(create_preview_host)
+	create_preview_card.add_child(create_preview_host)
 	create_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if create_preview_texture.has_method("configure"):
 		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, false, true, false)
@@ -814,7 +845,7 @@ func _build_account_screen() -> VBoxContainer:
 
 	var create_options = UI_COMPONENTS.panel_card(Vector2(320, 0), false)
 	create_options.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_split.add_child(create_options)
+	create_right_column.add_child(create_options)
 	var create_options_inner = VBoxContainer.new()
 	create_options_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_options_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
@@ -854,6 +885,7 @@ func _build_account_screen() -> VBoxContainer:
 	create_options_inner.add_child(create_back_button)
 
 	_populate_character_options_from_content()
+	_refresh_skill_tree_graphs()
 	_set_account_view("list")
 	return wrap
 
@@ -874,7 +906,7 @@ func _build_world_screen() -> VBoxContainer:
 
 func _build_world_canvas_node() -> Control:
 	var node = Control.new()
-	node.set_script(WORLD_CANVAS_3D_SCENE if world_renderer_mode == "3d" else WORLD_CANVAS_SCENE)
+	node.set_script(WORLD_CANVAS_SCENE)
 	node.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	node.custom_minimum_size = Vector2(800, 460)
 	node.connect("player_position_changed", _on_world_position_changed)
@@ -883,10 +915,7 @@ func _build_world_canvas_node() -> Control:
 	return node
 
 func _resolve_initial_world_renderer_mode() -> String:
-	var env_mode = OS.get_environment("COI_WORLD_RENDERER").strip_edges().to_lower()
-	if env_mode == "2d" or env_mode == "3d":
-		return env_mode
-	return "3d"
+	return "2d"
 
 func _build_log_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
@@ -1550,6 +1579,70 @@ func _populate_character_presets_from_content() -> void:
 	_sanitize_option_popup(create_preset_option)
 	create_preset_option.selected = selected_index
 
+func _build_skill_tree_graph_payload() -> Dictionary:
+	var nodes: Array = []
+	var edges: Array = []
+	nodes.append({"id": "core", "label": "Core", "type": "stat", "x": 0.5, "y": 0.5})
+	var stats_entries: Array = []
+	var stats_domain = content_domains.get("stats", {})
+	if stats_domain is Dictionary:
+		var raw = stats_domain.get("entries", [])
+		if raw is Array:
+			stats_entries = raw
+	var stats_count = max(1, stats_entries.size())
+	for stat_index in range(stats_entries.size()):
+		var raw_entry = stats_entries[stat_index]
+		if not (raw_entry is Dictionary):
+			continue
+		var stat_entry: Dictionary = raw_entry
+		var key = str(stat_entry.get("key", "stat_%d" % stat_index)).strip_edges().to_lower()
+		var label = str(stat_entry.get("label", key.capitalize())).strip_edges()
+		var angle = (TAU / float(stats_count)) * float(stat_index)
+		var x = 0.5 + cos(angle) * 0.22
+		var y = 0.5 + sin(angle) * 0.22
+		var node_id = "stat_" + key
+		nodes.append({"id": node_id, "label": label, "type": "stat", "x": x, "y": y})
+		edges.append({"from": "core", "to": node_id})
+
+	var skills_entries: Array = []
+	var skills_domain = content_domains.get("skills", {})
+	if skills_domain is Dictionary:
+		var raw_skills = skills_domain.get("entries", [])
+		if raw_skills is Array:
+			skills_entries = raw_skills
+	var skills_count = max(1, skills_entries.size())
+	for skill_index in range(skills_entries.size()):
+		var raw_skill = skills_entries[skill_index]
+		if not (raw_skill is Dictionary):
+			continue
+		var skill_entry: Dictionary = raw_skill
+		var skill_key = str(skill_entry.get("key", "skill_%d" % skill_index)).strip_edges().to_lower()
+		var skill_label = str(skill_entry.get("label", skill_key.capitalize())).strip_edges()
+		var node_type = "active" if skill_index % 3 == 0 else "passive"
+		var skill_angle = (TAU / float(skills_count)) * float(skill_index) + 0.16
+		var sx = 0.5 + cos(skill_angle) * 0.38
+		var sy = 0.5 + sin(skill_angle) * 0.38
+		var skill_node_id = "skill_" + skill_key
+		nodes.append({"id": skill_node_id, "label": skill_label, "type": node_type, "x": sx, "y": sy})
+		if stats_entries.is_empty():
+			edges.append({"from": "core", "to": skill_node_id})
+		else:
+			var stat_parent_index = skill_index % stats_count
+			var parent_entry: Dictionary = stats_entries[stat_parent_index]
+			var parent_key = str(parent_entry.get("key", "stat_%d" % stat_parent_index)).strip_edges().to_lower()
+			edges.append({"from": "stat_" + parent_key, "to": skill_node_id})
+
+	return {"nodes": nodes, "edges": edges}
+
+func _refresh_skill_tree_graphs() -> void:
+	var payload = _build_skill_tree_graph_payload()
+	var nodes = payload.get("nodes", [])
+	var edges = payload.get("edges", [])
+	if character_skill_tree_graph != null and character_skill_tree_graph.has_method("configure_graph"):
+		character_skill_tree_graph.call("configure_graph", nodes, edges, [])
+	if create_skill_tree_graph != null and create_skill_tree_graph.has_method("configure_graph"):
+		create_skill_tree_graph.call("configure_graph", nodes, edges, [])
+
 func _refresh_selected_character_preview() -> void:
 	if character_preview_texture == null:
 		return
@@ -1623,12 +1716,14 @@ func _resolve_character_texture_directional(
 	if key.is_empty():
 		key = "human_male"
 	var direction_key = direction.strip_edges().to_upper()
-	if CHARACTER_DIRECTIONS.find(direction_key) < 0:
-		direction_key = "S"
+	if direction_key.is_empty():
+		direction_key = "E"
 	var animation_key = animation.strip_edges().to_lower()
 	if animation_key.is_empty():
 		animation_key = "idle"
-	var cache_key = "%s|%s|%s|%d" % [key, direction_key, animation_key, frame_index]
+	var catalog_rows = _catalog_direction_rows()
+	var resolved_direction = _resolve_catalog_direction(direction_key, catalog_rows)
+	var cache_key = "%s|%s|%s|%d" % [key, resolved_direction, animation_key, frame_index]
 	if character_sprite_cache.has(cache_key):
 		var cached_frame = character_sprite_cache.get(cache_key)
 		if cached_frame is Texture2D:
@@ -1657,7 +1752,7 @@ func _resolve_character_texture_directional(
 	var frames = max(1, int(anim_meta.get("frames", 1)))
 	var frame_w = int(character_sprite_catalog.get("frame_size", 96))
 	var frame_h = frame_w
-	var row_index = max(0, CHARACTER_DIRECTIONS.find(direction_key))
+	var row_index = max(0, catalog_rows.find(resolved_direction))
 	var frame = int(posmod(frame_index, frames))
 	var sheet_rel = str(anim_meta.get("sheet", "")).strip_edges()
 	if sheet_rel.is_empty():
@@ -1677,6 +1772,31 @@ func _resolve_character_texture_directional(
 	atlas.region = Rect2(frame * frame_w, row_index * frame_h, frame_w, frame_h)
 	character_sprite_cache[cache_key] = atlas
 	return atlas
+
+func _catalog_direction_rows() -> Array[String]:
+	var rows: Array[String] = []
+	var raw = character_sprite_catalog.get("directions", [])
+	if raw is Array:
+		for value in raw:
+			var direction = str(value).strip_edges().to_upper()
+			if not direction.is_empty():
+				rows.append(direction)
+	if rows.is_empty():
+		rows = CHARACTER_DIRECTIONS.duplicate()
+	return rows
+
+func _resolve_catalog_direction(requested_direction: String, catalog_rows: Array[String]) -> String:
+	if catalog_rows.is_empty():
+		return "S"
+	if catalog_rows.has(requested_direction):
+		return requested_direction
+	if catalog_rows.size() == 2 and catalog_rows.has("E") and catalog_rows.has("W"):
+		if requested_direction in ["W", "NW", "SW"]:
+			return "W"
+		return "E"
+	if catalog_rows.has("S"):
+		return "S"
+	return catalog_rows[0]
 
 func _resolve_character_texture(appearance_key: String):
 	var key = appearance_key.strip_edges().to_lower()
@@ -1887,9 +2007,6 @@ func _populate_menu() -> void:
 		else:
 			menu_popup.add_item("Settings", MENU_SETTINGS)
 			if session_is_admin:
-				menu_popup.add_item("Level Editor", MENU_LEVEL_EDITOR)
-				menu_popup.add_item("Asset Editor", MENU_ASSET_EDITOR)
-				menu_popup.add_item("Content Versions", MENU_CONTENT_VERSIONS)
 				menu_popup.add_item("Log Viewer", MENU_LOG_VIEWER)
 			menu_popup.add_item("Update & Restart", MENU_UPDATE)
 			menu_popup.add_item("Logout Account", MENU_LOGOUT)
@@ -1907,18 +2024,6 @@ func _on_menu_item_pressed(item_id: int) -> void:
 			if session_is_admin:
 				_show_screen("logs")
 				_reload_log_view()
-		MENU_LEVEL_EDITOR:
-			if session_is_admin:
-				_show_screen("level_editor")
-				_refresh_level_editor_levels()
-		MENU_ASSET_EDITOR:
-			if session_is_admin:
-				_show_screen("asset_editor")
-				_refresh_asset_editor_versions()
-		MENU_CONTENT_VERSIONS:
-			if session_is_admin:
-				_show_screen("content_versions")
-				_refresh_content_versions()
 		MENU_LOGOUT:
 			await _logout_account()
 		MENU_LOGOUT_CHARACTER:
@@ -3280,15 +3385,7 @@ func _apply_runtime_config_payload(runtime_body: Dictionary) -> bool:
 	return true
 
 func _resolve_world_renderer_mode_from_domains() -> String:
-	var runtime_client = content_domains.get("runtime_client", {})
-	if runtime_client is Dictionary:
-		var mode = str(runtime_client.get("world_renderer", "")).strip_edges().to_lower()
-		if mode == "2d" or mode == "3d":
-			return mode
-	var mode_fallback = str(content_domains.get("world_renderer", "")).strip_edges().to_lower()
-	if mode_fallback == "2d" or mode_fallback == "3d":
-		return mode_fallback
-	return world_renderer_mode
+	return "2d"
 
 func _apply_world_renderer_mode_from_domains() -> void:
 	var resolved_mode = _resolve_world_renderer_mode_from_domains()
@@ -3364,6 +3461,7 @@ func _populate_character_options_from_content() -> void:
 		return
 	_populate_character_presets_from_content()
 	_populate_character_creation_tables(options)
+	_refresh_skill_tree_graphs()
 
 func _content_labels(source: Variant, fallback: Array) -> Array:
 	if source is Array and not source.is_empty():

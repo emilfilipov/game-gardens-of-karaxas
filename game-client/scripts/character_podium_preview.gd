@@ -3,11 +3,12 @@ class_name CharacterPodiumPreview
 
 signal direction_changed(direction: String)
 
-const DIRECTIONS: Array[String] = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"]
+const DIRECTIONS: Array[String] = ["E", "W"]
 
 var _loader: Callable
 var _appearance_key: String = "human_male"
 var _direction_index: int = 0
+var _has_character: bool = false
 var _drag_active: bool = false
 var _drag_anchor_x: float = 0.0
 var _drag_threshold: float = 18.0
@@ -65,12 +66,28 @@ func set_reduced_motion(enabled: bool) -> void:
 	_reduced_motion = enabled
 
 func set_character(appearance_key: String, title: String = "") -> void:
-	_appearance_key = appearance_key.strip_edges().to_lower()
-	if _appearance_key.is_empty():
-		_appearance_key = "human_male"
+	var normalized = appearance_key.strip_edges().to_lower()
+	if normalized.is_empty():
+		_has_character = false
+		_appearance_key = ""
+		if _title_label != null:
+			_title_label.visible = false
+			_title_label.text = ""
+		_refresh_texture()
+		return
+	_has_character = true
+	_appearance_key = normalized
 	if _title_label != null:
 		_title_label.visible = _show_title and not title.is_empty()
 		_title_label.text = title
+	_refresh_texture()
+
+func clear_character() -> void:
+	_has_character = false
+	_appearance_key = ""
+	if _title_label != null:
+		_title_label.visible = false
+		_title_label.text = ""
 	_refresh_texture()
 
 func set_direction(direction: String) -> void:
@@ -164,7 +181,7 @@ func _build_ui() -> void:
 	_controls_row.add_child(_rotate_left)
 
 	_direction_label = Label.new()
-	_direction_label.text = "Facing: S"
+	_direction_label.text = "Facing: E"
 	_direction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_direction_label.custom_minimum_size = Vector2(130, 32)
 	_controls_row.add_child(_direction_label)
@@ -210,6 +227,11 @@ func _refresh_texture() -> void:
 	var direction = DIRECTIONS[_direction_index]
 	if _direction_label != null:
 		_direction_label.text = "Facing: " + direction
+	if not _has_character:
+		_texture.texture = null
+		_layout_preview_surface(1.0)
+		_apply_lighting_profile()
+		return
 	var texture: Texture2D = null
 	if _loader.is_valid():
 		var value = _loader.call(_appearance_key, direction)

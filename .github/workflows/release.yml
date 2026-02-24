@@ -92,11 +92,11 @@ jobs:
         run: |
           python game-client/tests/check_ui_regression.py
 
-      - name: 3D Runtime Contract
+      - name: 2D Runtime Contract
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         run: |
-          python game-client/tests/check_3d_runtime_contract.py
+          python game-client/tests/check_2d_runtime_contract.py
 
       - name: Setup .NET
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'

@@ -59,14 +59,20 @@ static func button(text_value: String, min_size: Vector2 = Vector2(0, 0), focus_
 	return node
 
 
-static func _apply_button_style(node: Button, normal: StyleBoxFlat, hover: StyleBoxFlat, pressed: StyleBoxFlat) -> void:
+static func _apply_button_style(
+	node: Button,
+	normal: StyleBoxFlat,
+	hover: StyleBoxFlat,
+	pressed: StyleBoxFlat,
+	font_color_name: String = "text_primary"
+) -> void:
 	node.add_theme_stylebox_override("normal", normal)
 	node.add_theme_stylebox_override("hover", hover)
 	node.add_theme_stylebox_override("pressed", pressed)
 	node.add_theme_stylebox_override("focus", normal)
-	node.add_theme_color_override("font_color", UI_TOKENS.color("text_primary"))
-	node.add_theme_color_override("font_hover_color", UI_TOKENS.color("text_primary"))
-	node.add_theme_color_override("font_pressed_color", UI_TOKENS.color("text_primary"))
+	node.add_theme_color_override("font_color", UI_TOKENS.color(font_color_name))
+	node.add_theme_color_override("font_hover_color", UI_TOKENS.color(font_color_name))
+	node.add_theme_color_override("font_pressed_color", UI_TOKENS.color(font_color_name))
 	_attach_hover_motion(node)
 
 static func _attach_hover_motion(node: Button) -> void:
@@ -93,7 +99,7 @@ static func button_secondary(text_value: String, min_size: Vector2 = Vector2(0, 
 	hover.bg_color = UI_TOKENS.color("button_hover")
 	var pressed = normal.duplicate()
 	pressed.bg_color = UI_TOKENS.color("button_pressed")
-	_apply_button_style(node, normal, hover, pressed)
+	_apply_button_style(node, normal, hover, pressed, "text_primary")
 	node.add_theme_font_size_override("font_size", 17)
 	return node
 
@@ -105,7 +111,7 @@ static func button_primary(text_value: String, min_size: Vector2 = Vector2(0, 0)
 	hover.bg_color = UI_TOKENS.color("button_primary_hover")
 	var pressed = normal.duplicate()
 	pressed.bg_color = UI_TOKENS.color("button_primary_pressed")
-	_apply_button_style(node, normal, hover, pressed)
+	_apply_button_style(node, normal, hover, pressed, "text_inverse")
 	node.add_theme_font_size_override("font_size", 17)
 	return node
 

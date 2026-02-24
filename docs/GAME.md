@@ -1,119 +1,84 @@
 # Children of Ikphelion - Game
 
 ## High Concept
-Children of Ikphelion is an online isometric ARPG.
+Children of Ikphelion is an online top-down ARPG.
 
-Current migration direction:
-- Runtime presentation is now on an initial Godot 3D foundation path while preserving the online ARPG gameplay model.
-- Camera target remains angled and distanced readability inspired by Path of Exile (further tuning in active backlog).
-
-Play model:
-- Players primarily run private gameplay instances (solo by default).
-- Party members share gameplay instances when grouped.
-- Shared social visibility is limited to town/hub zones.
+Current direction:
+- Runtime presentation is 2D spritesheet-driven.
+- Core gameplay model remains Path of Exile-like (instance-based online ARPG progression).
+- UI direction is being rebuilt to a lighter, more pleasant visual style.
 
 ## Core Pillars
-- Fast, readable isometric combat with deep build customization.
-- Character identity through creation choices, stats, skills, and equipment.
-- Online account progression with secure login and MFA.
-- Server-authoritative gameplay values for balance and anti-tamper.
-- Branded, themed UI across all client surfaces.
+- Fast, readable top-down combat and movement.
+- Character identity through presets, passives/actives, gear, and progression.
+- Server-authoritative gameplay values and progression.
+- Online account flow with secure auth and MFA.
+- Cohesive themed UI across auth/account/world surfaces.
 
 ## Runtime Flow
 1. Launcher starts client and checks updates.
 2. User logs in or registers.
-3. Optional MFA challenge during login when enabled.
+3. Optional MFA challenge when enabled.
 4. User enters account/character hub.
 5. User creates/selects character and presses `Play`.
-6. Client requests backend world bootstrap for the selected character (resolved level + spawn + runtime tuning snapshot).
-7. Client joins a gameplay instance (solo/party) or hub zone based on destination.
+6. Client requests backend world bootstrap for the selected character.
+7. Client joins a gameplay instance (solo/party) or hub zone.
 
 ## Online ARPG Model
-- **Solo default**: entering gameplay without a party creates or joins a private instance for that character/session.
-- **Party play**: invited party members enter a shared instance.
-- **Town hubs**: players can see other players and socialize/trade.
-- **Gameplay zones**: only players in the same instance are visible/relevant.
+- **Solo default**: gameplay entry without a party creates/joins a private instance.
+- **Party play**: grouped players share instance routing.
+- **Town hubs**: shared social visibility.
+- **Gameplay zones**: only same-instance players are relevant.
 
-## Character Flow (Current Direction)
-- Character list/create/select/play remains a first-class flow in the client.
-- Current character creator and isometric runtime work are retained and iterated forward.
-- Existing proven online hub/list/create UX patterns are reused as baseline while visual polish continues.
-- Account hub now uses side navigation (no list/create tabs) with large center podium previews in both list and create flows.
-- Character list now uses a single left sidebar with top `Create Character` action plus character cards below (no duplicate list sidebar/headline).
-- Character list refresh is automatic when switching account views/screens (no manual refresh button).
-- Character list remains the default account view even when no characters exist (no forced switch into create view on empty lists).
-- Character list/create views now consume the full account content area instead of centered boxed layouts.
-- Character creation view hides the left list sidebar and keeps flow actions on the right panel (`Create Character` above `Back to Character List`).
-- Character creation now submits immediately (no create confirmation popup) and the create-preview headline above the model is removed.
-- Character list/create now include a dual-preview setup using 3D character previews:
-  - large primary podium preview for inspection/rotation,
-  - smaller in-world-scale inset preview synced to the same facing direction.
-- Account shell presentation now follows the grounded Sellsword concept-art language (steel/leather palette with serif display typography) instead of the previous bright fantasy-city look.
-- Main menu/account shell no longer uses the old painted background image; it now renders a neutral procedural backdrop until new canonical world art direction backgrounds are authored.
-- Shell layout spacing/proportions were refined in a second pass (wider frame margins, clearer section rhythm, larger heading hierarchy, and reduced border harshness) to improve readability against the new art direction.
-- Character previews now include explicit grounding cues (baseline anchor + contact shadow + floor strip) to avoid floating.
-- Character-creation inset world-scale preview includes stronger backdrop contrast and thin border for visibility.
-- Character details now live in a compact bottom-right square panel over the list preview area.
-- List actions (`Play`, `Delete`) and spawn override controls are disabled until a character is selected.
-- Account list/create flow now keeps 3D parity behavior on refresh/navigation boundaries (automatic list refresh on account/menu switches, and deterministic preview clear when no row is selected).
-- Character location persistence includes level/floor and coordinates.
-- Character creation now focuses on a minimal onboarding flow: **preset + sex + name**.
-- Create-field ordering is now: **Character Name -> Character Type -> Sex -> Character Type Lore**.
-- Starter-skills text is not shown in the create lore panel.
-- Race/background/affiliation/manual stat allocation are no longer player-facing in creation and are sourced from preset/runtime defaults.
-- Current production model preset: **Sellsword** with male/female variants.
-- 3D Sellsword baseline templates now exist for both male/female and are used by preview/world scaffolds, with male silhouette/material pass aligned to `concept_art/sellsword_front.png` + `concept_art/sellsword_back.png`.
-- 3D character presentation now includes baseline animation set playback (`idle`, `walk`, `run`, `attack`, `cast`, `hurt`, `death`) and directional facing updates across both preview and world scenes.
-- Character art source baseline is now **640x640 per frame** (fidelity v3 authored detail), 8-direction, with starter animation set:
-  - idle, walk, run, attack, cast, hurt, death, sit_crossed_legs, sit_kneel.
-- Directional sprites now render visibly different front/side/back facing poses (including away-from-camera views) with smoother, less blocky model rendering.
-- Runtime world rendering downsamples these source frames to gameplay scale to keep readability and performance stable.
-- Base model starts unarmed and is dressed in rugged leather brigandine/boots for both male and female variants.
-- Game icon assets are sourced from `icon_2.png` and propagated to launcher/client/installer icon targets.
-- Starter 3D environment kit (basic ground + foliage scenes) is now available to seed early level construction.
-- 3D level runtime now treats authored object placement payloads as primary world content input, including spawn marker heading/elevation and transition trigger evaluation.
-- World bootstrap now includes explicit 3D metadata for client entry parity:
-  - spawn orientation/elevation (`spawn.yaw_deg`, `spawn.world_z`),
-  - runtime camera profile key (`runtime.camera_profile_key`),
-  - level map-scale metadata and scene variant hint (`level.map_scale`, `level.scene_variant_hint`).
+## Character and Account Flow
+- Character list/create/select/play remains the primary account loop.
+- Account list view remains default even for empty character sets.
+- Character list/create use compact previews plus in-game scale inset preview (no fullscreen character preview).
+- The large center account canvas is now reserved for a skill-tree graph surface.
+- Character creation stays preset-driven with minimal onboarding fields: name, type, sex.
+- Character type lore remains visible in create flow.
+
+## Skill Tree Direction
+- Account list/create screens now include a graph-style skill tree panel as the primary center interaction surface.
+- Current implementation is a baseline node/edge interaction scaffold and will be expanded in future iterations.
+
+## Character Art Direction
+- Runtime character baseline is 2D spritesheets at **512x512 frame size**.
+- Movement/action presentation is standardized to a 2-direction baseline (`E/W`) suitable for mirrored/flipped ARPG presentation.
+- Character visuals must support modular equipment overlays so worn gear is visible on player sprites.
+
+## In-Game Systems Direction
+- Character Sheet and Inventory are planned first-class in-world ARPG systems.
+- Gear changes must propagate to modular sprite composition.
+
+## Tooling Direction
+- Game client is runtime-only.
+- Level/asset/content authoring is moving to a separate external designer tool program.
 
 ## Authority Model
-- Server is authoritative for gameplay-relevant values and progression.
-- Client is authoritative only for presentation/input intent.
-- World entry context is backend-authored per session bootstrap (character + location + runtime tuning hash + version policy snapshot).
-
-Gameplay values sourced from backend include (minimum):
-- combat coefficients and base values,
-- ability costs/cooldowns/scaling,
-- movement and recovery tuning,
-- progression breakpoints (xp curves, rewards),
-- stat/skill metadata relevant to gameplay evaluation.
-- character preset catalogs for base archetype identity and starter allocations.
+- Server is authoritative for gameplay values and progression.
+- Client is authoritative only for presentation and input intent.
+- World entry context is backend-authored per bootstrap payload.
 
 ## Data Ownership Boundaries
-- Database stores durable progression and account state:
-  - users/sessions,
-  - characters,
-  - inventory/equipment,
-  - quest progression,
-  - durable world/instance state as needed.
-- Gameplay tuning/config is backend-managed runtime config (file/service), not DB-everything.
+- DB stores durable account/character/progression state.
+- Gameplay tuning/config is backend-managed runtime config.
 
 ## Security Baseline
-- Login + JWT access/refresh session flow.
-- Optional MFA setup and challenge flow.
-- Server-side validation for combat/progression-critical operations.
-- Session drain/version enforcement remains active for forced update windows.
+- JWT access/refresh session flow.
+- Optional MFA setup/challenge flow.
+- Server-side validation for gameplay-critical operations.
+- Publish drain/version enforcement remains active.
 
 ## Update Policy
-- Velopack + GCS remains the release/update channel.
-- Users can trigger update from client UI.
-- Force-update policy can block old clients from login after grace windows.
+- Velopack + GCS remains release/update channel.
+- Client can trigger update from UI.
+- Force-update policy may block unsupported versions.
 
-## Out of Scope (for this pivot stage)
+## Out of Scope (Current Pivot Stage)
 - Full economy/trade implementation.
 - Matchmaking automation beyond direct party flow.
-- Large-scale social systems redesign (guild depth, chat channels expansion) until core online loop is stable.
+- Large social system redesigns before core loop stabilization.
 
 ## Documentation Rule
 `docs/GAME.md` is the canonical product source of truth.

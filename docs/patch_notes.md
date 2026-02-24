@@ -1,4 +1,7 @@
-- Extended world-bootstrap 3D contract fields with spawn orientation/elevation (`spawn.yaw_deg`, `spawn.world_z`), runtime camera profile (`runtime.camera_profile_key`), and level metadata (`map_scale`, `scene_variant_hint`).
-- Wired client world entry to forward the richer spawn payload into `world_canvas_3d.gd`, including camera profile and map-scale-aware defaults for backward compatibility.
-- Added bootstrap 3D metadata regression coverage (`backend/tests/test_world_bootstrap_3d_contract.py`) and expanded online smoke assertions in `backend/scripts/smoke_online_loop.py`.
-- Refreshed UI regression signature baseline after world-entry script contract updates.
+- Pivoted runtime baseline back to 2D: account/world client flow now defaults to the 2D world canvas and 2D podium preview component.
+- Reworked account list/create layout around compact previews and a new skill-tree graph panel (`skill_tree_graph.gd`) replacing fullscreen preview usage.
+- Shifted UI tokens/background treatment to a lighter visual scheme for the new art direction.
+- Switched Sellsword spritesheet generation baseline to `512x512` with `2dir` output and regenerated catalog/sheets.
+- Added external `designer-client` program scaffold (`designer_tool.py`) for level/runtime content editing and publish actions outside the game runtime client.
+- Replaced 3D runtime CI gate with a 2D runtime contract harness (`check_2d_runtime_contract.py`) and updated release workflow wiring.
+- Cleaned `docs/TASKS.md` tables to remove irrelevant 3D/Blender backlog and replaced them with the new 2D pivot roadmap.

@@ -803,7 +803,9 @@ func _resolve_actor_frame(appearance_key: String, animation_key: String, directi
 	var fps = max(1, int(anim.get("fps", 8)))
 	var frame = int(floor(elapsed * float(fps))) % frames
 	var direction = direction_key.strip_edges().to_upper()
-	var row = CHARACTER_DIRECTIONS.find(direction)
+	var catalog_directions = _catalog_direction_rows()
+	var resolved_direction = _resolve_catalog_direction(direction, catalog_directions)
+	var row = catalog_directions.find(resolved_direction)
 	if row < 0:
 		row = 0
 
@@ -815,7 +817,7 @@ func _resolve_actor_frame(appearance_key: String, animation_key: String, directi
 		sheet_path = character_sprite_catalog_root + "/" + rel_path
 	else:
 		sheet_path = character_sprite_catalog_root.path_join(rel_path)
-	var cache_key = "%s|%s|%s|%d" % [appearance, anim_name, direction, frame]
+	var cache_key = "%s|%s|%s|%d" % [appearance, anim_name, resolved_direction, frame]
 	if character_frame_cache.has(cache_key):
 		var cached_frame = character_frame_cache.get(cache_key)
 		if cached_frame is Texture2D:
@@ -829,6 +831,31 @@ func _resolve_actor_frame(appearance_key: String, animation_key: String, directi
 	atlas.region = Rect2(frame * source_size, row * source_size, source_size, source_size)
 	character_frame_cache[cache_key] = atlas
 	return atlas
+
+func _catalog_direction_rows() -> Array[String]:
+	var rows: Array[String] = []
+	var raw = character_sprite_catalog.get("directions", [])
+	if raw is Array:
+		for value in raw:
+			var direction = str(value).strip_edges().to_upper()
+			if not direction.is_empty():
+				rows.append(direction)
+	if rows.is_empty():
+		rows = CHARACTER_DIRECTIONS.duplicate()
+	return rows
+
+func _resolve_catalog_direction(requested_direction: String, catalog_rows: Array[String]) -> String:
+	if catalog_rows.is_empty():
+		return "S"
+	if catalog_rows.has(requested_direction):
+		return requested_direction
+	if catalog_rows.size() == 2 and catalog_rows.has("E") and catalog_rows.has("W"):
+		if requested_direction in ["W", "NW", "SW"]:
+			return "W"
+		return "E"
+	if catalog_rows.has("S"):
+		return "S"
+	return catalog_rows[0]
 
 func _draw_foreground(center: Vector2, asset_key: String) -> void:
 	var alpha = 0.26

@@ -8,7 +8,8 @@ Children of Ikphelion is an online isometric ARPG project with a Godot client ru
 
 ## Project Structure
 - `launcher/` - Kotlin bootstrap/updater orchestration.
-- `game-client/` - Godot 4.x runtime shell, world scene, and admin tooling.
+- `game-client/` - Godot 4.x runtime shell and world client.
+- `designer-client/` - standalone external designer tool for level/runtime content authoring.
 - `backend/` - FastAPI online services (auth/session/characters/content/runtime config/events).
 - `assets/` - shared game assets.
 - `docs/` - canonical + supporting documentation.
