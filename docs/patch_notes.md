@@ -1,6 +1,1 @@
-- Polished account hub UX: removed manual character-list refresh, switched to automatic refresh on account-view transitions, and removed duplicate create-button behavior.
-- Updated create flow layout: left sidebar is hidden in create mode, create panel fields are reordered (`Character Name`, `Character Type`, `Sex`, `Character Type Lore`), starter-skills text is removed, and footer actions are now `Create Character` above `Back to Character List`.
-- Replaced top-right cog with a rectangular `Menu` button for clearer navigation affordance.
-- Added preview grounding in podium views (baseline anchor + contact shadow + floor strip) to prevent floating character presentation.
-- Improved world-scale inset readability with stronger backdrop contrast and a thin border.
-- Delivered sprite fidelity v2: upgraded procedural sellsword detail pass (materials/shading/features) and increased generated source frame size to `640x640`.
+- Synced Sellsword idle entries in `assets/iso_asset_manifest.json` to the current `*_640` sheet paths/sizes so release-time asset-ingest validation succeeds.

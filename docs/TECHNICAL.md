@@ -40,6 +40,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - World runtime (isometric)
 - Character art runtime resolves directional animated frames from `assets/characters/sellsword_v1/catalog.json` for both podium preview and in-world actor rendering; the Sellsword generator outputs textured/colorized sheets (not silhouette placeholders).
 - Sellsword source sheets are generated at `640x640` frame size (fidelity v2). World runtime still draws actors at gameplay size (`96x96`) via draw-time downscale, so higher source detail does not force world camera/actor scale inflation.
+- Asset ingest manifest entries for Sellsword idle sheets track `*_640` assets so release-time ingest validation matches generated sprite-pack outputs.
 - Auth release notes now refresh whenever the auth screen is shown and fall back to local `patch_notes.md`/`release_notes.md` if summary fetch is unavailable.
 - Shared game icon assets are aligned across launcher resources, game-client resources, and installer icons via the `assets/icons/game_icon.*` pipeline.
 
@@ -157,6 +158,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - `python3 game-client/tests/check_ui_regression.py`
 - Sellsword art pack generation:
   - `python3 tools/generate_sellsword_sprite_pack.py`
+- Asset ingest manifest validation:
+  - `python3 tools/validate_asset_ingest.py --manifest assets/iso_asset_manifest.json`
 
 ## Documentation Rule
 `docs/TECHNICAL.md` is canonical for technical decisions.
