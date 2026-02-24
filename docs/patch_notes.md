@@ -1,7 +1,4 @@
-- Upgraded the Godot 3D runtime path to consume authored level object placements as first-class world content (including blocker registration, spawn-marker yaw/z handling, transition trigger emission, and baseline navmesh region generation).
-- Improved account/world 3D parity behavior: list/create refresh flow stays deterministic, world canvas now handles transition signals, and 3D preview/world model playback uses a shared animation-state contract.
-- Reworked `sellsword_3d_factory.gd` to prefer generated GLB assets (`assets/3d/generated/*.glb`) with procedural fallback only when generated assets are unavailable.
-- Added guaranteed 3D animation contract playback for character models (`idle`, `walk`, `run`, `attack`, `cast`, `hurt`, `death`) and applied it across preview + world runtime.
-- Extended Blender automation reliability: installer now supports robust download fallback and versioned release URL handling, and headless runner now injects local shared-lib paths to resolve Linux dependency gaps.
-- Updated Blender export generation to ingest `concept_art/sellsword_front.png` and `concept_art/sellsword_back.png` as modeling references, then regenerated runtime Sellsword/environment GLBs for in-game use.
-- Hardened release validation by adding `game-client/tests/check_3d_runtime_contract.py`, expanding UI regression signature inputs to include 3D scripts, and enabling release workflow triggering on markdown/doc-only pushes.
+- Reconciled the 3D migration backlog in `docs/TASKS.md` to remove stale duplication: completed slices remain in the completed table, partially delivered areas are now marked `⏳` with remaining scope, and superseded backlog rows were moved to the archived section.
+- Re-themed the in-game shell UI to match the current Sellsword concept-art style direction (steel/leather palette, lower-clutter panel treatment, and serif display/body typography).
+- Added bundled UI fonts under `game-client/assets/fonts/` (`cinzel.ttf`, `cormorant_garamond.ttf`) with OFL license files for runtime-safe use.
+- Removed the previous static background image dependency from the shell (`main_menu_background.png`) and replaced it with a procedural layered backdrop so the current UI no longer clashes with the updated art direction.

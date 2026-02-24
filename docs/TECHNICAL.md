@@ -30,6 +30,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 ## Client Surfaces (Current)
 - Auth (`login/register`)
 - Account hub (character list/create/select/play) using side-navigation view switching instead of tab containers
+- Account/auth shell theme now uses bundled concept-aligned fonts (`Cinzel`, `Cormorant Garamond`) and a procedural backdrop layer; previous static background image dependency was removed from shell composition.
 - Account hub list view now uses one unified sidebar (top create action + character rows) with no duplicate list column header/sidebar.
 - Character list data refresh is automatic on account view/screen transitions (manual refresh control removed).
 - Account hub list view remains the default even for empty character sets (no forced create-mode redirect on `/characters` empty payloads).

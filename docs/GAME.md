@@ -48,6 +48,8 @@ Play model:
 - Character list/create now include a dual-preview setup using 3D character previews:
   - large primary podium preview for inspection/rotation,
   - smaller in-world-scale inset preview synced to the same facing direction.
+- Account shell presentation now follows the grounded Sellsword concept-art language (steel/leather palette with serif display typography) instead of the previous bright fantasy-city look.
+- Main menu/account shell no longer uses the old painted background image; it now renders a neutral procedural backdrop until new canonical world art direction backgrounds are authored.
 - Character previews now include explicit grounding cues (baseline anchor + contact shadow + floor strip) to avoid floating.
 - Character-creation inset world-scale preview includes stronger backdrop contrast and thin border for visibility.
 - Character details now live in a compact bottom-right square panel over the list preview area.

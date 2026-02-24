@@ -44,6 +44,8 @@ var active_instance_kind = "solo"
 var active_world_ready = false
 var active_character_id: int = -1
 var ui_theme: Theme
+var ui_font_body: Font
+var ui_font_heading: Font
 
 var install_root_path = ""
 var logs_root_path = ""
@@ -70,7 +72,7 @@ var menu_button: Button
 var menu_popup: PopupMenu
 var footer_status: Label
 var main_stack: Control
-var background_art: TextureRect
+var background_art: Control
 var background_veil: ColorRect
 
 var auth_container: VBoxContainer
@@ -232,6 +234,14 @@ func _async_bootstrap() -> void:
 
 func _build_theme() -> void:
 	ui_theme = Theme.new()
+	var body_font_resource = load("res://assets/fonts/cormorant_garamond.ttf")
+	if body_font_resource is Font:
+		ui_font_body = body_font_resource
+		ui_theme.set_default_font(ui_font_body)
+		ui_theme.set_default_font_size(21)
+	var heading_font_resource = load("res://assets/fonts/cinzel.ttf")
+	if heading_font_resource is Font:
+		ui_font_heading = heading_font_resource
 
 	var panel_box = StyleBoxFlat.new()
 	panel_box.bg_color = UI_TOKENS.color("panel_bg")
@@ -348,19 +358,69 @@ func _build_ui() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
-	background_art = TextureRect.new()
+	background_art = Control.new()
 	background_art.set_anchors_preset(Control.PRESET_FULL_RECT)
-	background_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background_art.texture = _load_texture_from_path("res://assets/main_menu_background.png")
-	if background_art.texture == null:
-		var fallback_bg = _load_texture_from_path(_path_join(install_root_path, "game-client/assets/main_menu_background.png"))
-		if fallback_bg == null:
-			fallback_bg = _load_texture_from_path(_path_join(install_root_path, "assets/main_menu_background.png"))
-		if fallback_bg != null:
-			background_art.texture = fallback_bg
-		else:
-			_append_log("Background art could not be loaded from bundled or install paths.")
+	var backdrop_base = ColorRect.new()
+	backdrop_base.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop_base.color = Color(0.08, 0.08, 0.09, 1.0)
+	background_art.add_child(backdrop_base)
+
+	var top_gradient = TextureRect.new()
+	top_gradient.set_anchors_preset(Control.PRESET_FULL_RECT)
+	top_gradient.stretch_mode = TextureRect.STRETCH_SCALE
+	var top_gradient_data := Gradient.new()
+	top_gradient_data.colors = PackedColorArray([
+		Color(0.28, 0.19, 0.14, 0.44),
+		Color(0.13, 0.12, 0.11, 0.24),
+		Color(0.06, 0.06, 0.07, 0.12),
+	])
+	top_gradient_data.offsets = PackedFloat32Array([0.0, 0.52, 1.0])
+	var top_gradient_texture := GradientTexture2D.new()
+	top_gradient_texture.width = 8
+	top_gradient_texture.height = 768
+	top_gradient_texture.fill = GradientTexture2D.FILL_LINEAR
+	top_gradient_texture.fill_from = Vector2(0.5, 0.0)
+	top_gradient_texture.fill_to = Vector2(0.5, 1.0)
+	top_gradient_texture.gradient = top_gradient_data
+	top_gradient.texture = top_gradient_texture
+	background_art.add_child(top_gradient)
+
+	var center_glow = TextureRect.new()
+	center_glow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center_glow.stretch_mode = TextureRect.STRETCH_SCALE
+	var center_glow_gradient := Gradient.new()
+	center_glow_gradient.colors = PackedColorArray([
+		Color(0.48, 0.31, 0.20, 0.26),
+		Color(0.24, 0.17, 0.13, 0.14),
+		Color(0.07, 0.07, 0.08, 0.0),
+	])
+	center_glow_gradient.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+	var center_glow_texture := GradientTexture2D.new()
+	center_glow_texture.width = 1024
+	center_glow_texture.height = 1024
+	center_glow_texture.fill = GradientTexture2D.FILL_RADIAL
+	center_glow_texture.fill_from = Vector2(0.52, 0.22)
+	center_glow_texture.fill_to = Vector2(1.0, 0.98)
+	center_glow_texture.gradient = center_glow_gradient
+	center_glow.texture = center_glow_texture
+	background_art.add_child(center_glow)
+
+	var left_band = ColorRect.new()
+	left_band.anchor_left = 0.0
+	left_band.anchor_top = 0.0
+	left_band.anchor_right = 0.17
+	left_band.anchor_bottom = 1.0
+	left_band.color = Color(0.02, 0.02, 0.03, 0.34)
+	background_art.add_child(left_band)
+
+	var right_band = ColorRect.new()
+	right_band.anchor_left = 0.83
+	right_band.anchor_top = 0.0
+	right_band.anchor_right = 1.0
+	right_band.anchor_bottom = 1.0
+	right_band.color = Color(0.02, 0.02, 0.03, 0.34)
+	background_art.add_child(right_band)
+
 	add_child(background_art)
 
 	background_veil = ColorRect.new()
@@ -390,7 +450,9 @@ func _build_ui() -> void:
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_title.add_theme_font_size_override("font_size", 46)
-	header_title.add_theme_color_override("font_color", Color(0.95, 0.90, 0.79))
+	header_title.add_theme_color_override("font_color", Color(0.92, 0.88, 0.81))
+	if ui_font_heading != null:
+		header_title.add_theme_font_override("font", ui_font_heading)
 	header.add_child(header_title)
 
 	menu_button = Button.new()
@@ -1329,7 +1391,10 @@ func _line_edit(placeholder: String, secret = false) -> LineEdit:
 	return UI_COMPONENTS.line_edit(placeholder, secret)
 
 func _label(text_value: String, font_size: int = -1, color_name: String = "text_primary") -> Label:
-	return UI_COMPONENTS.label(text_value, font_size, color_name)
+	var node = UI_COMPONENTS.label(text_value, font_size, color_name)
+	if font_size >= 26 and ui_font_heading != null:
+		node.add_theme_font_override("font", ui_font_heading)
+	return node
 
 func _button(text_value: String) -> Button:
 	return UI_COMPONENTS.button_secondary(text_value)

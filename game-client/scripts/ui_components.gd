@@ -16,6 +16,9 @@ static func _style_box(bg: Color, border: Color, radius_name: String = "radius_l
 	style.corner_radius_top_right = UI_TOKENS.size(radius_name)
 	style.corner_radius_bottom_left = UI_TOKENS.size(radius_name)
 	style.corner_radius_bottom_right = UI_TOKENS.size(radius_name)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.24)
+	style.shadow_size = 4
+	style.shadow_offset = Vector2(0, 2)
 	style.content_margin_left = float(UI_TOKENS.spacing("xs"))
 	style.content_margin_top = float(UI_TOKENS.spacing("xs"))
 	style.content_margin_right = float(UI_TOKENS.spacing("xs"))
@@ -73,7 +76,7 @@ static func _attach_hover_motion(node: Button) -> void:
 		var tween = node.create_tween()
 		tween.set_trans(Tween.TRANS_QUAD)
 		tween.set_ease(Tween.EASE_OUT)
-		tween.tween_property(node, "scale", Vector2(1.02, 1.02), 0.09)
+		tween.tween_property(node, "scale", Vector2(1.015, 1.015), 0.09)
 	)
 	node.mouse_exited.connect(func() -> void:
 		var tween = node.create_tween()
