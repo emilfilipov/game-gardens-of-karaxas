@@ -47,6 +47,8 @@ APPEARANCE_OPTION_KEYS = (
 )
 WORLD_TILE_SIZE = 32
 WORLD_TILE_OFFSET = 16
+DEFAULT_CAMERA_PROFILE_KEY = "arpg_poe_baseline"
+DEFAULT_SCENE_VARIANT_HINT = "expedition"
 
 
 def _xp_per_level(db: Session) -> int:
@@ -373,6 +375,22 @@ def _parse_level_objects(level: Level) -> list[dict]:
     return parsed
 
 
+def _resolve_spawn_marker_3d_metadata(level: Level) -> tuple[float, float]:
+    raw_objects = level.object_placements if isinstance(level.object_placements, list) else []
+    for raw in raw_objects:
+        if not isinstance(raw, dict):
+            continue
+        object_id = str(raw.get("object_id", "")).strip().lower()
+        asset_key = str(raw.get("asset_key", "")).strip().lower()
+        if object_id != "spawn_marker_3d" and asset_key not in {"spawn_marker", "spawn_marker_3d"}:
+            continue
+        transform = raw.get("transform", {})
+        if not isinstance(transform, dict):
+            transform = {}
+        return float(transform.get("z", 0.0)), float(transform.get("rotation_deg", 0.0))
+    return 0.0, 0.0
+
+
 def _parse_level_transitions(level: Level) -> list[dict]:
     raw_transitions = level.transitions if isinstance(level.transitions, list) else []
     parsed: list[dict] = []
@@ -388,6 +406,34 @@ def _parse_level_transitions(level: Level) -> list[dict]:
             }
         )
     return parsed
+
+
+def _resolve_camera_profile_key(runtime_domains: dict[str, dict]) -> str:
+    runtime_client = runtime_domains.get("runtime_client", {})
+    if isinstance(runtime_client, dict):
+        profile_key = str(runtime_client.get("camera_profile_key", "")).strip().lower()
+        if profile_key:
+            return profile_key
+    world_3d = runtime_domains.get("world_3d", {})
+    if isinstance(world_3d, dict):
+        profile_key = str(world_3d.get("camera_profile_key", "")).strip().lower()
+        if profile_key:
+            return profile_key
+    return DEFAULT_CAMERA_PROFILE_KEY
+
+
+def _level_map_scale_metadata() -> dict[str, float]:
+    return {
+        "tile_world_size": float(WORLD_TILE_SIZE),
+        "tile_world_offset": float(WORLD_TILE_OFFSET),
+        "world_units_per_tile": 1.0,
+    }
+
+
+def _resolve_scene_variant_hint(level: Level) -> str:
+    if bool(level.is_town_hub):
+        return "town_hub"
+    return DEFAULT_SCENE_VARIANT_HINT
 
 
 def _resolve_world_spawn(character: Character, level: Level, override_applied: bool) -> tuple[int, int, int, int, str]:
@@ -626,6 +672,8 @@ def bootstrap_character_world(
 
     tile_x, tile_y, world_x, world_y, spawn_source = _resolve_world_spawn(character, target_level, override_applied)
     runtime_cfg = load_runtime_gameplay_config()
+    spawn_world_z, spawn_yaw_deg = _resolve_spawn_marker_3d_metadata(target_level)
+    camera_profile_key = _resolve_camera_profile_key(runtime_cfg.domains)
 
     level_payload = CharacterWorldLevelResponse(
         id=target_level.id,
@@ -636,6 +684,8 @@ def bootstrap_character_world(
         spawn_x=target_level.spawn_x,
         spawn_y=target_level.spawn_y,
         is_town_hub=bool(target_level.is_town_hub),
+        map_scale=_level_map_scale_metadata(),
+        scene_variant_hint=_resolve_scene_variant_hint(target_level),
         layers=_parse_level_layers(target_level),
         objects=_parse_level_objects(target_level),
         transitions=_parse_level_transitions(target_level),
@@ -663,6 +713,8 @@ def bootstrap_character_world(
             tile_y=tile_y,
             world_x=world_x,
             world_y=world_y,
+            world_z=spawn_world_z,
+            yaw_deg=spawn_yaw_deg,
             source=spawn_source,
         ),
         instance={
@@ -676,6 +728,7 @@ def bootstrap_character_world(
         runtime=CharacterWorldRuntimeDescriptor(
             config_key=runtime_cfg.config_key,
             content_contract_signature=runtime_cfg.content_contract_signature,
+            camera_profile_key=camera_profile_key,
         ),
         runtime_domains=runtime_cfg.domains,
         player_runtime={

@@ -13,6 +13,7 @@ REQUIRED_FILES = [
     ROOT / "game-client/scripts/world_canvas_3d.gd",
     ROOT / "game-client/scripts/character_podium_preview_3d.gd",
     ROOT / "game-client/scripts/sellsword_3d_factory.gd",
+    ROOT / "game-client/scripts/client_shell.gd",
     ROOT / "tools/blender/install_blender.py",
     ROOT / "tools/blender/run_blender_headless.py",
     ROOT / "tools/blender/scripts/generate_sellsword_3d_assets.py",
@@ -24,12 +25,18 @@ REQUIRED_SNIPPETS = {
         "func configure_runtime(",
         "func set_player_appearance(",
         "func _check_transition_trigger()",
+        "spawn_payload: Dictionary = {}",
+        "camera_profile_key",
     ],
     ROOT / "game-client/scripts/sellsword_3d_factory.gd": [
         "func create_model(",
         "func play_animation(",
         "func create_environment_asset(",
         "const GENERATED_ASSET_PATHS",
+    ],
+    ROOT / "game-client/scripts/client_shell.gd": [
+        "camera_profile_key",
+        "spawn_world, level_data, spawn_data",
     ],
 }
 

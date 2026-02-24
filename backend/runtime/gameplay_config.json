@@ -83,6 +83,13 @@
       "player_speed_tiles": 4.6,
       "player_radius": 14.0
     },
+    "runtime_client": {
+      "world_renderer": "3d",
+      "camera_profile_key": "arpg_poe_baseline"
+    },
+    "world_3d": {
+      "camera_profile_key": "arpg_poe_baseline"
+    },
     "combat": {
       "resource_pool": "mana",
       "basic_attack": {"damage": 8.0, "range": 1.3, "cooldown": 0.45},

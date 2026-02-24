@@ -139,6 +139,15 @@ def run(base_url: str) -> None:
     )
     _assert(code == 200, f"world bootstrap failed: {code} {bootstrap}")
     _assert("instance" in bootstrap and "level" in bootstrap, "world bootstrap missing instance/level")
+    spawn = bootstrap.get("spawn", {})
+    runtime_descriptor = bootstrap.get("runtime", {})
+    level_payload = bootstrap.get("level", {})
+    _assert(isinstance(spawn.get("yaw_deg", 0.0), (int, float)), "world bootstrap missing spawn yaw_deg")
+    _assert(isinstance(spawn.get("world_z", 0.0), (int, float)), "world bootstrap missing spawn world_z")
+    _assert(str(runtime_descriptor.get("camera_profile_key", "")).strip() != "", "world bootstrap missing runtime camera_profile_key")
+    map_scale = level_payload.get("map_scale", {})
+    _assert(isinstance(map_scale, dict) and "tile_world_size" in map_scale, "world bootstrap missing level map_scale metadata")
+    _assert(str(level_payload.get("scene_variant_hint", "")).strip() != "", "world bootstrap missing scene_variant_hint")
 
     code, _ = _request(
         "POST",

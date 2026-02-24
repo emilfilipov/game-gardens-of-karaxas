@@ -90,7 +90,14 @@ var pickup_id_counter: int = 1
 
 var npcs: Array[Dictionary] = []
 
-func configure_world(level_name: String, width_tiles: int, height_tiles: int, spawn_world: Vector2, level_payload: Dictionary = {}) -> void:
+func configure_world(
+	level_name: String,
+	width_tiles: int,
+	height_tiles: int,
+	spawn_world: Vector2,
+	level_payload: Dictionary = {},
+	_spawn_payload: Dictionary = {}
+) -> void:
 	world_name = level_name
 	world_width_tiles = maxi(width_tiles, 6)
 	world_height_tiles = maxi(height_tiles, 6)

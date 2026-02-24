@@ -2346,6 +2346,17 @@ func _on_character_play_pressed() -> void:
 	var runtime_domains = bootstrap_body.get("runtime_domains", {})
 	if runtime_domains is Dictionary:
 		runtime_payload = runtime_domains.duplicate(true)
+	var runtime_descriptor = bootstrap_body.get("runtime", {})
+	if runtime_descriptor is Dictionary:
+		var camera_profile_key = str(runtime_descriptor.get("camera_profile_key", "")).strip_edges().to_lower()
+		if not camera_profile_key.is_empty():
+			runtime_payload["camera_profile_key"] = camera_profile_key
+	var map_scale_payload = level_data.get("map_scale", {})
+	if map_scale_payload is Dictionary and not map_scale_payload.is_empty():
+		runtime_payload["map_scale"] = map_scale_payload.duplicate(true)
+	var scene_variant_hint = str(level_data.get("scene_variant_hint", "")).strip_edges().to_lower()
+	if not scene_variant_hint.is_empty():
+		runtime_payload["scene_variant_hint"] = scene_variant_hint
 	var player_runtime = bootstrap_body.get("player_runtime", {})
 	if player_runtime is Dictionary:
 		for key in player_runtime.keys():
@@ -2357,7 +2368,7 @@ func _on_character_play_pressed() -> void:
 	if world_canvas.has_method("set_player_appearance"):
 		world_canvas.call("set_player_appearance", str(row.get("appearance_key", "human_male")))
 
-	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world, level_data)
+	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world, level_data, spawn_data)
 	world_status_label.text = "WASD to move. Level: %s | Instance: %s" % [active_level_name, active_instance_kind]
 	_append_log("Character " + str(active_character_id) + " entered world level=" + active_level_name)
 	active_world_ready = true

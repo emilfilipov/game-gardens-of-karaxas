@@ -22,6 +22,7 @@ const CAMERA_PITCH_DEG: float = -52.0
 const CAMERA_YAW_DEG: float = -45.0
 const CAMERA_FOLLOW_SMOOTH: float = 6.0
 const CAMERA_LOOK_AHEAD: float = 1.45
+const DEFAULT_CAMERA_PROFILE_KEY: String = "arpg_poe_baseline"
 
 var world_width_tiles: int = 80
 var world_height_tiles: int = 48
@@ -59,6 +60,9 @@ var _player_position: Vector3 = Vector3(2.0, 0.0, 2.0)
 var _target_camera_position: Vector3 = Vector3.ZERO
 var _player_appearance_key: String = "human_male"
 var _player_animation_state: String = "idle"
+var _camera_profile_key: String = DEFAULT_CAMERA_PROFILE_KEY
+var _map_scale: Dictionary = {}
+var _scene_variant_hint: String = ""
 
 func _ready() -> void:
 	stretch = true
@@ -142,6 +146,7 @@ func _build_scene() -> void:
 
 	_spawn_default_environment()
 	_set_player_model(_player_appearance_key)
+	_apply_camera_profile()
 	_update_player_transform(true)
 	_build_navigation_mesh()
 
@@ -361,11 +366,25 @@ func _extract_runtime_asset_map(runtime_cfg: Dictionary) -> Dictionary:
 			resolved[key] = scene_path
 	return resolved
 
-func configure_world(level_name: String, width_tiles: int, height_tiles: int, spawn_world: Vector2, level_payload: Dictionary = {}) -> void:
+func configure_world(
+	level_name: String,
+	width_tiles: int,
+	height_tiles: int,
+	spawn_world: Vector2,
+	level_payload: Dictionary = {},
+	spawn_payload: Dictionary = {}
+) -> void:
 	world_name = level_name
 	world_width_tiles = maxi(width_tiles, 8)
 	world_height_tiles = maxi(height_tiles, 8)
-	_player_position = Vector3(spawn_world.x / GRID_UNIT_PIXELS, 0.0, spawn_world.y / GRID_UNIT_PIXELS)
+	var map_scale_tile_world_size = float(_map_scale.get("tile_world_size", GRID_UNIT_PIXELS))
+	if map_scale_tile_world_size <= 0.0:
+		map_scale_tile_world_size = GRID_UNIT_PIXELS
+	var spawn_world_z = float(spawn_payload.get("world_z", 0.0))
+	var spawn_yaw_deg = float(spawn_payload.get("yaw_deg", 0.0))
+	_player_position = Vector3(spawn_world.x / map_scale_tile_world_size, spawn_world_z, spawn_world.y / map_scale_tile_world_size)
+	if _player_model != null:
+		_player_model.rotation_degrees.y = spawn_yaw_deg
 	_transitions.clear()
 	_transition_cooldown = 0.0
 
@@ -410,6 +429,26 @@ func configure_runtime(runtime_cfg: Dictionary) -> void:
 		for action_name in runtime_keybinds.keys():
 			keybinds[action_name] = int(runtime_keybinds.get(action_name, keybinds.get(action_name, 0)))
 	_asset_scene_map = _extract_runtime_asset_map(runtime_cfg)
+	var requested_camera_profile = str(runtime_cfg.get("camera_profile_key", DEFAULT_CAMERA_PROFILE_KEY)).strip_edges().to_lower()
+	_camera_profile_key = requested_camera_profile if not requested_camera_profile.is_empty() else DEFAULT_CAMERA_PROFILE_KEY
+	_apply_camera_profile()
+	var map_scale_payload = runtime_cfg.get("map_scale", {})
+	if map_scale_payload is Dictionary:
+		_map_scale = map_scale_payload.duplicate(true)
+	else:
+		_map_scale = {}
+	_scene_variant_hint = str(runtime_cfg.get("scene_variant_hint", "")).strip_edges().to_lower()
+
+func _apply_camera_profile() -> void:
+	if _camera == null:
+		return
+	match _camera_profile_key:
+		"arpg_poe_close":
+			_camera.fov = 48.0
+		"arpg_poe_far":
+			_camera.fov = 54.0
+		_:
+			_camera.fov = 50.0
 
 func set_player_appearance(appearance_key: String) -> void:
 	_set_player_model(appearance_key)

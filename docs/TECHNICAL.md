@@ -65,6 +65,11 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Asset ingest manifest entries for Sellsword idle sheets track `*_640` assets so release-time ingest validation matches generated sprite-pack outputs.
 - Auth release notes now refresh whenever the auth screen is shown and fall back to local `patch_notes.md`/`release_notes.md` if summary fetch is unavailable.
 - Shared game icon assets are aligned across launcher resources, game-client resources, and installer icons via the `assets/icons/game_icon.*` pipeline, regenerated from root source `icon_2.png`.
+- World-bootstrap contract now carries explicit 3D entry metadata:
+  - `spawn.world_z` and `spawn.yaw_deg`,
+  - `runtime.camera_profile_key`,
+  - `level.map_scale` and `level.scene_variant_hint`.
+- `client_shell.gd` now forwards bootstrap spawn metadata into `world_canvas_3d.gd` (`configure_world(..., spawn_payload)`), with default-safe fallback when those fields are absent.
 - Starter 3D environment scenes are available at:
   - `game-client/scenes/environment/ground_tile_stone_3d.tscn`
   - `game-client/scenes/environment/foliage_grass_a_3d.tscn`
@@ -90,6 +95,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - `/characters` list is user-scoped (returns only characters owned by the authenticated account, including admin accounts)
   - location persistence
   - preset-aware character bootstrap (`preset_key` baseline support)
+  - world bootstrap now includes 3D-specific compatibility fields for spawn orientation/elevation and camera profile selection
 - Content/config delivery:
   - runtime gameplay config endpoint (`/content/runtime-config`)
   - fallback snapshot endpoint (`/content/bootstrap`)
@@ -190,6 +196,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 ## Testing and Checks
 - Backend syntax sanity:
   - `python3 -m compileall backend/app`
+- Backend world-bootstrap 3D contract unit coverage:
+  - `backend/tests/test_world_bootstrap_3d_contract.py` (pytest-style test module)
 - Launcher tests:
   - `./gradlew :launcher:test`
 - UI regression harness:
@@ -204,6 +212,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - `python3 tools/blender/run_blender_headless.py --script tools/blender/scripts/generate_sellsword_3d_assets.py`
 - Asset ingest manifest validation:
   - `python3 tools/validate_asset_ingest.py --manifest assets/iso_asset_manifest.json`
+- Online smoke harness includes bootstrap 3D metadata assertions:
+  - `python3 backend/scripts/smoke_online_loop.py --base-url <backend-url>`
 
 ## Documentation Rule
 `docs/TECHNICAL.md` is canonical for technical decisions.

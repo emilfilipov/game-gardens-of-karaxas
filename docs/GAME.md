@@ -72,6 +72,10 @@ Play model:
 - Game icon assets are sourced from `icon_2.png` and propagated to launcher/client/installer icon targets.
 - Starter 3D environment kit (basic ground + foliage scenes) is now available to seed early level construction.
 - 3D level runtime now treats authored object placement payloads as primary world content input, including spawn marker heading/elevation and transition trigger evaluation.
+- World bootstrap now includes explicit 3D metadata for client entry parity:
+  - spawn orientation/elevation (`spawn.yaw_deg`, `spawn.world_z`),
+  - runtime camera profile key (`runtime.camera_profile_key`),
+  - level map-scale metadata and scene variant hint (`level.map_scale`, `level.scene_variant_hint`).
 
 ## Authority Model
 - Server is authoritative for gameplay-relevant values and progression.

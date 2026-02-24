@@ -70,6 +70,8 @@ class CharacterWorldLevelResponse(BaseModel):
     spawn_x: int
     spawn_y: int
     is_town_hub: bool = False
+    map_scale: dict[str, float] = Field(default_factory=dict)
+    scene_variant_hint: str | None = None
     layers: dict[int, list[LevelLayerCell]] = Field(default_factory=dict)
     objects: list[LevelObjectPlacement] = Field(default_factory=list)
     transitions: list[LevelTransition] = Field(default_factory=list)
@@ -80,12 +82,15 @@ class CharacterWorldSpawnResponse(BaseModel):
     tile_y: int
     world_x: int
     world_y: int
+    world_z: float = 0.0
+    yaw_deg: float = 0.0
     source: str
 
 
 class CharacterWorldRuntimeDescriptor(BaseModel):
     config_key: str
     content_contract_signature: str
+    camera_profile_key: str = "arpg_poe_baseline"
 
 
 class CharacterWorldInstanceResponse(BaseModel):

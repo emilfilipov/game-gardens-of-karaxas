@@ -1,3 +1,4 @@
-- Refined the concept-art UI shell composition pass: increased outer layout margins, strengthened title hierarchy, and added clearer section-divider rhythm for better readability.
-- Softened panel/border treatment by tuning tokenized border opacity/radii and component spacing to reduce visual clutter while retaining the grounded steel/leather theme.
-- Rebalanced account-hub layout proportions (sidebar/details panel sizing) and refreshed UI regression signature to lock the updated visual baseline.
+- Extended world-bootstrap 3D contract fields with spawn orientation/elevation (`spawn.yaw_deg`, `spawn.world_z`), runtime camera profile (`runtime.camera_profile_key`), and level metadata (`map_scale`, `scene_variant_hint`).
+- Wired client world entry to forward the richer spawn payload into `world_canvas_3d.gd`, including camera profile and map-scale-aware defaults for backward compatibility.
+- Added bootstrap 3D metadata regression coverage (`backend/tests/test_world_bootstrap_3d_contract.py`) and expanded online smoke assertions in `backend/scripts/smoke_online_loop.py`.
+- Refreshed UI regression signature baseline after world-entry script contract updates.
