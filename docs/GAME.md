@@ -3,6 +3,10 @@
 ## High Concept
 Children of Ikphelion is an online isometric ARPG.
 
+Planned direction (not implemented yet):
+- Migrate presentation/runtime from 2D isometric rendering to Godot 3D while preserving the ARPG gameplay model.
+- Target gameplay camera feel: angled and distanced readability similar to Path of Exile.
+
 Play model:
 - Players primarily run private gameplay instances (solo by default).
 - Party members share gameplay instances when grouped.

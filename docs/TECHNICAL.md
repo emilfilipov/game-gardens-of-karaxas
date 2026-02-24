@@ -11,6 +11,10 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Backend API: FastAPI + PostgreSQL (`backend/`)
 - Distribution/update: Velopack + GCS feed
 
+Planned technical migration (roadmap only, pending implementation):
+- Introduce Godot 3D runtime/world pipeline as the primary presentation path with staged feature-flag rollout.
+- Add programmatic Blender headless asset pipeline for character/environment production and export automation.
+
 ### Directional model
 - Online ARPG with instance-aware gameplay.
 - Server-authoritative gameplay values and progression validation.
