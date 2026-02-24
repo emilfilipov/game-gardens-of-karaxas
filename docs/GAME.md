@@ -35,9 +35,12 @@ Play model:
 - Current character creator and isometric runtime work are retained and iterated forward.
 - Existing proven online hub/list/create UX patterns are reused as baseline while visual polish continues.
 - Account hub now uses side navigation (no list/create tabs) with large center podium previews in both list and create flows.
+- Character list now uses a single left sidebar: top `Create Character` action plus character cards below (no duplicate list sidebar/headline).
+- Character list/create views now consume the full account content area instead of centered boxed layouts.
 - Character list/create now include a dual-preview setup:
   - large primary podium preview for inspection/rotation,
   - smaller in-world-scale inset preview synced to the same facing direction.
+- Character details now live in a compact bottom-right square panel over the list preview area.
 - Character location persistence includes level/floor and coordinates.
 - Character creation now focuses on a minimal onboarding flow: **preset + sex + name**.
 - Race/background/affiliation/manual stat allocation are no longer player-facing in creation and are sourced from preset/runtime defaults.

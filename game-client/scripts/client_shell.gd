@@ -84,17 +84,15 @@ var auth_update_button: Button
 
 var account_container: VBoxContainer
 var account_status_label: Label
-var account_nav_list_button: Button
 var account_nav_create_button: Button
-var account_list_panel: VBoxContainer
-var account_create_panel: VBoxContainer
+var account_list_panel: Control
+var account_create_panel: Control
 var account_view_mode = "list"
 var character_rows_scroll: ScrollContainer
 var character_rows_container: VBoxContainer
 var character_details_label: RichTextLabel
 var character_preview_texture: Control
 var character_preview_world_inset: Control
-var character_list_title_label: Label
 var character_refresh_button: Button
 var character_spawn_override_option: OptionButton
 
@@ -544,7 +542,7 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_release_notes = RichTextLabel.new()
 	auth_release_notes.fit_content = false
 	auth_release_notes.scroll_active = true
-	auth_release_notes.bbcode_enabled = false
+	auth_release_notes.bbcode_enabled = true
 	auth_release_notes.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	auth_release_notes.custom_minimum_size = Vector2(0, 300)
 	auth_release_notes.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
@@ -559,102 +557,79 @@ func _build_auth_screen() -> VBoxContainer:
 	return wrap
 
 func _build_account_screen() -> VBoxContainer:
-	var shell: Dictionary = UI_COMPONENTS.centered_shell(
-		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_wide_h")),
-		UI_TOKENS.spacing("lg")
-	)
-	var wrap = shell["wrap"] as VBoxContainer
-	var content_root = shell["content"] as VBoxContainer
+	var wrap = VBoxContainer.new()
+	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	var content_root = MarginContainer.new()
+	content_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_root.add_theme_constant_override("margin_left", 0)
+	content_root.add_theme_constant_override("margin_top", 0)
+	content_root.add_theme_constant_override("margin_right", 0)
+	content_root.add_theme_constant_override("margin_bottom", 0)
+	wrap.add_child(content_root)
+
 	var root_split = HBoxContainer.new()
 	root_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	content_root.add_child(root_split)
 
-	var nav_panel = UI_COMPONENTS.panel_card(Vector2(210, 0), false)
-	nav_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root_split.add_child(nav_panel)
-	var nav_inner = VBoxContainer.new()
-	nav_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	nav_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	nav_panel.add_child(nav_inner)
-	account_nav_list_button = UI_COMPONENTS.button_primary("Character List", Vector2(0, 42))
-	account_nav_list_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	account_nav_list_button.pressed.connect(func() -> void:
-		_set_account_view("list")
-	)
-	nav_inner.add_child(account_nav_list_button)
-	account_nav_create_button = UI_COMPONENTS.button_secondary("Create Character", Vector2(0, 42))
+	var sidebar = UI_COMPONENTS.panel_card(Vector2(250, 0), false)
+	sidebar.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_split.add_child(sidebar)
+	var sidebar_inner = VBoxContainer.new()
+	sidebar_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sidebar_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	sidebar.add_child(sidebar_inner)
+
+	account_nav_create_button = UI_COMPONENTS.button_primary("Create Character", Vector2(0, 42))
 	account_nav_create_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	account_nav_create_button.pressed.connect(func() -> void:
-		_set_account_view("create")
+		_set_account_view("list" if account_view_mode == "create" else "create")
 	)
-	nav_inner.add_child(account_nav_create_button)
-	nav_inner.add_spacer(false)
+	sidebar_inner.add_child(account_nav_create_button)
+	character_refresh_button = UI_COMPONENTS.button_secondary("Refresh", Vector2(0, 38))
+	character_refresh_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	character_refresh_button.pressed.connect(_on_character_refresh_pressed)
+	sidebar_inner.add_child(character_refresh_button)
+
+	character_rows_scroll = ScrollContainer.new()
+	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	character_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	character_rows_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	sidebar_inner.add_child(character_rows_scroll)
+	character_rows_container = VBoxContainer.new()
+	character_rows_container.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	character_rows_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	character_rows_scroll.add_child(character_rows_container)
 	account_status_label = _label(" ", -1, "text_secondary")
 	account_status_label.text = " "
 	account_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nav_inner.add_child(account_status_label)
+	sidebar_inner.add_child(account_status_label)
 
 	var views_root = Control.new()
 	views_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	views_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_split.add_child(views_root)
 
-	account_list_panel = VBoxContainer.new()
+	account_list_panel = Control.new()
 	account_list_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	account_list_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	views_root.add_child(account_list_panel)
-	var list_split = HBoxContainer.new()
-	list_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	account_list_panel.add_child(list_split)
-	var list_left = UI_COMPONENTS.panel_card(Vector2(340, 0), false)
-	list_left.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_split.add_child(list_left)
-	var list_left_inner = VBoxContainer.new()
-	list_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_left_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_left.add_child(list_left_inner)
-	var list_header = HBoxContainer.new()
-	list_header.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_left_inner.add_child(list_header)
-	character_list_title_label = _label("Character List", 24)
-	character_list_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_header.add_child(character_list_title_label)
-	character_refresh_button = UI_COMPONENTS.button_primary("Refresh", Vector2(124, 38))
-	character_refresh_button.pressed.connect(_on_character_refresh_pressed)
-	list_header.add_child(character_refresh_button)
-	character_rows_scroll = ScrollContainer.new()
-	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	character_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	character_rows_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	list_left_inner.add_child(character_rows_scroll)
-	character_rows_container = VBoxContainer.new()
-	character_rows_container.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	character_rows_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	character_rows_scroll.add_child(character_rows_container)
-
-	var list_center = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	list_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_split.add_child(list_center)
-	var list_center_host = Control.new()
-	list_center_host.set_anchors_preset(Control.PRESET_FULL_RECT)
-	list_center_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_center_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_center.add_child(list_center_host)
+	var list_preview_host = Control.new()
+	list_preview_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	account_list_panel.add_child(list_preview_host)
 	character_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if character_preview_texture.has_method("configure"):
 		character_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, true, true, false)
 	character_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	list_center_host.add_child(character_preview_texture)
-	var list_world_inset_shell = UI_COMPONENTS.panel_card(Vector2(184, 164), false)
+	list_preview_host.add_child(character_preview_texture)
+
+	var list_world_inset_shell = Control.new()
 	list_world_inset_shell.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	list_world_inset_shell.offset_left = -194
+	list_world_inset_shell.offset_left = -188
 	list_world_inset_shell.offset_top = 10
 	list_world_inset_shell.offset_right = -10
-	list_world_inset_shell.offset_bottom = 174
-	list_center_host.add_child(list_world_inset_shell)
+	list_world_inset_shell.offset_bottom = 168
+	list_preview_host.add_child(list_world_inset_shell)
 	character_preview_world_inset = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if character_preview_world_inset.has_method("configure"):
 		character_preview_world_inset.call("configure", Callable(self, "_resolve_character_texture_directional"), true, false, false, false, true)
@@ -666,21 +641,24 @@ func _build_account_screen() -> VBoxContainer:
 				character_preview_world_inset.call("set_direction", direction)
 		)
 
-	var list_right = UI_COMPONENTS.panel_card(Vector2(300, 0), false)
-	list_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_split.add_child(list_right)
-	var list_right_inner = VBoxContainer.new()
-	list_right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_right_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_right.add_child(list_right_inner)
-	var details_title = _label("Character Details", 18, "text_secondary")
-	list_right_inner.add_child(details_title)
+	var details_panel = UI_COMPONENTS.panel_card(Vector2(252, 252), false)
+	details_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	details_panel.offset_left = -262
+	details_panel.offset_top = -262
+	details_panel.offset_right = -10
+	details_panel.offset_bottom = -10
+	list_preview_host.add_child(details_panel)
+	var details_inner = VBoxContainer.new()
+	details_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	details_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	details_panel.add_child(details_inner)
+	details_inner.add_child(_label("Character Details", 18, "text_secondary"))
 	character_details_label = RichTextLabel.new()
 	character_details_label.fit_content = false
 	character_details_label.bbcode_enabled = false
 	character_details_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	character_details_label.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
-	list_right_inner.add_child(character_details_label)
+	details_inner.add_child(character_details_label)
 	character_spawn_override_option = _option([])
 	character_spawn_override_option.custom_minimum_size = Vector2(0, 36)
 	character_spawn_override_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -697,76 +675,45 @@ func _build_account_screen() -> VBoxContainer:
 		else:
 			character_row_level_overrides[row_character_id] = selected_level_id
 	)
-	list_right_inner.add_child(_labeled_control("Spawn Override (Admin)", character_spawn_override_option))
+	details_inner.add_child(_labeled_control("Spawn Override (Admin)", character_spawn_override_option))
 	var actions = HBoxContainer.new()
-	actions.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	list_right_inner.add_child(actions)
-	var play_button = UI_COMPONENTS.button_primary("Play", Vector2(0, 38))
+	actions.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	details_inner.add_child(actions)
+	var play_button = UI_COMPONENTS.button_primary("Play", Vector2(0, 36))
 	play_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	play_button.pressed.connect(_on_character_play_pressed)
 	actions.add_child(play_button)
 	var delete_button = _button("Delete")
-	delete_button.custom_minimum_size = Vector2(0, 38)
+	delete_button.custom_minimum_size = Vector2(0, 36)
 	delete_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	delete_button.pressed.connect(_on_character_delete_pressed)
 	actions.add_child(delete_button)
 
-	account_create_panel = VBoxContainer.new()
+	account_create_panel = Control.new()
 	account_create_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	account_create_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	views_root.add_child(account_create_panel)
 	var create_split = HBoxContainer.new()
-	create_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_split.set_anchors_preset(Control.PRESET_FULL_RECT)
 	create_split.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	account_create_panel.add_child(create_split)
-	var create_left = UI_COMPONENTS.panel_card(Vector2(320, 0), false)
-	create_left.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_split.add_child(create_left)
-	var create_left_inner = VBoxContainer.new()
-	create_left_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_left_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	create_left.add_child(create_left_inner)
-	create_preset_option = _option(["Sellsword"])
-	create_preset_option.item_selected.connect(_on_create_preset_selected)
-	create_left_inner.add_child(_labeled_control("Preset", create_preset_option))
-	create_name_input = _line_edit("Character Name")
-	create_left_inner.add_child(_labeled_control("Name", create_name_input))
-	create_sex_option = _option(["Male", "Female"])
-	create_sex_option.item_selected.connect(func(_index: int) -> void:
-		_refresh_create_character_preview()
-	)
-	create_left_inner.add_child(_labeled_control("Sex", create_sex_option))
-	create_status_label = _label(" ", -1, "text_secondary")
-	create_status_label.text = " "
-	create_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	create_left_inner.add_child(create_status_label)
-	create_left_inner.add_spacer(false)
-	create_submit_button = UI_COMPONENTS.button_primary("Create Character", Vector2(0, 42))
-	create_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_submit_button.pressed.connect(_on_create_character_pressed)
-	create_left_inner.add_child(create_submit_button)
 
-	var create_center = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	create_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_split.add_child(create_center)
-	var create_center_host = Control.new()
-	create_center_host.set_anchors_preset(Control.PRESET_FULL_RECT)
-	create_center_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_center_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_center.add_child(create_center_host)
+	var create_preview_host = Control.new()
+	create_preview_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_preview_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_split.add_child(create_preview_host)
 	create_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if create_preview_texture.has_method("configure"):
 		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, true, true, false)
 	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	create_center_host.add_child(create_preview_texture)
-	var create_world_inset_shell = UI_COMPONENTS.panel_card(Vector2(184, 164), false)
+	create_preview_host.add_child(create_preview_texture)
+
+	var create_world_inset_shell = Control.new()
 	create_world_inset_shell.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	create_world_inset_shell.offset_left = -194
+	create_world_inset_shell.offset_left = -188
 	create_world_inset_shell.offset_top = 10
 	create_world_inset_shell.offset_right = -10
-	create_world_inset_shell.offset_bottom = 174
-	create_center_host.add_child(create_world_inset_shell)
+	create_world_inset_shell.offset_bottom = 168
+	create_preview_host.add_child(create_world_inset_shell)
 	create_preview_world_inset = CHARACTER_PODIUM_PREVIEW_SCENE.new()
 	if create_preview_world_inset.has_method("configure"):
 		create_preview_world_inset.call("configure", Callable(self, "_resolve_character_texture_directional"), true, false, false, false, true)
@@ -778,19 +725,35 @@ func _build_account_screen() -> VBoxContainer:
 				create_preview_world_inset.call("set_direction", direction)
 		)
 
-	var create_right = UI_COMPONENTS.panel_card(Vector2(300, 0), false)
-	create_right.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_split.add_child(create_right)
-	var create_right_inner = VBoxContainer.new()
-	create_right_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_right_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	create_right.add_child(create_right_inner)
-	create_right_inner.add_child(_label("Preset Overview", 18, "text_secondary"))
+	var create_options = UI_COMPONENTS.panel_card(Vector2(320, 0), false)
+	create_options.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_split.add_child(create_options)
+	var create_options_inner = VBoxContainer.new()
+	create_options_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	create_options_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_options.add_child(create_options_inner)
+	create_preset_option = _option(["Sellsword"])
+	create_preset_option.item_selected.connect(_on_create_preset_selected)
+	create_options_inner.add_child(_labeled_control("Preset", create_preset_option))
+	create_name_input = _line_edit("Character Name")
+	create_options_inner.add_child(_labeled_control("Name", create_name_input))
+	create_sex_option = _option(["Male", "Female"])
+	create_sex_option.item_selected.connect(func(_index: int) -> void:
+		_refresh_create_character_preview()
+	)
+	create_options_inner.add_child(_labeled_control("Sex", create_sex_option))
 	create_preset_description_label = _label("Select a preset to view its summary.", -1, "text_secondary")
 	create_preset_description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	create_preset_description_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_right_inner.add_child(create_preset_description_label)
-	create_right_inner.add_child(_label("Large preview + inset mirror world scale.", -1, "text_muted"))
+	create_options_inner.add_child(_labeled_control("Preset Overview", create_preset_description_label))
+	create_status_label = _label(" ", -1, "text_secondary")
+	create_status_label.text = " "
+	create_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	create_options_inner.add_child(create_status_label)
+	create_submit_button = UI_COMPONENTS.button_primary("Create Character", Vector2(0, 42))
+	create_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_submit_button.pressed.connect(_on_create_character_pressed)
+	create_options_inner.add_child(create_submit_button)
 
 	_populate_character_options_from_content()
 	_set_account_view("list")
@@ -1663,18 +1626,12 @@ func _render_character_rows() -> void:
 	_clear_children(character_rows_container)
 	character_rows_container.custom_minimum_size = Vector2.ZERO
 	if characters.is_empty():
-		var empty_card = UI_COMPONENTS.panel_card(Vector2(0, 140), false)
-		empty_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var empty_pad = MarginContainer.new()
-		empty_pad.add_theme_constant_override("margin_left", UI_TOKENS.spacing("md"))
-		empty_pad.add_theme_constant_override("margin_top", UI_TOKENS.spacing("md"))
-		empty_pad.add_theme_constant_override("margin_right", UI_TOKENS.spacing("md"))
-		empty_pad.add_theme_constant_override("margin_bottom", UI_TOKENS.spacing("md"))
-		empty_card.add_child(empty_pad)
-		var empty_label = _label("No characters yet. Open Create Character to make your first hero.", -1, "text_secondary")
-		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		empty_pad.add_child(empty_label)
-		character_rows_container.add_child(empty_card)
+		var empty_button = UI_COMPONENTS.button_secondary("Create Character", Vector2(0, 42))
+		empty_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		empty_button.pressed.connect(func() -> void:
+			_set_account_view("create")
+		)
+		character_rows_container.add_child(empty_button)
 		return
 	character_rows_container.custom_minimum_size = Vector2(0, float(characters.size() * 78))
 	for index in range(characters.size()):
@@ -1884,6 +1841,8 @@ func _show_screen(name: String) -> void:
 	if name == "account" and access_token != "":
 		_set_account_view("list")
 		call_deferred("_refresh_account_screen_deferred")
+	if name == "auth":
+		call_deferred("_refresh_release_summary_deferred")
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.visible = not in_world
 	header_title.text = "Children of Ikphelion"
@@ -1945,6 +1904,9 @@ func _refresh_account_screen_deferred() -> void:
 	if access_token == "":
 		return
 	await _load_characters()
+
+func _refresh_release_summary_deferred() -> void:
+	await _refresh_release_summary()
 
 func _on_auth_toggle_mode() -> void:
 	register_mode = not register_mode
@@ -2063,7 +2025,7 @@ func _load_characters() -> void:
 	characters = payload if payload is Array else []
 	if characters.is_empty():
 		selected_character_index = -1
-		character_details_label.text = "No characters yet. Create your first character."
+		character_details_label.text = "Create a character to begin."
 		_clear_character_preview(character_preview_texture)
 		_clear_character_preview(character_preview_world_inset)
 	else:
@@ -2101,10 +2063,10 @@ func _set_account_view(mode: String) -> void:
 		account_list_panel.visible = account_view_mode == "list"
 	if account_create_panel != null:
 		account_create_panel.visible = account_view_mode == "create"
-	if account_nav_list_button != null:
-		account_nav_list_button.disabled = account_view_mode == "list"
 	if account_nav_create_button != null:
-		account_nav_create_button.disabled = account_view_mode == "create"
+		account_nav_create_button.text = "Back to Character List" if account_view_mode == "create" else "Create Character"
+	if character_refresh_button != null:
+		character_refresh_button.disabled = account_view_mode != "list"
 
 func _on_character_selected(index: int) -> void:
 	_set_selected_character(index)
@@ -2991,11 +2953,14 @@ func _load_asset_editor_drafts() -> void:
 
 func _refresh_release_summary() -> void:
 	var response = await _api_request(HTTPClient.METHOD_GET, "/release/summary", null, false)
+	var local_notes = _load_local_release_notes()
 	if response.get("ok", false):
 		release_summary = response.get("json", {})
 		var notes = str(release_summary.get("latest_user_facing_notes", "")).strip_edges()
 		if notes.is_empty():
 			notes = str(release_summary.get("latest_build_release_notes", "")).strip_edges()
+		if notes.is_empty():
+			notes = local_notes
 		if notes.is_empty():
 			notes = "No release notes available."
 		var build_version = str(release_summary.get("latest_version", client_version))
@@ -3003,7 +2968,29 @@ func _refresh_release_summary() -> void:
 		auth_release_notes.text = "[b]Build:[/b] %s\n[b]Content:[/b] %s\n\n%s" % [build_version, content_version, notes]
 	else:
 		release_summary = {}
-		auth_release_notes.text = "Unable to load release notes."
+		if local_notes.is_empty():
+			auth_release_notes.text = "Unable to load release notes."
+		else:
+			auth_release_notes.text = "[b]Build:[/b] %s\n[b]Content:[/b] %s\n\n%s" % [client_version, client_content_version_key, local_notes]
+
+func _load_local_release_notes() -> String:
+	var candidates: Array[String] = []
+	candidates.append(_path_join(install_root_path, "patch_notes.md"))
+	candidates.append(_path_join(install_root_path, "release_notes.md"))
+	candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "patch_notes.md"))
+	candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "release_notes.md"))
+	for path in candidates:
+		if path.is_empty() or not FileAccess.file_exists(path):
+			continue
+		var file = FileAccess.open(path, FileAccess.READ)
+		if file == null:
+			continue
+		var text = file.get_as_text().strip_edges()
+		file.close()
+		if text.is_empty():
+			continue
+		return text
+	return ""
 
 func _refresh_content_bootstrap() -> void:
 	var runtime_response = await _api_request(HTTPClient.METHOD_GET, "/content/runtime-config", null, false)

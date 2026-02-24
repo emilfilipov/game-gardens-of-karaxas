@@ -115,13 +115,14 @@ def _motion(anim: str, frame: int, frame_count: int) -> Dict[str, float]:
 
 
 def _draw_layered_character(gender: str, anim: str, direction: str, frame: int, frame_count: int) -> Image.Image:
-    img = Image.new("RGBA", (BASE_FRAME_SIZE, BASE_FRAME_SIZE), (0, 0, 0, 0))
+    canvas = BASE_FRAME_SIZE
+    img = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     profile = _dir_profile(direction)
     mot = _motion(anim, frame, frame_count)
     tint = GENDER_TINTS[gender]
 
-    cx = FRAME_SIZE // 2 + profile["lean"]
+    cx = canvas // 2 + profile["lean"]
     ground_y = 82
     bob = int(round(mot["bob"]))
     torso_tilt = int(round(mot["torso"]))

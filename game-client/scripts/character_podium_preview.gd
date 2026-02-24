@@ -94,6 +94,8 @@ func rotate_by(delta: int) -> void:
 	emit_signal("direction_changed", DIRECTIONS[_direction_index])
 
 func _build_ui() -> void:
+	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+
 	var root = VBoxContainer.new()
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_theme_constant_override("separation", 8)
@@ -109,6 +111,7 @@ func _build_ui() -> void:
 	var preview_shell = PanelContainer.new()
 	preview_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	preview_shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_shell.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	root.add_child(preview_shell)
 
 	_texture = TextureRect.new()

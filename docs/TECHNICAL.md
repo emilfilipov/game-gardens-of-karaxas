@@ -24,15 +24,20 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 ## Client Surfaces (Current)
 - Auth (`login/register`)
 - Account hub (character list/create/select/play) using side-navigation view switching instead of tab containers
+- Account hub list view now uses one unified sidebar (top create action + character rows) with no duplicate list column header/sidebar.
+- Account hub list/create views render full-width inside the shell content region (not centered boxed sub-layouts).
 - Character creation preset picker (runtime-config driven `preset_key`) with player-selected `sex` (`appearance_key`) and name-only onboarding fields
 - Character list/create dual preview stack:
   - large podium preview for authored inspection/rotation,
   - inset top-right world-scale mirror preview synchronized to the same direction.
+- Character details/actions render as a compact bottom-right square overlay on the list preview surface.
 - Settings (including MFA controls)
 - Admin tooling (for admin users)
 - World runtime (isometric)
 - Character art runtime resolves directional animated frames from `assets/characters/sellsword_v1/catalog.json` for both podium preview and in-world actor rendering; the Sellsword generator outputs textured/colorized sheets (not silhouette placeholders).
 - Sellsword source sheets are generated at `384x384` frame size (4x baseline). World runtime draws actors at gameplay size (`96x96`) via draw-time downscale, so source fidelity can increase without forcing world camera/actor scale inflation.
+- Auth release notes now refresh whenever the auth screen is shown and fall back to local `patch_notes.md`/`release_notes.md` if summary fetch is unavailable.
+- Shared game icon assets are aligned across launcher resources, game-client resources, and installer icons via the `assets/icons/game_icon.*` pipeline.
 
 ## Backend Responsibilities
 - Auth/session lifecycle:
