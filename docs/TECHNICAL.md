@@ -81,7 +81,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
   - `ChildrenOfIkphelionLauncher.exe` (game launcher/runtime entry),
   - `designer/ChildrenOfIkphelionDesigner.exe` (designer executable).
 - Velopack hook handling creates/removes desktop shortcuts for both game and designer executables.
-- Icon set is unified across game, launcher, and setup wrapper assets.
+- Icon set is unified across game, launcher, and setup wrapper assets (transparent `COI` light-blue mark).
 
 ## Gameplay Config Model
 - Durable player/account state remains in DB.

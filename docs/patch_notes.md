@@ -1,5 +1,2 @@
-- Fixed desktop shortcut provisioning reliability by ensuring shortcut creation is run both for Velopack install/update hooks and normal launcher startup fallback.
-- Standardized designer shortcut/window naming to `Children of Ikphelion Designer` (removed legacy `Gardens of Karaxas` naming from user-facing labels).
-- Fixed stale release-notes display by prioritizing packaged local patch notes over remote summary notes in both launcher and Godot auth UI.
-- Updated icon set from `GOK` to a new light-theme `COI` mark and regenerated all icon assets (`.png`/`.ico`) used by launcher, game client, and installer wrapper.
-- Updated installer and backend documentation strings to consistently use `Children of Ikphelion`.
+- Replaced the game icon set with a transparent-background `COI` mark in the same light-blue tone used by the client UI theme.
+- Regenerated and synced icon assets across launcher, game client, and installer wrapper formats (`.png` / `.ico`).
