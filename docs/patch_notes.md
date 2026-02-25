@@ -1,4 +1,4 @@
-- Switched release auto-triggering to a strict runtime/package path allowlist (`launcher/**`, `game-client/**`, `designer-client/**`, `assets/**`, `scripts/**`, and Gradle wrapper/build files) so concept/docs/tool-only commits cannot publish new client versions.
-- Created a non-destructive `concept_art/v2/` UI exploration set so the approved baseline concept pack remains untouched.
-- Produced a new minimalist lobby direction in `v2` that deprioritizes mandatory skill-graph usage in Play/Create flows and keeps build-planner behavior optional.
-- Hardened `v2` concept text wrapping and panel spacing to avoid overflow/clipping artifacts in dense character-selection layouts.
+- Added a new multi-concept UI exploration set with three distinct layout families in separate folders: `concept_art/option_atlas_workspace`, `concept_art/option_dual_pane_studio`, and `concept_art/option_command_palette`.
+- Each option now includes complete screen suites (login, play empty/selected, create, update, settings) plus contact sheets for direct side-by-side evaluation.
+- Updated concept behavior to keep the skill graph present in both selection and creation flows.
+- Reflected pre-launch build-save intent in the selection concepts so builds can be saved before entering gameplay, with future economy-based commit cost support.

@@ -12,6 +12,8 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-045 | ✅ | 3 | Generated three distinct full-screen UI concept families in separate folders (`option_atlas_workspace`, `option_dual_pane_studio`, `option_command_palette`) with complete menu sets and contact sheets for side-by-side review. |
+| COI-2D-044 | ✅ | 2 | Updated concept direction to keep skill-graph context in both selection and creation screens and reflect pre-launch build-save intent in the selection UX exploration (future economy-gated commit path). |
 | COI-2D-043 | ✅ | 2 | Added a separate exploratory UI concept set under `concept_art/v2/` (without overwriting existing baseline concepts), emphasizing minimal launch-oriented account flows and optional build-planner placement outside default lobby critical path. |
 | COI-2D-042 | ✅ | 2 | Reworked release trigger policy from broad ignore-rules to a strict runtime/package path allowlist so concept/docs/tool-only commits cannot generate new build versions. |
 | COI-2D-041 | ✅ | 2 | Produced a third-pass concept-art pack with a single-color background, corrected panel bounds (no sidebar overlap), safer long-text wrapping, and auth-screen simplification (removed login/register subheadline while keeping login footer hints). |

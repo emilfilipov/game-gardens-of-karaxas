@@ -49,6 +49,8 @@ Current direction:
 ## Skill Tree Direction
 - Account list/create screens now include a graph-style skill tree panel as the primary center interaction surface.
 - Current implementation is a baseline node/edge interaction scaffold and will be expanded in future iterations.
+- Current UI exploration target keeps graph visibility in both character selection and character creation.
+- Selection flow should support pre-launch build-save actions (without requiring world entry first), enabling future in-game-cost gating (for example gold) at commit/apply points.
 
 ## Character Art Direction
 - Runtime character baseline is 2D spritesheets at **512x512 frame size**.
