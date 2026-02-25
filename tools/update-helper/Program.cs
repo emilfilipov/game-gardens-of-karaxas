@@ -75,7 +75,7 @@ internal static class Program
                     Emit(logFile, $"PROGRESS:{clamped}");
                     return;
                 }
-                Emit(logFile, $"PROGRESS:{clamped}:{(long)Math.Round(speedBytesPerSecond)}");
+                Emit(logFile, $"PROGRESS:{clamped}:{speedBytesPerSecond}");
             });
             WriteStatus("downloaded", 100, 0, totalBytes, totalBytes, "Download complete.");
             Emit(logFile, "UPDATE_DOWNLOADED");
