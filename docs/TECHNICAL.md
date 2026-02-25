@@ -128,6 +128,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Release workflow: `.github/workflows/release.yml`
 - Backend deploy workflow: `.github/workflows/deploy-backend.yml`
 - Security scan workflow: `.github/workflows/security-scan.yml`
+- Release workflow push triggers now ignore non-runtime visual reference folders (`concept_art/**`, `issues_png/**`) to prevent unnecessary deployment runs.
 
 ### Release Validation Gates (Current)
 - Asset ingest validation

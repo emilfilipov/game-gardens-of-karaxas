@@ -1,2 +1,3 @@
 - Added automatic GCS artifact retention in the release workflow: versions older than the newly published build are now pruned.
 - Release publish now keeps latest-only feed/archive build payloads by default to reduce storage cost growth.
+- Release push triggers now ignore `concept_art/**` and `issues_png/**` so reference-image updates do not trigger deployments.
