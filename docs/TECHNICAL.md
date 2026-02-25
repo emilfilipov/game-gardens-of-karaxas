@@ -101,6 +101,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Release workflow now attempts backend release-policy activation after successful package upload when `KARAXAS_OPS_BASE_URL` and `KARAXAS_OPS_API_TOKEN` are configured.
 - Backend release activation rejects accidental `latest_version` regression by default; explicit rollback must opt in via `allow_version_regression=true`.
 - Rollback helper script sets `allow_version_regression=true` to preserve intentional rollback capability.
+- Release workflow now prunes GCS feed/archive artifacts older than the just-published version so storage retention is latest-only by default.
 
 ## Packaging Contract
 - One installer payload now includes:

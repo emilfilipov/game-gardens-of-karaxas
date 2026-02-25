@@ -1,3 +1,2 @@
-- Reworked login/register presentation into a tighter dedicated auth shell so account forms no longer occupy oversized panel space.
-- Reduced login/register input and submit-control sizing again (height + typography) for denser, cleaner auth UX.
-- Changed auth status messaging to contextual display only: no permanent blank status row, message appears only when needed.
+- Added automatic GCS artifact retention in the release workflow: versions older than the newly published build are now pruned.
+- Release publish now keeps latest-only feed/archive build payloads by default to reduce storage cost growth.

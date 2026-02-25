@@ -264,6 +264,61 @@ jobs:
             }
           }
 
+      - name: Prune Older Release Artifacts From GCS
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $currentVersion = "${{ steps.get-version.outputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($currentVersion)) {
+            Write-Host "Current version is empty; skipping prune step."
+            exit 0
+          }
+
+          $feedPrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.prefix }}"
+          $archiveRoot = "gs://${{ env.GCS_RELEASE_BUCKET }}/archive"
+
+          Write-Host "Pruning feed packages older than $currentVersion from $feedPrefix"
+          $feedPackages = & gsutil ls "$feedPrefix/*.nupkg" 2>$null
+          if ($LASTEXITCODE -eq 0 -and $feedPackages) {
+            foreach ($pkg in $feedPackages) {
+              $pkgPath = $pkg.Trim()
+              if ([string]::IsNullOrWhiteSpace($pkgPath)) {
+                continue
+              }
+              if ($pkgPath -match "-$([regex]::Escape($currentVersion))-(full|delta)\\.nupkg$") {
+                continue
+              }
+              Write-Host "Removing stale feed package: $pkgPath"
+              & gsutil rm $pkgPath
+            }
+          } else {
+            Write-Host "No feed packages found to prune."
+          }
+
+          Write-Host "Pruning archive versions older than $currentVersion from $archiveRoot"
+          $archivePrefixes = & gsutil ls "$archiveRoot/" 2>$null
+          if ($LASTEXITCODE -eq 0 -and $archivePrefixes) {
+            foreach ($prefix in $archivePrefixes) {
+              $trimmed = $prefix.Trim()
+              if ([string]::IsNullOrWhiteSpace($trimmed) -or -not $trimmed.EndsWith("/")) {
+                continue
+              }
+              $versionName = $trimmed.TrimEnd('/').Split('/')[-1]
+              if ([string]::IsNullOrWhiteSpace($versionName)) {
+                continue
+              }
+              if ($versionName -eq $currentVersion) {
+                continue
+              }
+              Write-Host "Removing stale archive prefix: $trimmed"
+              & gsutil -m rm -r $trimmed
+            }
+          } else {
+            Write-Host "No archive prefixes found to prune."
+          }
+          exit 0
+
       - name: Sync Backend Release Policy
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && vars.KARAXAS_OPS_BASE_URL != ''
         shell: pwsh
