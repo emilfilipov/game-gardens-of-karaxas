@@ -11,7 +11,7 @@ on:
       - "**/*.MD"
       - "concept_art/**"
       - "issues_png/**"
-      - "tools/generate_ui_polish_concepts.py"
+      - "tools/**"
   workflow_dispatch:
 
 permissions:

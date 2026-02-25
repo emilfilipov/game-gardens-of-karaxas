@@ -1,3 +1,4 @@
-- Updated release retention to keep the newest 5 build versions in GCS feed/archive (instead of latest-only) so delta-update chaining remains available for recent clients.
-- Hardened release trigger ignores for non-runtime churn (`**/*.md`, `concept_art/**`, `issues_png/**`, and `tools/generate_ui_polish_concepts.py`) to avoid unnecessary publish runs.
-- Added a tracked `issues_png/` repository scaffold (`.gitkeep` + folder-local `.gitignore`) so issue screenshots can be stored locally without accidental commits or deployment triggers.
+- Expanded release trigger exclusions to ignore `tools/**` (in addition to markdown, `concept_art/**`, and `issues_png/**`) so non-runtime tooling/content churn does not auto-run publish workflows.
+- Completed a third-pass UI concept refresh with a unified single-tone background to remove strip/layer artifacts.
+- Corrected concept layout bounds and text wrapping so large shells no longer overlap the sidebar and long strings no longer spill outside panel regions.
+- Simplified auth concepts by removing redundant login/register subheadline copy while retaining login footer hints (client version + MFA availability note).

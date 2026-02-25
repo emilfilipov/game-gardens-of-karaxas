@@ -38,7 +38,7 @@ Logs:
 
 ## CI release
 - Workflow: `.github/workflows/release.yml`
-- Trigger: pushes to `main`/`master` (non-runtime-only changes are ignored: `backend/**`, markdown docs, `concept_art/**`, `issues_png/**`, and `tools/generate_ui_polish_concepts.py`)
+- Trigger: pushes to `main`/`master` (non-runtime-only changes are ignored: `backend/**`, markdown docs, `concept_art/**`, `issues_png/**`, and `tools/**`)
 - Release uploads Velopack artifacts to GCS feed path and versioned archive path.
 - Mutable feed artifacts receive `Cache-Control: no-cache, max-age=0`.
 - Historical `.nupkg` artifacts are prefetched from feed before packing to preserve delta continuity.

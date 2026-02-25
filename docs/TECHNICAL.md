@@ -128,7 +128,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Release workflow: `.github/workflows/release.yml`
 - Backend deploy workflow: `.github/workflows/deploy-backend.yml`
 - Security scan workflow: `.github/workflows/security-scan.yml`
-- Release workflow push triggers ignore non-runtime-only churn (`**/*.md`, `concept_art/**`, `issues_png/**`, and `tools/generate_ui_polish_concepts.py`) to prevent unnecessary deployment runs from visual/reference updates.
+- Release workflow push triggers ignore non-runtime-only churn (`**/*.md`, `concept_art/**`, `issues_png/**`, and `tools/**`) to prevent unnecessary deployment runs from visual/reference/tooling updates.
 
 ### Release Validation Gates (Current)
 - Asset ingest validation

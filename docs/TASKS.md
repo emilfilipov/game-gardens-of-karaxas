@@ -12,6 +12,8 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-041 | ✅ | 2 | Produced a third-pass concept-art pack with a single-color background, corrected panel bounds (no sidebar overlap), safer long-text wrapping, and auth-screen simplification (removed login/register subheadline while keeping login footer hints). |
+| COI-2D-040 | ✅ | 2 | Expanded release-trigger exclusions from specific concept tooling to all `tools/**` so documentation/concept/tool churn does not auto-run deployment workflows. |
 | COI-2D-039 | ✅ | 2 | Added `issues_png/` as a tracked repository folder scaffold (`.gitkeep` + folder-local ignore) so issue screenshots can be staged locally without polluting commits or triggering release flow. |
 | COI-2D-038 | ✅ | 3 | Updated GCS release-retention pruning from latest-only to latest-5-version policy (feed `.nupkg` and archive prefixes) to preserve short delta chains while controlling bucket costs. |
 | COI-2D-037 | ✅ | 1 | Updated release workflow trigger filters to ignore `concept_art/**` and `issues_png/**` changes so visual-reference image churn no longer triggers deployment builds. |
