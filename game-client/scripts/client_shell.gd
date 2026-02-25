@@ -10,6 +10,8 @@ const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
 const DEFAULT_CONTENT_VERSION = "unknown"
 const CHARACTER_DIRECTIONS: Array[String] = ["E", "W"]
+const SIDEBAR_PANEL_SIZE := Vector2(188, 360)
+const AUTH_UPDATE_SHELL_SIZE := Vector2(640, 500)
 # Regression harness compatibility constants retained after sidebar nav refactor.
 const MENU_UPDATE = 1
 const MENU_LOG_VIEWER = 2
@@ -503,20 +505,28 @@ func _build_ui() -> void:
 	content_row.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
 	layout.add_child(content_row)
 
-	sidebar_panel = UI_COMPONENTS.panel_card(Vector2(226, 0), false)
-	sidebar_panel.custom_minimum_size = Vector2(226, 0)
-	sidebar_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content_row.add_child(sidebar_panel)
+	var sidebar_slot = Control.new()
+	sidebar_slot.custom_minimum_size = Vector2(SIDEBAR_PANEL_SIZE.x, 0)
+	sidebar_slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_row.add_child(sidebar_slot)
+	var sidebar_center = CenterContainer.new()
+	sidebar_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sidebar_slot.add_child(sidebar_center)
+	sidebar_panel = UI_COMPONENTS.panel_card(SIDEBAR_PANEL_SIZE, false)
+	sidebar_panel.custom_minimum_size = SIDEBAR_PANEL_SIZE
+	sidebar_center.add_child(sidebar_panel)
 	var sidebar_inner = VBoxContainer.new()
 	sidebar_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sidebar_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	sidebar_panel.add_child(sidebar_inner)
-	sidebar_inner.add_spacer(true)
+	var sidebar_button_center = CenterContainer.new()
+	sidebar_button_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sidebar_inner.add_child(sidebar_button_center)
 	sidebar_button_column = VBoxContainer.new()
 	sidebar_button_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sidebar_button_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sidebar_button_column.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
-	sidebar_inner.add_child(sidebar_button_column)
-	sidebar_inner.add_spacer(true)
+	sidebar_button_center.add_child(sidebar_button_column)
 
 	main_stack = Control.new()
 	main_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -566,7 +576,7 @@ func _build_ui() -> void:
 
 func _build_auth_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
-		Vector2(540, UI_TOKENS.size("shell_auth_h")),
+		AUTH_UPDATE_SHELL_SIZE,
 		UI_TOKENS.spacing("md"),
 		false
 	)
@@ -585,7 +595,7 @@ func _build_auth_screen() -> VBoxContainer:
 	shell_panel.add_theme_stylebox_override("panel", shell_style)
 	var shell_content = shell["content"] as VBoxContainer
 	shell_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var auth_panel = UI_COMPONENTS.panel_card(Vector2(438, 520), false)
+	var auth_panel = UI_COMPONENTS.panel_card(Vector2(560, 420), false)
 	auth_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shell_content.add_child(auth_panel)
 
@@ -643,7 +653,6 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	auth_status_label.add_theme_color_override("font_color", UI_TOKENS.color("text_secondary"))
 	auth_inner.add_child(auth_status_label)
-	auth_inner.add_spacer(true)
 
 	_apply_auth_mode()
 	_configure_auth_focus_chain()
@@ -651,7 +660,7 @@ func _build_auth_screen() -> VBoxContainer:
 
 func _build_update_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
-		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_auth_h")),
+		AUTH_UPDATE_SHELL_SIZE,
 		UI_TOKENS.spacing("md"),
 		false
 	)
@@ -684,7 +693,7 @@ func _build_update_screen() -> VBoxContainer:
 	auth_release_notes.scroll_active = true
 	auth_release_notes.bbcode_enabled = true
 	auth_release_notes.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	auth_release_notes.custom_minimum_size = Vector2(0, 336)
+	auth_release_notes.custom_minimum_size = Vector2(0, 260)
 	auth_release_notes.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	update_inner.add_child(auth_release_notes)
 	auth_update_button = UI_COMPONENTS.button_primary("Check for Update", Vector2(0, 44))
@@ -3451,7 +3460,7 @@ func _refresh_release_summary() -> void:
 	var local_notes = _load_local_release_notes()
 	if response.get("ok", false):
 		release_summary = response.get("json", {})
-		var notes = ""
+		var notes_body = ""
 		var candidate_notes: Array[String] = [
 			str(release_summary.get("client_user_facing_notes", "")).strip_edges(),
 			str(release_summary.get("client_build_release_notes", "")).strip_edges(),
@@ -3463,24 +3472,44 @@ func _refresh_release_summary() -> void:
 		for candidate in candidate_notes:
 			var cleaned_candidate = _sanitize_login_release_notes(candidate)
 			if not cleaned_candidate.is_empty():
-				notes = cleaned_candidate
+				notes_body = cleaned_candidate
 				break
-		if notes.is_empty():
-			notes = "No release notes available for your build."
+		if notes_body.is_empty():
+			notes_body = "- No release notes available for your build."
 		if bool(release_summary.get("update_available", false)):
 			var latest_version = str(release_summary.get("latest_version", "")).strip_edges()
 			if not latest_version.is_empty() and latest_version != client_version:
-				notes = "[b]Update available:[/b] v%s\n\n%s" % [latest_version, notes]
+				notes_body = "- Update available: %s\n%s" % [_display_build_version(latest_version), notes_body]
+		var notes = _compose_release_notes_for_display(notes_body, release_summary)
 		if auth_release_notes != null:
 			auth_release_notes.text = notes
 	else:
 		release_summary = {}
 		var cleaned_local = _sanitize_login_release_notes(local_notes)
+		var fallback_body = cleaned_local if not cleaned_local.is_empty() else "- Unable to load release notes."
+		var notes = _compose_release_notes_for_display(fallback_body, release_summary)
 		if auth_release_notes != null:
-			if cleaned_local.is_empty():
-				auth_release_notes.text = "Unable to load release notes."
-			else:
-				auth_release_notes.text = cleaned_local
+			auth_release_notes.text = notes
+
+func _compose_release_notes_for_display(notes_body: String, summary: Dictionary) -> String:
+	var installed = _display_build_version(client_version)
+	var latest_raw = str(summary.get("latest_version", "")).strip_edges()
+	var latest = _display_build_version(latest_raw) if not latest_raw.is_empty() else installed
+	var header = "[b]Build:[/b] %s" % installed
+	if latest != installed:
+		header += "  [b]Latest:[/b] %s" % latest
+	var cleaned_body = notes_body.strip_edges()
+	if cleaned_body.is_empty():
+		cleaned_body = "- No release notes available for your build."
+	return "%s\n\n%s" % [header, cleaned_body]
+
+func _display_build_version(raw_version: String) -> String:
+	var trimmed = raw_version.strip_edges()
+	if trimmed.is_empty():
+		return "vunknown"
+	if trimmed.begins_with("v"):
+		return trimmed
+	return "v" + trimmed
 
 func _load_local_release_notes() -> String:
 	var candidates: Array[String] = []

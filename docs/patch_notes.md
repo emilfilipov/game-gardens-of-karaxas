@@ -1,5 +1,4 @@
-- Moved release notes out of the auth screen into a dedicated `Update` screen with a `Check for Update` action.
-- Centered the left sidebar menu button stack vertically and kept sidebar selection as the primary navigation state.
-- Removed redundant in-panel navigation controls (`Back`/`Exit`/auth mode toggle buttons) so menu routing is consistently sidebar-driven.
-- Simplified the auth panel by removing redundant section heading text and keeping only the required account fields/actions.
-- Reworked the `Up To Date` prompt to use a compact themed `AcceptDialog` instead of the oversized custom popup layout.
+- Reduced the left navigation rail to a compact panel and centered it vertically along the left side of the screen.
+- Centered sidebar buttons within the compact rail (no bottom-stacked menu state).
+- Standardized Login, Create Account, and Update windows to the same smaller shell size to remove excess empty space.
+- Updated release-notes rendering to always prepend build-version metadata (`Build`, and `Latest` when applicable) before bullet points for manual sanity checks.
