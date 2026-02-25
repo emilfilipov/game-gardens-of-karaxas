@@ -12,6 +12,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-036 | ✅ | 2 | Completed a second-pass refinement of UI concept renders by fixing text/button clipping, panel alignment drift, title overlap, and background layering artifacts across all concept screens. |
 | COI-2D-035 | ✅ | 3 | Added release-pipeline artifact-retention pruning in GCS so each publish removes feed/archive versions older than the current build and keeps latest-only storage by default. |
 | COI-2D-034 | ✅ | 2 | Produced a full UI polish concept pack (`concept_art/`) with one screen per major menu (auth, update, play empty/selected, create, settings tabs) to validate a non-incremental minimal UX direction before implementation. |
 | COI-2D-033 | ✅ | 2 | Reworked auth form composition into a tighter shell with narrower login/register cards, shorter input/button controls, and contextual-only status messaging to remove oversized/empty form space. |

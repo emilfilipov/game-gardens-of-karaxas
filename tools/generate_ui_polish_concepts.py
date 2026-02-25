@@ -11,9 +11,8 @@ OUT_DIR = ROOT / "concept_art"
 W, H = 1366, 768
 
 COLORS = {
-    "bg_top": (210, 223, 241),
-    "bg_bottom": (188, 206, 231),
-    "band": (173, 194, 223, 45),
+    "bg_top": (211, 223, 240),
+    "bg_bottom": (191, 209, 232),
     "shell": (226, 236, 248, 220),
     "panel": (236, 242, 250, 245),
     "panel_alt": (228, 237, 248, 245),
@@ -43,12 +42,13 @@ def _load_font(path: Path, size: int) -> ImageFont.FreeTypeFont | ImageFont.Imag
         return ImageFont.load_default()
 
 
-FONT_TITLE = _load_font(ROOT / "game-client" / "assets" / "fonts" / "cinzel.ttf", 57)
-FONT_SUBTITLE = _load_font(ROOT / "game-client" / "assets" / "fonts" / "cinzel.ttf", 21)
+FONT_TITLE = _load_font(ROOT / "game-client" / "assets" / "fonts" / "cinzel.ttf", 52)
+FONT_SUBTITLE = _load_font(ROOT / "game-client" / "assets" / "fonts" / "cinzel.ttf", 18)
 FONT_BODY = _load_font(ROOT / "game-client" / "assets" / "fonts" / "cormorant_garamond.ttf", 27)
 FONT_BODY_SM = _load_font(ROOT / "game-client" / "assets" / "fonts" / "cormorant_garamond.ttf", 22)
 FONT_BODY_XS = _load_font(ROOT / "game-client" / "assets" / "fonts" / "cormorant_garamond.ttf", 19)
 FONT_CAPTION = _load_font(ROOT / "game-client" / "assets" / "fonts" / "cormorant_garamond.ttf", 17)
+FONT_BUTTON = _load_font(ROOT / "game-client" / "assets" / "fonts" / "cormorant_garamond.ttf", 20)
 
 
 def lerp(a: int, b: int, t: float) -> int:
@@ -94,9 +94,9 @@ def draw_background(img: Image.Image):
         c = tuple(lerp(COLORS["bg_top"][i], COLORS["bg_bottom"][i], t) for i in range(3))
         draw.line([(0, y), (W, y)], fill=c + (255,))
 
-    # Atmospheric bands for depth.
-    rounded(draw, (0, 0, 234, H), COLORS["band"], radius=0)
-    rounded(draw, (1135, 0, W, H), COLORS["band"], radius=0)
+    # Flattened atmospheric treatment: subtle center wash only.
+    rounded(draw, (210, 0, 1156, H), (218, 229, 244, 62), radius=0)
+    rounded(draw, (0, 118, W, H), (235, 241, 250, 16), radius=0)
 
     # Header area.
     draw.text((W // 2, 44), "Children of Ikphelion", anchor="mm", font=FONT_TITLE, fill=COLORS["text"])
@@ -148,7 +148,13 @@ def draw_button(draw: ImageDraw.ImageDraw, rect, label: str, primary: bool = Fal
         fill = COLORS["button"]
         tfill = COLORS["button_text"]
     rounded(draw, rect, fill, radius=4, outline=COLORS["border_soft"], width=1)
-    draw.text(((rect[0] + rect[2]) // 2, (rect[1] + rect[3]) // 2), label, anchor="mm", font=FONT_BODY_XS, fill=tfill)
+    font = FONT_BUTTON
+    max_w = rect[2] - rect[0] - 12
+    if draw.textlength(label, font=font) > max_w:
+        font = FONT_BODY_XS
+    if draw.textlength(label, font=font) > max_w:
+        font = FONT_CAPTION
+    draw.text(((rect[0] + rect[2]) // 2, (rect[1] + rect[3]) // 2), label, anchor="mm", font=font, fill=tfill)
 
 
 def draw_skill_graph(draw: ImageDraw.ImageDraw, rect, populated: bool = True):
@@ -276,8 +282,11 @@ def screen_update() -> Image.Image:
     ]
     y = 300
     for note in notes:
-        draw.text((360, y), f"- {note}", font=FONT_BODY_XS, fill=COLORS["text_soft"])
-        y += 34
+        lines = wrap_text(draw, f"- {note}", FONT_BODY_XS, 680)
+        for line in lines:
+            draw.text((360, y), line, font=FONT_BODY_XS, fill=COLORS["text_soft"])
+            y += 24
+        y += 8
 
     draw_button(draw, (332, 532, 720, 570), "Check for Update", primary=True)
     draw_button(draw, (730, 532, 1066, 570), "View Logs")
@@ -288,39 +297,40 @@ def draw_play_layout(img: Image.Image, selected: bool):
     draw = ImageDraw.Draw(img, "RGBA")
     shell = (160, 116, 1340, 746)
     draw_shell(img, shell, "Character Hub")
+    content_top = 178
 
     # Roster
-    rounded(draw, (176, 154, 370, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
-    draw.text((192, 172), "Characters", font=FONT_SUBTITLE, fill=COLORS["text"])
-    draw_button(draw, (190, 202, 356, 236), "Create Character", primary=not selected)
+    rounded(draw, (176, content_top, 370, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
+    draw.text((192, content_top + 18), "Characters", font=FONT_SUBTITLE, fill=COLORS["text"])
+    draw_button(draw, (190, content_top + 48, 356, content_top + 82), "Create Character", primary=not selected)
 
     if selected:
-        rounded(draw, (190, 250, 356, 296), COLORS["primary"], radius=4, outline=COLORS["border_soft"], width=1)
-        draw.text((204, 262), "Sellsword", font=FONT_BODY_XS, fill=COLORS["primary_text"])
-        draw.text((204, 280), "Level 5  |  Ironhold", font=FONT_CAPTION, fill=COLORS["primary_text"])
-        rounded(draw, (190, 304, 356, 350), COLORS["panel_alt"], radius=4, outline=COLORS["border_soft"], width=1)
-        draw.text((204, 316), "Scout", font=FONT_BODY_XS, fill=COLORS["text"])
-        draw.text((204, 334), "Level 2  |  Khar Grotto", font=FONT_CAPTION, fill=COLORS["text_muted"])
+        rounded(draw, (190, content_top + 96, 356, content_top + 142), COLORS["primary"], radius=4, outline=COLORS["border_soft"], width=1)
+        draw.text((204, content_top + 108), "Sellsword", font=FONT_BODY_XS, fill=COLORS["primary_text"])
+        draw.text((204, content_top + 126), "Level 5  |  Ironhold", font=FONT_CAPTION, fill=COLORS["primary_text"])
+        rounded(draw, (190, content_top + 150, 356, content_top + 196), COLORS["panel_alt"], radius=4, outline=COLORS["border_soft"], width=1)
+        draw.text((204, content_top + 162), "Scout", font=FONT_BODY_XS, fill=COLORS["text"])
+        draw.text((204, content_top + 180), "Level 2  |  Khar Grotto", font=FONT_CAPTION, fill=COLORS["text_muted"])
     else:
-        draw_text_box(draw, (192, 258), "No characters yet. Create your first hero to begin.", FONT_BODY_XS, COLORS["text_muted"], 156)
+        draw_text_box(draw, (192, content_top + 104), "No characters yet. Create your first hero to begin.", FONT_BODY_XS, COLORS["text_muted"], 156)
 
     # Graph area
-    rounded(draw, (384, 154, 1120, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
-    draw.text((402, 172), "Skill Tree", font=FONT_SUBTITLE, fill=COLORS["text"])
-    draw_skill_graph(draw, (402, 198, 1102, 706), populated=selected)
+    rounded(draw, (384, content_top, 1120, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
+    draw.text((402, content_top + 18), "Skill Tree", font=FONT_SUBTITLE, fill=COLORS["text"])
+    draw_skill_graph(draw, (402, content_top + 44, 1102, 706), populated=selected)
 
     # Details
-    rounded(draw, (1134, 154, 1324, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
-    draw.text((1148, 172), "Character Details", font=FONT_SUBTITLE, fill=COLORS["text"])
+    rounded(draw, (1134, content_top, 1324, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
+    draw.text((1148, content_top + 18), "Character Details", font=FONT_SUBTITLE, fill=COLORS["text"])
     if selected:
         info = "Name: Sellsword\nClass: Mercenary\nSex: Male\nZone: Ironhold\nFacing: East"
-        draw_text_box(draw, (1148, 206), info, FONT_BODY_XS, COLORS["text_soft"], 156)
-        draw.text((1148, 380), "Spawn Override (Admin)", font=FONT_CAPTION, fill=COLORS["text_muted"])
-        draw_input(draw, (1148, 398, 1310, 430), "Current location", "Current location")
+        draw_text_box(draw, (1148, content_top + 52), info, FONT_BODY_XS, COLORS["text_soft"], 156)
+        draw.text((1148, content_top + 226), "Spawn Override (Admin)", font=FONT_CAPTION, fill=COLORS["text_muted"])
+        draw_input(draw, (1148, content_top + 244, 1310, content_top + 276), "Current location", "Current location")
         draw_button(draw, (1148, 680, 1230, 714), "Play", primary=True)
         draw_button(draw, (1234, 680, 1310, 714), "Delete")
     else:
-        draw_text_box(draw, (1148, 206), "Select a character to inspect details and launch gameplay.", FONT_BODY_XS, COLORS["text_muted"], 154)
+        draw_text_box(draw, (1148, content_top + 52), "Select a character to inspect details and launch gameplay.", FONT_BODY_XS, COLORS["text_muted"], 154)
         draw_button(draw, (1148, 680, 1230, 714), "Play", disabled=True)
         draw_button(draw, (1234, 680, 1310, 714), "Delete", disabled=True)
 
@@ -343,24 +353,25 @@ def screen_create_character() -> Image.Image:
     shell = (160, 116, 1340, 746)
     draw_shell(img, shell, "Create Character")
 
-    rounded(draw, (176, 154, 960, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
-    draw.text((194, 172), "Skill Tree Preview", font=FONT_SUBTITLE, fill=COLORS["text"])
-    draw_skill_graph(draw, (194, 198, 942, 706), populated=True)
+    content_top = 178
+    rounded(draw, (176, content_top, 960, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
+    draw.text((194, content_top + 18), "Skill Tree Preview", font=FONT_SUBTITLE, fill=COLORS["text"])
+    draw_skill_graph(draw, (194, content_top + 44, 942, 706), populated=True)
 
-    rounded(draw, (974, 154, 1324, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
-    draw.text((992, 172), "Identity", font=FONT_SUBTITLE, fill=COLORS["text"])
-    draw_input(draw, (992, 204, 1306, 238), "Character Name")
-    draw_input(draw, (992, 246, 1306, 280), "Character Type", "Sellsword")
-    draw_input(draw, (992, 288, 1306, 322), "Sex", "Male")
+    rounded(draw, (974, content_top, 1324, 726), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
+    draw.text((992, content_top + 18), "Identity", font=FONT_SUBTITLE, fill=COLORS["text"])
+    draw_input(draw, (992, content_top + 48, 1306, content_top + 82), "Character Name")
+    draw_input(draw, (992, content_top + 90, 1306, content_top + 124), "Character Type", "Sellsword")
+    draw_input(draw, (992, content_top + 132, 1306, content_top + 166), "Sex", "Male")
 
-    rounded(draw, (992, 338, 1306, 620), COLORS["panel_alt"], radius=5, outline=COLORS["border_soft"], width=1)
-    draw.text((1006, 354), "Character Type Lore", font=FONT_BODY_XS, fill=COLORS["text"])
+    rounded(draw, (992, content_top + 182, 1306, 620), COLORS["panel_alt"], radius=5, outline=COLORS["border_soft"], width=1)
+    draw.text((1006, content_top + 198), "Character Type Lore", font=FONT_BODY_XS, fill=COLORS["text"])
     lore = (
         "A disciplined sword-for-hire shaped by border wars. "
         "Reliable in melee, durable under pressure, and ideal for players "
         "who want a direct entry into combat pacing."
     )
-    draw_text_box(draw, (1006, 386), lore, FONT_BODY_XS, COLORS["text_soft"], 286)
+    draw_text_box(draw, (1006, content_top + 230), lore, FONT_BODY_XS, COLORS["text_soft"], 286)
 
     draw_button(draw, (992, 640, 1306, 676), "Create Character", primary=True)
     draw_button(draw, (992, 682, 1306, 716), "Back to Play")
@@ -372,7 +383,7 @@ def draw_settings_header(draw: ImageDraw.ImageDraw, shell):
     tabs = ["Video", "Audio", "Security"]
     for idx, tab in enumerate(tabs):
         tx0 = x0 + 24 + idx * 96
-        rect = (tx0, y0 + 42, tx0 + 88, y0 + 74)
+        rect = (tx0, y0 + 42, tx0 + 92, y0 + 76)
         draw_button(draw, rect, tab, primary=False)
 
 
@@ -435,9 +446,9 @@ def screen_settings_security() -> Image.Image:
 
     rounded(draw, (220, 222, 1280, 704), COLORS["panel"], radius=6, outline=COLORS["border_soft"], width=1)
     draw.text((242, 244), "Multi-factor Authentication", font=FONT_SUBTITLE, fill=COLORS["text"])
-    draw_button(draw, (922, 242, 1060, 276), "MFA: ON", primary=True)
-    draw_button(draw, (1072, 242, 1200, 276), "Refresh QR")
-    draw_button(draw, (1212, 242, 1266, 276), "Copy URI")
+    draw_button(draw, (860, 242, 998, 276), "MFA: ON", primary=True)
+    draw_button(draw, (1012, 242, 1144, 276), "Refresh QR")
+    draw_button(draw, (1158, 242, 1260, 276), "Copy URI")
 
     rounded(draw, (242, 298, 706, 650), COLORS["panel_alt"], radius=5, outline=COLORS["border_soft"], width=1)
     # stylized qr blocks
