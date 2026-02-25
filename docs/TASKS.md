@@ -12,6 +12,8 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-043 | ✅ | 2 | Added a separate exploratory UI concept set under `concept_art/v2/` (without overwriting existing baseline concepts), emphasizing minimal launch-oriented account flows and optional build-planner placement outside default lobby critical path. |
+| COI-2D-042 | ✅ | 2 | Reworked release trigger policy from broad ignore-rules to a strict runtime/package path allowlist so concept/docs/tool-only commits cannot generate new build versions. |
 | COI-2D-041 | ✅ | 2 | Produced a third-pass concept-art pack with a single-color background, corrected panel bounds (no sidebar overlap), safer long-text wrapping, and auth-screen simplification (removed login/register subheadline while keeping login footer hints). |
 | COI-2D-040 | ✅ | 2 | Expanded release-trigger exclusions from specific concept tooling to all `tools/**` so documentation/concept/tool churn does not auto-run deployment workflows. |
 | COI-2D-039 | ✅ | 2 | Added `issues_png/` as a tracked repository folder scaffold (`.gitkeep` + folder-local ignore) so issue screenshots can be staged locally without polluting commits or triggering release flow. |

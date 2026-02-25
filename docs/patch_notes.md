@@ -1,4 +1,4 @@
-- Expanded release trigger exclusions to ignore `tools/**` (in addition to markdown, `concept_art/**`, and `issues_png/**`) so non-runtime tooling/content churn does not auto-run publish workflows.
-- Completed a third-pass UI concept refresh with a unified single-tone background to remove strip/layer artifacts.
-- Corrected concept layout bounds and text wrapping so large shells no longer overlap the sidebar and long strings no longer spill outside panel regions.
-- Simplified auth concepts by removing redundant login/register subheadline copy while retaining login footer hints (client version + MFA availability note).
+- Switched release auto-triggering to a strict runtime/package path allowlist (`launcher/**`, `game-client/**`, `designer-client/**`, `assets/**`, `scripts/**`, and Gradle wrapper/build files) so concept/docs/tool-only commits cannot publish new client versions.
+- Created a non-destructive `concept_art/v2/` UI exploration set so the approved baseline concept pack remains untouched.
+- Produced a new minimalist lobby direction in `v2` that deprioritizes mandatory skill-graph usage in Play/Create flows and keeps build-planner behavior optional.
+- Hardened `v2` concept text wrapping and panel spacing to avoid overflow/clipping artifacts in dense character-selection layouts.

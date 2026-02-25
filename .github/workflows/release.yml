@@ -5,13 +5,17 @@ on:
     branches:
       - main
       - master
-    paths-ignore:
-      - "backend/**"
-      - "**/*.md"
-      - "**/*.MD"
-      - "concept_art/**"
-      - "issues_png/**"
-      - "tools/**"
+    paths:
+      - "launcher/**"
+      - "game-client/**"
+      - "designer-client/**"
+      - "assets/**"
+      - "scripts/**"
+      - "gradle/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradlew"
+      - "gradlew.bat"
   workflow_dispatch:
 
 permissions:

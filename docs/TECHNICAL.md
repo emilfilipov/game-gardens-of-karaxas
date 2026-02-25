@@ -128,7 +128,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Release workflow: `.github/workflows/release.yml`
 - Backend deploy workflow: `.github/workflows/deploy-backend.yml`
 - Security scan workflow: `.github/workflows/security-scan.yml`
-- Release workflow push triggers ignore non-runtime-only churn (`**/*.md`, `concept_art/**`, `issues_png/**`, and `tools/**`) to prevent unnecessary deployment runs from visual/reference/tooling updates.
+- Release workflow push triggers use a strict runtime/package allowlist (`launcher/**`, `game-client/**`, `designer-client/**`, `assets/**`, `scripts/**`, Gradle wrapper/build files) so docs/concepts/tooling-only commits cannot auto-publish new client versions.
 
 ### Release Validation Gates (Current)
 - Asset ingest validation
