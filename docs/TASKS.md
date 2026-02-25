@@ -12,6 +12,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-046 | ✅ | 1 | Removed the retired `concept_art/sellsword_front.png` and `concept_art/sellsword_back.png` concept files per updated direction, keeping only the newer structured concept packs. |
 | COI-2D-045 | ✅ | 3 | Generated three distinct full-screen UI concept families in separate folders (`option_atlas_workspace`, `option_dual_pane_studio`, `option_command_palette`) with complete menu sets and contact sheets for side-by-side review. |
 | COI-2D-044 | ✅ | 2 | Updated concept direction to keep skill-graph context in both selection and creation screens and reflect pre-launch build-save intent in the selection UX exploration (future economy-gated commit path). |
 | COI-2D-043 | ✅ | 2 | Added a separate exploratory UI concept set under `concept_art/v2/` (without overwriting existing baseline concepts), emphasizing minimal launch-oriented account flows and optional build-planner placement outside default lobby critical path. |

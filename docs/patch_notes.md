@@ -1,4 +1,2 @@
-- Added a new multi-concept UI exploration set with three distinct layout families in separate folders: `concept_art/option_atlas_workspace`, `concept_art/option_dual_pane_studio`, and `concept_art/option_command_palette`.
-- Each option now includes complete screen suites (login, play empty/selected, create, update, settings) plus contact sheets for direct side-by-side evaluation.
-- Updated concept behavior to keep the skill graph present in both selection and creation flows.
-- Reflected pre-launch build-save intent in the selection concepts so builds can be saved before entering gameplay, with future economy-based commit cost support.
+- Removed retired concept references `concept_art/sellsword_front.png` and `concept_art/sellsword_back.png` per the current UI concept direction.
+- Kept canonical documentation aligned so active concept sources are the structured option packs and generated concept families.

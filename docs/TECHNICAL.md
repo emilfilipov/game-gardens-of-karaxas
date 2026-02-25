@@ -60,7 +60,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Auth status messaging is contextual-only: blank state hides the status row entirely, then shows it only for validation/error/progress feedback.
 - Update-screen build metadata is pinned above the scrollable notes region.
 - Update release notes default to top-of-document on refresh (no bottom auto-scroll).
-- Concept exploration references are generated under `concept_art/option_atlas_workspace`, `concept_art/option_dual_pane_studio`, and `concept_art/option_command_palette` via `tools/generate_ui_concept_variants.py`.
+- Concept exploration references are generated under `concept_art/option_atlas_workspace`, `concept_art/option_dual_pane_studio`, and `concept_art/option_command_palette` via `tools/generate_ui_concept_variants.py`; older standalone `concept_art/sellsword_front.png` and `concept_art/sellsword_back.png` references were intentionally retired.
 
 ## Backend Responsibilities
 - Auth/session lifecycle (register/login/refresh/logout + MFA)
