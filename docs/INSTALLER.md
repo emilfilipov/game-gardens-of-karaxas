@@ -38,11 +38,11 @@ Logs:
 
 ## CI release
 - Workflow: `.github/workflows/release.yml`
-- Trigger: pushes to `main`/`master` (backend-only, `concept_art/**`, and `issues_png/**` changes are ignored)
+- Trigger: pushes to `main`/`master` (non-runtime-only changes are ignored: `backend/**`, markdown docs, `concept_art/**`, `issues_png/**`, and `tools/generate_ui_polish_concepts.py`)
 - Release uploads Velopack artifacts to GCS feed path and versioned archive path.
 - Mutable feed artifacts receive `Cache-Control: no-cache, max-age=0`.
 - Historical `.nupkg` artifacts are prefetched from feed before packing to preserve delta continuity.
-- Post-upload retention now prunes all older feed/archive versions and keeps only the latest published build artifacts to control GCS storage spend.
+- Post-upload retention now keeps the 5 newest feed/archive build versions and prunes older ones to balance delta-update continuity with GCS storage control.
 
 ## Runtime host defaults in payload
 `runtime_host.properties` is emitted at package time:

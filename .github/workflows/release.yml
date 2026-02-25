@@ -7,8 +7,11 @@ on:
       - master
     paths-ignore:
       - "backend/**"
+      - "**/*.md"
+      - "**/*.MD"
       - "concept_art/**"
       - "issues_png/**"
+      - "tools/generate_ui_polish_concepts.py"
   workflow_dispatch:
 
 permissions:
@@ -271,53 +274,106 @@ jobs:
         shell: pwsh
         run: |
           $PSNativeCommandUseErrorActionPreference = $false
-          $currentVersion = "${{ steps.get-version.outputs.version }}"
-          if ([string]::IsNullOrWhiteSpace($currentVersion)) {
-            Write-Host "Current version is empty; skipping prune step."
+          $keepVersionCount = 5
+
+          if ($keepVersionCount -lt 1) {
+            Write-Host "Invalid keep count configured ($keepVersionCount); skipping prune step."
             exit 0
           }
 
           $feedPrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.prefix }}"
           $archiveRoot = "gs://${{ env.GCS_RELEASE_BUCKET }}/archive"
+          $versionRegex = [regex]'\d+\.\d+\.\d+'
 
-          Write-Host "Pruning feed packages older than $currentVersion from $feedPrefix"
+          Write-Host "Pruning feed packages to keep newest $keepVersionCount versions from $feedPrefix"
           $feedPackages = & gsutil ls "$feedPrefix/*.nupkg" 2>$null
-          if ($LASTEXITCODE -eq 0 -and $feedPackages) {
+          if ($LASTEXITCODE -ne 0 -or -not $feedPackages) {
+            Write-Host "No feed packages found to prune."
+          } else {
+            $versionBuckets = @{}
             foreach ($pkg in $feedPackages) {
               $pkgPath = $pkg.Trim()
               if ([string]::IsNullOrWhiteSpace($pkgPath)) {
                 continue
               }
-              if ($pkgPath -match "-$([regex]::Escape($currentVersion))-(full|delta)\\.nupkg$") {
+              $match = $versionRegex.Match($pkgPath)
+              if (-not $match.Success) {
                 continue
               }
-              Write-Host "Removing stale feed package: $pkgPath"
-              & gsutil rm $pkgPath
+              $versionText = $match.Value
+              try {
+                $versionObj = [version]$versionText
+              } catch {
+                continue
+              }
+              if (-not $versionBuckets.ContainsKey($versionText)) {
+                $versionBuckets[$versionText] = @{
+                  Version = $versionObj
+                  Paths = @()
+                }
+              }
+              $versionBuckets[$versionText].Paths += $pkgPath
             }
-          } else {
-            Write-Host "No feed packages found to prune."
+
+            $orderedFeedVersions = $versionBuckets.GetEnumerator() |
+              Sort-Object { $_.Value.Version } -Descending
+            $keepFeedVersions = $orderedFeedVersions |
+              Select-Object -First $keepVersionCount |
+              ForEach-Object { $_.Key }
+            $keepFeedSet = @{}
+            foreach ($keepVersion in $keepFeedVersions) {
+              $keepFeedSet[$keepVersion] = $true
+            }
+
+            foreach ($entry in $orderedFeedVersions) {
+              if ($keepFeedSet.ContainsKey($entry.Key)) {
+                continue
+              }
+              foreach ($stalePkgPath in $entry.Value.Paths) {
+                Write-Host "Removing stale feed package: $stalePkgPath"
+                & gsutil rm $stalePkgPath
+              }
+            }
           }
 
-          Write-Host "Pruning archive versions older than $currentVersion from $archiveRoot"
+          Write-Host "Pruning archive versions to keep newest $keepVersionCount from $archiveRoot"
           $archivePrefixes = & gsutil ls "$archiveRoot/" 2>$null
-          if ($LASTEXITCODE -eq 0 -and $archivePrefixes) {
-            foreach ($prefix in $archivePrefixes) {
-              $trimmed = $prefix.Trim()
-              if ([string]::IsNullOrWhiteSpace($trimmed) -or -not $trimmed.EndsWith("/")) {
-                continue
-              }
-              $versionName = $trimmed.TrimEnd('/').Split('/')[-1]
-              if ([string]::IsNullOrWhiteSpace($versionName)) {
-                continue
-              }
-              if ($versionName -eq $currentVersion) {
-                continue
-              }
-              Write-Host "Removing stale archive prefix: $trimmed"
-              & gsutil -m rm -r $trimmed
-            }
-          } else {
+          if ($LASTEXITCODE -ne 0 -or -not $archivePrefixes) {
             Write-Host "No archive prefixes found to prune."
+          } else {
+            $archiveVersionEntries = @()
+            foreach ($prefix in $archivePrefixes) {
+              $trimmedPrefix = $prefix.Trim()
+              if ([string]::IsNullOrWhiteSpace($trimmedPrefix) -or -not $trimmedPrefix.EndsWith("/")) {
+                continue
+              }
+              $versionName = $trimmedPrefix.TrimEnd('/').Split('/')[-1]
+              try {
+                $versionObj = [version]$versionName
+              } catch {
+                continue
+              }
+              $archiveVersionEntries += [PSCustomObject]@{
+                Prefix = $trimmedPrefix
+                VersionName = $versionName
+                Version = $versionObj
+              }
+            }
+
+            $orderedArchiveVersions = $archiveVersionEntries | Sort-Object Version -Descending
+            $keepArchive = $orderedArchiveVersions | Select-Object -First $keepVersionCount
+            $keepArchiveSet = @{}
+            foreach ($item in $keepArchive) {
+              $keepArchiveSet[$item.VersionName] = $true
+            }
+
+            foreach ($entry in $orderedArchiveVersions) {
+              if ($keepArchiveSet.ContainsKey($entry.VersionName)) {
+                continue
+              }
+              Write-Host "Removing stale archive prefix: $($entry.Prefix)"
+              & gsutil -m rm -r $entry.Prefix
+            }
           }
           exit 0
 

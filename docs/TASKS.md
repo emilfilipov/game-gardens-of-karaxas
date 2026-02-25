@@ -12,6 +12,8 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-039 | ✅ | 2 | Added `issues_png/` as a tracked repository folder scaffold (`.gitkeep` + folder-local ignore) so issue screenshots can be staged locally without polluting commits or triggering release flow. |
+| COI-2D-038 | ✅ | 3 | Updated GCS release-retention pruning from latest-only to latest-5-version policy (feed `.nupkg` and archive prefixes) to preserve short delta chains while controlling bucket costs. |
 | COI-2D-037 | ✅ | 1 | Updated release workflow trigger filters to ignore `concept_art/**` and `issues_png/**` changes so visual-reference image churn no longer triggers deployment builds. |
 | COI-2D-036 | ✅ | 2 | Completed a second-pass refinement of UI concept renders by fixing text/button clipping, panel alignment drift, title overlap, and background layering artifacts across all concept screens. |
 | COI-2D-035 | ✅ | 3 | Added release-pipeline artifact-retention pruning in GCS so each publish removes feed/archive versions older than the current build and keeps latest-only storage by default. |

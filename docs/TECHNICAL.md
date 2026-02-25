@@ -101,7 +101,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Release workflow now attempts backend release-policy activation after successful package upload when `KARAXAS_OPS_BASE_URL` and `KARAXAS_OPS_API_TOKEN` are configured.
 - Backend release activation rejects accidental `latest_version` regression by default; explicit rollback must opt in via `allow_version_regression=true`.
 - Rollback helper script sets `allow_version_regression=true` to preserve intentional rollback capability.
-- Release workflow now prunes GCS feed/archive artifacts older than the just-published version so storage retention is latest-only by default.
+- Release workflow now prunes GCS feed/archive artifacts to retain only the 5 newest build versions, preserving short delta chains while controlling storage growth.
 
 ## Packaging Contract
 - One installer payload now includes:
@@ -128,7 +128,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Release workflow: `.github/workflows/release.yml`
 - Backend deploy workflow: `.github/workflows/deploy-backend.yml`
 - Security scan workflow: `.github/workflows/security-scan.yml`
-- Release workflow push triggers now ignore non-runtime visual reference folders (`concept_art/**`, `issues_png/**`) to prevent unnecessary deployment runs.
+- Release workflow push triggers ignore non-runtime-only churn (`**/*.md`, `concept_art/**`, `issues_png/**`, and `tools/generate_ui_polish_concepts.py`) to prevent unnecessary deployment runs from visual/reference updates.
 
 ### Release Validation Gates (Current)
 - Asset ingest validation

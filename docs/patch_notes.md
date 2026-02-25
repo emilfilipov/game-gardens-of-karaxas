@@ -1,3 +1,3 @@
-- Added automatic GCS artifact retention in the release workflow: versions older than the newly published build are now pruned.
-- Release publish now keeps latest-only feed/archive build payloads by default to reduce storage cost growth.
-- Release push triggers now ignore `concept_art/**` and `issues_png/**` so reference-image updates do not trigger deployments.
+- Updated release retention to keep the newest 5 build versions in GCS feed/archive (instead of latest-only) so delta-update chaining remains available for recent clients.
+- Hardened release trigger ignores for non-runtime churn (`**/*.md`, `concept_art/**`, `issues_png/**`, and `tools/generate_ui_polish_concepts.py`) to avoid unnecessary publish runs.
+- Added a tracked `issues_png/` repository scaffold (`.gitkeep` + folder-local `.gitignore`) so issue screenshots can be stored locally without accidental commits or deployment triggers.
