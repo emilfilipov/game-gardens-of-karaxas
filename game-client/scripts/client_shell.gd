@@ -301,7 +301,7 @@ func _build_theme() -> void:
 	ui_theme.set_stylebox("focus", "LineEdit", input_focus)
 	ui_theme.set_stylebox("read_only", "LineEdit", input_box)
 	ui_theme.set_color("font_color", "LineEdit", UI_TOKENS.color("text_primary"))
-	ui_theme.set_color("font_placeholder_color", "LineEdit", UI_TOKENS.color("text_muted"))
+	ui_theme.set_color("font_placeholder_color", "LineEdit", UI_TOKENS.color("text_secondary"))
 	ui_theme.set_color("selection_color", "LineEdit", UI_TOKENS.color("selection_fill"))
 	ui_theme.set_constant("outline_size", "LineEdit", 0)
 
@@ -355,6 +355,35 @@ func _build_theme() -> void:
 	ui_theme.set_stylebox("slider", "HSlider", button_pressed)
 	ui_theme.set_stylebox("grabber_area", "HSlider", input_box)
 	ui_theme.set_stylebox("grabber_area_highlight", "HSlider", input_focus)
+	var scroll_track = StyleBoxFlat.new()
+	scroll_track.bg_color = UI_TOKENS.color("panel_bg_deep")
+	scroll_track.border_width_left = 1
+	scroll_track.border_width_top = 1
+	scroll_track.border_width_right = 1
+	scroll_track.border_width_bottom = 1
+	scroll_track.border_color = UI_TOKENS.color("panel_border_soft")
+	var scroll_grabber = StyleBoxFlat.new()
+	scroll_grabber.bg_color = UI_TOKENS.color("button_pressed")
+	scroll_grabber.border_width_left = 1
+	scroll_grabber.border_width_top = 1
+	scroll_grabber.border_width_right = 1
+	scroll_grabber.border_width_bottom = 1
+	scroll_grabber.border_color = UI_TOKENS.color("panel_border")
+	scroll_grabber.corner_radius_top_left = UI_TOKENS.size("radius")
+	scroll_grabber.corner_radius_top_right = UI_TOKENS.size("radius")
+	scroll_grabber.corner_radius_bottom_left = UI_TOKENS.size("radius")
+	scroll_grabber.corner_radius_bottom_right = UI_TOKENS.size("radius")
+	var scroll_grabber_hover = scroll_grabber.duplicate()
+	scroll_grabber_hover.bg_color = UI_TOKENS.color("button_hover")
+	ui_theme.set_stylebox("scroll", "VScrollBar", scroll_track)
+	ui_theme.set_stylebox("grabber", "VScrollBar", scroll_grabber)
+	ui_theme.set_stylebox("grabber_highlight", "VScrollBar", scroll_grabber_hover)
+	ui_theme.set_stylebox("grabber_pressed", "VScrollBar", scroll_grabber_hover)
+	ui_theme.set_stylebox("scroll", "HScrollBar", scroll_track)
+	ui_theme.set_stylebox("grabber", "HScrollBar", scroll_grabber)
+	ui_theme.set_stylebox("grabber_highlight", "HScrollBar", scroll_grabber_hover)
+	ui_theme.set_stylebox("grabber_pressed", "HScrollBar", scroll_grabber_hover)
+	ui_theme.set_constant("scroll_size", "RichTextLabel", 10)
 	ui_theme.set_color("font_color", "Label", UI_TOKENS.color("text_primary"))
 	ui_theme.set_color("font_color", "RichTextLabel", UI_TOKENS.color("text_primary"))
 
@@ -368,7 +397,7 @@ func _build_ui() -> void:
 	background_art.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var backdrop_base = ColorRect.new()
 	backdrop_base.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop_base.color = Color(0.90, 0.94, 0.99, 1.0)
+	backdrop_base.color = Color(0.84, 0.89, 0.95, 1.0)
 	background_art.add_child(backdrop_base)
 
 	var top_gradient = TextureRect.new()
@@ -376,9 +405,9 @@ func _build_ui() -> void:
 	top_gradient.stretch_mode = TextureRect.STRETCH_SCALE
 	var top_gradient_data := Gradient.new()
 	top_gradient_data.colors = PackedColorArray([
-		Color(0.79, 0.90, 0.99, 0.54),
-		Color(0.92, 0.96, 1.0, 0.30),
-		Color(0.90, 0.94, 0.98, 0.10),
+		Color(0.73, 0.83, 0.95, 0.42),
+		Color(0.86, 0.91, 0.97, 0.20),
+		Color(0.84, 0.89, 0.95, 0.06),
 	])
 	top_gradient_data.offsets = PackedFloat32Array([0.0, 0.52, 1.0])
 	var top_gradient_texture := GradientTexture2D.new()
@@ -396,9 +425,9 @@ func _build_ui() -> void:
 	center_glow.stretch_mode = TextureRect.STRETCH_SCALE
 	var center_glow_gradient := Gradient.new()
 	center_glow_gradient.colors = PackedColorArray([
-		Color(0.96, 0.88, 0.66, 0.34),
-		Color(0.94, 0.95, 0.99, 0.16),
-		Color(0.89, 0.93, 0.98, 0.0),
+		Color(0.95, 0.88, 0.70, 0.22),
+		Color(0.86, 0.91, 0.97, 0.08),
+		Color(0.82, 0.88, 0.94, 0.0),
 	])
 	center_glow_gradient.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
 	var center_glow_texture := GradientTexture2D.new()
@@ -416,7 +445,7 @@ func _build_ui() -> void:
 	left_band.anchor_top = 0.0
 	left_band.anchor_right = 0.17
 	left_band.anchor_bottom = 1.0
-	left_band.color = Color(0.79, 0.85, 0.95, 0.24)
+	left_band.color = Color(0.69, 0.77, 0.90, 0.16)
 	background_art.add_child(left_band)
 
 	var right_band = ColorRect.new()
@@ -424,7 +453,7 @@ func _build_ui() -> void:
 	right_band.anchor_top = 0.0
 	right_band.anchor_right = 1.0
 	right_band.anchor_bottom = 1.0
-	right_band.color = Color(0.79, 0.85, 0.95, 0.24)
+	right_band.color = Color(0.69, 0.77, 0.90, 0.16)
 	background_art.add_child(right_band)
 
 	add_child(background_art)
@@ -521,29 +550,54 @@ func _build_ui() -> void:
 func _build_auth_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
 		Vector2(UI_TOKENS.size("shell_auth_w"), UI_TOKENS.size("shell_auth_h")),
-		UI_TOKENS.spacing("xl")
+		UI_TOKENS.spacing("lg"),
+		false
 	)
 	var wrap = shell["wrap"] as VBoxContainer
+	var shell_panel = shell["shell"] as PanelContainer
+	var shell_style = StyleBoxFlat.new()
+	shell_style.bg_color = Color(0.90, 0.94, 0.98, 0.62)
+	shell_style.border_width_left = 0
+	shell_style.border_width_top = 0
+	shell_style.border_width_right = 0
+	shell_style.border_width_bottom = 0
+	shell_style.corner_radius_top_left = UI_TOKENS.size("radius_xl")
+	shell_style.corner_radius_top_right = UI_TOKENS.size("radius_xl")
+	shell_style.corner_radius_bottom_left = UI_TOKENS.size("radius_xl")
+	shell_style.corner_radius_bottom_right = UI_TOKENS.size("radius_xl")
+	shell_panel.add_theme_stylebox_override("panel", shell_style)
 	var body = HSplitContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.dragger_visibility = SplitContainer.DRAGGER_HIDDEN
+	body.split_offset = 450
 	var shell_content = shell["content"] as VBoxContainer
 	shell_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shell_content.add_child(body)
 
-	var auth_panel = UI_COMPONENTS.panel_card(Vector2(430, 470), false)
+	var auth_panel = UI_COMPONENTS.panel_card(Vector2(438, 520), false)
 	auth_panel.size_flags_stretch_ratio = 0.42
 	body.add_child(auth_panel)
 
+	var auth_panel_style = StyleBoxFlat.new()
+	auth_panel_style.bg_color = Color(0.93, 0.95, 0.98, 0.96)
+	auth_panel_style.border_width_left = 1
+	auth_panel_style.border_width_top = 1
+	auth_panel_style.border_width_right = 1
+	auth_panel_style.border_width_bottom = 1
+	auth_panel_style.border_color = UI_TOKENS.color("panel_border_soft")
+	auth_panel_style.corner_radius_top_left = UI_TOKENS.size("radius_lg")
+	auth_panel_style.corner_radius_top_right = UI_TOKENS.size("radius_lg")
+	auth_panel_style.corner_radius_bottom_left = UI_TOKENS.size("radius_lg")
+	auth_panel_style.corner_radius_bottom_right = UI_TOKENS.size("radius_lg")
+	auth_panel.add_theme_stylebox_override("panel", auth_panel_style)
+
 	var auth_inner = VBoxContainer.new()
-	auth_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	auth_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	auth_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	auth_panel.add_child(auth_inner)
 
 	var auth_title = _label("Account", 28)
 	auth_inner.add_child(auth_title)
-	var auth_subtitle = _label("Login or create an account to enter Karaxas.", -1, "text_secondary")
-	auth_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	auth_inner.add_child(auth_subtitle)
 
 	auth_display_name_input = _line_edit("Display Name")
 	auth_display_name_input.custom_minimum_size = Vector2(0, 42)
@@ -570,14 +624,14 @@ func _build_auth_screen() -> VBoxContainer:
 	)
 	auth_inner.add_child(auth_otp_input)
 
-	var auth_button_row = HBoxContainer.new()
-	auth_button_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	auth_inner.add_child(auth_button_row)
 	auth_submit_button = UI_COMPONENTS.button_primary("Login", Vector2(0, 42))
 	auth_submit_button.focus_mode = Control.FOCUS_ALL
 	auth_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_submit_button.pressed.connect(_on_auth_submit)
-	auth_button_row.add_child(auth_submit_button)
+	auth_inner.add_child(auth_submit_button)
+	var auth_button_row = HBoxContainer.new()
+	auth_button_row.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	auth_inner.add_child(auth_button_row)
 	auth_toggle_button = _button("Create Account")
 	auth_toggle_button.focus_mode = Control.FOCUS_ALL
 	auth_toggle_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -585,7 +639,7 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_button_row.add_child(auth_toggle_button)
 	var auth_exit_button = _button("Exit")
 	auth_exit_button.focus_mode = Control.FOCUS_ALL
-	auth_exit_button.custom_minimum_size = Vector2(110, 42)
+	auth_exit_button.custom_minimum_size = Vector2(126, 42)
 	auth_exit_button.pressed.connect(_handle_exit_request)
 	auth_button_row.add_child(auth_exit_button)
 
@@ -596,25 +650,24 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_inner.add_child(auth_status_label)
 	auth_inner.add_spacer(true)
 
-	var update_panel = UI_COMPONENTS.panel_card(Vector2(640, 470), false)
+	var update_panel = UI_COMPONENTS.panel_card(Vector2(760, 520), false)
 	update_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	update_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	update_panel.size_flags_stretch_ratio = 0.58
 	body.add_child(update_panel)
+	update_panel.add_theme_stylebox_override("panel", auth_panel_style.duplicate())
 	var update_inner = VBoxContainer.new()
 	update_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	update_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	update_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	update_panel.add_child(update_inner)
 	var update_title = _label("Release Notes", 28)
 	update_inner.add_child(update_title)
-	var update_subtitle = _label("Latest player-facing changes and build notes.", -1, "text_secondary")
-	update_inner.add_child(update_subtitle)
 	auth_release_notes = RichTextLabel.new()
 	auth_release_notes.fit_content = false
 	auth_release_notes.scroll_active = true
 	auth_release_notes.bbcode_enabled = true
 	auth_release_notes.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	auth_release_notes.custom_minimum_size = Vector2(0, 300)
+	auth_release_notes.custom_minimum_size = Vector2(0, 336)
 	auth_release_notes.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	update_inner.add_child(auth_release_notes)
 	auth_update_button = UI_COMPONENTS.button_primary("Update & Restart")
@@ -2080,8 +2133,7 @@ func _set_auth_status(message: String) -> void:
 	auth_status_label.text = message
 
 func _set_footer_status(_message: String) -> void:
-	var cfg_key = client_content_version_key if not client_content_version_key.is_empty() else DEFAULT_CONTENT_VERSION
-	footer_status.text = "%s | cfg:%s" % [footer_version_text, cfg_key]
+	footer_status.text = footer_version_text
 
 func _refresh_account_screen_deferred() -> void:
 	if access_token == "":
@@ -3400,33 +3452,34 @@ func _refresh_release_summary() -> void:
 	var local_notes = _load_local_release_notes()
 	if response.get("ok", false):
 		release_summary = response.get("json", {})
-		var notes = str(release_summary.get("client_user_facing_notes", "")).strip_edges()
-		if notes.is_empty():
-			notes = str(release_summary.get("client_build_release_notes", "")).strip_edges()
-		if notes.is_empty():
-			notes = local_notes
-		if notes.is_empty():
-			notes = str(release_summary.get("latest_user_facing_notes", "")).strip_edges()
-		if notes.is_empty():
-			notes = str(release_summary.get("latest_build_release_notes", "")).strip_edges()
-		if notes.is_empty():
-			notes = str(release_summary.get("latest_content_note", "")).strip_edges()
+		var notes = ""
+		var candidate_notes: Array[String] = [
+			str(release_summary.get("client_user_facing_notes", "")).strip_edges(),
+			str(release_summary.get("client_build_release_notes", "")).strip_edges(),
+			local_notes,
+			str(release_summary.get("latest_user_facing_notes", "")).strip_edges(),
+			str(release_summary.get("latest_build_release_notes", "")).strip_edges(),
+			str(release_summary.get("latest_content_note", "")).strip_edges(),
+		]
+		for candidate in candidate_notes:
+			var cleaned_candidate = _sanitize_login_release_notes(candidate)
+			if not cleaned_candidate.is_empty():
+				notes = cleaned_candidate
+				break
 		if notes.is_empty():
 			notes = "No release notes available for your build."
-		var build_version = client_version
-		var content_version = client_content_version_key
-		var latest_version = str(release_summary.get("latest_version", build_version))
-		var latest_content_version = str(release_summary.get("latest_content_version_key", content_version))
-		var header = "[b]Build:[/b] %s\n[b]Content:[/b] %s" % [build_version, content_version]
-		if build_version != latest_version or content_version != latest_content_version:
-			header += "\n[b]Latest:[/b] %s / %s" % [latest_version, latest_content_version]
-		auth_release_notes.text = "%s\n\n%s" % [header, notes]
+		if bool(release_summary.get("update_available", false)):
+			var latest_version = str(release_summary.get("latest_version", "")).strip_edges()
+			if not latest_version.is_empty() and latest_version != client_version:
+				notes = "[b]Update available:[/b] v%s\n\n%s" % [latest_version, notes]
+		auth_release_notes.text = notes
 	else:
 		release_summary = {}
-		if local_notes.is_empty():
+		var cleaned_local = _sanitize_login_release_notes(local_notes)
+		if cleaned_local.is_empty():
 			auth_release_notes.text = "Unable to load release notes."
 		else:
-			auth_release_notes.text = "[b]Build:[/b] %s\n[b]Content:[/b] %s\n\n%s" % [client_version, client_content_version_key, local_notes]
+			auth_release_notes.text = cleaned_local
 
 func _load_local_release_notes() -> String:
 	var candidates: Array[String] = []
@@ -3446,6 +3499,33 @@ func _load_local_release_notes() -> String:
 			continue
 		return text
 	return ""
+
+func _sanitize_login_release_notes(raw: String) -> String:
+	var normalized = raw.replace("\r\n", "\n").replace("\r", "\n")
+	var filtered: Array[String] = []
+	for raw_line in normalized.split("\n"):
+		var line = raw_line.strip_edges()
+		if line.is_empty():
+			continue
+		if line.begins_with("#"):
+			continue
+		if line.begins_with("Release Date:"):
+			continue
+		if line.begins_with("- "):
+			line = line.substr(2).strip_edges()
+		var lowered = line.to_lower()
+		if (
+			lowered.find("cfg:") >= 0
+			or lowered.find("cv_") >= 0
+			or lowered.find("content_version") >= 0
+			or lowered.find("client_") >= 0
+			or lowered.find("runtime_gameplay_v") >= 0
+		):
+			continue
+		filtered.append("- %s" % line)
+		if filtered.size() >= 7:
+			break
+	return "\n".join(filtered)
 
 func _refresh_content_bootstrap() -> void:
 	var runtime_response = await _api_request(HTTPClient.METHOD_GET, "/content/runtime-config", null, false)

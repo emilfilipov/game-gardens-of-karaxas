@@ -48,6 +48,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Tokenized UI palette moved to lighter visual language in `ui_tokens.gd`.
 - Account shell composition supports graph-first center content and compact right-side preview/details.
 - Button hover feedback is highlight-only (no hover scale tween/growth).
+- Auth/login layout is simplified: title-only sections (no redundant subheadings), reduced nested framing, and primary-action-first button hierarchy.
+- Auth release notes are sanitized for player-facing display (technical keys/metadata lines filtered from login presentation).
 
 ## Backend Responsibilities
 - Auth/session lifecycle (register/login/refresh/logout + MFA)
@@ -79,6 +81,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Game auth UI renders themed progress state and can resume status display on relaunch.
 - Release notes/version metadata now resolve from the active executable payload first, then install-root fallbacks, to prevent stale notes/version labels after updates.
 - Hybrid notes contract: login surfaces fetch per-build notes from backend (`client_user_facing_notes` / `client_build_release_notes`) and only fall back to packaged local files when backend notes are unavailable.
+- Footer status text now shows only the build version marker (content config key is intentionally hidden from player-facing auth UI).
 
 ## Packaging Contract
 - One installer payload now includes:

@@ -1,4 +1,4 @@
-- Removed button hover growth so UI buttons no longer scale up on hover; hover feedback is now highlight-only.
-- Added hybrid release-note sourcing on login: backend per-build notes are now primary (`client_user_facing_notes` / `client_build_release_notes`) with local packaged notes as fallback.
-- Fixed release notes/version resolution to prioritize files from the active executable payload before install-root fallbacks, preventing stale notes from older installs.
-- Fixed login release notes header to show installed build/content and the latest available build/content when they differ.
+- Refined the login screen layout with cleaner hierarchy: removed redundant subheadlines, reduced nested framing, and emphasized a single primary auth action.
+- Improved auth readability by increasing visual contrast and rebalancing login shell sizing/spacing.
+- Simplified login release notes presentation to player-facing bullets and filtered internal technical metadata from the visible notes feed.
+- Reduced auth clutter by removing duplicate version/config details from the login notes/footer display.

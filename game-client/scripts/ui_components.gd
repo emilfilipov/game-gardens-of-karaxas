@@ -16,9 +16,9 @@ static func _style_box(bg: Color, border: Color, radius_name: String = "radius_l
 	style.corner_radius_top_right = UI_TOKENS.size(radius_name)
 	style.corner_radius_bottom_left = UI_TOKENS.size(radius_name)
 	style.corner_radius_bottom_right = UI_TOKENS.size(radius_name)
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.24)
-	style.shadow_size = 4
-	style.shadow_offset = Vector2(0, 2)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.12)
+	style.shadow_size = 2
+	style.shadow_offset = Vector2(0, 1)
 	style.content_margin_left = float(UI_TOKENS.spacing("sm"))
 	style.content_margin_top = float(UI_TOKENS.spacing("xs"))
 	style.content_margin_right = float(UI_TOKENS.spacing("sm"))
@@ -172,7 +172,7 @@ static func sanitize_option_popup(option: OptionButton) -> void:
 		popup.set_item_as_checkable(idx, false)
 
 
-static func centered_shell(min_size: Vector2, padding: int = 10) -> Dictionary:
+static func centered_shell(min_size: Vector2, padding: int = 10, framed: bool = true) -> Dictionary:
 	var wrap = VBoxContainer.new()
 	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
@@ -183,6 +183,14 @@ static func centered_shell(min_size: Vector2, padding: int = 10) -> Dictionary:
 	var shell = PanelContainer.new()
 	shell.custom_minimum_size = min_size
 	center.add_child(shell)
+	if not framed:
+		var shell_box = StyleBoxFlat.new()
+		shell_box.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+		shell_box.border_width_left = 0
+		shell_box.border_width_top = 0
+		shell_box.border_width_right = 0
+		shell_box.border_width_bottom = 0
+		shell.add_theme_stylebox_override("panel", shell_box)
 
 	var shell_pad = MarginContainer.new()
 	shell_pad.add_theme_constant_override("margin_left", padding)
@@ -199,4 +207,5 @@ static func centered_shell(min_size: Vector2, padding: int = 10) -> Dictionary:
 	return {
 		"wrap": wrap,
 		"content": content,
+		"shell": shell,
 	}

@@ -14,6 +14,7 @@ Current direction:
 - Server-authoritative gameplay values and progression.
 - Online account flow with secure auth and MFA.
 - Cohesive themed UI across auth/account/world surfaces.
+- Login/auth UI should remain concise and player-facing (minimal redundant copy, no internal config/version jargon in main notes text).
 
 ## Runtime Flow
 1. Launcher starts client and checks updates.
