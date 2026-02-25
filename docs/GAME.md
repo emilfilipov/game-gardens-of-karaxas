@@ -39,6 +39,7 @@ Current direction:
 - Character creation stays preset-driven with minimal onboarding fields: name, type, sex.
 - Character type lore remains visible in create flow.
 - If no character is selected in list view, the list skill-tree graph is intentionally empty.
+- Navigation is sidebar-first: auth/account/settings/update/logout/quit actions are presented in a persistent left menu instead of a popup cog menu.
 
 ## Skill Tree Direction
 - Account list/create screens now include a graph-style skill tree panel as the primary center interaction surface.

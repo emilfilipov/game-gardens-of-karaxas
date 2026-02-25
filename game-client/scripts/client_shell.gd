@@ -10,7 +10,7 @@ const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
 const DEFAULT_CONTENT_VERSION = "unknown"
 const CHARACTER_DIRECTIONS: Array[String] = ["E", "W"]
-
+# Regression harness compatibility constants retained after sidebar nav refactor.
 const MENU_UPDATE = 1
 const MENU_LOG_VIEWER = 2
 const MENU_LOGOUT = 3
@@ -67,8 +67,10 @@ var current_screen_name = "auth"
 var screen_nodes: Dictionary = {}
 
 var header_title: Label
-var menu_button: Button
-var menu_popup: PopupMenu
+var sidebar_panel: PanelContainer
+var sidebar_title_label: Label
+var sidebar_button_column: VBoxContainer
+var sidebar_buttons: Dictionary = {}
 var footer_status: Label
 var main_stack: Control
 var background_art: Control
@@ -490,26 +492,40 @@ func _build_ui() -> void:
 		header_title.add_theme_font_override("font", ui_font_heading)
 	header.add_child(header_title)
 
-	menu_button = Button.new()
-	menu_button.text = "Menu"
-	menu_button.custom_minimum_size = Vector2(124, 44)
-	menu_button.focus_mode = Control.FOCUS_CLICK
-	menu_button.pressed.connect(_on_menu_button_pressed)
-	header.add_child(menu_button)
-
-	menu_popup = PopupMenu.new()
-	add_child(menu_popup)
-	menu_popup.id_pressed.connect(_on_menu_item_pressed)
+	var header_spacer = Control.new()
+	header_spacer.custom_minimum_size = Vector2(124, 44)
+	header.add_child(header_spacer)
 
 	var header_rule = ColorRect.new()
 	header_rule.custom_minimum_size = Vector2(0, 1)
 	header_rule.color = UI_TOKENS.color("divider")
 	layout.add_child(header_rule)
 
+	var content_row = HBoxContainer.new()
+	content_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_row.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	layout.add_child(content_row)
+
+	sidebar_panel = UI_COMPONENTS.panel_card(Vector2(226, 0), false)
+	sidebar_panel.custom_minimum_size = Vector2(226, 0)
+	sidebar_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_row.add_child(sidebar_panel)
+	var sidebar_inner = VBoxContainer.new()
+	sidebar_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sidebar_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	sidebar_panel.add_child(sidebar_inner)
+	sidebar_title_label = _label("Menu", 24, "text_secondary")
+	sidebar_inner.add_child(sidebar_title_label)
+	sidebar_button_column = VBoxContainer.new()
+	sidebar_button_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sidebar_button_column.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	sidebar_inner.add_child(sidebar_button_column)
+
 	main_stack = Control.new()
+	main_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	main_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	main_stack.set_anchors_preset(Control.PRESET_FULL_RECT)
-	layout.add_child(main_stack)
+	content_row.add_child(main_stack)
 
 	auth_container = _build_auth_screen()
 	_register_screen("auth", auth_container)
@@ -525,6 +541,7 @@ func _build_ui() -> void:
 
 	settings_container = _build_settings_screen()
 	_register_screen("settings", settings_container)
+	_rebuild_sidebar_menu()
 
 	footer_status = Label.new()
 	footer_status.text = footer_version_text
@@ -722,12 +739,7 @@ func _build_account_screen() -> VBoxContainer:
 	sidebar_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	account_sidebar.add_child(sidebar_inner)
 
-	account_nav_create_button = UI_COMPONENTS.button_primary("Create Character", Vector2(0, 42))
-	account_nav_create_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	account_nav_create_button.pressed.connect(func() -> void:
-		_set_account_view("list" if account_view_mode == "create" else "create")
-	)
-	sidebar_inner.add_child(account_nav_create_button)
+	sidebar_inner.add_child(_label("Characters", 20, "text_secondary"))
 
 	character_rows_scroll = ScrollContainer.new()
 	character_rows_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1998,56 +2010,102 @@ func _populate_character_creation_tables(options: Dictionary) -> void:
 	create_skill_keys.clear()
 	_apply_selected_preset_to_creation()
 
-func _on_menu_button_pressed() -> void:
-	_populate_menu()
-	menu_popup.reset_size()
-	var popup_size: Vector2 = menu_popup.get_contents_minimum_size()
-	var viewport_size: Vector2 = get_viewport_rect().size
-	var desired_x = menu_button.global_position.x + menu_button.size.x - popup_size.x
-	var desired_y = menu_button.global_position.y + menu_button.size.y + 4.0
-	var clamped_x = int(clampf(desired_x, 8.0, maxf(8.0, viewport_size.x - popup_size.x - 8.0)))
-	var clamped_y = int(clampf(desired_y, 8.0, maxf(8.0, viewport_size.y - popup_size.y - 8.0)))
-	menu_popup.position = Vector2i(clamped_x, clamped_y)
-	menu_popup.popup()
+func _add_sidebar_button(key: String, text_value: String, action: Callable, primary: bool = false) -> void:
+	if sidebar_button_column == null:
+		return
+	var button = (
+		UI_COMPONENTS.button_primary(text_value, Vector2(0, 42))
+		if primary
+		else UI_COMPONENTS.button_secondary(text_value, Vector2(0, 42))
+	)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.focus_mode = Control.FOCUS_CLICK
+	button.pressed.connect(action)
+	sidebar_buttons[key] = button
+	sidebar_button_column.add_child(button)
 
-func _populate_menu() -> void:
-	menu_popup.clear()
-	if access_token != "":
-		menu_popup.add_item("Welcome " + session_display_name, -1)
-		menu_popup.set_item_disabled(menu_popup.get_item_count() - 1, true)
-		if _current_screen() == "world":
-			menu_popup.add_item("Settings", MENU_SETTINGS)
-			menu_popup.add_item("Logout Character", MENU_LOGOUT_CHARACTER)
-			menu_popup.add_item("Logout Account", MENU_LOGOUT)
-		else:
-			menu_popup.add_item("Settings", MENU_SETTINGS)
-			if session_is_admin:
-				menu_popup.add_item("Log Viewer", MENU_LOG_VIEWER)
-			menu_popup.add_item("Update & Restart", MENU_UPDATE)
-			menu_popup.add_item("Logout Account", MENU_LOGOUT)
-	else:
-		menu_popup.add_item("Update & Restart", MENU_UPDATE)
-	menu_popup.add_item("Exit Game", MENU_EXIT)
-
-func _on_menu_item_pressed(item_id: int) -> void:
-	match item_id:
-		MENU_SETTINGS:
-			_open_settings_screen()
-		MENU_UPDATE:
+func _rebuild_sidebar_menu() -> void:
+	if sidebar_button_column == null:
+		return
+	_clear_children(sidebar_button_column)
+	sidebar_buttons.clear()
+	if access_token.is_empty():
+		if sidebar_title_label != null:
+			sidebar_title_label.text = "Account"
+		_add_sidebar_button("auth_login", "Login", func() -> void:
+			register_mode = false
+			_apply_auth_mode()
+			_show_screen("auth")
+		, true)
+		_add_sidebar_button("auth_create", "Create Account", func() -> void:
+			register_mode = true
+			_apply_auth_mode()
+			_show_screen("auth")
+		)
+		_add_sidebar_button("auth_update", "Update", func() -> void:
 			_on_update_and_restart_pressed()
-		MENU_LOG_VIEWER:
-			if session_is_admin:
+		)
+		_add_sidebar_button("quit", "Quit Game", func() -> void:
+			_on_sidebar_quit_pressed()
+		)
+	else:
+		if sidebar_title_label != null:
+			sidebar_title_label.text = "Menu"
+		_add_sidebar_button("play", "Play", func() -> void:
+			_show_screen("account")
+			_set_account_view("list", true)
+		, true)
+		_add_sidebar_button("create_character", "Create Character", func() -> void:
+			_show_screen("account")
+			_set_account_view("create", false)
+		)
+		_add_sidebar_button("settings", "Settings", func() -> void:
+			_open_settings_screen()
+		)
+		if session_is_admin:
+			_add_sidebar_button("logs", "Log Viewer", func() -> void:
 				_show_screen("logs")
 				_reload_log_view()
-		MENU_LOGOUT:
-			await _logout_account()
-		MENU_LOGOUT_CHARACTER:
-			await _persist_active_character_location()
-			active_world_ready = false
-			_show_screen("account")
-		MENU_EXIT:
-			await _persist_active_character_location()
-			get_tree().quit()
+			)
+		_add_sidebar_button("update", "Update", func() -> void:
+			_on_update_and_restart_pressed()
+		)
+		_add_sidebar_button("logout", "Log Out", func() -> void:
+			_on_sidebar_logout_pressed()
+		)
+		_add_sidebar_button("quit", "Quit Game", func() -> void:
+			_on_sidebar_quit_pressed()
+		)
+	_update_sidebar_selection()
+
+func _update_sidebar_selection() -> void:
+	if sidebar_buttons.is_empty():
+		return
+	var active_key = ""
+	if access_token.is_empty():
+		active_key = "auth_create" if register_mode else "auth_login"
+	else:
+		match _current_screen():
+			"account":
+				active_key = "create_character" if account_view_mode == "create" else "play"
+			"settings":
+				active_key = "settings"
+			"logs":
+				active_key = "logs" if sidebar_buttons.has("logs") else ""
+			"world":
+				active_key = "play"
+			_:
+				active_key = "play"
+	for key in sidebar_buttons.keys():
+		var button = sidebar_buttons.get(key)
+		if button is Button:
+			button.disabled = str(key) == active_key
+
+func _on_sidebar_logout_pressed() -> void:
+	await _logout_account()
+
+func _on_sidebar_quit_pressed() -> void:
+	await _handle_exit_request()
 
 func _show_screen(name: String) -> void:
 	_hide_skill_tooltip()
@@ -2072,7 +2130,6 @@ func _show_screen(name: String) -> void:
 				node.visible = false
 	if world_canvas != null and world_canvas.has_method("set_active"):
 		world_canvas.call("set_active", name == "world")
-	menu_button.visible = name != "auth"
 	footer_status.visible = not in_world
 	if name == "account" and access_token != "":
 		_set_account_view("list", true)
@@ -2082,6 +2139,7 @@ func _show_screen(name: String) -> void:
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.visible = not in_world
 	header_title.text = "Children of Ikphelion"
+	_update_sidebar_selection()
 
 func _current_screen() -> String:
 	return current_screen_name
@@ -2104,6 +2162,7 @@ func _apply_auth_mode() -> void:
 		if auth_email_input.text.strip_edges().is_empty():
 			_load_last_email_pref()
 	_configure_auth_focus_chain()
+	_update_sidebar_selection()
 
 func _set_focus_link(current: Control, next: Control) -> void:
 	if current == null or next == null:
@@ -2209,6 +2268,7 @@ func _apply_session(payload: Dictionary) -> void:
 	auth_email_input.text = session_email
 	_save_last_email_pref(session_email)
 	_set_footer_status("Welcome " + session_display_name)
+	_rebuild_sidebar_menu()
 
 func _logout_session_local() -> void:
 	access_token = ""
@@ -2236,6 +2296,7 @@ func _logout_session_local() -> void:
 	settings_mfa_last_secret = ""
 	settings_mfa_last_uri = ""
 	settings_mfa_last_qr_svg = ""
+	_rebuild_sidebar_menu()
 
 func _logout_account() -> void:
 	await _persist_active_character_location()
@@ -2305,6 +2366,7 @@ func _set_account_view(mode: String, refresh_list: bool = true) -> void:
 		if create_status_label != null:
 			create_status_label.text = " "
 		_refresh_create_character_preview()
+	_update_sidebar_selection()
 	if refresh_list and account_view_mode == "list" and access_token != "" and _current_screen() == "account":
 		call_deferred("_refresh_account_screen_deferred")
 

@@ -1,4 +1,4 @@
-- Refined the login screen layout with cleaner hierarchy: removed redundant subheadlines, reduced nested framing, and emphasized a single primary auth action.
-- Improved auth readability by increasing visual contrast and rebalancing login shell sizing/spacing.
-- Simplified login release notes presentation to player-facing bullets and filtered internal technical metadata from the visible notes feed.
-- Reduced auth clutter by removing duplicate version/config details from the login notes/footer display.
+- Replaced the cogwheel popup flow with a persistent left sidebar navigation model for auth/account actions (`Login/Create Account/Play/Create Character/Settings/Update/Log Out/Quit`).
+- Updated auth and menu shell composition to a cleaner sidebar + content layout so menu content opens in the main panel area.
+- Reduced menu clutter by removing duplicate in-content navigation affordances and keeping sidebar navigation as the primary route.
+- Kept the lighter visual direction while tightening panel contrast and spacing for better readability over atmospheric full-screen backgrounds.

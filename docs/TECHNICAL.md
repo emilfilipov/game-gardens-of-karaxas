@@ -50,6 +50,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Button hover feedback is highlight-only (no hover scale tween/growth).
 - Auth/login layout is simplified: title-only sections (no redundant subheadings), reduced nested framing, and primary-action-first button hierarchy.
 - Auth release notes are sanitized for player-facing display (technical keys/metadata lines filtered from login presentation).
+- Primary shell navigation is now a persistent left sidebar; legacy cogwheel popup menu flow is removed from the Godot client shell.
 
 ## Backend Responsibilities
 - Auth/session lifecycle (register/login/refresh/logout + MFA)
