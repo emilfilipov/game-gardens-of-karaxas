@@ -48,9 +48,10 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Tokenized UI palette moved to lighter visual language in `ui_tokens.gd`.
 - Account shell composition supports graph-first center content and compact right-side preview/details.
 - Button hover feedback is highlight-only (no hover scale tween/growth).
-- Auth/login layout is simplified: title-only sections (no redundant subheadings), reduced nested framing, and primary-action-first button hierarchy.
-- Auth release notes are sanitized for player-facing display (technical keys/metadata lines filtered from login presentation).
+- Auth/login layout is simplified and form-only (redundant section headings and in-panel auth navigation removed).
+- Release notes are rendered only in the dedicated `Update` screen; auth/account surfaces no longer embed notes panels.
 - Primary shell navigation is now a persistent left sidebar; legacy cogwheel popup menu flow is removed from the Godot client shell.
+- Sidebar button stack is vertically centered; menu selection state is sidebar-driven across auth/session states.
 
 ## Backend Responsibilities
 - Auth/session lifecycle (register/login/refresh/logout + MFA)
@@ -79,9 +80,9 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 ## Updater UX Contract
 - Game client update flow writes/reads updater status at `<install_root>/logs/update_status.json`.
 - Update helper publishes stage + progress metrics (`percent`, `speed_bps`, `downloaded_bytes`, `total_bytes`).
-- Game auth UI renders themed progress state and can resume status display on relaunch.
+- Game update UI renders themed progress state and can resume status display on relaunch.
 - Release notes/version metadata now resolve from the active executable payload first, then install-root fallbacks, to prevent stale notes/version labels after updates.
-- Hybrid notes contract: login surfaces fetch per-build notes from backend (`client_user_facing_notes` / `client_build_release_notes`) and only fall back to packaged local files when backend notes are unavailable.
+- Hybrid notes contract: the update surface fetches per-build notes from backend (`client_user_facing_notes` / `client_build_release_notes`) and only falls back to packaged local files when backend notes are unavailable.
 - Footer status text now shows only the build version marker (content config key is intentionally hidden from player-facing auth UI).
 
 ## Packaging Contract

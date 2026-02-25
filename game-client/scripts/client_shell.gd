@@ -68,7 +68,6 @@ var screen_nodes: Dictionary = {}
 
 var header_title: Label
 var sidebar_panel: PanelContainer
-var sidebar_title_label: Label
 var sidebar_button_column: VBoxContainer
 var sidebar_buttons: Dictionary = {}
 var footer_status: Label
@@ -82,7 +81,6 @@ var auth_password_input: LineEdit
 var auth_otp_input: LineEdit
 var auth_display_name_input: LineEdit
 var auth_submit_button: Button
-var auth_toggle_button: Button
 var auth_status_label: Label
 var auth_release_notes: RichTextLabel
 var auth_update_button: Button
@@ -96,7 +94,6 @@ var update_restart_pending = false
 var account_container: VBoxContainer
 var account_sidebar: Control
 var account_status_label: Label
-var account_nav_create_button: Button
 var account_list_panel: Control
 var account_create_panel: Control
 var account_view_mode = "list"
@@ -131,6 +128,7 @@ var create_point_budget: int = 10
 var create_stat_max_per_entry: int = 10
 
 var world_container: VBoxContainer
+var update_container: VBoxContainer
 var world_status_label: Label
 var world_canvas: Control
 var world_shell_panel: Control
@@ -139,7 +137,6 @@ var log_container: VBoxContainer
 var log_file_option: OptionButton
 var log_text_view: TextEdit
 var log_status_label: Label
-var log_back_button: Button
 
 var settings_container: VBoxContainer
 var settings_status_label: Label
@@ -514,12 +511,12 @@ func _build_ui() -> void:
 	sidebar_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sidebar_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	sidebar_panel.add_child(sidebar_inner)
-	sidebar_title_label = _label("Menu", 24, "text_secondary")
-	sidebar_inner.add_child(sidebar_title_label)
+	sidebar_inner.add_spacer(true)
 	sidebar_button_column = VBoxContainer.new()
-	sidebar_button_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sidebar_button_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	sidebar_button_column.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
 	sidebar_inner.add_child(sidebar_button_column)
+	sidebar_inner.add_spacer(true)
 
 	main_stack = Control.new()
 	main_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -529,6 +526,9 @@ func _build_ui() -> void:
 
 	auth_container = _build_auth_screen()
 	_register_screen("auth", auth_container)
+
+	update_container = _build_update_screen()
+	_register_screen("update", update_container)
 
 	account_container = _build_account_screen()
 	_register_screen("account", account_container)
@@ -566,8 +566,8 @@ func _build_ui() -> void:
 
 func _build_auth_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
-		Vector2(UI_TOKENS.size("shell_auth_w"), UI_TOKENS.size("shell_auth_h")),
-		UI_TOKENS.spacing("lg"),
+		Vector2(540, UI_TOKENS.size("shell_auth_h")),
+		UI_TOKENS.spacing("md"),
 		false
 	)
 	var wrap = shell["wrap"] as VBoxContainer
@@ -583,17 +583,11 @@ func _build_auth_screen() -> VBoxContainer:
 	shell_style.corner_radius_bottom_left = UI_TOKENS.size("radius_xl")
 	shell_style.corner_radius_bottom_right = UI_TOKENS.size("radius_xl")
 	shell_panel.add_theme_stylebox_override("panel", shell_style)
-	var body = HSplitContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.dragger_visibility = SplitContainer.DRAGGER_HIDDEN
-	body.split_offset = 450
 	var shell_content = shell["content"] as VBoxContainer
 	shell_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	shell_content.add_child(body)
-
 	var auth_panel = UI_COMPONENTS.panel_card(Vector2(438, 520), false)
-	auth_panel.size_flags_stretch_ratio = 0.42
-	body.add_child(auth_panel)
+	auth_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	shell_content.add_child(auth_panel)
 
 	var auth_panel_style = StyleBoxFlat.new()
 	auth_panel_style.bg_color = Color(0.93, 0.95, 0.98, 0.96)
@@ -612,9 +606,6 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	auth_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	auth_panel.add_child(auth_inner)
-
-	var auth_title = _label("Account", 28)
-	auth_inner.add_child(auth_title)
 
 	auth_display_name_input = _line_edit("Display Name")
 	auth_display_name_input.custom_minimum_size = Vector2(0, 42)
@@ -646,19 +637,6 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_submit_button.pressed.connect(_on_auth_submit)
 	auth_inner.add_child(auth_submit_button)
-	var auth_button_row = HBoxContainer.new()
-	auth_button_row.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
-	auth_inner.add_child(auth_button_row)
-	auth_toggle_button = _button("Create Account")
-	auth_toggle_button.focus_mode = Control.FOCUS_ALL
-	auth_toggle_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	auth_toggle_button.pressed.connect(_on_auth_toggle_mode)
-	auth_button_row.add_child(auth_toggle_button)
-	var auth_exit_button = _button("Exit")
-	auth_exit_button.focus_mode = Control.FOCUS_ALL
-	auth_exit_button.custom_minimum_size = Vector2(126, 42)
-	auth_exit_button.pressed.connect(_handle_exit_request)
-	auth_button_row.add_child(auth_exit_button)
 
 	auth_status_label = _label(" ")
 	auth_status_label.text = " "
@@ -667,18 +645,40 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_inner.add_child(auth_status_label)
 	auth_inner.add_spacer(true)
 
-	var update_panel = UI_COMPONENTS.panel_card(Vector2(760, 520), false)
-	update_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_apply_auth_mode()
+	_configure_auth_focus_chain()
+	return wrap
+
+func _build_update_screen() -> VBoxContainer:
+	var shell: Dictionary = UI_COMPONENTS.centered_shell(
+		Vector2(UI_TOKENS.size("shell_wide_w"), UI_TOKENS.size("shell_auth_h")),
+		UI_TOKENS.spacing("md"),
+		false
+	)
+	var wrap = shell["wrap"] as VBoxContainer
+	var shell_panel = shell["shell"] as PanelContainer
+	var shell_style = StyleBoxFlat.new()
+	shell_style.bg_color = Color(0.90, 0.94, 0.98, 0.62)
+	shell_style.border_width_left = 0
+	shell_style.border_width_top = 0
+	shell_style.border_width_right = 0
+	shell_style.border_width_bottom = 0
+	shell_style.corner_radius_top_left = UI_TOKENS.size("radius_xl")
+	shell_style.corner_radius_top_right = UI_TOKENS.size("radius_xl")
+	shell_style.corner_radius_bottom_left = UI_TOKENS.size("radius_xl")
+	shell_style.corner_radius_bottom_right = UI_TOKENS.size("radius_xl")
+	shell_panel.add_theme_stylebox_override("panel", shell_style)
+	var content = shell["content"] as VBoxContainer
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	var update_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	update_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	update_panel.size_flags_stretch_ratio = 0.58
-	body.add_child(update_panel)
-	update_panel.add_theme_stylebox_override("panel", auth_panel_style.duplicate())
+	content.add_child(update_panel)
 	var update_inner = VBoxContainer.new()
 	update_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	update_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	update_panel.add_child(update_inner)
-	var update_title = _label("Release Notes", 28)
-	update_inner.add_child(update_title)
+	update_inner.add_child(_label("Release Notes", 30))
 	auth_release_notes = RichTextLabel.new()
 	auth_release_notes.fit_content = false
 	auth_release_notes.scroll_active = true
@@ -687,8 +687,8 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_release_notes.custom_minimum_size = Vector2(0, 336)
 	auth_release_notes.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	update_inner.add_child(auth_release_notes)
-	auth_update_button = UI_COMPONENTS.button_primary("Update & Restart")
-	auth_update_button.custom_minimum_size = Vector2(220, 44)
+	auth_update_button = UI_COMPONENTS.button_primary("Check for Update", Vector2(0, 44))
+	auth_update_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_update_button.pressed.connect(_on_update_and_restart_pressed)
 	update_inner.add_child(auth_update_button)
 
@@ -708,9 +708,6 @@ func _build_auth_screen() -> VBoxContainer:
 	progress_inner.add_child(auth_update_progress_bar)
 	auth_update_progress_meta_label = _label(" ", -1, "text_muted")
 	progress_inner.add_child(auth_update_progress_meta_label)
-
-	_apply_auth_mode()
-	_configure_auth_focus_chain()
 	return wrap
 
 func _build_account_screen() -> VBoxContainer:
@@ -899,12 +896,6 @@ func _build_account_screen() -> VBoxContainer:
 	create_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	create_submit_button.pressed.connect(_on_create_character_pressed)
 	create_footer.add_child(create_submit_button)
-	var create_back_button = UI_COMPONENTS.button_secondary("Back to Character List", Vector2(0, 42))
-	create_back_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_back_button.pressed.connect(func() -> void:
-		_set_account_view("list")
-	)
-	create_footer.add_child(create_back_button)
 
 	_populate_character_options_from_content()
 	_refresh_skill_tree_graphs()
@@ -952,11 +943,6 @@ func _build_log_screen() -> VBoxContainer:
 	var refresh = UI_COMPONENTS.button_primary("Reload")
 	refresh.pressed.connect(_reload_log_view)
 	row.add_child(refresh)
-	log_back_button = _button("Back")
-	log_back_button.pressed.connect(func() -> void:
-		_show_screen("account")
-	)
-	row.add_child(log_back_button)
 
 	log_status_label = _label(" ", -1, "text_secondary")
 	log_status_label.text = " "
@@ -1119,15 +1105,6 @@ func _build_settings_screen() -> VBoxContainer:
 	settings_mfa_info_label.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	mfa_info_panel.add_child(settings_mfa_info_label)
 
-	var action_row = HBoxContainer.new()
-	action_row.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	content.add_child(action_row)
-	var back_button = _button("Back to Account")
-	back_button.pressed.connect(func() -> void:
-		_show_screen("account")
-	)
-	action_row.add_child(back_button)
-
 	settings_status_label = _label(" ", -1, "text_secondary")
 	settings_status_label.visible = true
 	content.add_child(settings_status_label)
@@ -1185,12 +1162,6 @@ func _build_level_editor_screen() -> VBoxContainer:
 	publish.custom_minimum_size = Vector2(135, 34)
 	publish.pressed.connect(_publish_level_editor_drafts)
 	top_row_1.add_child(publish)
-	var back = _button("Back")
-	back.custom_minimum_size = Vector2(90, 34)
-	back.pressed.connect(func() -> void:
-		_show_screen("account")
-	)
-	top_row_1.add_child(back)
 
 	var top_row_2 = HBoxContainer.new()
 	top_row_2.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
@@ -1297,11 +1268,6 @@ func _build_level_order_screen() -> VBoxContainer:
 	var publish = _button("Publish Order")
 	publish.pressed.connect(_publish_level_order)
 	actions.add_child(publish)
-	var back = _button("Back")
-	back.pressed.connect(func() -> void:
-		_show_screen("account")
-	)
-	actions.add_child(back)
 
 	level_order_status = _label(" ", -1, "text_secondary")
 	content.add_child(level_order_status)
@@ -1335,11 +1301,6 @@ func _build_asset_editor_screen() -> VBoxContainer:
 	var refresh_versions = _button("Refresh")
 	refresh_versions.pressed.connect(_refresh_asset_editor_versions)
 	top.add_child(refresh_versions)
-	var back = _button("Back")
-	back.pressed.connect(func() -> void:
-		_show_screen("account")
-	)
-	top.add_child(back)
 
 	var split_shell = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
 	split_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1427,11 +1388,6 @@ func _build_content_versions_screen() -> VBoxContainer:
 	var rollback = _button("Rollback Prev")
 	rollback.pressed.connect(_rollback_content_version)
 	compare_row.add_child(rollback)
-	var back = _button("Back")
-	back.pressed.connect(func() -> void:
-		_show_screen("account")
-	)
-	compare_row.add_child(back)
 
 	var compare_shell = UI_COMPONENTS.panel_card(Vector2(0, 200), false)
 	content.add_child(compare_shell)
@@ -2030,8 +1986,6 @@ func _rebuild_sidebar_menu() -> void:
 	_clear_children(sidebar_button_column)
 	sidebar_buttons.clear()
 	if access_token.is_empty():
-		if sidebar_title_label != null:
-			sidebar_title_label.text = "Account"
 		_add_sidebar_button("auth_login", "Login", func() -> void:
 			register_mode = false
 			_apply_auth_mode()
@@ -2043,14 +1997,12 @@ func _rebuild_sidebar_menu() -> void:
 			_show_screen("auth")
 		)
 		_add_sidebar_button("auth_update", "Update", func() -> void:
-			_on_update_and_restart_pressed()
+			_show_screen("update")
 		)
 		_add_sidebar_button("quit", "Quit Game", func() -> void:
 			_on_sidebar_quit_pressed()
 		)
 	else:
-		if sidebar_title_label != null:
-			sidebar_title_label.text = "Menu"
 		_add_sidebar_button("play", "Play", func() -> void:
 			_show_screen("account")
 			_set_account_view("list", true)
@@ -2068,7 +2020,7 @@ func _rebuild_sidebar_menu() -> void:
 				_reload_log_view()
 			)
 		_add_sidebar_button("update", "Update", func() -> void:
-			_on_update_and_restart_pressed()
+			_show_screen("update")
 		)
 		_add_sidebar_button("logout", "Log Out", func() -> void:
 			_on_sidebar_logout_pressed()
@@ -2083,13 +2035,19 @@ func _update_sidebar_selection() -> void:
 		return
 	var active_key = ""
 	if access_token.is_empty():
-		active_key = "auth_create" if register_mode else "auth_login"
+		match _current_screen():
+			"update":
+				active_key = "auth_update"
+			_:
+				active_key = "auth_create" if register_mode else "auth_login"
 	else:
 		match _current_screen():
 			"account":
 				active_key = "create_character" if account_view_mode == "create" else "play"
 			"settings":
 				active_key = "settings"
+			"update":
+				active_key = "update"
 			"logs":
 				active_key = "logs" if sidebar_buttons.has("logs") else ""
 			"world":
@@ -2133,8 +2091,7 @@ func _show_screen(name: String) -> void:
 	footer_status.visible = not in_world
 	if name == "account" and access_token != "":
 		_set_account_view("list", true)
-		call_deferred("_refresh_release_summary_deferred")
-	if name == "auth":
+	if name == "update":
 		call_deferred("_refresh_release_summary_deferred")
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.visible = not in_world
@@ -2148,7 +2105,6 @@ func _apply_auth_mode() -> void:
 	auth_display_name_input.visible = register_mode
 	auth_otp_input.visible = not register_mode
 	auth_submit_button.text = "Register" if register_mode else "Login"
-	auth_toggle_button.text = "Back" if register_mode else "Create Account"
 	auth_status_label.text = " "
 	if register_mode:
 		auth_email_input.clear()
@@ -2175,18 +2131,18 @@ func _configure_auth_focus_chain() -> void:
 		auth_email_input == null
 		or auth_password_input == null
 		or auth_submit_button == null
-		or auth_toggle_button == null
 	):
 		return
 	if register_mode:
 		_set_focus_link(auth_display_name_input, auth_email_input)
 		_set_focus_link(auth_email_input, auth_password_input)
 		_set_focus_link(auth_password_input, auth_submit_button)
+		_set_focus_link(auth_submit_button, auth_display_name_input)
 	else:
 		_set_focus_link(auth_email_input, auth_password_input)
 		_set_focus_link(auth_password_input, auth_otp_input)
 		_set_focus_link(auth_otp_input, auth_submit_button)
-	_set_focus_link(auth_submit_button, auth_toggle_button)
+		_set_focus_link(auth_submit_button, auth_email_input)
 
 func _set_auth_status(message: String) -> void:
 	auth_status_label.text = message
@@ -2360,8 +2316,6 @@ func _set_account_view(mode: String, refresh_list: bool = true) -> void:
 		account_list_panel.visible = account_view_mode == "list"
 	if account_create_panel != null:
 		account_create_panel.visible = account_view_mode == "create"
-	if account_nav_create_button != null:
-		account_nav_create_button.text = "Back to Character List" if account_view_mode == "create" else "Create Character"
 	if account_view_mode == "create":
 		if create_status_label != null:
 			create_status_label.text = " "
@@ -2712,8 +2666,6 @@ func _update_auth_progress_from_status(status_payload: Dictionary) -> void:
 func _set_auth_controls_enabled(enabled: bool) -> void:
 	if auth_submit_button != null:
 		auth_submit_button.disabled = not enabled
-	if auth_toggle_button != null:
-		auth_toggle_button.disabled = not enabled
 	if auth_update_button != null:
 		auth_update_button.disabled = not enabled
 
@@ -2842,37 +2794,22 @@ func _show_confirm_dialog(title: String, text_value: String) -> bool:
 	return accepted
 
 func _show_info_dialog(title: String, text_value: String) -> void:
-	var dialog = PopupPanel.new()
+	var dialog = AcceptDialog.new()
 	dialog.theme = ui_theme
+	dialog.title = title
+	dialog.dialog_text = text_value
+	dialog.ok_button_text = "OK"
+	dialog.min_size = Vector2i(460, 180)
 	add_child(dialog)
 
-	var panel = UI_COMPONENTS.panel_card(Vector2(560, 220), false)
-	panel.custom_minimum_size = Vector2(560, 220)
-	dialog.add_child(panel)
-
-	var root = VBoxContainer.new()
-	root.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
-	panel.add_child(root)
-
-	var title_label = _label(title, 24)
-	root.add_child(title_label)
-
-	var body_label = _label(text_value, -1, "text_secondary")
-	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root.add_child(body_label)
-
-	var ok_button = UI_COMPONENTS.button_primary("OK", Vector2(140, 42))
-	ok_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	root.add_child(ok_button)
-
 	var done = false
-	ok_button.pressed.connect(func() -> void:
+	dialog.confirmed.connect(func() -> void:
 		done = true
 	)
 	dialog.popup_hide.connect(func() -> void:
 		done = true
 	)
-	dialog.popup_centered(Vector2i(520, 180))
+	dialog.popup_centered()
 	while not done:
 		await get_tree().process_frame
 	dialog.hide()
@@ -3534,14 +3471,16 @@ func _refresh_release_summary() -> void:
 			var latest_version = str(release_summary.get("latest_version", "")).strip_edges()
 			if not latest_version.is_empty() and latest_version != client_version:
 				notes = "[b]Update available:[/b] v%s\n\n%s" % [latest_version, notes]
-		auth_release_notes.text = notes
+		if auth_release_notes != null:
+			auth_release_notes.text = notes
 	else:
 		release_summary = {}
 		var cleaned_local = _sanitize_login_release_notes(local_notes)
-		if cleaned_local.is_empty():
-			auth_release_notes.text = "Unable to load release notes."
-		else:
-			auth_release_notes.text = cleaned_local
+		if auth_release_notes != null:
+			if cleaned_local.is_empty():
+				auth_release_notes.text = "Unable to load release notes."
+			else:
+				auth_release_notes.text = cleaned_local
 
 func _load_local_release_notes() -> String:
 	var candidates: Array[String] = []
@@ -3855,12 +3794,12 @@ func _friendly_error(response: Dictionary) -> String:
 		return "This account already exists."
 	if code == 426:
 		if error_code == "latest_build_required":
-			return "A newer build is required. Click Update & Restart to continue."
+			return "A newer build is required. Open Update and click Check for Update."
 		if error_code == "force_update":
-			return "A required update is available. Click Update & Restart to continue."
+			return "A required update is available. Open Update and click Check for Update."
 		if error_code == "content_contract_mismatch":
-			return "Content update required. Click Update & Restart to sync your client."
-		return "A new version is required. Click Update & Restart when ready."
+			return "Content update required. Open Update and click Check for Update."
+		return "A new version is required. Open Update and click Check for Update."
 	if code == 0:
 		var lower = message.to_lower()
 		if lower.contains("cant resolve") or lower.contains("dns"):

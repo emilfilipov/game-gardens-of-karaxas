@@ -1,4 +1,5 @@
-- Replaced the cogwheel popup flow with a persistent left sidebar navigation model for auth/account actions (`Login/Create Account/Play/Create Character/Settings/Update/Log Out/Quit`).
-- Updated auth and menu shell composition to a cleaner sidebar + content layout so menu content opens in the main panel area.
-- Reduced menu clutter by removing duplicate in-content navigation affordances and keeping sidebar navigation as the primary route.
-- Kept the lighter visual direction while tightening panel contrast and spacing for better readability over atmospheric full-screen backgrounds.
+- Moved release notes out of the auth screen into a dedicated `Update` screen with a `Check for Update` action.
+- Centered the left sidebar menu button stack vertically and kept sidebar selection as the primary navigation state.
+- Removed redundant in-panel navigation controls (`Back`/`Exit`/auth mode toggle buttons) so menu routing is consistently sidebar-driven.
+- Simplified the auth panel by removing redundant section heading text and keeping only the required account fields/actions.
+- Reworked the `Up To Date` prompt to use a compact themed `AcceptDialog` instead of the oversized custom popup layout.
