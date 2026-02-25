@@ -43,6 +43,7 @@ Current direction:
 - Sidebar is a compact left-side navigation rail, vertically centered on screen.
 - Sidebar menu actions are vertically centered inside that rail and in-content back/exit navigation is intentionally removed.
 - Sidebar active menu state is highlighted as selected (not rendered as disabled).
+- Auth login/register form uses compact field sizing to prioritize readability and reduce oversized input affordances.
 
 ## Skill Tree Direction
 - Account list/create screens now include a graph-style skill tree panel as the primary center interaction surface.

@@ -55,6 +55,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Auth/create/update menu shells now share a smaller unified footprint to reduce empty space.
 - Menu selection state is sidebar-driven across auth/session states.
 - Selected sidebar items now use explicit highlighted styling instead of disabled-state rendering.
+- Auth form controls are compacted (narrower card, reduced field/button heights, smaller input text size) to avoid oversized login/register affordances.
 - Update-screen build metadata is pinned above the scrollable notes region.
 - Update release notes default to top-of-document on refresh (no bottom auto-scroll).
 

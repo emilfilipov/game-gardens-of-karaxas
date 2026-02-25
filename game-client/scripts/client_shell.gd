@@ -600,7 +600,7 @@ func _build_auth_screen() -> VBoxContainer:
 	var auth_center = CenterContainer.new()
 	auth_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shell_content.add_child(auth_center)
-	var auth_panel = UI_COMPONENTS.panel_card(Vector2(700, 0), false)
+	var auth_panel = UI_COMPONENTS.panel_card(Vector2(560, 0), false)
 	auth_center.add_child(auth_panel)
 
 	var auth_panel_style = StyleBoxFlat.new()
@@ -621,32 +621,37 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_panel.add_child(auth_inner)
 
 	auth_display_name_input = _line_edit("Display Name")
-	auth_display_name_input.custom_minimum_size = Vector2(0, 42)
+	auth_display_name_input.custom_minimum_size = Vector2(0, 34)
+	auth_display_name_input.add_theme_font_size_override("font_size", 16)
 	auth_display_name_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_display_name_input)
 	auth_email_input = _line_edit("Email")
-	auth_email_input.custom_minimum_size = Vector2(0, 42)
+	auth_email_input.custom_minimum_size = Vector2(0, 34)
+	auth_email_input.add_theme_font_size_override("font_size", 16)
 	auth_email_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_email_input)
 	auth_password_input = _line_edit("Password", true)
-	auth_password_input.custom_minimum_size = Vector2(0, 42)
+	auth_password_input.custom_minimum_size = Vector2(0, 34)
+	auth_password_input.add_theme_font_size_override("font_size", 16)
 	auth_password_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_password_input)
 	auth_otp_input = _line_edit("MFA Code (if enabled)")
-	auth_otp_input.custom_minimum_size = Vector2(0, 42)
+	auth_otp_input.custom_minimum_size = Vector2(0, 34)
+	auth_otp_input.add_theme_font_size_override("font_size", 16)
 	auth_otp_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_otp_input)
 
-	auth_submit_button = UI_COMPONENTS.button_primary("Login", Vector2(0, 42))
+	auth_submit_button = UI_COMPONENTS.button_primary("Login", Vector2(0, 36))
 	auth_submit_button.focus_mode = Control.FOCUS_ALL
+	auth_submit_button.add_theme_font_size_override("font_size", 16)
 	auth_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_submit_button.pressed.connect(_on_auth_submit)
 	auth_inner.add_child(auth_submit_button)

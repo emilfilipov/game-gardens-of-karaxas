@@ -1,4 +1,2 @@
-- Refreshed update release notes from backend summary during startup/auth flow so current build notes are available before opening the Update menu.
-- Preserved current menu context during update checks for non-restart outcomes (up-to-date, feed missing, helper launch failure) to prevent unexpected redirects.
-- Fixed account create flow bounce by preserving create mode while background character-list refresh completes.
-- Pinned installed build metadata above the update notes scroller and reset notes scroll position to the first line on each refresh.
+- Compacted login/register form UX by reducing auth panel width, input heights, and button sizing.
+- Lowered auth field typography scale so text inputs feel less oversized while keeping readability.
