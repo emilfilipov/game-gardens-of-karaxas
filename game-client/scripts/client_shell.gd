@@ -87,6 +87,7 @@ var auth_submit_button: Button
 var auth_status_label: Label
 var auth_release_notes: RichTextLabel
 var auth_update_button: Button
+var auth_release_build_label: Label
 var auth_update_progress_panel: Control
 var auth_update_progress_bar: ProgressBar
 var auth_update_progress_label: Label
@@ -691,9 +692,12 @@ func _build_update_screen() -> VBoxContainer:
 	update_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	update_panel.add_child(update_inner)
 	update_inner.add_child(_label("Release Notes", 30))
+	auth_release_build_label = _label("Build: " + _display_build_version(client_version), -1, "text_secondary")
+	update_inner.add_child(auth_release_build_label)
 	auth_release_notes = RichTextLabel.new()
 	auth_release_notes.fit_content = false
 	auth_release_notes.scroll_active = true
+	auth_release_notes.scroll_following = false
 	auth_release_notes.bbcode_enabled = true
 	auth_release_notes.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	auth_release_notes.custom_minimum_size = Vector2(0, 214)
@@ -2150,7 +2154,7 @@ func _show_screen(name: String) -> void:
 	footer_status.visible = not in_world
 	if name == "account" and access_token != "":
 		_set_account_view("list", true)
-	if name == "update":
+	if name == "auth" or name == "account" or name == "update":
 		call_deferred("_refresh_release_summary_deferred")
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.visible = not in_world
@@ -2325,6 +2329,7 @@ func _load_characters() -> void:
 	if access_token == "":
 		return
 	account_status_label.text = "Loading characters..."
+	var preserve_create_view = account_view_mode == "create"
 	if session_is_admin:
 		await _refresh_admin_levels_cache()
 	var response = await _api_request(HTTPClient.METHOD_GET, "/characters", null, true)
@@ -2341,7 +2346,8 @@ func _load_characters() -> void:
 		_clear_character_preview(character_preview_texture)
 		_clear_character_preview(character_preview_world_inset)
 		_set_character_action_controls_enabled(false)
-		_set_account_view("list", false)
+		if not preserve_create_view:
+			_set_account_view("list", false)
 	else:
 		var selected_index = 0
 		for idx in range(characters.size()):
@@ -2350,7 +2356,8 @@ func _load_characters() -> void:
 				break
 		selected_character_index = selected_index
 		_render_character_details(selected_index)
-		_set_account_view("list", false)
+		if not preserve_create_view:
+			_set_account_view("list", false)
 	_refresh_create_character_preview()
 	_render_character_rows()
 	_refresh_character_spawn_override()
@@ -2613,20 +2620,27 @@ func _persist_active_character_location() -> void:
 	active_world_ready = false
 
 func _on_update_and_restart_pressed() -> void:
+	var origin_screen = _current_screen()
 	await _refresh_release_summary()
 	var update_needed = bool(release_summary.get("force_update", false)) or bool(release_summary.get("update_available", false)) or bool(release_summary.get("content_update_available", false))
 	if not update_needed:
 		await _show_info_dialog("Up To Date", "Your game client is already up to date.")
 		_append_log("Update check result: up to date.")
+		if not origin_screen.is_empty() and _current_screen() != origin_screen:
+			_show_screen(origin_screen)
 		return
 	var feed_url = str(release_summary.get("update_feed_url", "")).strip_edges()
 	if feed_url.is_empty():
 		await _show_info_dialog("Update Unavailable", "Update feed URL is missing.")
+		if not origin_screen.is_empty() and _current_screen() != origin_screen:
+			_show_screen(origin_screen)
 		return
 	var helper_path = _resolve_update_helper_path()
 	if helper_path.is_empty():
 		await _show_info_dialog("Update Unavailable", "Update helper not found in the install directory.")
 		_append_log("Update helper missing at install root.")
+		if not origin_screen.is_empty() and _current_screen() != origin_screen:
+			_show_screen(origin_screen)
 		return
 	var initial_status = {
 		"status": "launching",
@@ -2655,6 +2669,8 @@ func _on_update_and_restart_pressed() -> void:
 	if process_id <= 0:
 		await _show_info_dialog("Update Failed", "Failed to start update helper.")
 		_append_log("Update helper failed to launch.")
+		if not origin_screen.is_empty() and _current_screen() != origin_screen:
+			_show_screen(origin_screen)
 		return
 	update_restart_pending = true
 	_set_auth_controls_enabled(false)
@@ -3508,6 +3524,8 @@ func _load_asset_editor_drafts() -> void:
 func _refresh_release_summary() -> void:
 	var response = await _api_request(HTTPClient.METHOD_GET, "/release/summary", null, false)
 	var local_notes = _load_local_release_notes()
+	if auth_release_build_label != null:
+		auth_release_build_label.text = "Build: " + _display_build_version(client_version)
 	if response.get("ok", false):
 		release_summary = response.get("json", {})
 		var notes_body = ""
@@ -3529,23 +3547,25 @@ func _refresh_release_summary() -> void:
 		if bool(release_summary.get("update_available", false)):
 			notes_body = "- Update available for your current build.\n%s" % notes_body
 		var notes = _compose_release_notes_for_display(notes_body, release_summary)
-		if auth_release_notes != null:
-			auth_release_notes.text = notes
+		_apply_update_release_notes_text(notes)
 	else:
 		release_summary = {}
 		var cleaned_local = _sanitize_login_release_notes(local_notes)
 		var fallback_body = cleaned_local if not cleaned_local.is_empty() else "- Unable to load release notes."
 		var notes = _compose_release_notes_for_display(fallback_body, release_summary)
-		if auth_release_notes != null:
-			auth_release_notes.text = notes
+		_apply_update_release_notes_text(notes)
 
 func _compose_release_notes_for_display(notes_body: String, _summary: Dictionary) -> String:
-	var installed = _display_build_version(client_version)
-	var header = "[b]Build:[/b] %s" % installed
 	var cleaned_body = notes_body.strip_edges()
 	if cleaned_body.is_empty():
 		cleaned_body = "- No release notes available for your build."
-	return "%s\n\n%s" % [header, cleaned_body]
+	return cleaned_body
+
+func _apply_update_release_notes_text(notes: String) -> void:
+	if auth_release_notes == null:
+		return
+	auth_release_notes.text = notes
+	auth_release_notes.scroll_to_line(0)
 
 func _display_build_version(raw_version: String) -> String:
 	var trimmed = raw_version.strip_edges()

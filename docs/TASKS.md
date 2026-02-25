@@ -12,6 +12,10 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-031 | ✅ | 2 | Pinned update-screen build metadata above the notes scroller and reset notes scroll position to the first row on refresh so users can read from the top immediately. |
+| COI-2D-030 | ✅ | 3 | Fixed account create-view bounce by preserving `create` mode during deferred character-list refreshes instead of force-returning to `Play` list mode. |
+| COI-2D-029 | ✅ | 3 | Prevented unintended menu redirects during update checks by preserving the current screen context for no-update/unavailable/failure update outcomes. |
+| COI-2D-028 | ✅ | 2 | Ensured release notes are refreshed from backend summary on startup/auth entry (not only when opening/checking Update). |
 | COI-2D-027 | ✅ | 2 | Raised footer build visibility (font size/contrast) so installed client version is easier to sanity check at a glance. |
 | COI-2D-026 | ✅ | 4 | Added release-pipeline to backend policy sync step and monotonic activation guard (`allow_version_regression` override only for explicit rollback) to prevent silent `latest_version` drift/regressions. |
 | COI-2D-025 | ✅ | 3 | Corrected release-note header policy to show only installed client build metadata in player UI; removed `Latest` build surfacing from runtime update/login screens. |

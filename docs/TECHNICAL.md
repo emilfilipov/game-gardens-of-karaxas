@@ -55,6 +55,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Auth/create/update menu shells now share a smaller unified footprint to reduce empty space.
 - Menu selection state is sidebar-driven across auth/session states.
 - Selected sidebar items now use explicit highlighted styling instead of disabled-state rendering.
+- Update-screen build metadata is pinned above the scrollable notes region.
+- Update release notes default to top-of-document on refresh (no bottom auto-scroll).
 
 ## Backend Responsibilities
 - Auth/session lifecycle (register/login/refresh/logout + MFA)
@@ -88,6 +90,9 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Hybrid notes contract: the update surface fetches per-build notes from backend (`client_user_facing_notes` / `client_build_release_notes`) and only falls back to packaged local files when backend notes are unavailable.
 - Update notes rendering prepends the installed build-version header (`Build`) before the bullet list for manual version sanity checks.
 - Footer status text now shows only the build version marker (content config key is intentionally hidden from player-facing auth UI).
+- Release summary refresh now runs during startup/auth entry so update notes are current before users open the Update menu.
+- Update check flow preserves current menu context for non-restart outcomes (up-to-date/unavailable/failure) to avoid unexpected screen switches.
+- Character list refresh no longer force-switches account view mode to list when user is in create mode.
 
 ## Release Policy Sync
 - Release workflow now attempts backend release-policy activation after successful package upload when `KARAXAS_OPS_BASE_URL` and `KARAXAS_OPS_API_TOKEN` are configured.

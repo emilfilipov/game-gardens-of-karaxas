@@ -1,6 +1,4 @@
-- Tightened login/create/update UX density: reduced panel dead space, re-centered content, and standardized compact shell sizing.
-- Refined menu shell proportions (header/margins/footer) so interactive panels take visual priority and version text is easier to read.
-- Reworked sidebar selection visuals so active items render as highlighted selections instead of disabled-looking controls.
-- Improved update-note readability by wrapping long bullet lines for cleaner scanning.
-- Updated player-facing release-note headers to show only installed client build metadata (`Build`) and removed `Latest` version surfacing.
-- Added backend release-policy monotonic guard (`allow_version_regression` required for intentional rollback) and wired release workflow sync to `/ops/release/activate` after successful package upload.
+- Refreshed update release notes from backend summary during startup/auth flow so current build notes are available before opening the Update menu.
+- Preserved current menu context during update checks for non-restart outcomes (up-to-date, feed missing, helper launch failure) to prevent unexpected redirects.
+- Fixed account create flow bounce by preserving create mode while background character-list refresh completes.
+- Pinned installed build metadata above the update notes scroller and reset notes scroll position to the first line on each refresh.

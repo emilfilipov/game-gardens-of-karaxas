@@ -86,6 +86,8 @@ Current direction:
 - Update notes use a hybrid source: backend per-build notes first, packaged local notes only as fallback.
 - Update notes always include the installed build version header before player-facing bullet points.
 - Player-facing update surfaces show only installed client build metadata; backend `latest_version` is not displayed to players.
+- Release notes are refreshed from backend on startup/auth flow so current build notes are available before users open Update.
+- Update checks should not auto-redirect users into another menu; menu context is preserved unless an actual restart is triggered.
 
 ## Out of Scope (Current Pivot Stage)
 - Full economy/trade implementation.
