@@ -265,12 +265,16 @@ jobs:
           }
 
       - name: Sync Backend Release Policy
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && vars.KARAXAS_OPS_BASE_URL != '' && secrets.KARAXAS_OPS_API_TOKEN != ''
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && vars.KARAXAS_OPS_BASE_URL != ''
         shell: pwsh
         env:
           OPS_BASE_URL: ${{ vars.KARAXAS_OPS_BASE_URL }}
           OPS_TOKEN: ${{ secrets.KARAXAS_OPS_API_TOKEN }}
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:OPS_TOKEN)) {
+            Write-Host "KARAXAS_OPS_API_TOKEN is not configured; skipping backend release-policy sync."
+            exit 0
+          }
           $notesPath = "build/pack/patch_notes.md"
           $notesText = if (Test-Path $notesPath) {
             Get-Content $notesPath -Raw
