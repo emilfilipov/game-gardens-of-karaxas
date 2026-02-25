@@ -12,6 +12,7 @@ class ActivateReleaseRequest(BaseModel):
     build_release_notes: str = Field(default="", max_length=20000)
     user_facing_notes: str = Field(default="", max_length=20000)
     grace_minutes: int = Field(default=5, ge=0, le=120)
+    allow_version_regression: bool = False
 
 
 class ReleasePolicyResponse(BaseModel):

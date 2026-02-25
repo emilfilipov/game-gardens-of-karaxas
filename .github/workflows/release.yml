@@ -264,6 +264,35 @@ jobs:
             }
           }
 
+      - name: Sync Backend Release Policy
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && vars.KARAXAS_OPS_BASE_URL != '' && secrets.KARAXAS_OPS_API_TOKEN != ''
+        shell: pwsh
+        env:
+          OPS_BASE_URL: ${{ vars.KARAXAS_OPS_BASE_URL }}
+          OPS_TOKEN: ${{ secrets.KARAXAS_OPS_API_TOKEN }}
+        run: |
+          $notesPath = "build/pack/patch_notes.md"
+          $notesText = if (Test-Path $notesPath) {
+            Get-Content $notesPath -Raw
+          } else {
+            "- Release publish completed."
+          }
+          $payload = @{
+            latest_version = "${{ steps.get-version.outputs.version }}"
+            min_supported_version = "${{ steps.get-version.outputs.version }}"
+            latest_content_version_key = ""
+            min_supported_content_version_key = ""
+            update_feed_url = "${{ steps.preflight.outputs.feed_url }}"
+            build_release_notes = $notesText
+            user_facing_notes = $notesText
+            grace_minutes = 5
+            allow_version_regression = $false
+          }
+          $uri = "$($env:OPS_BASE_URL.TrimEnd('/'))/ops/release/activate"
+          $headers = @{ "x-ops-token" = $env:OPS_TOKEN }
+          Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body ($payload | ConvertTo-Json -Depth 8) -ContentType "application/json" | Out-Null
+          Write-Host "Backend release policy sync completed for build ${{ steps.get-version.outputs.version }}."
+
       - name: Skip Release (Missing Inputs/Auth)
         if: steps.preflight.outputs.enabled != 'true' || steps.auth-mode.outputs.mode == 'none'
         run: echo "Release workflow skipped because GCS bucket or cloud auth is not configured."

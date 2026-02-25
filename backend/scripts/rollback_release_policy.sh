@@ -28,7 +28,8 @@ payload="$(cat <<JSON
   "update_feed_url": "${UPDATE_FEED_URL}",
   "build_release_notes": "Emergency rollback activation",
   "user_facing_notes": "Service rollback applied.",
-  "grace_minutes": ${GRACE_MINUTES}
+  "grace_minutes": ${GRACE_MINUTES},
+  "allow_version_regression": true
 }
 JSON
 )"

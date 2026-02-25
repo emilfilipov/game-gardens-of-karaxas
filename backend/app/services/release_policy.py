@@ -143,8 +143,14 @@ def activate_release(
     user_facing_notes: str,
     grace_minutes: int | None,
     updated_by: str,
+    allow_version_regression: bool = False,
 ) -> ReleasePolicy:
     policy = ensure_release_policy(db)
+    _validate_release_activation_versions(
+        current_latest=policy.latest_version,
+        requested_latest=latest_version,
+        allow_version_regression=allow_version_regression,
+    )
     resolved_latest_content_key = _normalize_content_key(latest_content_version_key)
     if resolved_latest_content_key == "unknown":
         resolved_latest_content_key = resolve_active_content_version_key(db)
@@ -179,6 +185,23 @@ def activate_release(
     db.commit()
     db.refresh(policy)
     return policy
+
+
+def _validate_release_activation_versions(
+    *,
+    current_latest: str,
+    requested_latest: str,
+    allow_version_regression: bool,
+) -> None:
+    if allow_version_regression:
+        return
+    current = _safe_version(current_latest)
+    target = _safe_version(requested_latest)
+    if target < current:
+        raise ValueError(
+            "latest_version regression rejected: requested=%s current=%s"
+            % (requested_latest or "0.0.0", current_latest or "0.0.0")
+        )
 
 
 def activate_content_release(

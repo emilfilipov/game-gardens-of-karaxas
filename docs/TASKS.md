@@ -12,6 +12,17 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-027 | ✅ | 2 | Raised footer build visibility (font size/contrast) so installed client version is easier to sanity check at a glance. |
+| COI-2D-026 | ✅ | 4 | Added release-pipeline to backend policy sync step and monotonic activation guard (`allow_version_regression` override only for explicit rollback) to prevent silent `latest_version` drift/regressions. |
+| COI-2D-025 | ✅ | 3 | Corrected release-note header policy to show only installed client build metadata in player UI; removed `Latest` build surfacing from runtime update/login screens. |
+| COI-2D-024 | ✅ | 2 | Improved release-note readability by wrapping long bullet lines in a compact width for cleaner update-panel scanning. |
+| COI-2D-023 | ✅ | 2 | Reduced header vertical footprint (title scale, spacing, margins) to prioritize interactive content area. |
+| COI-2D-022 | ✅ | 3 | Rebalanced auth/update shell sizing and panel widths to reduce sparse unused area while preserving compact UX. |
+| COI-2D-021 | ✅ | 3 | Standardized selected-state rendering for sidebar buttons and removed disabled-looking active-item visuals. |
+| COI-2D-020 | ✅ | 2 | Fixed sidebar selection consistency across auth/register/update/account contexts via explicit visual-state styling. |
+| COI-2D-019 | ✅ | 2 | Tightened auth/create/update card heights and removed dead lower space in compact panels. |
+| COI-2D-018 | ✅ | 2 | Re-centered auth form content in compact shells to eliminate top-heavy composition. |
+| COI-2D-017 | ✅ | 2 | Kept left navigation rail compact and vertically centered with centered button stack alignment. |
 | COI-2D-016 | ✅ | 2 | Replaced icon set with a new light-themed initials icon and wired it across launcher, game client, installer wrapper, and packaging assets. |
 | COI-2D-015 | ✅ | 4 | Updated installer payload to include separate game + designer executables and added Velopack hook handling to provision/remove both desktop shortcuts. |
 | COI-2D-014 | ✅ | 5 | Added backend-managed designer publish endpoint (`/designer/publish`) to commit file changes to GitHub and dispatch release/backend workflows from backend-controlled credentials. |

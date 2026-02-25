@@ -1,4 +1,6 @@
-- Reduced the left navigation rail to a compact panel and centered it vertically along the left side of the screen.
-- Centered sidebar buttons within the compact rail (no bottom-stacked menu state).
-- Standardized Login, Create Account, and Update windows to the same smaller shell size to remove excess empty space.
-- Updated release-notes rendering to always prepend build-version metadata (`Build`, and `Latest` when applicable) before bullet points for manual sanity checks.
+- Tightened login/create/update UX density: reduced panel dead space, re-centered content, and standardized compact shell sizing.
+- Refined menu shell proportions (header/margins/footer) so interactive panels take visual priority and version text is easier to read.
+- Reworked sidebar selection visuals so active items render as highlighted selections instead of disabled-looking controls.
+- Improved update-note readability by wrapping long bullet lines for cleaner scanning.
+- Updated player-facing release-note headers to show only installed client build metadata (`Build`) and removed `Latest` version surfacing.
+- Added backend release-policy monotonic guard (`allow_version_regression` required for intentional rollback) and wired release workflow sync to `/ops/release/activate` after successful package upload.

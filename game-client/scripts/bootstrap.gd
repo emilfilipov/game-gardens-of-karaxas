@@ -124,7 +124,6 @@ func _render_payload_summary(payload: Dictionary, bootstrap_path: String) -> voi
     lines.append("")
     lines.append("[b]Versions[/b]")
     lines.append("Client build: " + str(release.get("client_version", "unknown")))
-    lines.append("Latest build: " + str(release.get("latest_version", "unknown")))
     lines.append("Content key: " + str(content.get("version_key", "unknown")))
     lines.append("Runtime host: " + str(runtime.get("runtime_host", "unknown")))
     lines.append("")

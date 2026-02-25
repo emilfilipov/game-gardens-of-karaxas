@@ -130,18 +130,25 @@ async def activate(payload: ActivateReleaseRequest, db: Session = Depends(get_db
             status_code=status.HTTP_409_CONFLICT,
             detail={"message": str(exc), "code": "publish_drain_locked"},
         ) from exc
-    policy = activate_release(
-        db=db,
-        latest_version=payload.latest_version,
-        min_supported_version=payload.min_supported_version,
-        latest_content_version_key=payload.latest_content_version_key,
-        min_supported_content_version_key=payload.min_supported_content_version_key,
-        update_feed_url=payload.update_feed_url,
-        build_release_notes=payload.build_release_notes,
-        user_facing_notes=payload.user_facing_notes,
-        grace_minutes=payload.grace_minutes,
-        updated_by="release-pipeline",
-    )
+    try:
+        policy = activate_release(
+            db=db,
+            latest_version=payload.latest_version,
+            min_supported_version=payload.min_supported_version,
+            latest_content_version_key=payload.latest_content_version_key,
+            min_supported_content_version_key=payload.min_supported_content_version_key,
+            update_feed_url=payload.update_feed_url,
+            build_release_notes=payload.build_release_notes,
+            user_facing_notes=payload.user_facing_notes,
+            grace_minutes=payload.grace_minutes,
+            updated_by="release-pipeline",
+            allow_version_regression=payload.allow_version_regression,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": str(exc), "code": "invalid_release_activation"},
+        ) from exc
     try:
         drain_event = start_publish_drain(
             db,

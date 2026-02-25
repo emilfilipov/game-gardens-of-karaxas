@@ -1,7 +1,13 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from app.models.release_policy import ReleasePolicy
-from app.services.release_policy import evaluate_version, next_logical_build_version
+from app.services.release_policy import (
+    _validate_release_activation_versions,
+    evaluate_version,
+    next_logical_build_version,
+)
 
 
 def test_update_available_without_force() -> None:
@@ -57,3 +63,20 @@ def test_content_only_publish_does_not_advertise_binary_update() -> None:
 def test_next_logical_build_version_increments_patch() -> None:
     assert next_logical_build_version("1.0.9") == "1.0.10"
     assert next_logical_build_version("2.4") == "2.4.1"
+
+
+def test_release_activation_rejects_regression_without_override() -> None:
+    with pytest.raises(ValueError):
+        _validate_release_activation_versions(
+            current_latest="1.0.151",
+            requested_latest="1.0.118",
+            allow_version_regression=False,
+        )
+
+
+def test_release_activation_allows_regression_with_override() -> None:
+    _validate_release_activation_versions(
+        current_latest="1.0.151",
+        requested_latest="1.0.118",
+        allow_version_regression=True,
+    )

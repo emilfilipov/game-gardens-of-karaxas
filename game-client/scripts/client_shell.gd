@@ -10,8 +10,8 @@ const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
 const DEFAULT_CONTENT_VERSION = "unknown"
 const CHARACTER_DIRECTIONS: Array[String] = ["E", "W"]
-const SIDEBAR_PANEL_SIZE := Vector2(188, 360)
-const AUTH_UPDATE_SHELL_SIZE := Vector2(640, 500)
+const SIDEBAR_PANEL_SIZE := Vector2(176, 312)
+const AUTH_UPDATE_SHELL_SIZE := Vector2(740, 392)
 # Regression harness compatibility constants retained after sidebar nav refactor.
 const MENU_UPDATE = 1
 const MENU_LOG_VIEWER = 2
@@ -72,6 +72,7 @@ var header_title: Label
 var sidebar_panel: PanelContainer
 var sidebar_button_column: VBoxContainer
 var sidebar_buttons: Dictionary = {}
+var sidebar_button_primary: Dictionary = {}
 var footer_status: Label
 var main_stack: Control
 var background_art: Control
@@ -466,10 +467,10 @@ func _build_ui() -> void:
 
 	var root = MarginContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_theme_constant_override("margin_left", 36)
-	root.add_theme_constant_override("margin_top", 26)
-	root.add_theme_constant_override("margin_right", 36)
-	root.add_theme_constant_override("margin_bottom", 24)
+	root.add_theme_constant_override("margin_left", 28)
+	root.add_theme_constant_override("margin_top", 14)
+	root.add_theme_constant_override("margin_right", 28)
+	root.add_theme_constant_override("margin_bottom", 16)
 	add_child(root)
 
 	var layout = VBoxContainer.new()
@@ -485,14 +486,14 @@ func _build_ui() -> void:
 	header_title.text = "Children of Ikphelion"
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_title.add_theme_font_size_override("font_size", 52)
+	header_title.add_theme_font_size_override("font_size", 46)
 	header_title.add_theme_color_override("font_color", Color(0.17, 0.24, 0.36))
 	if ui_font_heading != null:
 		header_title.add_theme_font_override("font", ui_font_heading)
 	header.add_child(header_title)
 
 	var header_spacer = Control.new()
-	header_spacer.custom_minimum_size = Vector2(124, 44)
+	header_spacer.custom_minimum_size = Vector2(94, 32)
 	header.add_child(header_spacer)
 
 	var header_rule = ColorRect.new()
@@ -556,8 +557,8 @@ func _build_ui() -> void:
 	footer_status = Label.new()
 	footer_status.text = footer_version_text
 	footer_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	footer_status.add_theme_font_size_override("font_size", 12)
-	footer_status.add_theme_color_override("font_color", UI_TOKENS.color("text_muted"))
+	footer_status.add_theme_font_size_override("font_size", 14)
+	footer_status.add_theme_color_override("font_color", UI_TOKENS.color("text_secondary"))
 	layout.add_child(footer_status)
 
 	skill_tooltip_popup = PopupPanel.new()
@@ -595,9 +596,11 @@ func _build_auth_screen() -> VBoxContainer:
 	shell_panel.add_theme_stylebox_override("panel", shell_style)
 	var shell_content = shell["content"] as VBoxContainer
 	shell_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var auth_panel = UI_COMPONENTS.panel_card(Vector2(560, 420), false)
-	auth_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	shell_content.add_child(auth_panel)
+	var auth_center = CenterContainer.new()
+	auth_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	shell_content.add_child(auth_center)
+	var auth_panel = UI_COMPONENTS.panel_card(Vector2(700, 0), false)
+	auth_center.add_child(auth_panel)
 
 	var auth_panel_style = StyleBoxFlat.new()
 	auth_panel_style.bg_color = Color(0.93, 0.95, 0.98, 0.96)
@@ -614,7 +617,6 @@ func _build_auth_screen() -> VBoxContainer:
 
 	var auth_inner = VBoxContainer.new()
 	auth_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
-	auth_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	auth_panel.add_child(auth_inner)
 
 	auth_display_name_input = _line_edit("Display Name")
@@ -680,11 +682,12 @@ func _build_update_screen() -> VBoxContainer:
 	var content = shell["content"] as VBoxContainer
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	var update_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
-	update_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(update_panel)
+	var update_center = CenterContainer.new()
+	update_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(update_center)
+	var update_panel = UI_COMPONENTS.panel_card(Vector2(700, 0), false)
+	update_center.add_child(update_panel)
 	var update_inner = VBoxContainer.new()
-	update_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	update_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	update_panel.add_child(update_inner)
 	update_inner.add_child(_label("Release Notes", 30))
@@ -692,8 +695,8 @@ func _build_update_screen() -> VBoxContainer:
 	auth_release_notes.fit_content = false
 	auth_release_notes.scroll_active = true
 	auth_release_notes.bbcode_enabled = true
-	auth_release_notes.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	auth_release_notes.custom_minimum_size = Vector2(0, 260)
+	auth_release_notes.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	auth_release_notes.custom_minimum_size = Vector2(0, 214)
 	auth_release_notes.add_theme_color_override("default_color", UI_TOKENS.color("text_secondary"))
 	update_inner.add_child(auth_release_notes)
 	auth_update_button = UI_COMPONENTS.button_primary("Check for Update", Vector2(0, 44))
@@ -1987,13 +1990,59 @@ func _add_sidebar_button(key: String, text_value: String, action: Callable, prim
 	button.focus_mode = Control.FOCUS_CLICK
 	button.pressed.connect(action)
 	sidebar_buttons[key] = button
+	sidebar_button_primary[key] = primary
 	sidebar_button_column.add_child(button)
+
+func _sidebar_style_box(bg: Color, border: Color) -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = border
+	style.corner_radius_top_left = UI_TOKENS.size("radius")
+	style.corner_radius_top_right = UI_TOKENS.size("radius")
+	style.corner_radius_bottom_left = UI_TOKENS.size("radius")
+	style.corner_radius_bottom_right = UI_TOKENS.size("radius")
+	style.content_margin_left = 10
+	style.content_margin_top = 6
+	style.content_margin_right = 10
+	style.content_margin_bottom = 6
+	return style
+
+func _apply_sidebar_button_visual_state(button: Button, selected: bool, _primary_role: bool) -> void:
+	if button == null:
+		return
+	var normal: StyleBoxFlat
+	var hover: StyleBoxFlat
+	var pressed: StyleBoxFlat
+	if selected:
+		normal = _sidebar_style_box(UI_TOKENS.color("button_primary"), UI_TOKENS.color("panel_border"))
+		hover = _sidebar_style_box(UI_TOKENS.color("button_primary_hover"), UI_TOKENS.color("panel_border"))
+		pressed = _sidebar_style_box(UI_TOKENS.color("button_primary_pressed"), UI_TOKENS.color("panel_border"))
+		button.add_theme_color_override("font_color", UI_TOKENS.color("text_inverse"))
+		button.add_theme_color_override("font_hover_color", UI_TOKENS.color("text_inverse"))
+		button.add_theme_color_override("font_pressed_color", UI_TOKENS.color("text_inverse"))
+	else:
+		normal = _sidebar_style_box(UI_TOKENS.color("panel_bg_soft"), UI_TOKENS.color("panel_border_soft"))
+		hover = _sidebar_style_box(UI_TOKENS.color("button_hover"), UI_TOKENS.color("panel_border_soft"))
+		pressed = _sidebar_style_box(UI_TOKENS.color("button_pressed"), UI_TOKENS.color("panel_border"))
+		button.add_theme_color_override("font_color", UI_TOKENS.color("text_primary"))
+		button.add_theme_color_override("font_hover_color", UI_TOKENS.color("text_primary"))
+		button.add_theme_color_override("font_pressed_color", UI_TOKENS.color("text_primary"))
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("focus", normal)
+	button.disabled = false
 
 func _rebuild_sidebar_menu() -> void:
 	if sidebar_button_column == null:
 		return
 	_clear_children(sidebar_button_column)
 	sidebar_buttons.clear()
+	sidebar_button_primary.clear()
 	if access_token.is_empty():
 		_add_sidebar_button("auth_login", "Login", func() -> void:
 			register_mode = false
@@ -2066,7 +2115,8 @@ func _update_sidebar_selection() -> void:
 	for key in sidebar_buttons.keys():
 		var button = sidebar_buttons.get(key)
 		if button is Button:
-			button.disabled = str(key) == active_key
+			var role_primary = bool(sidebar_button_primary.get(key, false))
+			_apply_sidebar_button_visual_state(button, str(key) == active_key, role_primary)
 
 func _on_sidebar_logout_pressed() -> void:
 	await _logout_account()
@@ -3477,9 +3527,7 @@ func _refresh_release_summary() -> void:
 		if notes_body.is_empty():
 			notes_body = "- No release notes available for your build."
 		if bool(release_summary.get("update_available", false)):
-			var latest_version = str(release_summary.get("latest_version", "")).strip_edges()
-			if not latest_version.is_empty() and latest_version != client_version:
-				notes_body = "- Update available: %s\n%s" % [_display_build_version(latest_version), notes_body]
+			notes_body = "- Update available for your current build.\n%s" % notes_body
 		var notes = _compose_release_notes_for_display(notes_body, release_summary)
 		if auth_release_notes != null:
 			auth_release_notes.text = notes
@@ -3491,13 +3539,9 @@ func _refresh_release_summary() -> void:
 		if auth_release_notes != null:
 			auth_release_notes.text = notes
 
-func _compose_release_notes_for_display(notes_body: String, summary: Dictionary) -> String:
+func _compose_release_notes_for_display(notes_body: String, _summary: Dictionary) -> String:
 	var installed = _display_build_version(client_version)
-	var latest_raw = str(summary.get("latest_version", "")).strip_edges()
-	var latest = _display_build_version(latest_raw) if not latest_raw.is_empty() else installed
 	var header = "[b]Build:[/b] %s" % installed
-	if latest != installed:
-		header += "  [b]Latest:[/b] %s" % latest
 	var cleaned_body = notes_body.strip_edges()
 	if cleaned_body.is_empty():
 		cleaned_body = "- No release notes available for your build."
@@ -3552,10 +3596,39 @@ func _sanitize_login_release_notes(raw: String) -> String:
 			or lowered.find("runtime_gameplay_v") >= 0
 		):
 			continue
-		filtered.append("- %s" % line)
-		if filtered.size() >= 7:
+		var wrapped_chunks = _wrap_release_note_line(line, 72)
+		if wrapped_chunks.is_empty():
+			continue
+		filtered.append("- %s" % wrapped_chunks[0])
+		for idx in range(1, wrapped_chunks.size()):
+			filtered.append("  %s" % wrapped_chunks[idx])
+		if filtered.size() >= 9:
 			break
 	return "\n".join(filtered)
+
+func _wrap_release_note_line(text_value: String, max_chars: int = 72) -> Array[String]:
+	var clean = text_value.strip_edges()
+	if clean.is_empty():
+		return []
+	var words = clean.split(" ", false)
+	if words.size() <= 1:
+		return [clean]
+	var lines: Array[String] = []
+	var current = ""
+	for raw_word in words:
+		var word = str(raw_word).strip_edges()
+		if word.is_empty():
+			continue
+		if current.is_empty():
+			current = word
+		elif current.length() + 1 + word.length() <= max_chars:
+			current += " " + word
+		else:
+			lines.append(current)
+			current = word
+	if not current.is_empty():
+		lines.append(current)
+	return lines
 
 func _refresh_content_bootstrap() -> void:
 	var runtime_response = await _api_request(HTTPClient.METHOD_GET, "/content/runtime-config", null, false)

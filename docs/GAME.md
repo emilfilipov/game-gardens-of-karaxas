@@ -42,6 +42,7 @@ Current direction:
 - Navigation is sidebar-first: auth/account/settings/update/logout/quit actions are presented in a persistent left menu instead of a popup cog menu.
 - Sidebar is a compact left-side navigation rail, vertically centered on screen.
 - Sidebar menu actions are vertically centered inside that rail and in-content back/exit navigation is intentionally removed.
+- Sidebar active menu state is highlighted as selected (not rendered as disabled).
 
 ## Skill Tree Direction
 - Account list/create screens now include a graph-style skill tree panel as the primary center interaction surface.
@@ -84,6 +85,7 @@ Current direction:
 - Release notes are surfaced under the dedicated `Update` menu (not embedded in auth/account screens).
 - Update notes use a hybrid source: backend per-build notes first, packaged local notes only as fallback.
 - Update notes always include the installed build version header before player-facing bullet points.
+- Player-facing update surfaces show only installed client build metadata; backend `latest_version` is not displayed to players.
 
 ## Out of Scope (Current Pivot Stage)
 - Full economy/trade implementation.

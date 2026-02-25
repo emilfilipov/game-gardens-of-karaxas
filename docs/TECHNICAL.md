@@ -54,6 +54,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Sidebar is rendered as a compact panel centered on the left edge; its button stack is centered within the panel.
 - Auth/create/update menu shells now share a smaller unified footprint to reduce empty space.
 - Menu selection state is sidebar-driven across auth/session states.
+- Selected sidebar items now use explicit highlighted styling instead of disabled-state rendering.
 
 ## Backend Responsibilities
 - Auth/session lifecycle (register/login/refresh/logout + MFA)
@@ -85,8 +86,13 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Game update UI renders themed progress state and can resume status display on relaunch.
 - Release notes/version metadata now resolve from the active executable payload first, then install-root fallbacks, to prevent stale notes/version labels after updates.
 - Hybrid notes contract: the update surface fetches per-build notes from backend (`client_user_facing_notes` / `client_build_release_notes`) and only falls back to packaged local files when backend notes are unavailable.
-- Update notes rendering prepends a build-version header (`Build`, and `Latest` when different) before the bullet list for manual version sanity checks.
+- Update notes rendering prepends the installed build-version header (`Build`) before the bullet list for manual version sanity checks.
 - Footer status text now shows only the build version marker (content config key is intentionally hidden from player-facing auth UI).
+
+## Release Policy Sync
+- Release workflow now attempts backend release-policy activation after successful package upload when `KARAXAS_OPS_BASE_URL` and `KARAXAS_OPS_API_TOKEN` are configured.
+- Backend release activation rejects accidental `latest_version` regression by default; explicit rollback must opt in via `allow_version_regression=true`.
+- Rollback helper script sets `allow_version_regression=true` to preserve intentional rollback capability.
 
 ## Packaging Contract
 - One installer payload now includes:
