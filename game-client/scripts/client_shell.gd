@@ -11,7 +11,8 @@ const DEFAULT_CLIENT_VERSION = "0.0.0"
 const DEFAULT_CONTENT_VERSION = "unknown"
 const CHARACTER_DIRECTIONS: Array[String] = ["E", "W"]
 const SIDEBAR_PANEL_SIZE := Vector2(176, 312)
-const AUTH_UPDATE_SHELL_SIZE := Vector2(740, 392)
+const AUTH_SHELL_SIZE := Vector2(560, 320)
+const UPDATE_SHELL_SIZE := Vector2(740, 392)
 # Regression harness compatibility constants retained after sidebar nav refactor.
 const MENU_UPDATE = 1
 const MENU_LOG_VIEWER = 2
@@ -578,8 +579,8 @@ func _build_ui() -> void:
 
 func _build_auth_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
-		AUTH_UPDATE_SHELL_SIZE,
-		UI_TOKENS.spacing("md"),
+		AUTH_SHELL_SIZE,
+		UI_TOKENS.spacing("sm"),
 		false
 	)
 	var wrap = shell["wrap"] as VBoxContainer
@@ -600,7 +601,9 @@ func _build_auth_screen() -> VBoxContainer:
 	var auth_center = CenterContainer.new()
 	auth_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shell_content.add_child(auth_center)
-	var auth_panel = UI_COMPONENTS.panel_card(Vector2(560, 0), false)
+	var auth_panel = UI_COMPONENTS.panel_card(Vector2(420, 0), false)
+	auth_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	auth_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	auth_center.add_child(auth_panel)
 
 	var auth_panel_style = StyleBoxFlat.new()
@@ -617,41 +620,41 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_panel.add_theme_stylebox_override("panel", auth_panel_style)
 
 	var auth_inner = VBoxContainer.new()
-	auth_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	auth_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
 	auth_panel.add_child(auth_inner)
 
 	auth_display_name_input = _line_edit("Display Name")
-	auth_display_name_input.custom_minimum_size = Vector2(0, 34)
-	auth_display_name_input.add_theme_font_size_override("font_size", 16)
+	auth_display_name_input.custom_minimum_size = Vector2(0, 30)
+	auth_display_name_input.add_theme_font_size_override("font_size", 15)
 	auth_display_name_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_display_name_input)
 	auth_email_input = _line_edit("Email")
-	auth_email_input.custom_minimum_size = Vector2(0, 34)
-	auth_email_input.add_theme_font_size_override("font_size", 16)
+	auth_email_input.custom_minimum_size = Vector2(0, 30)
+	auth_email_input.add_theme_font_size_override("font_size", 15)
 	auth_email_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_email_input)
 	auth_password_input = _line_edit("Password", true)
-	auth_password_input.custom_minimum_size = Vector2(0, 34)
-	auth_password_input.add_theme_font_size_override("font_size", 16)
+	auth_password_input.custom_minimum_size = Vector2(0, 30)
+	auth_password_input.add_theme_font_size_override("font_size", 15)
 	auth_password_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_password_input)
 	auth_otp_input = _line_edit("MFA Code (if enabled)")
-	auth_otp_input.custom_minimum_size = Vector2(0, 34)
-	auth_otp_input.add_theme_font_size_override("font_size", 16)
+	auth_otp_input.custom_minimum_size = Vector2(0, 30)
+	auth_otp_input.add_theme_font_size_override("font_size", 15)
 	auth_otp_input.text_submitted.connect(func(_text: String) -> void:
 		_on_auth_submit()
 	)
 	auth_inner.add_child(auth_otp_input)
 
-	auth_submit_button = UI_COMPONENTS.button_primary("Login", Vector2(0, 36))
+	auth_submit_button = UI_COMPONENTS.button_primary("Login", Vector2(0, 34))
 	auth_submit_button.focus_mode = Control.FOCUS_ALL
-	auth_submit_button.add_theme_font_size_override("font_size", 16)
+	auth_submit_button.add_theme_font_size_override("font_size", 15)
 	auth_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auth_submit_button.pressed.connect(_on_auth_submit)
 	auth_inner.add_child(auth_submit_button)
@@ -659,6 +662,8 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_status_label = _label(" ")
 	auth_status_label.text = " "
 	auth_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	auth_status_label.visible = false
+	auth_status_label.add_theme_font_size_override("font_size", 14)
 	auth_status_label.add_theme_color_override("font_color", UI_TOKENS.color("text_secondary"))
 	auth_inner.add_child(auth_status_label)
 
@@ -668,7 +673,7 @@ func _build_auth_screen() -> VBoxContainer:
 
 func _build_update_screen() -> VBoxContainer:
 	var shell: Dictionary = UI_COMPONENTS.centered_shell(
-		AUTH_UPDATE_SHELL_SIZE,
+		UPDATE_SHELL_SIZE,
 		UI_TOKENS.spacing("md"),
 		false
 	)
@@ -2173,7 +2178,7 @@ func _apply_auth_mode() -> void:
 	auth_display_name_input.visible = register_mode
 	auth_otp_input.visible = not register_mode
 	auth_submit_button.text = "Register" if register_mode else "Login"
-	auth_status_label.text = " "
+	_set_auth_status("")
 	if register_mode:
 		auth_email_input.clear()
 		auth_password_input.clear()
@@ -2213,7 +2218,15 @@ func _configure_auth_focus_chain() -> void:
 		_set_focus_link(auth_submit_button, auth_email_input)
 
 func _set_auth_status(message: String) -> void:
-	auth_status_label.text = message
+	if auth_status_label == null:
+		return
+	var trimmed = message.strip_edges()
+	if trimmed.is_empty():
+		auth_status_label.text = " "
+		auth_status_label.visible = false
+		return
+	auth_status_label.text = trimmed
+	auth_status_label.visible = true
 
 func _set_footer_status(_message: String) -> void:
 	footer_status.text = footer_version_text
@@ -3885,7 +3898,7 @@ func _handle_auth_session_failure(response: Dictionary) -> void:
 	var reason = _friendly_error(response)
 	_append_log("Session recovery failed. Returning to auth screen.")
 	_logout_session_local()
-	auth_status_label.text = reason
+	_set_auth_status(reason)
 	_show_screen("auth")
 
 func _error_detail_from_payload(payload: Variant) -> Dictionary:

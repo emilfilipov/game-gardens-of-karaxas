@@ -1,2 +1,3 @@
-- Compacted login/register form UX by reducing auth panel width, input heights, and button sizing.
-- Lowered auth field typography scale so text inputs feel less oversized while keeping readability.
+- Reworked login/register presentation into a tighter dedicated auth shell so account forms no longer occupy oversized panel space.
+- Reduced login/register input and submit-control sizing again (height + typography) for denser, cleaner auth UX.
+- Changed auth status messaging to contextual display only: no permanent blank status row, message appears only when needed.

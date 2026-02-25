@@ -56,6 +56,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Menu selection state is sidebar-driven across auth/session states.
 - Selected sidebar items now use explicit highlighted styling instead of disabled-state rendering.
 - Auth form controls are compacted (narrower card, reduced field/button heights, smaller input text size) to avoid oversized login/register affordances.
+- Auth shell and card sizing are now split from update-shell sizing (`AUTH_SHELL_SIZE` vs `UPDATE_SHELL_SIZE`) so login/register can stay significantly tighter without constraining update notes UX.
+- Auth status messaging is contextual-only: blank state hides the status row entirely, then shows it only for validation/error/progress feedback.
 - Update-screen build metadata is pinned above the scrollable notes region.
 - Update release notes default to top-of-document on refresh (no bottom auto-scroll).
 

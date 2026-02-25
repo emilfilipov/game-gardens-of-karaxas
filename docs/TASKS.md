@@ -12,6 +12,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-033 | ✅ | 2 | Reworked auth form composition into a tighter shell with narrower login/register cards, shorter input/button controls, and contextual-only status messaging to remove oversized/empty form space. |
 | COI-2D-032 | ✅ | 2 | Compacted login/register form presentation by reducing auth panel width, input heights, and control typography to avoid oversized fields. |
 | COI-2D-031 | ✅ | 2 | Pinned update-screen build metadata above the notes scroller and reset notes scroll position to the first row on refresh so users can read from the top immediately. |
 | COI-2D-030 | ✅ | 3 | Fixed account create-view bounce by preserving `create` mode during deferred character-list refreshes instead of force-returning to `Play` list mode. |

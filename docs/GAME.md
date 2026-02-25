@@ -44,6 +44,7 @@ Current direction:
 - Sidebar menu actions are vertically centered inside that rail and in-content back/exit navigation is intentionally removed.
 - Sidebar active menu state is highlighted as selected (not rendered as disabled).
 - Auth login/register form uses compact field sizing to prioritize readability and reduce oversized input affordances.
+- Auth login/register form now uses a tighter, narrow shell with shorter controls and contextual status text (shown only when needed) to reduce empty-space-heavy panels.
 
 ## Skill Tree Direction
 - Account list/create screens now include a graph-style skill tree panel as the primary center interaction surface.
