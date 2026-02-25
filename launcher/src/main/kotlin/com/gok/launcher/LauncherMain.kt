@@ -223,6 +223,7 @@ object LauncherMain {
             handleVelopackHookArgs(args)
             return
         }
+        ensureDesktopShortcutsBestEffort()
         when (tryLaunchStandaloneGodotShell(designerMode)) {
             StandaloneGodotLaunchState.LAUNCHED -> return
             StandaloneGodotLaunchState.FAILED -> {
@@ -254,19 +255,23 @@ object LauncherMain {
 
     private fun handleVelopackHookArgs(args: Array<String>) {
         log("Detected Velopack hook args. Handling install shortcut flow.")
-        val install = installRoot(payloadRoot())
-        val gameExe = install.resolve("ChildrenOfIkphelionLauncher.exe")
-        val designerExe = install.resolve("designer").resolve("ChildrenOfIkphelionDesigner.exe")
         when {
             args.any { it.startsWith("--veloapp-install") } || args.any { it.startsWith("--veloapp-updated") } -> {
-                ensureDesktopShortcut(gameExe, "Children of Ikphelion")
-                ensureDesktopShortcut(designerExe, "Gardens of Karaxas Designer")
+                ensureDesktopShortcutsBestEffort()
             }
             args.any { it.startsWith("--veloapp-uninstall") } -> {
                 removeDesktopShortcut("Children of Ikphelion")
-                removeDesktopShortcut("Gardens of Karaxas Designer")
+                removeDesktopShortcut("Children of Ikphelion Designer")
             }
         }
+    }
+
+    private fun ensureDesktopShortcutsBestEffort() {
+        val install = installRoot(payloadRoot())
+        val gameExe = install.resolve("ChildrenOfIkphelionLauncher.exe")
+        val designerExe = install.resolve("designer").resolve("ChildrenOfIkphelionDesigner.exe")
+        ensureDesktopShortcut(gameExe, "Children of Ikphelion")
+        ensureDesktopShortcut(designerExe, "Children of Ikphelion Designer")
     }
 
     private fun desktopPathOrNull(): Path? {
@@ -367,7 +372,7 @@ object LauncherMain {
     }
 
     private fun createAndShow(autoPlay: Boolean = false, designerMode: Boolean = false) {
-        val frameTitle = if (designerMode) "Gardens of Karaxas Designer" else "Children of Ikphelion"
+        val frameTitle = if (designerMode) "Children of Ikphelion Designer" else "Children of Ikphelion"
         val frame = JFrame(frameTitle)
         frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
         frame.isUndecorated = true
@@ -384,7 +389,7 @@ object LauncherMain {
             border = rootPanelDefaultBorder
         }
 
-        val screenTitle = JLabel(if (designerMode) "Gardens of Karaxas Designer" else "Children of Ikphelion", SwingConstants.CENTER).apply {
+        val screenTitle = JLabel(if (designerMode) "Children of Ikphelion Designer" else "Children of Ikphelion", SwingConstants.CENTER).apply {
             foreground = textColor
             font = Font(THEME_FONT_FAMILY, Font.BOLD, 56)
             border = BorderFactory.createEmptyBorder(4, 0, 4, 0)
@@ -4335,6 +4340,12 @@ object LauncherMain {
             }, BorderLayout.SOUTH)
         }
         fun renderAuthReleaseNotes() {
+            val local = renderPatchNotes().trim()
+            if (local.isNotBlank()) {
+                authPatchNotesPane.text = local
+                scrollToTop(authPatchNotesPane, authPatchNotes)
+                return
+            }
             val remote = remoteAuthReleaseNotesMarkdown?.trim().orEmpty()
             if (remote.isNotBlank()) {
                 authPatchNotesPane.text = markdownToHtml(extractBulletOnlyPatchNotes(remote))

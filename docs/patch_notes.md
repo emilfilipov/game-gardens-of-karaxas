@@ -1,10 +1,5 @@
-- Removed small character preview cards from Character List and Character Creation; list/create flows are now graph-first with top-aligned creation controls.
-- Enforced empty-state behavior in Character List so no character selection means no rendered selection graph/preview artifacts.
-- Improved release note refresh behavior in auth/account transitions and added content-note fallback when build notes are empty.
-- Added themed updater UX in auth: explicit up-to-date dialog, progress panel, and persisted status resume using updater status file metrics.
-- Extended `UpdateHelper.exe` to publish structured update progress (`status`, percent, speed, downloaded size, total size) to a shared status JSON file.
-- Enforced latest-build-required auth for all users (register/login/refresh and authenticated context checks) with `426 latest_build_required` responses for stale clients.
-- Added backend-managed designer publish endpoint (`/designer/publish`) that commits file changes to GitHub and dispatches release/backend workflows.
-- Upgraded `designer-client` with full backend login/refresh flow and CI publish trigger integration via backend endpoint.
-- Updated Windows packaging to include separate game and designer executables in one installer and added Velopack hook shortcut provisioning for both desktop entries.
-- Replaced icon assets with a new light-themed initials icon across game client, launcher resources, installer wrapper, and packaging sources.
+- Fixed desktop shortcut provisioning reliability by ensuring shortcut creation is run both for Velopack install/update hooks and normal launcher startup fallback.
+- Standardized designer shortcut/window naming to `Children of Ikphelion Designer` (removed legacy `Gardens of Karaxas` naming from user-facing labels).
+- Fixed stale release-notes display by prioritizing packaged local patch notes over remote summary notes in both launcher and Godot auth UI.
+- Updated icon set from `GOK` to a new light-theme `COI` mark and regenerated all icon assets (`.png`/`.ico`) used by launcher, game client, and installer wrapper.
+- Updated installer and backend documentation strings to consistently use `Children of Ikphelion`.

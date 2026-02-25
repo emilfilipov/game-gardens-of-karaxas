@@ -12,19 +12,19 @@ func _ready() -> void:
     if bootstrap_path.is_empty():
         _set_status("No launcher bootstrap payload was provided.")
         _set_details("Run via launcher Play flow to receive runtime bootstrap data.")
-        print("GOK game-client bootstrap: no launcher bootstrap path provided")
+        print("COI game-client bootstrap: no launcher bootstrap path provided")
         return
 
     var file := FileAccess.open(bootstrap_path, FileAccess.READ)
     if file == null:
         _set_status("Failed to open launcher bootstrap payload.")
         _set_details("Path: " + bootstrap_path)
-        push_error("GOK game-client bootstrap: failed to open bootstrap file: " + bootstrap_path)
+        push_error("COI game-client bootstrap: failed to open bootstrap file: " + bootstrap_path)
         return
 
     var payload_text := file.get_as_text()
     file.close()
-    print("GOK game-client bootstrap loaded from: " + bootstrap_path)
+    print("COI game-client bootstrap loaded from: " + bootstrap_path)
     var payload_json := JSON.parse_string(payload_text)
     if typeof(payload_json) != TYPE_DICTIONARY:
         _set_status("Launcher bootstrap payload is invalid JSON.")

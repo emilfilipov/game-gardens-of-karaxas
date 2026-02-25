@@ -72,7 +72,7 @@ def create_totp_secret() -> str:
 
 
 def build_totp_provisioning_uri(*, secret: str, account_name: str) -> str:
-    issuer = (settings.jwt_issuer or "Gardens of Karaxas").strip() or "Gardens of Karaxas"
+    issuer = (settings.jwt_issuer or "Children of Ikphelion").strip() or "Children of Ikphelion"
     return pyotp.TOTP(secret).provisioning_uri(name=account_name, issuer_name=issuer)
 
 

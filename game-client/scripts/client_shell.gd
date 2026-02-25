@@ -3400,13 +3400,13 @@ func _refresh_release_summary() -> void:
 	var local_notes = _load_local_release_notes()
 	if response.get("ok", false):
 		release_summary = response.get("json", {})
-		var notes = str(release_summary.get("latest_user_facing_notes", "")).strip_edges()
+		var notes = local_notes
+		if notes.is_empty():
+			notes = str(release_summary.get("latest_user_facing_notes", "")).strip_edges()
 		if notes.is_empty():
 			notes = str(release_summary.get("latest_build_release_notes", "")).strip_edges()
 		if notes.is_empty():
 			notes = str(release_summary.get("latest_content_note", "")).strip_edges()
-		if notes.is_empty():
-			notes = local_notes
 		if notes.is_empty():
 			notes = "No release notes available."
 		var build_version = str(release_summary.get("latest_version", client_version))

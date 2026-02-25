@@ -1,6 +1,6 @@
-# Karaxas Backend
+# Children of Ikphelion Backend
 
-FastAPI backend for Gardens of Karaxas MMORPG account/lobby systems.
+FastAPI backend for Children of Ikphelion online account/lobby systems.
 
 ## Features (current scaffold)
 - Auth: register/login/refresh/logout

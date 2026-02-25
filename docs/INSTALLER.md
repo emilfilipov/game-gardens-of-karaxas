@@ -18,7 +18,7 @@ Artifacts are written to `releases/windows/`.
 - Installer payload also includes a separate designer executable.
 - Velopack install/update hooks create desktop shortcuts for:
   - `Children of Ikphelion` (game launcher entry)
-  - `Gardens of Karaxas Designer` (designer entry)
+  - `Children of Ikphelion Designer` (designer entry)
 - Update control is available from main menu (`Update`).
 - Updater uses packaged `UpdateHelper.exe`.
 - Feed URL source order:

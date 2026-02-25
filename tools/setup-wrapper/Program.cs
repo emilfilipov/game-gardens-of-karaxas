@@ -143,7 +143,7 @@ internal static class Program
     {
         try
         {
-            MessageBox.Show(message, "Gardens of Karaxas Installer", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(message, "Children of Ikphelion Installer", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         catch
         {
@@ -160,9 +160,9 @@ internal static class Program
             throw new InvalidOperationException("Embedded SetupCore.exe resource missing.");
         }
 
-        var tempDir = Path.Combine(Path.GetTempPath(), "GardensOfKaraxas");
+        var tempDir = Path.Combine(Path.GetTempPath(), "ChildrenOfIkphelion");
         Directory.CreateDirectory(tempDir);
-        var tempPath = Path.Combine(tempDir, "GardensOfKaraxas-SetupCore.exe");
+        var tempPath = Path.Combine(tempDir, "ChildrenOfIkphelion-SetupCore.exe");
 
         using (var output = File.Create(tempPath))
         {

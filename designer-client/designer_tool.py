@@ -23,7 +23,7 @@ def _load_local_version() -> str:
 class DesignerTool(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("Gardens of Karaxas - Designer Client")
+        self.title("Children of Ikphelion - Designer Client")
         self.geometry("1360x900")
         self.minsize(1120, 760)
 
