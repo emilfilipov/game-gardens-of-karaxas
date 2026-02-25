@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     runtime_gameplay_staged_config_path: str = "/app/runtime/gameplay_config.staged.json"
     runtime_gameplay_backup_config_path: str = "/app/runtime/gameplay_config.backup.json"
     runtime_gameplay_signature_pin: str = ""
+    github_publish_enabled: bool = False
+    github_repo_owner: str = ""
+    github_repo_name: str = ""
+    github_default_branch: str = "main"
+    github_token: str = ""
+    github_release_workflow: str = "release.yml"
+    github_backend_workflow: str = "deploy-backend.yml"
 
     db_host: str
     db_port: int = 5432

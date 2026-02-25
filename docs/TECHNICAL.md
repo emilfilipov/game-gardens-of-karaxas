@@ -32,7 +32,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Character list uses one left sidebar with top `Create Character` action and character rows below.
 - List remains default account view even when no characters exist.
 - List/create center area now hosts skill-tree graph (`skill_tree_graph.gd`).
-- Character previews are compact (small preview + in-game scale inset), not fullscreen.
+- Character list/create small preview cards are removed.
+- List graph is cleared when no character selection exists.
 - Character actions (`Play`, `Delete`) stay selection-gated.
 
 ### 2D Character Pipeline Baseline
@@ -53,6 +54,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Content/config delivery (`/content/runtime-config`, `/content/bootstrap`)
 - Level authoring APIs (`/levels`) for external designer tooling
 - Runtime publish/version operations under `/content/*`
+- Designer publish orchestration under `/designer/publish` (backend-mediated GitHub commit + workflow dispatch)
 - Gameplay authority (`/gameplay/resolve-action`)
 
 ## Tooling Split
@@ -60,8 +62,26 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - External authoring tool is provided at:
   - `designer-client/designer_tool.py`
 - Designer client currently supports:
+  - backend login/refresh flow using `/auth/login` and `/auth/refresh`
   - load/save level payloads via `/levels`
   - load/stage/publish runtime config via `/content/runtime-config/*`
+  - backend-mediated repo/CI publish request via `/designer/publish`
+
+## Auth and Version Gates
+- Backend auth gates enforce latest-build login for all users (no admin bypass for outdated builds).
+- Contract mismatch and force-update checks still apply after latest-build gate.
+
+## Updater UX Contract
+- Game client update flow writes/reads updater status at `<install_root>/logs/update_status.json`.
+- Update helper publishes stage + progress metrics (`percent`, `speed_bps`, `downloaded_bytes`, `total_bytes`).
+- Game auth UI renders themed progress state and can resume status display on relaunch.
+
+## Packaging Contract
+- One installer payload now includes:
+  - `ChildrenOfIkphelionLauncher.exe` (game launcher/runtime entry),
+  - `designer/ChildrenOfIkphelionDesigner.exe` (designer executable).
+- Velopack hook handling creates/removes desktop shortcuts for both game and designer executables.
+- Icon set is unified across game, launcher, and setup wrapper assets.
 
 ## Gameplay Config Model
 - Durable player/account state remains in DB.

@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from packaging.version import InvalidVersion, Version
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -54,6 +55,17 @@ def _unauthorized(message: str = "Authentication required") -> HTTPException:
     )
 
 
+def _safe_version(raw: str | None) -> Version:
+    try:
+        return Version((raw or "0.0.0").strip() or "0.0.0")
+    except InvalidVersion:
+        return Version("0.0.0")
+
+
+def _requires_latest_build(version_status) -> bool:
+    return _safe_version(version_status.client_version) < _safe_version(version_status.latest_version)
+
+
 def get_auth_context(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
@@ -97,9 +109,39 @@ def get_auth_context(
             },
         )
 
+    policy = ensure_release_policy(db)
+    evaluated = evaluate_version(
+        policy,
+        client_version or session.client_version,
+        client_content_version or session.client_content_version_key,
+    )
+    if _requires_latest_build(evaluated):
+        session.revoked_at = datetime.now(UTC)
+        db.add(session)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_426_UPGRADE_REQUIRED,
+            detail={
+                "message": "A newer client build is required before login.",
+                "code": "latest_build_required",
+                "version_status": {
+                    "client_version": evaluated.client_version,
+                    "latest_version": evaluated.latest_version,
+                    "min_supported_version": evaluated.min_supported_version,
+                    "client_content_version_key": evaluated.client_content_version_key,
+                    "latest_content_version_key": evaluated.latest_content_version_key,
+                    "min_supported_content_version_key": evaluated.min_supported_content_version_key,
+                    "enforce_after": evaluated.enforce_after.isoformat() if evaluated.enforce_after else None,
+                    "update_available": evaluated.update_available,
+                    "content_update_available": evaluated.content_update_available,
+                    "force_update": evaluated.force_update,
+                    "update_feed_url": evaluated.update_feed_url,
+                },
+            },
+        )
     server_contract = content_contract_signature()
     normalized_contract = (client_content_contract or "").strip()
-    if normalized_contract and normalized_contract != server_contract and not user.is_admin:
+    if normalized_contract and normalized_contract != server_contract:
         raise HTTPException(
             status_code=status.HTTP_426_UPGRADE_REQUIRED,
             detail={
@@ -110,13 +152,7 @@ def get_auth_context(
             },
         )
 
-    policy = ensure_release_policy(db)
-    evaluated = evaluate_version(
-        policy,
-        client_version or session.client_version,
-        client_content_version or session.client_content_version_key,
-    )
-    if evaluated.force_update and not user.is_admin:
+    if evaluated.force_update:
         session.revoked_at = datetime.now(UTC)
         db.add(session)
         db.commit()

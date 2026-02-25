@@ -2,12 +2,15 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Velopack;
 using Velopack.Locators;
 
 internal static class Program
 {
     private const int ExitNoUpdate = 2;
+    private static readonly object StatusWriteLock = new();
+    private static string? statusFilePath;
 
     public static async Task<int> Main(string[] args)
     {
@@ -16,11 +19,14 @@ internal static class Program
         {
             var options = ParseArgs(args);
             logFile = options.LogFile;
+            statusFilePath = string.IsNullOrWhiteSpace(options.StatusFile) ? null : options.StatusFile;
             Log(logFile, "Update helper starting.");
+            WriteStatus("launching", 0, 0, 0, 0, "Starting update helper.");
             var repoUrl = ResolveRepoUrl(options);
             if (string.IsNullOrWhiteSpace(repoUrl))
             {
                 Log(logFile, "ERROR: Missing repo URL.");
+                WriteStatus("error", 0, 0, 0, 0, "Missing update repository URL.");
                 Console.WriteLine("ERROR: Missing repo URL.");
                 return 1;
             }
@@ -34,17 +40,18 @@ internal static class Program
             var mgr = new UpdateManager(repoUrl, options: null, locator: locator);
 
             Emit(logFile, "STATUS:CHECKING");
+            WriteStatus("checking", 0, 0, 0, 0, "Checking for updates.");
             var updateInfo = await mgr.CheckForUpdatesAsync();
             if (updateInfo == null)
             {
+                WriteStatus("no_update", 100, 0, 0, 0, "No updates available.");
                 Emit(logFile, "NO_UPDATE");
                 return ExitNoUpdate;
             }
 
-            EmitDownloadMode(logFile, updateInfo);
+            var (downloadMode, totalBytes) = EmitDownloadMode(logFile, updateInfo);
             Emit(logFile, "STATUS:DOWNLOADING");
             var lastProgress = -1;
-            var totalBytes = EstimateTotalDownloadBytes(updateInfo);
             var stopwatch = Stopwatch.StartNew();
             await mgr.DownloadUpdatesAsync(updateInfo, progress =>
             {
@@ -52,14 +59,25 @@ internal static class Program
                 var clamped = Math.Clamp((int)Math.Round(numeric), 0, 100);
                 if (clamped == lastProgress) return;
                 lastProgress = clamped;
+                var downloadedBytes = totalBytes > 0 ? (long)Math.Round(totalBytes * (clamped / 100.0)) : 0;
+                var speedBytesPerSecond = stopwatch.Elapsed.TotalSeconds > 0.1
+                    ? (long)Math.Round(downloadedBytes / stopwatch.Elapsed.TotalSeconds)
+                    : 0;
+                WriteStatus(
+                    "downloading",
+                    clamped,
+                    speedBytesPerSecond,
+                    downloadedBytes,
+                    totalBytes,
+                    $"Downloading update ({downloadMode})."
+                );
                 if (totalBytes <= 0 || stopwatch.Elapsed.TotalSeconds <= 0.1) {
                     Emit(logFile, $"PROGRESS:{clamped}");
                     return;
                 }
-                var downloadedBytes = (long)Math.Round(totalBytes * (clamped / 100.0));
-                var speedBytesPerSecond = downloadedBytes / stopwatch.Elapsed.TotalSeconds;
                 Emit(logFile, $"PROGRESS:{clamped}:{(long)Math.Round(speedBytesPerSecond)}");
             });
+            WriteStatus("downloaded", 100, 0, totalBytes, totalBytes, "Download complete.");
             Emit(logFile, "UPDATE_DOWNLOADED");
 
             if (options.WaitPid > 0)
@@ -67,17 +85,20 @@ internal static class Program
                 var waitPid = options.WaitPid;
                 var restartArgs = options.RestartArgs ?? Array.Empty<string>();
                 Emit(logFile, "STATUS:APPLYING");
+                WriteStatus("applying", 100, 0, totalBytes, totalBytes, "Applying update and restarting.");
                 UpdateExe.Apply(locator, updateInfo.TargetFullRelease, silent: true, waitPid: (uint)waitPid, restart: true, restartArgs: restartArgs);
                 Emit(logFile, "UPDATE_APPLYING");
                 return 0;
             }
 
+            WriteStatus("ready", 100, 0, totalBytes, totalBytes, "Update downloaded and ready.");
             Emit(logFile, "UPDATE_READY");
             return 0;
         }
         catch (Exception ex)
         {
             Log(logFile, $"ERROR: {ex}");
+            WriteStatus("error", 0, 0, 0, 0, ex.Message);
             Console.WriteLine($"ERROR: {ex.Message}");
             return 1;
         }
@@ -121,7 +142,7 @@ internal static class Program
         return 0;
     }
 
-    private static void EmitDownloadMode(string? logFile, UpdateInfo info)
+    private static (string mode, long totalBytes) EmitDownloadMode(string? logFile, UpdateInfo info)
     {
         if (info.DeltasToTarget != null && info.DeltasToTarget.Length > 0)
         {
@@ -131,11 +152,12 @@ internal static class Program
                 if (delta != null && delta.Size > 0) size += delta.Size;
             }
             Emit(logFile, $"DOWNLOAD_MODE:DELTA:{info.DeltasToTarget.Length}:{size}");
-            return;
+            return ("delta", size);
         }
 
         var fullSize = info.TargetFullRelease?.Size ?? 0;
         Emit(logFile, $"DOWNLOAD_MODE:FULL:{fullSize}");
+        return ("full", fullSize);
     }
 
     private static Options ParseArgs(string[] args)
@@ -164,6 +186,9 @@ internal static class Program
                 case "--log-file":
                     options.LogFile = NextValue(args, ref i);
                     break;
+                case "--status-file":
+                    options.StatusFile = NextValue(args, ref i);
+                    break;
             }
         }
         return options;
@@ -184,6 +209,7 @@ internal static class Program
         public bool Prerelease { get; set; }
         public string[]? RestartArgs { get; set; }
         public string? LogFile { get; set; }
+        public string? StatusFile { get; set; }
     }
 
     private static void Log(string? logFile, string message)
@@ -197,6 +223,46 @@ internal static class Program
         catch
         {
             // Ignore logging failures.
+        }
+    }
+
+    private static void WriteStatus(
+        string status,
+        int percent,
+        long speedBytesPerSecond,
+        long downloadedBytes,
+        long totalBytes,
+        string message
+    )
+    {
+        if (string.IsNullOrWhiteSpace(statusFilePath)) return;
+        try
+        {
+            var path = statusFilePath!;
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            var payload = new
+            {
+                status = status,
+                percent = Math.Clamp(percent, 0, 100),
+                speed_bps = Math.Max(0, speedBytesPerSecond),
+                downloaded_bytes = Math.Max(0, downloadedBytes),
+                total_bytes = Math.Max(0, totalBytes),
+                message = message,
+                updated_at = DateTime.UtcNow.ToString("O"),
+            };
+            var json = JsonSerializer.Serialize(payload);
+            lock (StatusWriteLock)
+            {
+                File.WriteAllText(path, json);
+            }
+        }
+        catch
+        {
+            // Ignore status write failures.
         }
     }
 }

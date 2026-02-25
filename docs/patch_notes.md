@@ -1,7 +1,10 @@
-- Pivoted runtime baseline back to 2D: account/world client flow now defaults to the 2D world canvas and 2D podium preview component.
-- Reworked account list/create layout around compact previews and a new skill-tree graph panel (`skill_tree_graph.gd`) replacing fullscreen preview usage.
-- Shifted UI tokens/background treatment to a lighter visual scheme for the new art direction.
-- Switched Sellsword spritesheet generation baseline to `512x512` with `2dir` output and regenerated catalog/sheets.
-- Added external `designer-client` program scaffold (`designer_tool.py`) for level/runtime content editing and publish actions outside the game runtime client.
-- Replaced 3D runtime CI gate with a 2D runtime contract harness (`check_2d_runtime_contract.py`) and updated release workflow wiring.
-- Cleaned `docs/TASKS.md` tables to remove irrelevant 3D/Blender backlog and replaced them with the new 2D pivot roadmap.
+- Removed small character preview cards from Character List and Character Creation; list/create flows are now graph-first with top-aligned creation controls.
+- Enforced empty-state behavior in Character List so no character selection means no rendered selection graph/preview artifacts.
+- Improved release note refresh behavior in auth/account transitions and added content-note fallback when build notes are empty.
+- Added themed updater UX in auth: explicit up-to-date dialog, progress panel, and persisted status resume using updater status file metrics.
+- Extended `UpdateHelper.exe` to publish structured update progress (`status`, percent, speed, downloaded size, total size) to a shared status JSON file.
+- Enforced latest-build-required auth for all users (register/login/refresh and authenticated context checks) with `426 latest_build_required` responses for stale clients.
+- Added backend-managed designer publish endpoint (`/designer/publish`) that commits file changes to GitHub and dispatches release/backend workflows.
+- Upgraded `designer-client` with full backend login/refresh flow and CI publish trigger integration via backend endpoint.
+- Updated Windows packaging to include separate game and designer executables in one installer and added Velopack hook shortcut provisioning for both desktop entries.
+- Replaced icon assets with a new light-themed initials icon across game client, launcher resources, installer wrapper, and packaging sources.

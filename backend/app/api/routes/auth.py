@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from packaging.version import InvalidVersion, Version
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -75,6 +76,17 @@ def _version_status_model(version_status) -> VersionStatus:
 
 def _version_status_payload(version_status) -> dict:
     return _version_status_model(version_status).model_dump(mode="json")
+
+
+def _safe_version(raw: str | None) -> Version:
+    try:
+        return Version((raw or "0.0.0").strip() or "0.0.0")
+    except InvalidVersion:
+        return Version("0.0.0")
+
+
+def _requires_latest_build(version_status) -> bool:
+    return _safe_version(version_status.client_version) < _safe_version(version_status.latest_version)
 
 
 def _session_response(user: User, session: UserSession, version_status) -> SessionResponse:
@@ -208,6 +220,15 @@ def register(
 
     release_policy = ensure_release_policy(db)
     version_status = evaluate_version(release_policy, client_version or "0.0.0", client_content_version_key)
+    if _requires_latest_build(version_status):
+        raise HTTPException(
+            status_code=status.HTTP_426_UPGRADE_REQUIRED,
+            detail={
+                "message": "A newer client build is required before login.",
+                "code": "latest_build_required",
+                "version_status": _version_status_payload(version_status),
+            },
+        )
     if version_status.force_update:
         raise HTTPException(
             status_code=status.HTTP_426_UPGRADE_REQUIRED,
@@ -300,7 +321,28 @@ def login(
     version_status = evaluate_version(release_policy, payload.client_version, payload.client_content_version_key)
     normalized_contract = (client_content_contract or "").strip()
     server_contract = content_contract_signature()
-    if normalized_contract and normalized_contract != server_contract and not user.is_admin:
+    if _requires_latest_build(version_status):
+        write_security_event(
+            db,
+            event_type="login_latest_build_required",
+            severity="warning",
+            actor_user_id=user.id,
+            ip_address=ip_addr,
+            detail={
+                "client_version": payload.client_version,
+                "latest_version": version_status.latest_version,
+            },
+            commit=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_426_UPGRADE_REQUIRED,
+            detail={
+                "message": "A newer client build is required before login.",
+                "code": "latest_build_required",
+                "version_status": _version_status_payload(version_status),
+            },
+        )
+    if normalized_contract and normalized_contract != server_contract:
         write_security_event(
             db,
             event_type="login_contract_mismatch",
@@ -319,7 +361,7 @@ def login(
                 "client_content_contract": normalized_contract,
             },
         )
-    if version_status.force_update and not user.is_admin:
+    if version_status.force_update:
         write_security_event(
             db,
             event_type="login_force_update_block",
@@ -477,7 +519,31 @@ def refresh(
     version_status = evaluate_version(release_policy, payload.client_version, payload.client_content_version_key)
     normalized_contract = (client_content_contract or "").strip()
     server_contract = content_contract_signature()
-    if normalized_contract and normalized_contract != server_contract and not user.is_admin:
+    if _requires_latest_build(version_status):
+        session.revoked_at = datetime.now(UTC)
+        db.add(session)
+        write_security_event(
+            db,
+            event_type="refresh_latest_build_required",
+            severity="warning",
+            actor_user_id=user.id,
+            session_id=session.id,
+            ip_address=ip_addr,
+            detail={
+                "client_version": payload.client_version,
+                "latest_version": version_status.latest_version,
+            },
+        )
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_426_UPGRADE_REQUIRED,
+            detail={
+                "message": "A newer client build is required before login.",
+                "code": "latest_build_required",
+                "version_status": _version_status_payload(version_status),
+            },
+        )
+    if normalized_contract and normalized_contract != server_contract:
         session.revoked_at = datetime.now(UTC)
         db.add(session)
         write_security_event(
@@ -502,7 +568,7 @@ def refresh(
                 "client_content_contract": normalized_contract,
             },
         )
-    if version_status.force_update and not user.is_admin:
+    if version_status.force_update:
         session.revoked_at = datetime.now(UTC)
         db.add(session)
         write_security_event(

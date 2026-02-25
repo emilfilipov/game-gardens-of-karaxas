@@ -33,10 +33,11 @@ Current direction:
 ## Character and Account Flow
 - Character list/create/select/play remains the primary account loop.
 - Account list view remains default even for empty character sets.
-- Character list/create use compact previews plus in-game scale inset preview (no fullscreen character preview).
+- Character list/create no longer use small preview cards.
 - The large center account canvas is now reserved for a skill-tree graph surface.
 - Character creation stays preset-driven with minimal onboarding fields: name, type, sex.
 - Character type lore remains visible in create flow.
+- If no character is selected in list view, the list skill-tree graph is intentionally empty.
 
 ## Skill Tree Direction
 - Account list/create screens now include a graph-style skill tree panel as the primary center interaction surface.
@@ -53,7 +54,8 @@ Current direction:
 
 ## Tooling Direction
 - Game client is runtime-only.
-- Level/asset/content authoring is moving to a separate external designer tool program.
+- Level/asset/content authoring is provided through a separate designer tool program.
+- Designer publish is backend-mediated for repo/CI orchestration (commit + workflow dispatch path).
 
 ## Authority Model
 - Server is authoritative for gameplay values and progression.
@@ -73,7 +75,8 @@ Current direction:
 ## Update Policy
 - Velopack + GCS remains release/update channel.
 - Client can trigger update from UI.
-- Force-update policy may block unsupported versions.
+- Login requires an up-to-date build (`client_version` must match latest published build).
+- Update UX includes themed in-client update status with persisted updater state.
 
 ## Out of Scope (Current Pivot Stage)
 - Full economy/trade implementation.

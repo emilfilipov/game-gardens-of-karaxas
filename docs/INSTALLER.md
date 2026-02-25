@@ -14,7 +14,11 @@ powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 -Version 1.0.0
 Artifacts are written to `releases/windows/`.
 
 ## Runtime behavior
-- Installed executable launches Godot online client shell.
+- Installed game executable launches Godot online client shell.
+- Installer payload also includes a separate designer executable.
+- Velopack install/update hooks create desktop shortcuts for:
+  - `Children of Ikphelion` (game launcher entry)
+  - `Gardens of Karaxas Designer` (designer entry)
 - Update control is available from main menu (`Update`).
 - Updater uses packaged `UpdateHelper.exe`.
 - Feed URL source order:
@@ -30,6 +34,7 @@ Logs:
 - launcher logs: `<install_root>\logs\launcher.log`
 - game logs: `<install_root>\logs\game.log`
 - updater logs: `<install_root>\logs\velopack.log`
+- updater status: `<install_root>\logs\update_status.json`
 
 ## CI release
 - Workflow: `.github/workflows/release.yml`

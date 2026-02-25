@@ -57,6 +57,7 @@ if (-not $launcherOnlyMode -and -not (Test-Path $gameJar)) { throw "Missing game
 
 $launcherImageDir = Join-Path $packDir "launcher"
 $gameImageDir = Join-Path $packDir "game"
+$designerImageDir = Join-Path $packDir "designer"
 $iconCandidates = @(
   (Join-Path $root "assets\\icons\\game_icon.ico"),
   (Join-Path $root "assets\\icons\\game_icon.png")
@@ -67,15 +68,18 @@ $launcherIcon = if ($iconPath -and (Test-Path $iconPath)) { @("--icon", $iconPat
 $gameIcon = if ($iconPath -and (Test-Path $iconPath)) { @("--icon", $iconPath) } else { @() }
 
 jpackage --type app-image --input (Split-Path $launcherJar) --main-jar (Split-Path $launcherJar -Leaf) --name "ChildrenOfIkphelionLauncher" --app-version $Version --dest $launcherImageDir @launcherIcon
+jpackage --type app-image --input (Split-Path $launcherJar) --main-jar (Split-Path $launcherJar -Leaf) --name "ChildrenOfIkphelionDesigner" --app-version $Version --dest $designerImageDir --arguments "--designer" @launcherIcon
 if (-not $launcherOnlyMode) {
   jpackage --type app-image --input (Split-Path $gameJar) --main-jar (Split-Path $gameJar -Leaf) --name "ChildrenOfIkphelion" --app-version $Version --dest $gameImageDir @gameIcon
 }
 
 $launcherApp = Join-Path $launcherImageDir "ChildrenOfIkphelionLauncher"
 $gameApp = Join-Path $gameImageDir "ChildrenOfIkphelion"
+$designerApp = Join-Path $designerImageDir "ChildrenOfIkphelionDesigner"
 
 if (-not (Test-Path $launcherApp)) { throw "Missing launcher app image at $launcherApp" }
 if (-not $launcherOnlyMode -and -not (Test-Path $gameApp)) { throw "Missing game app image at $gameApp" }
+if (-not (Test-Path $designerApp)) { throw "Missing designer app image at $designerApp" }
 
 New-Item -ItemType Directory -Path $payloadDir | Out-Null
 Copy-Item -Path (Join-Path $launcherApp "*") -Destination $payloadDir -Recurse
@@ -83,6 +87,8 @@ if (-not $launcherOnlyMode) {
   New-Item -ItemType Directory -Path (Join-Path $payloadDir "game") | Out-Null
   Copy-Item -Path (Join-Path $gameApp "*") -Destination (Join-Path $payloadDir "game") -Recurse
 }
+New-Item -ItemType Directory -Path (Join-Path $payloadDir "designer") | Out-Null
+Copy-Item -Path (Join-Path $designerApp "*") -Destination (Join-Path $payloadDir "designer") -Recurse
 
 $characterAssetsDir = Join-Path $root "assets\\characters"
 if (Test-Path $characterAssetsDir) {

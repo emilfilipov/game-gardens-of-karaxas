@@ -45,6 +45,7 @@ import java.nio.file.StandardOpenOption
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import javax.swing.BorderFactory
 import javax.swing.ImageIcon
@@ -216,12 +217,13 @@ object LauncherMain {
             log("Unhandled exception", throwable)
         }
         val autoPlay = args.any { it == "--autoplay" }
+        val designerMode = args.any { it == "--designer" }
         log("Launcher starting. Args=${args.joinToString(" ")}")
         if (args.any { it.startsWith("--veloapp-") }) {
-            log("Detected Velopack hook args. Exiting after logging.")
+            handleVelopackHookArgs(args)
             return
         }
-        when (tryLaunchStandaloneGodotShell()) {
+        when (tryLaunchStandaloneGodotShell(designerMode)) {
             StandaloneGodotLaunchState.LAUNCHED -> return
             StandaloneGodotLaunchState.FAILED -> {
                 EventQueue.invokeLater {
@@ -242,7 +244,7 @@ object LauncherMain {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
                 UIManager.put("AuditoryCues.playList", null)
-                createAndShow(autoPlay)
+                createAndShow(autoPlay, designerMode)
             } catch (ex: Exception) {
                 log("Failed to start launcher UI.", ex)
                 throw ex
@@ -250,7 +252,95 @@ object LauncherMain {
         }
     }
 
-    private fun tryLaunchStandaloneGodotShell(): StandaloneGodotLaunchState {
+    private fun handleVelopackHookArgs(args: Array<String>) {
+        log("Detected Velopack hook args. Handling install shortcut flow.")
+        val install = installRoot(payloadRoot())
+        val gameExe = install.resolve("ChildrenOfIkphelionLauncher.exe")
+        val designerExe = install.resolve("designer").resolve("ChildrenOfIkphelionDesigner.exe")
+        when {
+            args.any { it.startsWith("--veloapp-install") } || args.any { it.startsWith("--veloapp-updated") } -> {
+                ensureDesktopShortcut(gameExe, "Children of Ikphelion")
+                ensureDesktopShortcut(designerExe, "Gardens of Karaxas Designer")
+            }
+            args.any { it.startsWith("--veloapp-uninstall") } -> {
+                removeDesktopShortcut("Children of Ikphelion")
+                removeDesktopShortcut("Gardens of Karaxas Designer")
+            }
+        }
+    }
+
+    private fun desktopPathOrNull(): Path? {
+        val userProfile = System.getenv("USERPROFILE")?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return Paths.get(userProfile, "Desktop").toAbsolutePath()
+    }
+
+    private fun ensureDesktopShortcut(target: Path, shortcutLabel: String) {
+        if (!Files.exists(target)) {
+            log("Skipping shortcut creation for missing target ${target.toAbsolutePath()}")
+            return
+        }
+        val desktop = desktopPathOrNull() ?: return
+        val shortcutPath = desktop.resolve("$shortcutLabel.lnk")
+        val targetText = target.toAbsolutePath().toString()
+        val workDir = target.parent?.toAbsolutePath()?.toString() ?: installRoot().toString()
+        val escapedShortcut = escapePowerShellLiteral(shortcutPath.toString())
+        val escapedTarget = escapePowerShellLiteral(targetText)
+        val escapedWorkDir = escapePowerShellLiteral(workDir)
+        val escapedIcon = escapePowerShellLiteral(targetText)
+        val script = listOf(
+            "\$shell = New-Object -ComObject WScript.Shell",
+            "\$shortcut = \$shell.CreateShortcut('$escapedShortcut')",
+            "\$shortcut.TargetPath = '$escapedTarget'",
+            "\$shortcut.WorkingDirectory = '$escapedWorkDir'",
+            "\$shortcut.IconLocation = '$escapedIcon'",
+            "\$shortcut.Save()",
+        ).joinToString("\n")
+        runPowerShellScript(script)
+    }
+
+    private fun removeDesktopShortcut(shortcutLabel: String) {
+        val desktop = desktopPathOrNull() ?: return
+        val shortcutPath = desktop.resolve("$shortcutLabel.lnk")
+        if (!Files.exists(shortcutPath)) return
+        try {
+            Files.deleteIfExists(shortcutPath)
+        } catch (ex: Exception) {
+            log("Failed to remove shortcut ${shortcutPath.toAbsolutePath()}", ex)
+        }
+    }
+
+    private fun runPowerShellScript(script: String) {
+        try {
+            val process = ProcessBuilder(
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                script
+            ).start()
+            val finished = process.waitFor(8, TimeUnit.SECONDS)
+            if (!finished) {
+                process.destroyForcibly()
+                log("PowerShell shortcut script timed out.")
+                return
+            }
+            if (process.exitValue() != 0) {
+                log("PowerShell shortcut script exited with code ${process.exitValue()}")
+            }
+        } catch (ex: Exception) {
+            log("Failed to run PowerShell shortcut script.", ex)
+        }
+    }
+
+    private fun escapePowerShellLiteral(value: String): String {
+        return value.replace("'", "''")
+    }
+
+    private fun tryLaunchStandaloneGodotShell(designerMode: Boolean): StandaloneGodotLaunchState {
+        if (designerMode) {
+            return StandaloneGodotLaunchState.NOT_REQUESTED
+        }
         return try {
             val payloadRoot = payloadRoot()
             val installRoot = installRoot(payloadRoot)
@@ -276,8 +366,9 @@ object LauncherMain {
         }
     }
 
-    private fun createAndShow(autoPlay: Boolean = false) {
-        val frame = JFrame("Children of Ikphelion")
+    private fun createAndShow(autoPlay: Boolean = false, designerMode: Boolean = false) {
+        val frameTitle = if (designerMode) "Gardens of Karaxas Designer" else "Children of Ikphelion"
+        val frame = JFrame(frameTitle)
         frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
         frame.isUndecorated = true
         frame.minimumSize = Dimension(1280, 720)
@@ -293,7 +384,7 @@ object LauncherMain {
             border = rootPanelDefaultBorder
         }
 
-        val screenTitle = JLabel("Children of Ikphelion", SwingConstants.CENTER).apply {
+        val screenTitle = JLabel(if (designerMode) "Gardens of Karaxas Designer" else "Children of Ikphelion", SwingConstants.CENTER).apply {
             foreground = textColor
             font = Font(THEME_FONT_FAMILY, Font.BOLD, 56)
             border = BorderFactory.createEmptyBorder(4, 0, 4, 0)

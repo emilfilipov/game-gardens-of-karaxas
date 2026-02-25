@@ -1,6 +1,21 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, characters, chat, content, events, gameplay, health, instances, levels, lobby, ops, party, release
+from app.api.routes import (
+    auth,
+    characters,
+    chat,
+    content,
+    designer_publish,
+    events,
+    gameplay,
+    health,
+    instances,
+    levels,
+    lobby,
+    ops,
+    party,
+    release,
+)
 
 api_router = APIRouter()
 api_router.include_router(health.router)
@@ -10,6 +25,7 @@ api_router.include_router(characters.router)
 api_router.include_router(levels.router)
 api_router.include_router(party.router)
 api_router.include_router(content.router)
+api_router.include_router(designer_publish.router)
 api_router.include_router(chat.router)
 api_router.include_router(events.router)
 api_router.include_router(gameplay.router)

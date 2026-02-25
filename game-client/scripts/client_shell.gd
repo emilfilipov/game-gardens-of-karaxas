@@ -47,9 +47,11 @@ var ui_font_heading: Font
 var install_root_path = ""
 var logs_root_path = ""
 var prefs_path = ""
+var legacy_prefs_path = ""
 var level_draft_path = ""
 var asset_draft_path = ""
 var runtime_cache_path = ""
+var update_status_path = ""
 var settings_dirty = false
 var suppress_settings_events = false
 var character_texture_cache: Dictionary = {}
@@ -82,6 +84,12 @@ var auth_toggle_button: Button
 var auth_status_label: Label
 var auth_release_notes: RichTextLabel
 var auth_update_button: Button
+var auth_update_progress_panel: Control
+var auth_update_progress_bar: ProgressBar
+var auth_update_progress_label: Label
+var auth_update_progress_meta_label: Label
+var auth_update_poll_timer: Timer
+var update_restart_pending = false
 
 var account_container: VBoxContainer
 var account_sidebar: Control
@@ -211,6 +219,7 @@ func _ready() -> void:
 	_load_client_version()
 	_build_theme()
 	_build_ui()
+	_start_update_status_poll()
 	_load_last_email_pref()
 	call_deferred("_async_bootstrap")
 
@@ -613,6 +622,23 @@ func _build_auth_screen() -> VBoxContainer:
 	auth_update_button.pressed.connect(_on_update_and_restart_pressed)
 	update_inner.add_child(auth_update_button)
 
+	auth_update_progress_panel = UI_COMPONENTS.panel_card(Vector2(0, 128), false)
+	auth_update_progress_panel.visible = false
+	update_inner.add_child(auth_update_progress_panel)
+	var progress_inner = VBoxContainer.new()
+	progress_inner.add_theme_constant_override("separation", UI_TOKENS.spacing("xs"))
+	auth_update_progress_panel.add_child(progress_inner)
+	auth_update_progress_label = _label("Update progress", -1, "text_secondary")
+	progress_inner.add_child(auth_update_progress_label)
+	auth_update_progress_bar = ProgressBar.new()
+	auth_update_progress_bar.custom_minimum_size = Vector2(0, 24)
+	auth_update_progress_bar.min_value = 0.0
+	auth_update_progress_bar.max_value = 100.0
+	auth_update_progress_bar.value = 0.0
+	progress_inner.add_child(auth_update_progress_bar)
+	auth_update_progress_meta_label = _label(" ", -1, "text_muted")
+	progress_inner.add_child(auth_update_progress_meta_label)
+
 	_apply_auth_mode()
 	_configure_auth_focus_chain()
 	return wrap
@@ -695,37 +721,8 @@ func _build_account_screen() -> VBoxContainer:
 	list_right_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_right_column.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	list_split.add_child(list_right_column)
-
-	var list_preview_card = UI_COMPONENTS.panel_card(Vector2(0, 320), false)
-	list_preview_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_right_column.add_child(list_preview_card)
-	var list_preview_host = Control.new()
-	list_preview_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_preview_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_preview_card.add_child(list_preview_host)
-	character_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
-	if character_preview_texture.has_method("configure"):
-		character_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, false, true, false)
-	character_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	list_preview_host.add_child(character_preview_texture)
-
-	var list_world_inset_shell = PanelContainer.new()
-	list_world_inset_shell.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	list_world_inset_shell.offset_left = -150
-	list_world_inset_shell.offset_top = 10
-	list_world_inset_shell.offset_right = -10
-	list_world_inset_shell.offset_bottom = 118
-	list_preview_host.add_child(list_world_inset_shell)
-	character_preview_world_inset = CHARACTER_PODIUM_PREVIEW_SCENE.new()
-	if character_preview_world_inset.has_method("configure"):
-		character_preview_world_inset.call("configure", Callable(self, "_resolve_character_texture_directional"), true, false, false, false, true)
-	character_preview_world_inset.set_anchors_preset(Control.PRESET_FULL_RECT)
-	list_world_inset_shell.add_child(character_preview_world_inset)
-	if character_preview_texture.has_signal("direction_changed"):
-		character_preview_texture.connect("direction_changed", func(direction: String) -> void:
-			if character_preview_world_inset != null and character_preview_world_inset.has_method("set_direction"):
-				character_preview_world_inset.call("set_direction", direction)
-		)
+	character_preview_texture = null
+	character_preview_world_inset = null
 
 	var details_panel = UI_COMPONENTS.panel_card(Vector2(0, 278), false)
 	details_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -798,50 +795,8 @@ func _build_account_screen() -> VBoxContainer:
 	create_right_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_right_column.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 	create_split.add_child(create_right_column)
-
-	var create_preview_card = UI_COMPONENTS.panel_card(Vector2(0, 310), false)
-	create_preview_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_right_column.add_child(create_preview_card)
-	var create_preview_host = Control.new()
-	create_preview_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_preview_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	create_preview_card.add_child(create_preview_host)
-	create_preview_texture = CHARACTER_PODIUM_PREVIEW_SCENE.new()
-	if create_preview_texture.has_method("configure"):
-		create_preview_texture.call("configure", Callable(self, "_resolve_character_texture_directional"), false, true, false, true, false)
-	create_preview_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	create_preview_host.add_child(create_preview_texture)
-
-	var create_world_inset_shell = PanelContainer.new()
-	var inset_style = StyleBoxFlat.new()
-	inset_style.bg_color = UI_TOKENS.color("panel_bg_deep")
-	inset_style.bg_color.a = 0.74
-	inset_style.border_color = UI_TOKENS.color("panel_border_soft")
-	inset_style.border_width_left = 1
-	inset_style.border_width_top = 1
-	inset_style.border_width_right = 1
-	inset_style.border_width_bottom = 1
-	inset_style.corner_radius_top_left = UI_TOKENS.size("radius")
-	inset_style.corner_radius_top_right = UI_TOKENS.size("radius")
-	inset_style.corner_radius_bottom_left = UI_TOKENS.size("radius")
-	inset_style.corner_radius_bottom_right = UI_TOKENS.size("radius")
-	create_world_inset_shell.add_theme_stylebox_override("panel", inset_style)
-	create_world_inset_shell.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	create_world_inset_shell.offset_left = -188
-	create_world_inset_shell.offset_top = 10
-	create_world_inset_shell.offset_right = -10
-	create_world_inset_shell.offset_bottom = 168
-	create_preview_host.add_child(create_world_inset_shell)
-	create_preview_world_inset = CHARACTER_PODIUM_PREVIEW_SCENE.new()
-	if create_preview_world_inset.has_method("configure"):
-		create_preview_world_inset.call("configure", Callable(self, "_resolve_character_texture_directional"), true, false, false, false, true)
-	create_preview_world_inset.set_anchors_preset(Control.PRESET_FULL_RECT)
-	create_world_inset_shell.add_child(create_preview_world_inset)
-	if create_preview_texture.has_signal("direction_changed"):
-		create_preview_texture.connect("direction_changed", func(direction: String) -> void:
-			if create_preview_world_inset != null and create_preview_world_inset.has_method("set_direction"):
-				create_preview_world_inset.call("set_direction", direction)
-		)
+	create_preview_texture = null
+	create_preview_world_inset = null
 
 	var create_options = UI_COMPONENTS.panel_card(Vector2(320, 0), false)
 	create_options.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -865,24 +820,26 @@ func _build_account_screen() -> VBoxContainer:
 	create_options_inner.add_child(create_sex_option)
 	create_options_inner.add_child(_label("Character Type Lore", -1, "text_secondary"))
 	create_preset_description_label = _label("Select a preset to view its summary.", -1, "text_secondary")
+	create_preset_description_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_preset_description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	create_options_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	create_options_inner.add_child(create_preset_description_label)
-	create_options_inner.add_spacer(true)
+	var create_footer = VBoxContainer.new()
+	create_footer.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
+	create_options_inner.add_child(create_footer)
 	create_status_label = _label(" ", -1, "text_secondary")
 	create_status_label.text = " "
 	create_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	create_options_inner.add_child(create_status_label)
+	create_footer.add_child(create_status_label)
 	create_submit_button = UI_COMPONENTS.button_primary("Create Character", Vector2(0, 42))
 	create_submit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	create_submit_button.pressed.connect(_on_create_character_pressed)
-	create_options_inner.add_child(create_submit_button)
+	create_footer.add_child(create_submit_button)
 	var create_back_button = UI_COMPONENTS.button_secondary("Back to Character List", Vector2(0, 42))
 	create_back_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	create_back_button.pressed.connect(func() -> void:
 		_set_account_view("list")
 	)
-	create_options_inner.add_child(create_back_button)
+	create_footer.add_child(create_back_button)
 
 	_populate_character_options_from_content()
 	_refresh_skill_tree_graphs()
@@ -1639,7 +1596,10 @@ func _refresh_skill_tree_graphs() -> void:
 	var nodes = payload.get("nodes", [])
 	var edges = payload.get("edges", [])
 	if character_skill_tree_graph != null and character_skill_tree_graph.has_method("configure_graph"):
-		character_skill_tree_graph.call("configure_graph", nodes, edges, [])
+		if selected_character_index < 0 or selected_character_index >= characters.size():
+			character_skill_tree_graph.call("configure_graph", [], [], [])
+		else:
+			character_skill_tree_graph.call("configure_graph", nodes, edges, [])
 	if create_skill_tree_graph != null and create_skill_tree_graph.has_method("configure_graph"):
 		create_skill_tree_graph.call("configure_graph", nodes, edges, [])
 
@@ -1856,10 +1816,12 @@ func _set_selected_character(index: int) -> void:
 		selected_character_index = -1
 		_render_character_details(-1)
 		_render_character_rows()
+		_refresh_skill_tree_graphs()
 		return
 	selected_character_index = index
 	_render_character_details(index)
 	_render_character_rows()
+	_refresh_skill_tree_graphs()
 
 func _render_character_rows() -> void:
 	if character_rows_container == null:
@@ -2061,6 +2023,7 @@ func _show_screen(name: String) -> void:
 	footer_status.visible = not in_world
 	if name == "account" and access_token != "":
 		_set_account_view("list", true)
+		call_deferred("_refresh_release_summary_deferred")
 	if name == "auth":
 		call_deferred("_refresh_release_summary_deferred")
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2263,6 +2226,7 @@ func _load_characters() -> void:
 	_refresh_create_character_preview()
 	_render_character_rows()
 	_refresh_character_spawn_override()
+	_refresh_skill_tree_graphs()
 	account_status_label.text = " "
 
 func _refresh_admin_levels_cache() -> void:
@@ -2302,6 +2266,7 @@ func _render_character_details(index: int) -> void:
 		_clear_character_preview(character_preview_world_inset)
 		_set_character_action_controls_enabled(false)
 		_refresh_character_spawn_override()
+		_refresh_skill_tree_graphs()
 		return
 	var row: Dictionary = characters[index]
 	var location_text = _character_location_text(row)
@@ -2319,6 +2284,7 @@ func _render_character_details(index: int) -> void:
 	_set_character_action_controls_enabled(true)
 	_refresh_selected_character_preview()
 	_refresh_character_spawn_override()
+	_refresh_skill_tree_graphs()
 
 func _set_character_action_controls_enabled(enabled: bool) -> void:
 	if character_play_button != null:
@@ -2523,23 +2489,36 @@ func _on_update_and_restart_pressed() -> void:
 	await _refresh_release_summary()
 	var update_needed = bool(release_summary.get("force_update", false)) or bool(release_summary.get("update_available", false)) or bool(release_summary.get("content_update_available", false))
 	if not update_needed:
-		_set_footer_status("Game is up to date.")
+		await _show_info_dialog("Up To Date", "Your game client is already up to date.")
 		_append_log("Update check result: up to date.")
 		return
 	var feed_url = str(release_summary.get("update_feed_url", "")).strip_edges()
 	if feed_url.is_empty():
-		_set_footer_status("Update feed URL is missing.")
+		await _show_info_dialog("Update Unavailable", "Update feed URL is missing.")
 		return
 	var helper_path = _resolve_update_helper_path()
 	if helper_path.is_empty():
-		_set_footer_status("Update helper not found.")
+		await _show_info_dialog("Update Unavailable", "Update helper not found in the install directory.")
 		_append_log("Update helper missing at install root.")
 		return
+	var initial_status = {
+		"status": "launching",
+		"percent": 0,
+		"speed_bps": 0,
+		"downloaded_bytes": 0,
+		"total_bytes": 0,
+		"updated_at": Time.get_datetime_string_from_system(true, true),
+		"message": "Starting update helper...",
+	}
+	_write_json_file(update_status_path, initial_status)
+	_update_auth_progress_from_status(initial_status)
 	var args = PackedStringArray([
 		"--repo",
 		feed_url,
 		"--log-file",
 		_path_join(logs_root_path, "velopack.log"),
+		"--status-file",
+		update_status_path,
 		"--waitpid",
 		str(OS.get_process_id()),
 		"--restart-args",
@@ -2547,13 +2526,93 @@ func _on_update_and_restart_pressed() -> void:
 	])
 	var process_id = OS.create_process(helper_path, args)
 	if process_id <= 0:
-		_set_footer_status("Failed to start update helper.")
+		await _show_info_dialog("Update Failed", "Failed to start update helper.")
 		_append_log("Update helper failed to launch.")
 		return
-	_set_footer_status("Update helper started. Restarting...")
+	update_restart_pending = true
+	_set_auth_controls_enabled(false)
 	_append_log("Update helper launched successfully. pid=" + str(process_id))
-	await _persist_active_character_location()
-	get_tree().quit()
+	_start_update_status_poll()
+	_poll_update_status()
+
+func _start_update_status_poll() -> void:
+	if auth_update_poll_timer != null:
+		return
+	auth_update_poll_timer = Timer.new()
+	auth_update_poll_timer.wait_time = 0.6
+	auth_update_poll_timer.one_shot = false
+	auth_update_poll_timer.autostart = true
+	auth_update_poll_timer.timeout.connect(_poll_update_status)
+	add_child(auth_update_poll_timer)
+	_poll_update_status()
+
+func _poll_update_status() -> void:
+	if update_status_path.is_empty():
+		return
+	var payload = _read_json_file(update_status_path)
+	if not (payload is Dictionary):
+		return
+	var status_payload: Dictionary = payload
+	if status_payload.is_empty():
+		return
+	_update_auth_progress_from_status(status_payload)
+	var status_code = str(status_payload.get("status", "")).strip_edges().to_lower()
+	if update_restart_pending and status_code == "applying":
+		_append_log("Update helper reached applying stage. Closing game client.")
+		update_restart_pending = false
+		await _persist_active_character_location()
+		get_tree().quit()
+
+func _update_auth_progress_from_status(status_payload: Dictionary) -> void:
+	if auth_update_progress_panel == null or auth_update_progress_bar == null:
+		return
+	var status_code = str(status_payload.get("status", "idle")).strip_edges().to_lower()
+	if status_code in ["no_update", "ready", "error"]:
+		update_restart_pending = false
+		_set_auth_controls_enabled(true)
+	var is_visible = status_code in ["launching", "checking", "downloading", "applying", "downloaded", "error"]
+	auth_update_progress_panel.visible = is_visible
+	if not is_visible:
+		return
+	var percent = clampi(int(status_payload.get("percent", 0)), 0, 100)
+	var speed_bps = max(0, int(status_payload.get("speed_bps", 0)))
+	var downloaded_bytes = max(0, int(status_payload.get("downloaded_bytes", 0)))
+	var total_bytes = max(0, int(status_payload.get("total_bytes", 0)))
+	var label_map = {
+		"launching": "Launching updater...",
+		"checking": "Checking for updates...",
+		"downloading": "Downloading update...",
+		"downloaded": "Download complete.",
+		"applying": "Applying update...",
+		"ready": "Update ready.",
+		"error": "Update failed.",
+	}
+	var base_label = str(label_map.get(status_code, "Update status"))
+	var message = str(status_payload.get("message", "")).strip_edges()
+	auth_update_progress_label.text = base_label if message.is_empty() else base_label + " " + message
+	auth_update_progress_bar.value = float(percent)
+	var total_text = _format_bytes(total_bytes) if total_bytes > 0 else "unknown"
+	var speed_text = _format_bytes(speed_bps) + "/s" if speed_bps > 0 else "..."
+	auth_update_progress_meta_label.text = "%d%%  %s / %s  %s" % [percent, _format_bytes(downloaded_bytes), total_text, speed_text]
+
+func _set_auth_controls_enabled(enabled: bool) -> void:
+	if auth_submit_button != null:
+		auth_submit_button.disabled = not enabled
+	if auth_toggle_button != null:
+		auth_toggle_button.disabled = not enabled
+	if auth_update_button != null:
+		auth_update_button.disabled = not enabled
+
+func _format_bytes(byte_count: int) -> String:
+	var value = float(max(0, byte_count))
+	var units = ["B", "KB", "MB", "GB", "TB"]
+	var unit_index = 0
+	while value >= 1024.0 and unit_index < units.size() - 1:
+		value /= 1024.0
+		unit_index += 1
+	if unit_index == 0:
+		return "%d %s" % [int(round(value)), units[unit_index]]
+	return "%.1f %s" % [value, units[unit_index]]
 
 func _reload_log_view() -> void:
 	var file_name = log_file_option.get_item_text(log_file_option.selected)
@@ -2667,6 +2726,43 @@ func _show_confirm_dialog(title: String, text_value: String) -> bool:
 	dialog.hide()
 	dialog.queue_free()
 	return accepted
+
+func _show_info_dialog(title: String, text_value: String) -> void:
+	var dialog = PopupPanel.new()
+	dialog.theme = ui_theme
+	add_child(dialog)
+
+	var panel = UI_COMPONENTS.panel_card(Vector2(560, 220), false)
+	panel.custom_minimum_size = Vector2(560, 220)
+	dialog.add_child(panel)
+
+	var root = VBoxContainer.new()
+	root.add_theme_constant_override("separation", UI_TOKENS.spacing("md"))
+	panel.add_child(root)
+
+	var title_label = _label(title, 24)
+	root.add_child(title_label)
+
+	var body_label = _label(text_value, -1, "text_secondary")
+	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(body_label)
+
+	var ok_button = UI_COMPONENTS.button_primary("OK", Vector2(140, 42))
+	ok_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	root.add_child(ok_button)
+
+	var done = false
+	ok_button.pressed.connect(func() -> void:
+		done = true
+	)
+	dialog.popup_hide.connect(func() -> void:
+		done = true
+	)
+	dialog.popup_centered(Vector2i(520, 180))
+	while not done:
+		await get_tree().process_frame
+	dialog.hide()
+	dialog.queue_free()
 
 func _refresh_settings_mfa_status() -> void:
 	if access_token.is_empty():
@@ -3308,6 +3404,8 @@ func _refresh_release_summary() -> void:
 		if notes.is_empty():
 			notes = str(release_summary.get("latest_build_release_notes", "")).strip_edges()
 		if notes.is_empty():
+			notes = str(release_summary.get("latest_content_note", "")).strip_edges()
+		if notes.is_empty():
 			notes = local_notes
 		if notes.is_empty():
 			notes = "No release notes available."
@@ -3605,6 +3703,8 @@ func _friendly_error(response: Dictionary) -> String:
 	if code == 409 and register_mode:
 		return "This account already exists."
 	if code == 426:
+		if error_code == "latest_build_required":
+			return "A newer build is required. Click Update & Restart to continue."
 		if error_code == "force_update":
 			return "A required update is available. Click Update & Restart to continue."
 		if error_code == "content_contract_mismatch":
@@ -3653,11 +3753,38 @@ func _resolve_paths() -> void:
 	if install_root_path.is_empty():
 		install_root_path = ProjectSettings.globalize_path("user://")
 	logs_root_path = _path_join(install_root_path, "logs")
-	prefs_path = _path_join(install_root_path, "launcher_prefs.properties")
+	var user_root = ProjectSettings.globalize_path("user://")
+	DirAccess.make_dir_recursive_absolute(user_root)
+	prefs_path = _path_join(user_root, "launcher_prefs.properties")
+	legacy_prefs_path = _path_join(install_root_path, "launcher_prefs.properties")
 	level_draft_path = _path_join(install_root_path, "level_editor_local_draft.json")
 	asset_draft_path = _path_join(install_root_path, "asset_editor_local_draft.json")
 	runtime_cache_path = _path_join(install_root_path, "runtime_gameplay_cache.json")
+	update_status_path = _path_join(logs_root_path, "update_status.json")
 	DirAccess.make_dir_recursive_absolute(logs_root_path)
+	_migrate_legacy_preferences_if_needed()
+
+func _migrate_legacy_preferences_if_needed() -> void:
+	if prefs_path.is_empty():
+		return
+	if FileAccess.file_exists(prefs_path):
+		return
+	if legacy_prefs_path.is_empty() or not FileAccess.file_exists(legacy_prefs_path):
+		return
+	var source_file = FileAccess.open(legacy_prefs_path, FileAccess.READ)
+	if source_file == null:
+		return
+	var data = source_file.get_as_text()
+	source_file.close()
+	if data.is_empty():
+		return
+	DirAccess.make_dir_recursive_absolute(prefs_path.get_base_dir())
+	var target_file = FileAccess.open(prefs_path, FileAccess.WRITE)
+	if target_file == null:
+		return
+	target_file.store_string(data)
+	target_file.close()
+	_append_log("Migrated launcher preferences to stable user profile path.")
 
 func _apply_window_icon() -> void:
 	var candidates: Array[String] = []
@@ -3745,6 +3872,7 @@ func _read_preferences() -> Dictionary:
 func _write_preferences(prefs: Dictionary) -> void:
 	if prefs_path.is_empty():
 		return
+	DirAccess.make_dir_recursive_absolute(prefs_path.get_base_dir())
 	var file = FileAccess.open(prefs_path, FileAccess.WRITE)
 	if file == null:
 		return
@@ -3772,6 +3900,7 @@ func _read_json_file(path: String) -> Variant:
 func _write_json_file(path: String, payload: Variant) -> void:
 	if path.is_empty():
 		return
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return
