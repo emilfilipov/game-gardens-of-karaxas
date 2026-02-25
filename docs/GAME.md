@@ -77,6 +77,8 @@ Current direction:
 - Client can trigger update from UI.
 - Login requires an up-to-date build (`client_version` must match latest published build).
 - Update UX includes themed in-client update status with persisted updater state.
+- Login release notes surface prioritizes packaged notes/version metadata from the active installed build to avoid stale build-note display after updates.
+- Login release notes now use a hybrid source: backend per-build notes first, packaged local notes only as fallback.
 
 ## Out of Scope (Current Pivot Stage)
 - Full economy/trade implementation.

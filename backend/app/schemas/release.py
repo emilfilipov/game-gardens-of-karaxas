@@ -17,6 +17,7 @@ class ReleaseSummaryResponse(BaseModel):
     update_feed_url: str | None
     latest_build_release_notes: str
     latest_user_facing_notes: str
+    client_user_facing_notes: str
     client_build_release_notes: str
     latest_content_note: str
     client_content_note: str

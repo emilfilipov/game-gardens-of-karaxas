@@ -47,6 +47,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 ### UI Direction Baseline
 - Tokenized UI palette moved to lighter visual language in `ui_tokens.gd`.
 - Account shell composition supports graph-first center content and compact right-side preview/details.
+- Button hover feedback is highlight-only (no hover scale tween/growth).
 
 ## Backend Responsibilities
 - Auth/session lifecycle (register/login/refresh/logout + MFA)
@@ -56,6 +57,7 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Runtime publish/version operations under `/content/*`
 - Designer publish orchestration under `/designer/publish` (backend-mediated GitHub commit + workflow dispatch)
 - Gameplay authority (`/gameplay/resolve-action`)
+- Release notes authority for builds via `release_records` (served through `/release/summary`)
 
 ## Tooling Split
 - Runtime game client no longer exposes editor navigation in production menu flow.
@@ -75,6 +77,8 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Game client update flow writes/reads updater status at `<install_root>/logs/update_status.json`.
 - Update helper publishes stage + progress metrics (`percent`, `speed_bps`, `downloaded_bytes`, `total_bytes`).
 - Game auth UI renders themed progress state and can resume status display on relaunch.
+- Release notes/version metadata now resolve from the active executable payload first, then install-root fallbacks, to prevent stale notes/version labels after updates.
+- Hybrid notes contract: login surfaces fetch per-build notes from backend (`client_user_facing_notes` / `client_build_release_notes`) and only fall back to packaged local files when backend notes are unavailable.
 
 ## Packaging Contract
 - One installer payload now includes:

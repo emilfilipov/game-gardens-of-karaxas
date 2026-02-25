@@ -3400,7 +3400,11 @@ func _refresh_release_summary() -> void:
 	var local_notes = _load_local_release_notes()
 	if response.get("ok", false):
 		release_summary = response.get("json", {})
-		var notes = local_notes
+		var notes = str(release_summary.get("client_user_facing_notes", "")).strip_edges()
+		if notes.is_empty():
+			notes = str(release_summary.get("client_build_release_notes", "")).strip_edges()
+		if notes.is_empty():
+			notes = local_notes
 		if notes.is_empty():
 			notes = str(release_summary.get("latest_user_facing_notes", "")).strip_edges()
 		if notes.is_empty():
@@ -3408,10 +3412,15 @@ func _refresh_release_summary() -> void:
 		if notes.is_empty():
 			notes = str(release_summary.get("latest_content_note", "")).strip_edges()
 		if notes.is_empty():
-			notes = "No release notes available."
-		var build_version = str(release_summary.get("latest_version", client_version))
-		var content_version = str(release_summary.get("latest_content_version_key", client_content_version_key))
-		auth_release_notes.text = "[b]Build:[/b] %s\n[b]Content:[/b] %s\n\n%s" % [build_version, content_version, notes]
+			notes = "No release notes available for your build."
+		var build_version = client_version
+		var content_version = client_content_version_key
+		var latest_version = str(release_summary.get("latest_version", build_version))
+		var latest_content_version = str(release_summary.get("latest_content_version_key", content_version))
+		var header = "[b]Build:[/b] %s\n[b]Content:[/b] %s" % [build_version, content_version]
+		if build_version != latest_version or content_version != latest_content_version:
+			header += "\n[b]Latest:[/b] %s / %s" % [latest_version, latest_content_version]
+		auth_release_notes.text = "%s\n\n%s" % [header, notes]
 	else:
 		release_summary = {}
 		if local_notes.is_empty():
@@ -3421,10 +3430,10 @@ func _refresh_release_summary() -> void:
 
 func _load_local_release_notes() -> String:
 	var candidates: Array[String] = []
-	candidates.append(_path_join(install_root_path, "patch_notes.md"))
-	candidates.append(_path_join(install_root_path, "release_notes.md"))
 	candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "patch_notes.md"))
 	candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "release_notes.md"))
+	candidates.append(_path_join(install_root_path, "patch_notes.md"))
+	candidates.append(_path_join(install_root_path, "release_notes.md"))
 	for path in candidates:
 		if path.is_empty() or not FileAccess.file_exists(path):
 			continue
@@ -3810,20 +3819,26 @@ func _resolve_update_helper_path() -> String:
 	return ""
 
 func _load_client_version() -> void:
-	var meta_path = _path_join(install_root_path, "patch_notes_meta.txt")
-	if not FileAccess.file_exists(meta_path):
-		footer_version_text = "v" + client_version
-		return
-	var file = FileAccess.open(meta_path, FileAccess.READ)
-	if file == null:
-		footer_version_text = "v" + client_version
-		return
-	while not file.eof_reached():
-		var line = file.get_line().strip_edges()
-		if line.begins_with("version="):
-			client_version = line.trim_prefix("version=").strip_edges()
+	var meta_candidates: Array[String] = []
+	meta_candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "patch_notes_meta.txt"))
+	meta_candidates.append(_path_join(install_root_path, "patch_notes_meta.txt"))
+	var resolved_version = ""
+	for meta_path in meta_candidates:
+		if not FileAccess.file_exists(meta_path):
+			continue
+		var file = FileAccess.open(meta_path, FileAccess.READ)
+		if file == null:
+			continue
+		while not file.eof_reached():
+			var line = file.get_line().strip_edges()
+			if line.begins_with("version="):
+				resolved_version = line.trim_prefix("version=").strip_edges()
+				break
+		file.close()
+		if not resolved_version.is_empty():
 			break
-	file.close()
+	if not resolved_version.is_empty():
+		client_version = resolved_version
 	footer_version_text = "v" + client_version
 
 func _path_join(a: String, b: String) -> String:

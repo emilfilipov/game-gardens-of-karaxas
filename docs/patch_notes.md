@@ -1,2 +1,4 @@
-- Replaced the game icon set with a transparent-background `COI` mark in the same light-blue tone used by the client UI theme.
-- Regenerated and synced icon assets across launcher, game client, and installer wrapper formats (`.png` / `.ico`).
+- Removed button hover growth so UI buttons no longer scale up on hover; hover feedback is now highlight-only.
+- Added hybrid release-note sourcing on login: backend per-build notes are now primary (`client_user_facing_notes` / `client_build_release_notes`) with local packaged notes as fallback.
+- Fixed release notes/version resolution to prioritize files from the active executable payload before install-root fallbacks, preventing stale notes from older installs.
+- Fixed login release notes header to show installed build/content and the latest available build/content when they differ.

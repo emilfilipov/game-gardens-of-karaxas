@@ -4340,15 +4340,15 @@ object LauncherMain {
             }, BorderLayout.SOUTH)
         }
         fun renderAuthReleaseNotes() {
-            val local = renderPatchNotes().trim()
-            if (local.isNotBlank()) {
-                authPatchNotesPane.text = local
-                scrollToTop(authPatchNotesPane, authPatchNotes)
-                return
-            }
             val remote = remoteAuthReleaseNotesMarkdown?.trim().orEmpty()
             if (remote.isNotBlank()) {
                 authPatchNotesPane.text = markdownToHtml(extractBulletOnlyPatchNotes(remote))
+                scrollToTop(authPatchNotesPane, authPatchNotes)
+                return
+            }
+            val local = renderPatchNotes().trim()
+            if (local.isNotBlank()) {
+                authPatchNotesPane.text = local
                 scrollToTop(authPatchNotesPane, authPatchNotes)
                 return
             }
@@ -4356,43 +4356,67 @@ object LauncherMain {
         }
 
         fun composeAuthReleaseNotes(summary: ReleaseSummaryView): String {
-            val userNotes = summary.latestUserFacingNotes.trim()
-            val buildNotes = summary.latestBuildReleaseNotes.trim()
+            val localBuildNotes = summary.clientUserFacingNotes.trim().ifBlank { summary.clientBuildReleaseNotes.trim() }
+            val latestUserNotes = summary.latestUserFacingNotes.trim()
+            val latestBuildNotes = summary.latestBuildReleaseNotes.trim()
             val contentNote = summary.latestContentNote.trim()
-            val clientBuildNotes = summary.clientBuildReleaseNotes.trim()
             return buildString {
-                appendLine("- Build ${summary.latestVersion}")
-                if (summary.latestContentVersionKey.isNotBlank()) {
-                    appendLine("- Content ${summary.latestContentVersionKey}")
+                appendLine("- Your Build ${summary.clientVersion}")
+                if (summary.clientContentVersionKey.isNotBlank()) {
+                    appendLine("- Your Content ${summary.clientContentVersionKey}")
                 }
-                if (userNotes.isNotBlank()) {
-                    userNotes.lineSequence()
+                if (localBuildNotes.isNotBlank()) {
+                    localBuildNotes.lineSequence()
                         .map { it.trim() }
                         .filter { it.isNotBlank() }
                         .forEach { line ->
                             if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
                         }
                 }
-                if (contentNote.isNotBlank()) {
-                    appendLine("- Content Notes: $contentNote")
+                if (summary.clientVersion != summary.latestVersion || summary.clientContentVersionKey != summary.latestContentVersionKey) {
+                    appendLine("- Latest Build ${summary.latestVersion}")
+                    if (summary.latestContentVersionKey.isNotBlank()) {
+                        appendLine("- Latest Content ${summary.latestContentVersionKey}")
+                    }
+                    if (latestUserNotes.isNotBlank()) {
+                        latestUserNotes.lineSequence()
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                            .forEach { line ->
+                                if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
+                            }
+                    }
+                    if (contentNote.isNotBlank()) {
+                        appendLine("- Latest Content Notes: $contentNote")
+                    }
+                    if (latestBuildNotes.isNotBlank()) {
+                        appendLine("- Latest Build Notes:")
+                        latestBuildNotes.lineSequence()
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                            .forEach { line ->
+                                if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
+                            }
+                    }
+                } else if (localBuildNotes.isBlank()) {
+                    if (latestUserNotes.isNotBlank()) {
+                        latestUserNotes.lineSequence()
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                            .forEach { line ->
+                                if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
+                            }
+                    } else if (latestBuildNotes.isNotBlank()) {
+                        latestBuildNotes.lineSequence()
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                            .forEach { line ->
+                                if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
+                            }
+                    }
                 }
-                if (summary.clientVersion != summary.latestVersion && clientBuildNotes.isNotBlank()) {
-                    appendLine("- Your Build (${summary.clientVersion}):")
-                    clientBuildNotes.lineSequence()
-                        .map { it.trim() }
-                        .filter { it.isNotBlank() }
-                        .forEach { line ->
-                            if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
-                        }
-                }
-                if (buildNotes.isNotBlank()) {
-                    appendLine("- Build Notes:")
-                    buildNotes.lineSequence()
-                        .map { it.trim() }
-                        .filter { it.isNotBlank() }
-                        .forEach { line ->
-                            if (line.startsWith("- ")) appendLine(line) else appendLine("- $line")
-                        }
+                if (localBuildNotes.isBlank() && latestBuildNotes.isBlank() && latestUserNotes.isBlank()) {
+                    appendLine("- Release notes unavailable.")
                 }
             }
         }
@@ -7420,14 +7444,17 @@ object LauncherMain {
     private fun loadPatchNotesSource(): PatchNotesSource {
         val overridePath = System.getenv("GOK_PATCH_NOTES_PATH")
             ?: System.getenv("GOK_RELEASE_NOTES_PATH")
+        val runtimePayload = runtimePayloadRoot()
         val payload = payloadRoot()
         val root = installRoot(payload)
-        val candidates = listOf(
+        val candidates = listOfNotNull(
+            runtimePayload?.resolve("patch_notes.md"),
+            runtimePayload?.resolve("release_notes.md"),
             payload.resolve("patch_notes.md"),
-            root.resolve("patch_notes.md"),
             payload.resolve("release_notes.md"),
+            root.resolve("patch_notes.md"),
             root.resolve("release_notes.md")
-        )
+        ).distinct()
         val notesPath = when {
             !overridePath.isNullOrBlank() -> Paths.get(overridePath)
             else -> candidates.firstOrNull { Files.exists(it) }
@@ -7448,12 +7475,27 @@ object LauncherMain {
     }
 
     private fun loadPatchNotesMeta(notesPath: Path?, markdown: String): PatchNotesMeta {
+        val runtimePayload = runtimePayloadRoot()
         val payload = payloadRoot()
         val root = installRoot(payload)
-        var version = readMetaValue(payload.resolve("patch_notes_meta.txt"), "version")
-            ?: readMetaValue(root.resolve("patch_notes_meta.txt"), "version")
-        var date = readMetaValue(payload.resolve("patch_notes_meta.txt"), "date")
-            ?: readMetaValue(root.resolve("patch_notes_meta.txt"), "date")
+        val metaCandidates = listOfNotNull(
+            runtimePayload?.resolve("patch_notes_meta.txt"),
+            payload.resolve("patch_notes_meta.txt"),
+            root.resolve("patch_notes_meta.txt")
+        ).distinct()
+        var version: String? = null
+        var date: String? = null
+        for (metaPath in metaCandidates) {
+            if (version == null) {
+                version = readMetaValue(metaPath, "version")
+            }
+            if (date == null) {
+                date = readMetaValue(metaPath, "date")
+            }
+            if (version != null && date != null) {
+                break
+            }
+        }
 
         if (version == null) {
             val regex = Regex("^#\\s+.*?v([0-9A-Za-z._-]+)\\s*$")
@@ -7490,6 +7532,17 @@ object LauncherMain {
             }
         }
         return PatchNotesMeta(version = version, date = date)
+    }
+
+    private fun runtimePayloadRoot(): Path? {
+        val codeSource = LauncherMain::class.java.protectionDomain.codeSource?.location ?: return null
+        val jarPath = try {
+            Paths.get(codeSource.toURI()).toAbsolutePath().normalize()
+        } catch (_: Exception) {
+            return null
+        }
+        val parent = jarPath.parent ?: return null
+        return parent.toAbsolutePath().normalize()
     }
 
     private fun readMetaValue(metaPath: Path, key: String): String? {

@@ -50,6 +50,7 @@ def release_summary(
         update_feed_url=decision.update_feed_url,
         latest_build_release_notes=(latest_record.build_release_notes if latest_record else ""),
         latest_user_facing_notes=(latest_record.user_facing_notes if latest_record else ""),
+        client_user_facing_notes=(client_record.user_facing_notes if client_record else ""),
         client_build_release_notes=(client_record.build_release_notes if client_record else ""),
         latest_content_note=_content_note_by_version_key(db, decision.latest_content_version_key),
         client_content_note=_content_note_by_version_key(db, decision.client_content_version_key),

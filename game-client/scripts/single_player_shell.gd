@@ -1951,16 +1951,25 @@ func _apply_world_equipment_modifiers() -> void:
 
 func _refresh_release_notes_preview() -> void:
 	var lines: Array[String] = []
-	var notes_path = _path_join(install_root_path, "patch_notes.md")
-	if FileAccess.file_exists(notes_path):
+	var note_candidates: Array[String] = []
+	note_candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "patch_notes.md"))
+	note_candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "release_notes.md"))
+	note_candidates.append(_path_join(install_root_path, "patch_notes.md"))
+	note_candidates.append(_path_join(install_root_path, "release_notes.md"))
+	for notes_path in note_candidates:
+		if not FileAccess.file_exists(notes_path):
+			continue
 		var file = FileAccess.open(notes_path, FileAccess.READ)
-		if file != null:
-			var content = file.get_as_text()
-			file.close()
-			for line in content.split("\n"):
-				var cleaned = line.strip_edges()
-				if not cleaned.is_empty():
-					lines.append(cleaned)
+		if file == null:
+			continue
+		var content = file.get_as_text()
+		file.close()
+		for line in content.split("\n"):
+			var cleaned = line.strip_edges()
+			if not cleaned.is_empty():
+				lines.append(cleaned)
+		if not lines.is_empty():
+			break
 	if lines.is_empty():
 		lines.append("No release notes available for this build.")
 	var rendered = "\n".join(lines.slice(0, mini(lines.size(), 20)))
@@ -2936,16 +2945,26 @@ func _resolve_update_helper_path() -> String:
 	return ""
 
 func _load_client_version() -> void:
-	var meta_path = _path_join(install_root_path, "patch_notes_meta.txt")
-	if FileAccess.file_exists(meta_path):
+	var meta_candidates: Array[String] = []
+	meta_candidates.append(_path_join(OS.get_executable_path().get_base_dir(), "patch_notes_meta.txt"))
+	meta_candidates.append(_path_join(install_root_path, "patch_notes_meta.txt"))
+	var resolved_version = ""
+	for meta_path in meta_candidates:
+		if not FileAccess.file_exists(meta_path):
+			continue
 		var file = FileAccess.open(meta_path, FileAccess.READ)
-		if file != null:
-			while not file.eof_reached():
-				var line = file.get_line().strip_edges()
-				if line.begins_with("version="):
-					client_version = line.trim_prefix("version=").strip_edges()
-					break
-			file.close()
+		if file == null:
+			continue
+		while not file.eof_reached():
+			var line = file.get_line().strip_edges()
+			if line.begins_with("version="):
+				resolved_version = line.trim_prefix("version=").strip_edges()
+				break
+		file.close()
+		if not resolved_version.is_empty():
+			break
+	if not resolved_version.is_empty():
+		client_version = resolved_version
 	footer_version_text = "v" + client_version
 
 func _apply_default_window_mode() -> void:
