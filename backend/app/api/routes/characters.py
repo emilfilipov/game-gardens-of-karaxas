@@ -48,7 +48,7 @@ APPEARANCE_OPTION_KEYS = (
 WORLD_TILE_SIZE = 32
 WORLD_TILE_OFFSET = 16
 DEFAULT_CAMERA_PROFILE_KEY = "arpg_poe_baseline"
-DEFAULT_SCENE_VARIANT_HINT = "expedition"
+DEFAULT_SCENE_VARIANT_HINT = "arena_flat_grass"
 
 
 def _xp_per_level(db: Session) -> int:

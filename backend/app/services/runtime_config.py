@@ -48,7 +48,7 @@ def _fallback_domains() -> dict[str, dict]:
             "schema_version": 1,
             "config_key": "runtime_gameplay_v1",
             "version": 1,
-            "title": "Embedded fallback runtime config",
+            "title": "Plompers Arena Inc. embedded fallback runtime config",
         },
         "character_options": {
             "point_budget": 10,
@@ -60,9 +60,9 @@ def _fallback_domains() -> dict[str, dict]:
             "entries": [
                 {
                     "key": "sellsword",
-                    "label": "Sellsword",
-                    "description": "Hardened sword-for-hire template.",
-                    "appearance_key": "human_male",
+                    "label": "Plomper",
+                    "description": "High-bounce arena sphere template.",
+                    "appearance_key": "plomper_ball",
                     "race": "Human",
                     "background": "Drifter",
                     "affiliation": "Unaffiliated",
@@ -97,9 +97,11 @@ def _fallback_domains() -> dict[str, dict]:
         "runtime_client": {
             "world_renderer": "3d",
             "camera_profile_key": "arpg_poe_baseline",
+            "scene_variant_hint": "arena_flat_grass",
         },
         "world_3d": {
             "camera_profile_key": "arpg_poe_baseline",
+            "scene_variant_hint": "arena_flat_grass",
         },
         "combat": {
             "resource_pool": "mana",

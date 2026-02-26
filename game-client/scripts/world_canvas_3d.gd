@@ -8,9 +8,6 @@ signal quest_event(event: Dictionary)
 signal npc_interacted(npc: Dictionary)
 
 const SELLSWORD_FACTORY = preload("res://scripts/sellsword_3d_factory.gd")
-const GROUND_TILE_SCENE = preload("res://scenes/environment/ground_tile_stone_3d.tscn")
-const FOLIAGE_GRASS_SCENE = preload("res://scenes/environment/foliage_grass_a_3d.tscn")
-const FOLIAGE_TREE_SCENE = preload("res://scenes/environment/foliage_tree_dead_3d.tscn")
 
 const GRID_UNIT_PIXELS: float = 32.0
 const DEFAULT_PLAYER_SPEED_UNITS: float = 4.2
@@ -23,6 +20,13 @@ const CAMERA_YAW_DEG: float = -45.0
 const CAMERA_FOLLOW_SMOOTH: float = 6.0
 const CAMERA_LOOK_AHEAD: float = 1.45
 const DEFAULT_CAMERA_PROFILE_KEY: String = "arpg_poe_baseline"
+
+const GRASS_REVEAL_RADIUS: float = 0.90
+const GROUND_REVEAL_STEP: float = 0.38
+const WALL_REVEAL_INTERVAL: float = 0.08
+const MAX_GROUND_REVEALS: int = 180
+const MAX_WALL_REVEALS: int = 90
+const DEFAULT_SCENE_VARIANT_HINT: String = "arena_flat_grass"
 
 var world_width_tiles: int = 80
 var world_height_tiles: int = 48
@@ -49,6 +53,9 @@ var _world_root: Node3D
 var _terrain_root: Node3D
 var _foliage_root: Node3D
 var _object_root: Node3D
+var _reveal_root: Node3D
+var _ground_reveal_root: Node3D
+var _wall_reveal_root: Node3D
 var _camera_rig: Node3D
 var _camera_pivot: Node3D
 var _camera: Camera3D
@@ -58,11 +65,20 @@ var _navigation_region: NavigationRegion3D
 
 var _player_position: Vector3 = Vector3(2.0, 0.0, 2.0)
 var _target_camera_position: Vector3 = Vector3.ZERO
-var _player_appearance_key: String = "human_male"
+var _player_appearance_key: String = "plomper_ball"
 var _player_animation_state: String = "idle"
 var _camera_profile_key: String = DEFAULT_CAMERA_PROFILE_KEY
 var _map_scale: Dictionary = {}
-var _scene_variant_hint: String = ""
+var _scene_variant_hint: String = DEFAULT_SCENE_VARIANT_HINT
+
+var _grass_tufts: Array[Node3D] = []
+var _revealed_grass: Dictionary = {}
+var _wall_segments: Array[MeshInstance3D] = []
+var _ground_reveals: Array[Node3D] = []
+var _wall_reveals: Array[Node3D] = []
+var _last_ground_reveal_position: Vector3 = Vector3.ZERO
+var _has_ground_reveal_position: bool = false
+var _wall_reveal_timer: float = 0.0
 
 func _ready() -> void:
 	stretch = true
@@ -86,24 +102,24 @@ func _build_scene() -> void:
 	var env = WorldEnvironment.new()
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.05, 0.06, 0.08)
-	environment.ambient_light_color = Color(0.56, 0.57, 0.58)
-	environment.ambient_light_energy = 0.82
+	environment.background_color = Color(0.03, 0.03, 0.03)
+	environment.ambient_light_color = Color(0.52, 0.52, 0.52)
+	environment.ambient_light_energy = 0.86
 	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.environment = environment
 	_world_root.add_child(env)
 
 	var sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48.0, 30.0, 0.0)
-	sun.light_color = Color(1.0, 0.95, 0.83)
-	sun.light_energy = 1.6
+	sun.light_color = Color(1.0, 1.0, 1.0)
+	sun.light_energy = 1.65
 	sun.shadow_enabled = true
 	_world_root.add_child(sun)
 
 	var fill = OmniLight3D.new()
 	fill.position = Vector3(-6.0, 4.0, -6.0)
-	fill.light_color = Color(0.44, 0.50, 0.62)
-	fill.light_energy = 0.36
+	fill.light_color = Color(0.74, 0.74, 0.74)
+	fill.light_energy = 0.40
 	fill.omni_range = 18.0
 	_world_root.add_child(fill)
 
@@ -118,6 +134,18 @@ func _build_scene() -> void:
 	_object_root = Node3D.new()
 	_object_root.name = "Objects"
 	_world_root.add_child(_object_root)
+
+	_reveal_root = Node3D.new()
+	_reveal_root.name = "RevealRoot"
+	_world_root.add_child(_reveal_root)
+
+	_ground_reveal_root = Node3D.new()
+	_ground_reveal_root.name = "GroundReveals"
+	_reveal_root.add_child(_ground_reveal_root)
+
+	_wall_reveal_root = Node3D.new()
+	_wall_reveal_root.name = "WallReveals"
+	_reveal_root.add_child(_wall_reveal_root)
 
 	_navigation_region = NavigationRegion3D.new()
 	_navigation_region.name = "NavRegion"
@@ -162,14 +190,47 @@ func _clear_children(node: Node) -> void:
 	for child in node.get_children():
 		child.queue_free()
 
+func _to_grayscale(color_value: Color) -> Color:
+	var luma = color_value.r * 0.299 + color_value.g * 0.587 + color_value.b * 0.114
+	return Color(luma, luma, luma, color_value.a)
+
+func _collect_mesh_instances(root: Node, output: Array[MeshInstance3D]) -> void:
+	if root is MeshInstance3D:
+		output.append(root as MeshInstance3D)
+	for child in root.get_children():
+		_collect_mesh_instances(child, output)
+
+func _monochrome_material_for(source_material: Material) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.roughness = 0.88
+	material.metallic = 0.0
+	material.albedo_color = Color(0.55, 0.55, 0.55, 1.0)
+	if source_material is BaseMaterial3D:
+		var base := source_material as BaseMaterial3D
+		material.roughness = base.roughness
+		material.metallic = base.metallic
+		material.albedo_color = _to_grayscale(base.albedo_color)
+	return material
+
+func _apply_monochrome_materials(root: Node) -> void:
+	var meshes: Array[MeshInstance3D] = []
+	_collect_mesh_instances(root, meshes)
+	for mesh_instance in meshes:
+		var source: Material = mesh_instance.material_override
+		if source == null and mesh_instance.mesh != null and mesh_instance.mesh.get_surface_count() > 0:
+			source = mesh_instance.mesh.surface_get_material(0)
+		mesh_instance.material_override = _monochrome_material_for(source)
+
 func _set_player_model(appearance_key: String) -> void:
-	_player_appearance_key = appearance_key.strip_edges().to_lower()
-	if _player_appearance_key.is_empty():
-		_player_appearance_key = "human_male"
+	var requested = appearance_key.strip_edges().to_lower()
+	if requested.is_empty() or not requested.begins_with("plomper"):
+		requested = "plomper_ball"
+	_player_appearance_key = requested
 	if _player_model != null:
 		_player_model.queue_free()
 		_player_model = null
 	_player_model = SELLSWORD_FACTORY.create_model(_player_appearance_key)
+	_apply_monochrome_materials(_player_model)
 	_player_root.add_child(_player_model)
 	_set_player_animation("idle", true)
 
@@ -184,25 +245,205 @@ func _set_player_animation(state: String, force: bool = false) -> void:
 	_player_animation_state = normalized
 	SELSWORD_FACTORY.play_animation(_player_model, _player_animation_state)
 
+func _wall_material() -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.36, 0.36, 0.36)
+	mat.roughness = 0.95
+	mat.metallic = 0.0
+	return mat
+
+func _wall_revealed_material() -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.95, 0.53, 0.28)
+	mat.roughness = 0.78
+	mat.metallic = 0.0
+	return mat
+
+func _grass_material(revealed: bool) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	if revealed:
+		mat.albedo_color = Color(0.18, 0.62, 0.24)
+		mat.roughness = 0.84
+	else:
+		mat.albedo_color = Color(0.50, 0.50, 0.50)
+		mat.roughness = 0.88
+	mat.metallic = 0.0
+	return mat
+
+func _spawn_arena_walls() -> void:
+	_wall_segments.clear()
+	var wall_root = Node3D.new()
+	wall_root.name = "BoundaryWalls"
+	_object_root.add_child(wall_root)
+
+	var wall_mesh := BoxMesh.new()
+	wall_mesh.size = Vector3(0.45, 0.95, 1.0)
+	var wall_mat = _wall_material()
+
+	var max_x = float(world_width_tiles)
+	var max_z = float(world_height_tiles)
+
+	for z_idx in range(0, world_height_tiles + 1, 2):
+		var z = float(z_idx)
+		var west = MeshInstance3D.new()
+		west.mesh = wall_mesh
+		west.material_override = wall_mat
+		west.position = Vector3(0.0, 0.48, z)
+		wall_root.add_child(west)
+		_wall_segments.append(west)
+
+		var east = MeshInstance3D.new()
+		east.mesh = wall_mesh
+		east.material_override = wall_mat
+		east.position = Vector3(max_x, 0.48, z)
+		wall_root.add_child(east)
+		_wall_segments.append(east)
+
+	for x_idx in range(0, world_width_tiles + 1, 2):
+		var x = float(x_idx)
+		var north = MeshInstance3D.new()
+		north.mesh = wall_mesh
+		north.material_override = wall_mat
+		north.rotation_degrees = Vector3(0.0, 90.0, 0.0)
+		north.position = Vector3(x, 0.48, 0.0)
+		wall_root.add_child(north)
+		_wall_segments.append(north)
+
+		var south = MeshInstance3D.new()
+		south.mesh = wall_mesh
+		south.material_override = wall_mat
+		south.rotation_degrees = Vector3(0.0, 90.0, 0.0)
+		south.position = Vector3(x, 0.48, max_z)
+		wall_root.add_child(south)
+		_wall_segments.append(south)
+
+func _register_grass_tuft(tuft: Node3D) -> void:
+	_grass_tufts.append(tuft)
+	_revealed_grass[tuft.get_instance_id()] = false
+	var meshes: Array[MeshInstance3D] = []
+	_collect_mesh_instances(tuft, meshes)
+	var baseline_material = _grass_material(false)
+	for mesh_instance in meshes:
+		mesh_instance.material_override = baseline_material
+
+func _reveal_grass_tuft(tuft: Node3D) -> void:
+	if tuft == null:
+		return
+	var tuft_id = tuft.get_instance_id()
+	if bool(_revealed_grass.get(tuft_id, false)):
+		return
+	_revealed_grass[tuft_id] = true
+	var meshes: Array[MeshInstance3D] = []
+	_collect_mesh_instances(tuft, meshes)
+	var revealed_material = _grass_material(true)
+	for mesh_instance in meshes:
+		mesh_instance.material_override = revealed_material
+
+func _spawn_ground_reveal(position: Vector3) -> void:
+	var marker_mesh := CylinderMesh.new()
+	marker_mesh.top_radius = 0.28
+	marker_mesh.bottom_radius = 0.28
+	marker_mesh.height = 0.015
+	marker_mesh.radial_segments = 18
+	var marker_mat := StandardMaterial3D.new()
+	marker_mat.albedo_color = Color(0.20, 0.68, 0.26, 0.92)
+	marker_mat.roughness = 0.75
+	marker_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	marker_mat.no_depth_test = false
+	var marker = MeshInstance3D.new()
+	marker.mesh = marker_mesh
+	marker.material_override = marker_mat
+	marker.position = Vector3(position.x, 0.01, position.z)
+	_ground_reveal_root.add_child(marker)
+	_ground_reveals.append(marker)
+	while _ground_reveals.size() > MAX_GROUND_REVEALS:
+		var old_marker = _ground_reveals.pop_front()
+		if old_marker != null:
+			old_marker.queue_free()
+
+func _spawn_wall_reveal(position: Vector3) -> void:
+	var clamped = Vector3(
+		clampf(position.x, 0.0, float(world_width_tiles)),
+		0.34,
+		clampf(position.z, 0.0, float(world_height_tiles))
+	)
+	var hit_mesh := SphereMesh.new()
+	hit_mesh.radius = 0.13
+	hit_mesh.height = 0.26
+	hit_mesh.radial_segments = 18
+	hit_mesh.rings = 9
+	var hit_mat := StandardMaterial3D.new()
+	hit_mat.albedo_color = Color(0.95, 0.48, 0.20)
+	hit_mat.roughness = 0.64
+	hit_mat.metallic = 0.0
+	var hit = MeshInstance3D.new()
+	hit.mesh = hit_mesh
+	hit.material_override = hit_mat
+	hit.position = clamped
+	_wall_reveal_root.add_child(hit)
+	_wall_reveals.append(hit)
+	while _wall_reveals.size() > MAX_WALL_REVEALS:
+		var old_hit = _wall_reveals.pop_front()
+		if old_hit != null:
+			old_hit.queue_free()
+
+	var nearest_segment: MeshInstance3D = null
+	var nearest_distance := INF
+	for segment in _wall_segments:
+		if segment == null:
+			continue
+		var dist = Vector2(segment.position.x - clamped.x, segment.position.z - clamped.z).length_squared()
+		if dist < nearest_distance:
+			nearest_distance = dist
+			nearest_segment = segment
+	if nearest_segment != null:
+		nearest_segment.material_override = _wall_revealed_material()
+
+func _apply_player_reveal_feedback(moved: bool) -> void:
+	if not moved:
+		return
+	for tuft in _grass_tufts:
+		if tuft == null:
+			continue
+		if Vector2(tuft.position.x - _player_position.x, tuft.position.z - _player_position.z).length() <= GRASS_REVEAL_RADIUS:
+			_reveal_grass_tuft(tuft)
+	if not _has_ground_reveal_position or _last_ground_reveal_position.distance_to(_player_position) >= GROUND_REVEAL_STEP:
+		_spawn_ground_reveal(_player_position)
+		_last_ground_reveal_position = _player_position
+		_has_ground_reveal_position = true
+
 func _spawn_default_environment() -> void:
 	_clear_children(_terrain_root)
 	_clear_children(_foliage_root)
 	_clear_children(_object_root)
+	_clear_children(_ground_reveal_root)
+	_clear_children(_wall_reveal_root)
 	_blocking_spheres.clear()
+	_grass_tufts.clear()
+	_revealed_grass.clear()
+	_wall_segments.clear()
+	_ground_reveals.clear()
+	_wall_reveals.clear()
+	_last_ground_reveal_position = Vector3.ZERO
+	_has_ground_reveal_position = false
 
-	var ground = SELLSWORD_FACTORY.build_ground(maxf(8.0, float(max(world_width_tiles, world_height_tiles)) * 0.8))
+	var ground_size = maxf(12.0, float(max(world_width_tiles, world_height_tiles)) + 4.0)
+	var ground = SELLSWORD_FACTORY.build_ground(ground_size)
+	ground.position = Vector3(float(world_width_tiles) * 0.5, 0.0, float(world_height_tiles) * 0.5)
+	_apply_monochrome_materials(ground)
 	_terrain_root.add_child(ground)
 
-	# Starter foliage kit for early 3D blockout when no authored objects are available.
-	var span_x = max(6, mini(22, world_width_tiles / 4))
-	var span_z = max(6, mini(22, world_height_tiles / 4))
-	for x in range(-span_x, span_x + 1, 3):
-		for z in range(-span_z, span_z + 1, 3):
-			if (abs(x) + abs(z)) % 4 != 0:
+	for x in range(1, world_width_tiles, 2):
+		for z in range(1, world_height_tiles, 2):
+			if (x + z) % 3 != 0:
 				continue
-			var tuft = SELLSWORD_FACTORY.build_grass_tuft((x + span_x) * 31 + z + span_z)
-			tuft.position = Vector3(float(x) * 0.65, 0.0, float(z) * 0.65)
+			var seed = x * 4099 + z * 53
+			var tuft = SELLSWORD_FACTORY.build_grass_tuft(seed)
+			tuft.position = Vector3(float(x), 0.0, float(z))
 			_foliage_root.add_child(tuft)
+			_register_grass_tuft(tuft)
+
+	_spawn_arena_walls()
 
 func _resolve_scene_path_for_asset(asset_key: String, object_row: Dictionary) -> String:
 	var normalized = asset_key.strip_edges().to_lower()
@@ -212,15 +453,7 @@ func _resolve_scene_path_for_asset(asset_key: String, object_row: Dictionary) ->
 	var runtime_path = str(_asset_scene_map.get(normalized, "")).strip_edges()
 	if not runtime_path.is_empty():
 		return runtime_path
-	match normalized:
-		"ground_stone_a":
-			return "res://scenes/environment/ground_tile_stone_3d.tscn"
-		"foliage_grass_a":
-			return "res://scenes/environment/foliage_grass_a_3d.tscn"
-		"foliage_tree_dead_a":
-			return "res://scenes/environment/foliage_tree_dead_3d.tscn"
-		_:
-			return ""
+	return ""
 
 func _instantiate_asset(asset_key: String, object_row: Dictionary) -> Node3D:
 	var scene_path = _resolve_scene_path_for_asset(asset_key, object_row)
@@ -280,7 +513,16 @@ func _spawn_level_objects(objects: Array) -> void:
 	_clear_children(_terrain_root)
 	_clear_children(_foliage_root)
 	_clear_children(_object_root)
+	_clear_children(_ground_reveal_root)
+	_clear_children(_wall_reveal_root)
 	_blocking_spheres.clear()
+	_grass_tufts.clear()
+	_revealed_grass.clear()
+	_wall_segments.clear()
+	_ground_reveals.clear()
+	_wall_reveals.clear()
+	_last_ground_reveal_position = Vector3.ZERO
+	_has_ground_reveal_position = false
 
 	for object_row in objects:
 		if not (object_row is Dictionary):
@@ -296,10 +538,13 @@ func _spawn_level_objects(objects: Array) -> void:
 		var transform_payload = object_row.get("transform", {})
 		if transform_payload is Dictionary:
 			_apply_object_transform(instance, transform_payload)
+		_apply_monochrome_materials(instance)
 		if asset_key.begins_with("ground_"):
 			_terrain_root.add_child(instance)
 		elif asset_key.begins_with("foliage_"):
 			_foliage_root.add_child(instance)
+			if asset_key.find("grass") >= 0:
+				_register_grass_tuft(instance)
 		else:
 			_object_root.add_child(instance)
 		_register_blocker(asset_key, object_row, instance)
@@ -396,8 +641,7 @@ func configure_world(
 	var has_objects = false
 	if level_payload.has("objects") and level_payload.get("objects") is Array:
 		var objects: Array = level_payload.get("objects", [])
-		if not objects.is_empty():
-			has_objects = true
+		has_objects = not objects.is_empty()
 		for object_row in objects:
 			if not (object_row is Dictionary):
 				continue
@@ -409,9 +653,17 @@ func configure_world(
 				if _player_model != null:
 					_player_model.rotation_degrees.y = float(transform.get("rotation_deg", 0.0))
 				break
-		_spawn_level_objects(objects)
 
-	if not has_objects:
+	var scene_variant = _scene_variant_hint
+	if scene_variant.is_empty():
+		scene_variant = DEFAULT_SCENE_VARIANT_HINT
+	var force_flat_arena = scene_variant == "arena_flat_grass"
+
+	if force_flat_arena:
+		_spawn_default_environment()
+	elif has_objects:
+		_spawn_level_objects(level_payload.get("objects", []))
+	else:
 		_spawn_default_environment()
 
 	_build_navigation_mesh()
@@ -437,7 +689,9 @@ func configure_runtime(runtime_cfg: Dictionary) -> void:
 		_map_scale = map_scale_payload.duplicate(true)
 	else:
 		_map_scale = {}
-	_scene_variant_hint = str(runtime_cfg.get("scene_variant_hint", "")).strip_edges().to_lower()
+	_scene_variant_hint = str(runtime_cfg.get("scene_variant_hint", DEFAULT_SCENE_VARIANT_HINT)).strip_edges().to_lower()
+	if _scene_variant_hint.is_empty():
+		_scene_variant_hint = DEFAULT_SCENE_VARIANT_HINT
 
 func _apply_camera_profile() -> void:
 	if _camera == null:
@@ -539,6 +793,8 @@ func _process(delta: float) -> void:
 		return
 	if _transition_cooldown > 0.0:
 		_transition_cooldown = maxf(0.0, _transition_cooldown - delta)
+	if _wall_reveal_timer > 0.0:
+		_wall_reveal_timer = maxf(0.0, _wall_reveal_timer - delta)
 
 	var axis = _movement_axis()
 	var moved = false
@@ -554,11 +810,15 @@ func _process(delta: float) -> void:
 				_player_model.rotation_degrees.y = SELLSWORD_FACTORY.direction_to_rotation_y(_axis_to_direction(axis))
 			emit_signal("player_position_changed", get_world_position())
 			_set_player_animation("run" if is_running else "walk")
+		elif _wall_reveal_timer <= 0.0:
+			_spawn_wall_reveal(candidate)
+			_wall_reveal_timer = WALL_REVEAL_INTERVAL
 
 	if not moved:
 		_set_player_animation("idle")
 
-	# Keep camera anchored behind the player using fixed ARPG cinematic angle.
+	_apply_player_reveal_feedback(moved)
+
 	_target_camera_position = Vector3(_player_position.x + CAMERA_LOOK_AHEAD, 0.0, _player_position.z + CAMERA_LOOK_AHEAD)
 	_camera_rig.position = _camera_rig.position.lerp(_target_camera_position, clampf(delta * CAMERA_FOLLOW_SMOOTH, 0.0, 1.0))
 

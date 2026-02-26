@@ -12,7 +12,7 @@ SOURCES = [
     ROOT / "game-client/scripts/client_shell.gd",
     ROOT / "game-client/scripts/ui_tokens.gd",
     ROOT / "game-client/scripts/ui_components.gd",
-    ROOT / "game-client/scripts/world_canvas.gd",
+    ROOT / "game-client/scripts/world_canvas_3d.gd",
     ROOT / "game-client/scripts/character_podium_preview.gd",
     ROOT / "game-client/scripts/skill_tree_graph.gd",
 ]

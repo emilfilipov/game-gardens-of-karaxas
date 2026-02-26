@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Children of Ikphelion Local Game Config",
+  "title": "Plompers Arena Inc. Local Game Config",
   "type": "object",
   "required": [
     "meta",

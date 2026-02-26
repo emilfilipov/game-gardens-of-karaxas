@@ -6,16 +6,16 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
 | PAI-3D-001 | ⬜ | 3 | Rename all player-facing game identity surfaces to `Plompers Arena Inc.` (launcher text, runtime title text, update/release strings, docs references) while preserving updater compatibility for legacy install paths during transition. |
-| PAI-3D-002 | ⬜ | 4 | Convert runtime UI theme to black/white using `concept_art/ui_concept_blackwhite/` as layout/style target without removing any existing auth/account/update/settings functionality. |
+| PAI-3D-002 | ⏳ | 4 | Convert runtime UI theme to black/white using `concept_art/ui_concept_blackwhite/` as layout/style target without removing any existing auth/account/update/settings functionality. |
 | PAI-3D-003 | ⬜ | 4 | Preserve and harden account/character/skill-graph parity through the pivot so graph viewer interactions remain available in character list/create and are not regressed by shell/theme refactors. |
 | PAI-3D-004 | ⬜ | 5 | Define and implement arena battle-royale gameplay rules for bouncy-ball players (spawn, elimination/placement, ranking objective, and match-end conditions) with server-authoritative values. |
-| PAI-3D-005 | ⬜ | 5 | Migrate active runtime world from 2D baseline to a 3D top-down arena scene while keeping login/bootstrap flow intact and preserving backend contracts. |
-| PAI-3D-006 | ⬜ | 4 | Implement top-down / Path-of-Exile-like camera rig in 3D with fixed readability constraints (angle, zoom bounds, no disorienting drift). |
-| PAI-3D-007 | ⬜ | 5 | Build monochrome-to-color interaction system: all assets default black/white and gain localized color only after player interaction/collision, with reproducible behavior for QA. |
-| PAI-3D-008 | ⬜ | 3 | Author first 3D playable level as flat arena ground with grass foliage only, optimized for movement/combat readability and colorization validation. |
-| PAI-3D-009 | ⬜ | 5 | Create first playable 3D character model (bouncy ball combat avatar), movement controller, collision profile, and animation/VFX hooks required for arena testing. |
-| PAI-3D-010 | ⬜ | 5 | Wire end-to-end playable loop: login/register -> character create/select -> play -> spawn in flat grass arena -> controlled movement and interaction colorization. |
-| PAI-3D-011 | ⬜ | 4 | Add automated and manual regression gates for new 3D runtime (scene boot, camera contract, movement, graph parity, colorization events) and keep launcher/backend checks green. |
+| PAI-3D-005 | ⏳ | 5 | Migrate active runtime world from 2D baseline to a 3D top-down arena scene while keeping login/bootstrap flow intact and preserving backend contracts. |
+| PAI-3D-006 | ⏳ | 4 | Implement top-down / Path-of-Exile-like camera rig in 3D with fixed readability constraints (angle, zoom bounds, no disorienting drift). |
+| PAI-3D-007 | ⏳ | 5 | Build monochrome-to-color interaction system: all assets default black/white and gain localized color only after player interaction/collision, with reproducible behavior for QA. |
+| PAI-3D-008 | ✅ | 3 | Author first 3D playable level as flat arena ground with grass foliage only, optimized for movement/combat readability and colorization validation. |
+| PAI-3D-009 | ⏳ | 5 | Create first playable 3D character model (bouncy ball combat avatar), movement controller, collision profile, and animation/VFX hooks required for arena testing. |
+| PAI-3D-010 | ⏳ | 5 | Wire end-to-end playable loop: login/register -> character create/select -> play -> spawn in flat grass arena -> controlled movement and interaction colorization. |
+| PAI-3D-011 | ⏳ | 4 | Add automated and manual regression gates for new 3D runtime (scene boot, camera contract, movement, graph parity, colorization events) and keep launcher/backend checks green. |
 
 ## Detailed Task Specs
 
@@ -166,7 +166,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
   - `python3 -m compileall backend/app`
   - `./gradlew :launcher:test`
   - `python3 game-client/tests/check_ui_regression.py`
-  - new 3D contract/regression scripts
+  - `python3 game-client/tests/check_3d_runtime_contract.py`
 
 ## Superseded Backlog (Kept for Traceability)
 | Task ID | Status | Complexity | Detailed Description |
@@ -179,6 +179,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
 | PAI-3D-000 | ✅ | 2 | Updated canonical/product-support documentation for Plompers Arena Inc. refactor mandate and produced detailed implementation-ready task breakdown for 3D black/white arena pivot. |
+| PAI-3D-012 | ✅ | 4 | Activated 3D runtime path in `client_shell.gd`, added flat grass arena generation with wall boundaries and interaction-driven color reveal in `world_canvas_3d.gd`, introduced plomper ball avatar generation in `sellsword_3d_factory.gd`, and added `check_3d_runtime_contract.py` with release workflow gate migration. |
 
 ## Legacy Completed (Pre-Pivot)
 | Task ID | Status | Complexity | Detailed Description |

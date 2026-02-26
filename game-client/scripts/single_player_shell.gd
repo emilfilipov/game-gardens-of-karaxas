@@ -337,7 +337,7 @@ func _build_ui() -> void:
 	header.add_child(left_pad)
 
 	header_title = Label.new()
-	header_title.text = "Children of Ikphelion"
+	header_title.text = "Plompers Arena Inc."
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_title.add_theme_font_size_override("font_size", 46)
@@ -388,7 +388,7 @@ func _show_screen(name: String) -> void:
 	if background_veil != null:
 		background_veil.visible = name != "world"
 	if header_title != null:
-		header_title.text = "" if name == "world" else "Children of Ikphelion"
+		header_title.text = "" if name == "world" else "Plompers Arena Inc."
 	if name == "load":
 		_refresh_load_game_list()
 	if name == "admin":

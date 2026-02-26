@@ -12,19 +12,19 @@ func _ready() -> void:
     if bootstrap_path.is_empty():
         _set_status("No launcher bootstrap payload was provided.")
         _set_details("Run via launcher Play flow to receive runtime bootstrap data.")
-        print("COI game-client bootstrap: no launcher bootstrap path provided")
+        print("PAI game-client bootstrap: no launcher bootstrap path provided")
         return
 
     var file := FileAccess.open(bootstrap_path, FileAccess.READ)
     if file == null:
         _set_status("Failed to open launcher bootstrap payload.")
         _set_details("Path: " + bootstrap_path)
-        push_error("COI game-client bootstrap: failed to open bootstrap file: " + bootstrap_path)
+        push_error("PAI game-client bootstrap: failed to open bootstrap file: " + bootstrap_path)
         return
 
     var payload_text := file.get_as_text()
     file.close()
-    print("COI game-client bootstrap loaded from: " + bootstrap_path)
+    print("PAI game-client bootstrap loaded from: " + bootstrap_path)
     var payload_json := JSON.parse_string(payload_text)
     if typeof(payload_json) != TYPE_DICTIONARY:
         _set_status("Launcher bootstrap payload is invalid JSON.")
@@ -70,7 +70,7 @@ func _build_shell() -> void:
     margin.add_child(column)
 
     _title_label = Label.new()
-    _title_label.text = "Children of Ikphelion - Godot Runtime"
+    _title_label.text = "Plompers Arena Inc. - Godot Runtime"
     _title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     _title_label.add_theme_color_override("font_color", Color(0.95, 0.90, 0.78))
     _title_label.add_theme_font_size_override("font_size", 28)

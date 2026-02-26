@@ -1,4 +1,6 @@
-- Reframed canonical game direction to `Plompers Arena Inc.` with a 3D top-down arena battle-royale mandate.
-- Locked black/white UI and world-art direction with interaction-driven color reveal as core visual rule.
-- Preserved explicit product requirement to keep current account/character functionality, including the skill graph viewer.
-- Added a detailed implementation roadmap (`PAI-3D-*`) covering rename migration, 3D runtime conversion, flat grass arena level, player model creation, and end-to-end login-to-play wiring.
+- Enabled 3D runtime routing in `game-client/scripts/client_shell.gd` and switched default renderer mode to 3D domain-aware selection.
+- Implemented first playable 3D arena fallback in `world_canvas_3d.gd`: flat ground, grass foliage, top-down PoE-like camera, boundary walls, and movement-ready world spawn.
+- Added interaction-driven color reveal prototype in 3D world: movement paints localized ground/grass color and wall collisions create colored impact markers.
+- Added plomper-ball avatar generation path in `sellsword_3d_factory.gd` and wired runtime appearance fallback to plomper model behavior.
+- Migrated release runtime gate from 2D contract check to `game-client/tests/check_3d_runtime_contract.py` and updated workflow to enforce the 3D contract.
+- Updated runtime/game naming surfaces and configuration metadata to `Plompers Arena Inc.` in the active game-client/backend config paths.

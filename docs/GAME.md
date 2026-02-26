@@ -10,6 +10,12 @@ This is a product refactor mandate:
 - UI style is black and white, based on `concept_art/ui_concept_blackwhite/` direction.
 - World/assets default to black and white and gain color only through player interaction.
 
+Current implemented vertical-slice baseline:
+- Account/login/character flow remains active and can route into 3D runtime.
+- First 3D arena fallback is a flat grass field with wall boundaries.
+- Player avatar in 3D runtime is currently a plomper-ball prototype.
+- Interaction currently reveals localized ground/grass/wall color feedback.
+
 ## Core Pillars
 - Physics-forward bouncy-ball combat in a readable top-down 3D arena.
 - Last-player-standing / top-rank arena loop with quick match pacing.

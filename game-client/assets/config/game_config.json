@@ -1,8 +1,8 @@
 {
 	"meta": {
 		"revision": 1,
-		"title": "Children of Ikphelion",
-		"mode": "single_player_arpg"
+		"title": "Plompers Arena Inc.",
+		"mode": "online_arena_battle_royale"
 	},
 	"update": {
 		"feed_url": ""

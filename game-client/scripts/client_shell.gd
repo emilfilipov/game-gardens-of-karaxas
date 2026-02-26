@@ -1,10 +1,12 @@
 extends Control
 
-const WORLD_CANVAS_SCENE = preload("res://scripts/world_canvas.gd")
+const WORLD_CANVAS_2D_SCENE = preload("res://scripts/world_canvas.gd")
+const WORLD_CANVAS_3D_SCENE = preload("res://scripts/world_canvas_3d.gd")
 const UI_TOKENS = preload("res://scripts/ui_tokens.gd")
 const UI_COMPONENTS = preload("res://scripts/ui_components.gd")
 const CHARACTER_PODIUM_PREVIEW_SCENE = preload("res://scripts/character_podium_preview.gd")
 const SKILL_TREE_GRAPH_SCENE = preload("res://scripts/skill_tree_graph.gd")
+const GAME_TITLE = "Plompers Arena Inc."
 
 const DEFAULT_API_BASE_URL = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app"
 const DEFAULT_CLIENT_VERSION = "0.0.0"
@@ -27,7 +29,7 @@ var client_content_version_key = DEFAULT_CONTENT_VERSION
 var client_content_contract = ""
 var release_summary: Dictionary = {}
 var content_domains: Dictionary = {}
-var world_renderer_mode: String = "2d"
+var world_renderer_mode: String = "3d"
 
 var access_token = ""
 var refresh_token = ""
@@ -449,7 +451,7 @@ func _build_ui() -> void:
 	left_band.anchor_top = 0.0
 	left_band.anchor_right = 0.17
 	left_band.anchor_bottom = 1.0
-	left_band.color = Color(0.69, 0.77, 0.90, 0.16)
+	left_band.color = Color(0.88, 0.88, 0.88, 0.12)
 	background_art.add_child(left_band)
 
 	var right_band = ColorRect.new()
@@ -457,7 +459,7 @@ func _build_ui() -> void:
 	right_band.anchor_top = 0.0
 	right_band.anchor_right = 1.0
 	right_band.anchor_bottom = 1.0
-	right_band.color = Color(0.69, 0.77, 0.90, 0.16)
+	right_band.color = Color(0.88, 0.88, 0.88, 0.12)
 	background_art.add_child(right_band)
 
 	add_child(background_art)
@@ -485,11 +487,11 @@ func _build_ui() -> void:
 	layout.add_child(header)
 
 	header_title = Label.new()
-	header_title.text = "Children of Ikphelion"
+	header_title.text = GAME_TITLE
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_title.add_theme_font_size_override("font_size", 46)
-	header_title.add_theme_color_override("font_color", Color(0.17, 0.24, 0.36))
+	header_title.add_theme_color_override("font_color", Color(0.93, 0.93, 0.93))
 	if ui_font_heading != null:
 		header_title.add_theme_font_override("font", ui_font_heading)
 	header.add_child(header_title)
@@ -932,8 +934,8 @@ func _build_world_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
 	wrap.add_theme_constant_override("separation", UI_TOKENS.spacing("sm"))
 
-	world_status_label = _label("WASD to move.", -1, "text_secondary")
-	world_status_label.text = "WASD to move."
+	world_status_label = _label("WASD to move your Plomper.", -1, "text_secondary")
+	world_status_label.text = "WASD to move your Plomper."
 	wrap.add_child(world_status_label)
 
 	world_shell_panel = UI_COMPONENTS.panel_card(Vector2(0, 0), false)
@@ -945,7 +947,10 @@ func _build_world_screen() -> VBoxContainer:
 
 func _build_world_canvas_node() -> Control:
 	var node = Control.new()
-	node.set_script(WORLD_CANVAS_SCENE)
+	if world_renderer_mode == "3d":
+		node.set_script(WORLD_CANVAS_3D_SCENE)
+	else:
+		node.set_script(WORLD_CANVAS_2D_SCENE)
 	node.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	node.custom_minimum_size = Vector2(800, 460)
 	node.connect("player_position_changed", _on_world_position_changed)
@@ -954,7 +959,7 @@ func _build_world_canvas_node() -> Control:
 	return node
 
 func _resolve_initial_world_renderer_mode() -> String:
-	return "2d"
+	return "3d"
 
 func _build_log_screen() -> VBoxContainer:
 	var wrap = VBoxContainer.new()
@@ -2168,7 +2173,7 @@ func _show_screen(name: String) -> void:
 		call_deferred("_refresh_release_summary_deferred")
 	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_title.visible = not in_world
-	header_title.text = "Children of Ikphelion"
+	header_title.text = GAME_TITLE
 	_update_sidebar_selection()
 
 func _current_screen() -> String:
@@ -2592,14 +2597,14 @@ func _on_character_play_pressed() -> void:
 		world_canvas.call("set_player_appearance", str(row.get("appearance_key", "human_male")))
 
 	world_canvas.call("configure_world", active_level_name, width_tiles, height_tiles, spawn_world, level_data, spawn_data)
-	world_status_label.text = "WASD to move. Level: %s | Instance: %s" % [active_level_name, active_instance_kind]
+	world_status_label.text = "WASD to move your Plomper. Level: %s | Instance: %s" % [active_level_name, active_instance_kind]
 	_append_log("Character " + str(active_character_id) + " entered world level=" + active_level_name)
 	active_world_ready = true
 	account_status_label.text = " "
 	_show_screen("world")
 
 func _on_world_position_changed(position: Vector2) -> void:
-	world_status_label.text = "WASD to move. Level: %s (%d, %d)" % [active_level_name, int(position.x), int(position.y)]
+	world_status_label.text = "WASD to move your Plomper. Level: %s (%d, %d)" % [active_level_name, int(position.x), int(position.y)]
 
 func _on_world_transition_requested(transition: Dictionary) -> void:
 	var target = str(transition.get("to_level_name", transition.get("target_level", transition.get("to_level", "Unknown"))))
@@ -3713,7 +3718,12 @@ func _apply_runtime_config_payload(runtime_body: Dictionary) -> bool:
 	return true
 
 func _resolve_world_renderer_mode_from_domains() -> String:
-	return "2d"
+	var runtime_client = content_domains.get("runtime_client", {})
+	if runtime_client is Dictionary:
+		var raw_mode = str((runtime_client as Dictionary).get("world_renderer", "")).strip_edges().to_lower()
+		if raw_mode == "2d" or raw_mode == "3d":
+			return raw_mode
+	return "3d"
 
 func _apply_world_renderer_mode_from_domains() -> void:
 	var resolved_mode = _resolve_world_renderer_mode_from_domains()

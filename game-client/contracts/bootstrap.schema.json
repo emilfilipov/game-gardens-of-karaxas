@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://childrenofikphelion/contracts/runtime-bootstrap-v1.schema.json",
-  "title": "Children of Ikphelion Runtime Bootstrap v1",
+  "$id": "https://plompersarena/contracts/runtime-bootstrap-v1.schema.json",
+  "title": "Plompers Arena Inc. Runtime Bootstrap v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

@@ -14,9 +14,13 @@ const GENERATED_ASSET_PATHS := {
 
 static var _generated_scene_cache: Dictionary = {}
 
+static func _to_grayscale(color: Color) -> Color:
+	var luma = color.r * 0.299 + color.g * 0.587 + color.b * 0.114
+	return Color(luma, luma, luma, color.a)
+
 static func _mat(color: Color, roughness: float = 0.86, metallic: float = 0.0) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
-	material.albedo_color = color
+	material.albedo_color = _to_grayscale(color)
 	material.roughness = clampf(roughness, 0.0, 1.0)
 	material.metallic = clampf(metallic, 0.0, 1.0)
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
@@ -121,6 +125,22 @@ static func _set_cast_shadows(root: Node) -> void:
 		(root as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	for child in root.get_children():
 		_set_cast_shadows(child)
+
+static func _set_monochrome_materials(root: Node) -> void:
+	if root is MeshInstance3D:
+		var mesh_instance = root as MeshInstance3D
+		var source: Material = mesh_instance.material_override
+		if source == null and mesh_instance.mesh != null and mesh_instance.mesh.get_surface_count() > 0:
+			source = mesh_instance.mesh.surface_get_material(0)
+		var mono = _mat(Color(0.55, 0.55, 0.55), 0.86)
+		if source is BaseMaterial3D:
+			var base = source as BaseMaterial3D
+			mono.albedo_color = _to_grayscale(base.albedo_color)
+			mono.roughness = base.roughness
+			mono.metallic = base.metallic
+		mesh_instance.material_override = mono
+	for child in root.get_children():
+		_set_monochrome_materials(child)
 
 static func _find_first_node3d_with_tokens(root: Node, tokens: Array[String]) -> Node3D:
 	var queue: Array[Node] = [root]
@@ -366,6 +386,40 @@ static func _build_limb(name: String, material: Material, radius: float, length:
 	limb.name = name
 	return limb
 
+static func _build_plomper_ball_model() -> Node3D:
+	var root := Node3D.new()
+	root.name = "PlomperBall"
+	root.set_meta("appearance_key", "plomper_ball")
+
+	var shell_mesh := SphereMesh.new()
+	shell_mesh.radius = 0.52
+	shell_mesh.height = 1.04
+	shell_mesh.radial_segments = 30
+	shell_mesh.rings = 16
+	var shell = _mesh_instance(shell_mesh, _mat(Color(0.95, 0.95, 0.95), 0.44), Vector3(0.0, 0.60, 0.0))
+	shell.name = "BallShell"
+	root.add_child(shell)
+
+	var stripe_mesh := TorusMesh.new()
+	stripe_mesh.inner_radius = 0.40
+	stripe_mesh.outer_radius = 0.48
+	stripe_mesh.rings = 14
+	stripe_mesh.ring_segments = 28
+	var stripe = _mesh_instance(stripe_mesh, _mat(Color(0.14, 0.14, 0.14), 0.62), Vector3(0.0, 0.60, 0.0), Vector3(90.0, 0.0, 0.0))
+	stripe.name = "BallStripe"
+	root.add_child(stripe)
+
+	var emblem_mesh := SphereMesh.new()
+	emblem_mesh.radius = 0.09
+	emblem_mesh.height = 0.12
+	emblem_mesh.radial_segments = 16
+	emblem_mesh.rings = 8
+	var emblem = _mesh_instance(emblem_mesh, _mat(Color(0.18, 0.18, 0.18), 0.52), Vector3(0.0, 0.78, 0.44))
+	emblem.name = "BallEmblem"
+	root.add_child(emblem)
+
+	return root
+
 static func _build_procedural_model(appearance_key: String) -> Node3D:
 	var key = appearance_key.strip_edges().to_lower()
 	var is_female = key == "human_female"
@@ -406,12 +460,17 @@ static func _build_procedural_model(appearance_key: String) -> Node3D:
 static func create_model(appearance_key: String) -> Node3D:
 	var normalized = appearance_key.strip_edges().to_lower()
 	if normalized.is_empty():
-		normalized = "human_male"
+		normalized = "plomper_ball"
 
-	var model = _load_generated_scene(normalized)
-	if model == null:
-		model = _build_procedural_model(normalized)
+	var model: Node3D = null
+	if normalized.begins_with("plomper") or normalized == "ball":
+		model = _build_plomper_ball_model()
+	else:
+		model = _load_generated_scene(normalized)
+		if model == null:
+			model = _build_procedural_model(normalized)
 	_set_cast_shadows(model)
+	_set_monochrome_materials(model)
 	_normalize_and_ground_model(model)
 	_ensure_animation_set(model)
 	play_animation(model, "idle", 0.0)
@@ -422,6 +481,7 @@ static func create_environment_asset(asset_key: String) -> Node3D:
 	var generated = _load_generated_scene(normalized)
 	if generated != null:
 		_set_cast_shadows(generated)
+		_set_monochrome_materials(generated)
 		return generated
 	match normalized:
 		"ground_stone_a":

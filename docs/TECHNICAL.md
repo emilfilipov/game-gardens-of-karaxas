@@ -7,6 +7,12 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 This document defines the target architecture and migration constraints for the 3D pivot.
 Unless explicitly noted as "already implemented," items here are implementation targets.
 
+Already implemented in current migration cycle:
+- `client_shell.gd` now defaults to and resolves `3d` world renderer mode from runtime domains.
+- Active world renderer path now supports `world_canvas_3d.gd` with top-down camera and plomper-ball avatar runtime.
+- Arena fallback scene generation is now a flat grass field with boundary walls and interaction-driven color reveal markers.
+- Release workflow runtime gate migrated from `check_2d_runtime_contract.py` to `check_3d_runtime_contract.py`.
+
 ## Active Architecture (Unchanged Platform Stack)
 
 ### Runtime Stack
@@ -30,7 +36,7 @@ Unless explicitly noted as "already implemented," items here are implementation 
 ## Runtime Entry and 3D Migration Contract
 - Existing Godot bootstrap entrypoint remains: `game-client/scenes/bootstrap.tscn`.
 - Existing shell script remains: `game-client/scripts/client_shell.gd`.
-- World runtime is migrating from 2D baseline toward a 3D arena scene.
+- Active world runtime path now defaults to 3D arena rendering (`game-client/scripts/world_canvas_3d.gd`), with 2D script retained as legacy fallback path.
 - Top-down / PoE-like camera readability is mandatory after 3D conversion.
 - Skill graph viewer must remain accessible in account list/create flows during and after migration.
 
@@ -86,9 +92,12 @@ Current checks remain in use while migration proceeds:
   - `python3 -m compileall backend/app`
 - Launcher tests:
   - `./gradlew :launcher:test`
+- UI regression harness:
+  - `python3 game-client/tests/check_ui_regression.py`
+- 3D runtime contract harness:
+  - `python3 game-client/tests/check_3d_runtime_contract.py`
 
-Migration check additions required by tasks:
-- 3D runtime contract harness (top-down camera + arena scene load + movement spawn checks)
+Migration check additions still required by tasks:
 - Graph viewer parity regression checks
 - Visual colorization-rule validation checks (interaction creates localized color changes)
 
