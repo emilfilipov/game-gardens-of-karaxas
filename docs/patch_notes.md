@@ -1,3 +1,3 @@
-- Refined all three UI concept families (`atlas`, `dual`, `command`) so auth-side navigation is `Login/Register/Quit` only, removing redundant auth update-menu routing.
-- Added missing `register` concept screens across every concept family and regenerated all per-screen/contact-sheet outputs.
-- Reworked selection/create concept layouts to keep graph context while improving usability: larger roster capacity in Dual Pane and a rebuilt structured Command Palette presentation.
+- Added a new standalone concept branch `concept_art/option_crazy_flux` focused on unconventional UI composition while preserving full functional surface coverage (auth, update notes, MFA, play/create, settings, graph editing).
+- Implemented `tools/generate_ui_concept_crazy.py` to produce five sequential refinement passes (`pass_1`..`pass_5`) plus contact sheets per pass.
+- Added iterative review trace at `concept_art/option_crazy_flux/pass_notes.md` documenting analysis and planned improvements for each pass.

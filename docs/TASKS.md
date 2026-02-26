@@ -12,6 +12,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-048 | ✅ | 3 | Created a standalone “crazy design” concept family under `concept_art/option_crazy_flux` and executed five iterative refinement passes (`pass_1`..`pass_5`) with per-pass analysis/next-step notes, shifting from conventional blocks toward more experimental UI structure while keeping all required feature surfaces (login/register/update/patch notes/MFA/settings/play/create/graph). |
 | COI-2D-047 | ✅ | 3 | Ran a second full concept iteration across all three UI families: removed redundant auth Update sidebar action (`Login/Register/Quit` only), added missing registration screens for every option, widened/de-crowded roster capacity in Dual Pane play layouts, and rebuilt Command Palette compositions into structured/usable menu mockups while preserving graph-in-selection and graph-in-creation direction. |
 | COI-2D-046 | ✅ | 1 | Removed the retired `concept_art/sellsword_front.png` and `concept_art/sellsword_back.png` concept files per updated direction, keeping only the newer structured concept packs. |
 | COI-2D-045 | ✅ | 3 | Generated three distinct full-screen UI concept families in separate folders (`option_atlas_workspace`, `option_dual_pane_studio`, `option_command_palette`) with complete menu sets and contact sheets for side-by-side review. |
