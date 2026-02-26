@@ -36,6 +36,25 @@ PAL_BLOOD = {
     "label_bg": (246, 234, 236, 240),
 }
 
+PAL_MONO = {
+    "bg": (246, 246, 247, 255),
+    "bg_line": (226, 227, 230, 255),
+    "ink": (20, 20, 24, 255),
+    "ink_soft": (64, 66, 74, 255),
+    "blob_outer": (12, 13, 18, 255),
+    "blob_mid": (28, 30, 38, 255),
+    "blob_inner": (48, 50, 60, 255),
+    "edge": (22, 23, 30, 255),
+    "edge_soft": (92, 95, 106, 255),
+    "panel": (248, 248, 250, 240),
+    "panel_border": (194, 197, 205, 255),
+    "chip": (236, 237, 241, 255),
+    "chip_border": (184, 187, 195, 255),
+    "button": (24, 25, 31, 255),
+    "button_text": (248, 248, 250, 255),
+    "disabled": (166, 169, 177, 255),
+}
+
 
 def font(cands, size):
     for c in cands:
@@ -247,6 +266,283 @@ def palette_for_pass(pass_no: int):
     return PAL_SHADOW if pass_no % 2 == 1 else PAL_BLOOD
 
 
+def draw_bw_background(draw: ImageDraw.ImageDraw, seed: int):
+    rng = Random(seed)
+    draw.rectangle((0, 0, W, H), fill=PAL_MONO["bg"])
+    for y in range(0, H, 96):
+        draw.line((0, y, W, y), fill=PAL_MONO["bg_line"], width=1)
+    for _ in range(520):
+        x = rng.randint(0, W - 1)
+        y = rng.randint(0, H - 1)
+        c = 250 if rng.random() > 0.5 else 239
+        a = rng.randint(16, 42)
+        draw.point((x, y), fill=(c, c, c, a))
+
+
+def noisy_blob_points(cx: int, cy: int, r: int, count: int, seed: int):
+    rng = Random(seed)
+    pts = []
+    for i in range(count):
+        ang = (2 * math.pi * i) / count
+        wave = 0.08 * math.sin(ang * 7) + 0.05 * math.cos(ang * 5)
+        jitter = rng.uniform(-0.08, 0.08)
+        rr = r * (1.0 + wave + jitter)
+        pts.append((int(cx + math.cos(ang) * rr), int(cy + math.sin(ang) * rr)))
+    return pts
+
+
+def draw_hifi_shadow_blob(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, seed: int):
+    outer = noisy_blob_points(cx, cy, r, 96, seed)
+    draw.polygon(outer, fill=PAL_MONO["blob_outer"], outline=(0, 0, 0, 255))
+    for i, col in enumerate([PAL_MONO["blob_mid"], PAL_MONO["blob_inner"]], start=1):
+        s = 1.0 - (0.08 * i)
+        pts = []
+        for x, y in outer:
+            pts.append((int(cx + (x - cx) * s), int(cy + (y - cy) * s)))
+        draw.polygon(pts, fill=col)
+    # soft sheen
+    draw.ellipse((cx - r + 48, cy - r + 36, cx + 12, cy - r + 132), fill=(255, 255, 255, 18))
+    # pixel texture
+    rng = Random(seed + 333)
+    for _ in range(800):
+        px = rng.randint(cx - r + 14, cx + r - 14)
+        py = rng.randint(cy - r + 14, cy + r - 14)
+        if (px - cx) ** 2 + (py - cy) ** 2 > (r - 20) ** 2:
+            continue
+        s = rng.choice([1, 2, 2, 3])
+        tint = rng.choice([(8, 9, 12, 100), (58, 61, 74, 65), (90, 94, 108, 36)])
+        draw.rectangle((px, py, px + s, py + s), fill=tint)
+
+
+def edge_start_on_blob(cx: int, cy: int, r: int, angle_deg: float):
+    a = math.radians(angle_deg)
+    return int(cx + math.cos(a) * (r - 6)), int(cy + math.sin(a) * (r - 6))
+
+
+def draw_route_edge(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, angle_deg: float, label: str, active: bool = True):
+    sx, sy = edge_start_on_blob(cx, cy, r, angle_deg)
+    a = math.radians(angle_deg)
+    ex = int(sx + math.cos(a) * 162)
+    ey = int(sy + math.sin(a) * 162)
+    col = PAL_MONO["edge"] if active else PAL_MONO["edge_soft"]
+    draw.line((sx, sy, ex, ey), fill=col, width=5)
+    # arrow cap
+    ux, uy = math.cos(a), math.sin(a)
+    px, py = -uy, ux
+    tip = (ex, ey)
+    l = (int(ex - ux * 14 + px * 8), int(ey - uy * 14 + py * 8))
+    rr = (int(ex - ux * 14 - px * 8), int(ey - uy * 14 - py * 8))
+    draw.polygon([tip, l, rr], fill=col)
+    # edge label chip
+    tw = max(102, len(label) * 8 + 20)
+    th = 30
+    lx = int(sx + math.cos(a) * 92)
+    ly = int(sy + math.sin(a) * 92)
+    chip_fill = PAL_MONO["chip"] if active else (230, 231, 235, 255)
+    text_fill = PAL_MONO["ink_soft"] if active else PAL_MONO["disabled"]
+    draw.rounded_rectangle((lx - tw // 2, ly - th // 2, lx + tw // 2, ly + th // 2), radius=8, fill=chip_fill, outline=PAL_MONO["chip_border"], width=1)
+    draw.text((lx, ly), label, anchor="mm", font=F_SM, fill=text_fill)
+
+
+def draw_node_content_shell(draw: ImageDraw.ImageDraw, cx: int, cy: int, w: int, h: int):
+    box = (cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2)
+    draw.rounded_rectangle(box, radius=14, fill=PAL_MONO["panel"], outline=PAL_MONO["panel_border"], width=2)
+    return box
+
+
+def draw_field(draw: ImageDraw.ImageDraw, x0: int, y0: int, w: int, label: str):
+    draw.rounded_rectangle((x0, y0, x0 + w, y0 + 34), radius=7, fill=(241, 243, 247, 255), outline=PAL_MONO["panel_border"], width=1)
+    draw.text((x0 + 12, y0 + 17), label, anchor="lm", font=F_TX, fill=PAL_MONO["ink_soft"])
+
+
+def draw_button(draw: ImageDraw.ImageDraw, x0: int, y0: int, w: int, text: str, enabled: bool = True):
+    if enabled:
+        fill = PAL_MONO["button"]
+        text_fill = PAL_MONO["button_text"]
+        outline = PAL_MONO["edge"]
+    else:
+        fill = (208, 210, 218, 255)
+        text_fill = (232, 233, 237, 255)
+        outline = (186, 189, 197, 255)
+    draw.rounded_rectangle((x0, y0, x0 + w, y0 + 36), radius=8, fill=fill, outline=outline, width=1)
+    draw.text((x0 + w // 2, y0 + 18), text, anchor="mm", font=F_TX, fill=text_fill)
+
+
+def draw_mini_graph(draw: ImageDraw.ImageDraw, box, muted: bool = False):
+    x0, y0, x1, y1 = box
+    draw.rounded_rectangle(box, radius=10, fill=(244, 245, 249, 255), outline=PAL_MONO["panel_border"], width=1)
+    for x in range(x0 + 24, x1 - 12, 44):
+        draw.line((x, y0 + 14, x, y1 - 12), fill=(223, 226, 233, 255), width=1)
+    for y in range(y0 + 14, y1 - 12, 42):
+        draw.line((x0 + 14, y, x1 - 12, y), fill=(223, 226, 233, 255), width=1)
+    col = (92, 98, 116, 255) if not muted else (165, 170, 182, 255)
+    node = (58, 128, 106, 102, 170, 126, 230, 162, 274, 118, 314, 174, 350, 102)
+    points = [(x0 + node[i], y0 + node[i + 1]) for i in range(0, len(node), 2)]
+    links = [(0, 1), (1, 2), (2, 3), (2, 4), (4, 5), (2, 6)]
+    for a, b in links:
+        draw.line((points[a][0], points[a][1], points[b][0], points[b][1]), fill=col, width=3)
+    for i, (nx, ny) in enumerate(points):
+        fill = (28, 30, 38, 255) if not muted else (150, 154, 166, 255)
+        if i in {0, 6} and not muted:
+            fill = (46, 49, 61, 255)
+        draw.ellipse((nx - 10, ny - 10, nx + 10, ny + 10), fill=fill, outline=(235, 236, 240, 255), width=1)
+
+
+def draw_zoom_node_scene(title: str, mode: str, edges: list[tuple[float, str, bool]], seed: int):
+    img = Image.new("RGBA", (W, H), PAL_MONO["bg"])
+    d = ImageDraw.Draw(img, "RGBA")
+    draw_bw_background(d, seed)
+    cx, cy, r = W // 2, H // 2 + 18, 314
+    draw_hifi_shadow_blob(d, cx, cy, r, seed + 17)
+    d.text((cx, 44), "COI", anchor="mm", font=F_H1, fill=(34, 35, 45, 255))
+    d.text((cx, 76), "Children of Ikphelion", anchor="mm", font=F_TX, fill=(64, 66, 74, 255))
+    for ang, lbl, active in edges:
+        draw_route_edge(d, cx, cy, r, ang, lbl, active)
+
+    shell = draw_node_content_shell(d, cx, cy, 560, 450)
+    x0, y0, x1, y1 = shell
+    d.text((x0 + 18, y0 + 18), title, font=F_H2, fill=PAL_MONO["ink"])
+
+    if mode == "boot":
+        d.text((cx, cy - 32), "COI", anchor="mm", font=F_H1, fill=PAL_MONO["ink"])
+        d.text((cx, cy + 12), "Click center node to reveal routes", anchor="mm", font=F_TX, fill=PAL_MONO["ink_soft"])
+    elif mode == "logo":
+        d.text((x0 + 22, y0 + 62), "Choose a route by clicking an edge label.", font=F_TX, fill=PAL_MONO["ink_soft"])
+        d.text((x0 + 22, y0 + 88), "Auth gates access to Play Hub.", font=F_TX, fill=PAL_MONO["ink_soft"])
+        d.text((x0 + 22, y0 + 132), "Routes:", font=F_TX, fill=PAL_MONO["ink"])
+        for idx, txt in enumerate(["enter account", "patch notes", "system", "quit"]):
+            d.text((x0 + 36, y0 + 162 + idx * 28), f"- {txt}", font=F_TX, fill=PAL_MONO["ink_soft"])
+    elif mode == "auth":
+        draw_field(d, x0 + 18, y0 + 56, 524, "Email")
+        draw_field(d, x0 + 18, y0 + 98, 524, "Password")
+        draw_field(d, x0 + 18, y0 + 140, 524, "MFA (optional)")
+        draw_button(d, x0 + 18, y0 + 186, 524, "Login")
+        d.text((x0 + 18, y0 + 236), "On success, camera travels to Play Hub node.", font=F_SM, fill=PAL_MONO["ink_soft"])
+    elif mode == "register":
+        draw_field(d, x0 + 18, y0 + 56, 524, "Display Name")
+        draw_field(d, x0 + 18, y0 + 98, 524, "Email")
+        draw_field(d, x0 + 18, y0 + 140, 524, "Password")
+        draw_button(d, x0 + 18, y0 + 186, 524, "Create Account")
+        d.text((x0 + 18, y0 + 236), "After register, return via edge route to Auth.", font=F_SM, fill=PAL_MONO["ink_soft"])
+    elif mode == "play_empty":
+        d.text((x0 + 18, y0 + 56), "Roster", font=F_TX, fill=PAL_MONO["ink"])
+        d.rounded_rectangle((x0 + 18, y0 + 82, x0 + 188, y0 + 320), radius=8, fill=(241, 243, 247, 255), outline=PAL_MONO["panel_border"], width=1)
+        d.text((x0 + 30, y0 + 104), "No character selected", font=F_SM, fill=PAL_MONO["ink_soft"])
+        draw_mini_graph(d, (x0 + 202, y0 + 82, x1 - 18, y0 + 320), muted=True)
+        draw_button(d, x0 + 18, y0 + 336, 168, "Save Build", enabled=False)
+        draw_button(d, x0 + 196, y0 + 336, 168, "Play", enabled=False)
+    elif mode == "play_selected":
+        d.text((x0 + 18, y0 + 56), "Roster", font=F_TX, fill=PAL_MONO["ink"])
+        d.rounded_rectangle((x0 + 18, y0 + 82, x0 + 188, y0 + 320), radius=8, fill=(241, 243, 247, 255), outline=PAL_MONO["panel_border"], width=1)
+        d.rounded_rectangle((x0 + 28, y0 + 102, x0 + 178, y0 + 132), radius=7, fill=(33, 35, 44, 255), outline=PAL_MONO["edge"], width=1)
+        d.text((x0 + 40, y0 + 117), "Sellsword", font=F_SM, fill=(246, 248, 250, 255))
+        d.rounded_rectangle((x0 + 28, y0 + 142, x0 + 178, y0 + 172), radius=7, fill=(234, 236, 240, 255), outline=PAL_MONO["panel_border"], width=1)
+        d.text((x0 + 40, y0 + 157), "Scout", font=F_SM, fill=PAL_MONO["ink_soft"])
+        draw_mini_graph(d, (x0 + 202, y0 + 82, x1 - 18, y0 + 320))
+        d.text((x0 + 202, y0 + 338), "Node: Core  |  Routes: Resolve, Dexterity, Vitality", font=F_SM, fill=PAL_MONO["ink_soft"])
+        draw_button(d, x0 + 18, y0 + 364, 168, "Save Build", enabled=True)
+        draw_button(d, x0 + 196, y0 + 364, 168, "Play", enabled=True)
+    elif mode == "create":
+        draw_field(d, x0 + 18, y0 + 56, 524, "Character Name")
+        draw_field(d, x0 + 18, y0 + 98, 524, "Sellsword")
+        draw_field(d, x0 + 18, y0 + 140, 524, "Male")
+        d.text((x0 + 18, y0 + 194), "Archetype starts at Core and branches to Resolve/Vitality.", font=F_SM, fill=PAL_MONO["ink_soft"])
+        draw_mini_graph(d, (x0 + 18, y0 + 216, x1 - 18, y0 + 370))
+        draw_button(d, x0 + 18, y0 + 382, 524, "Create Character", enabled=True)
+    elif mode == "system":
+        d.text((x0 + 18, y0 + 60), "Audio", font=F_TX, fill=PAL_MONO["ink"])
+        for i, (name, width) in enumerate([("Master", 360), ("Music", 300), ("Effects", 340), ("Interface", 280)]):
+            yy = y0 + 92 + i * 42
+            d.text((x0 + 18, yy - 10), name, font=F_SM, fill=PAL_MONO["ink_soft"])
+            d.rounded_rectangle((x0 + 100, yy - 4, x0 + 502, yy + 4), radius=3, fill=(214, 217, 225, 255), outline=PAL_MONO["panel_border"], width=1)
+            d.rounded_rectangle((x0 + 100, yy - 4, x0 + 100 + width, yy + 4), radius=3, fill=PAL_MONO["button"], outline=PAL_MONO["button"], width=1)
+        d.rounded_rectangle((x0 + 18, y0 + 274, x0 + 256, y0 + 316), radius=8, fill=(241, 243, 247, 255), outline=PAL_MONO["panel_border"], width=1)
+        d.text((x0 + 32, y0 + 294), "MFA: ON", font=F_TX, fill=PAL_MONO["ink"])
+        draw_button(d, x0 + 264, y0 + 280, 132, "Refresh QR", enabled=False)
+        draw_button(d, x0 + 404, y0 + 280, 138, "Copy URI", enabled=False)
+    elif mode == "update":
+        draw_field(d, x0 + 18, y0 + 56, 524, "Build: v1.0.157")
+        d.rounded_rectangle((x0 + 18, y0 + 98, x1 - 18, y0 + 342), radius=9, fill=(242, 244, 248, 255), outline=PAL_MONO["panel_border"], width=1)
+        for i, line in enumerate([
+            "- Graph navigation is node-native.",
+            "- Auth now gates Play hub access.",
+            "- Menus render inside focused nodes.",
+            "- Black/white shadow theme enabled.",
+        ]):
+            d.text((x0 + 30, y0 + 126 + i * 30), line, font=F_TX, fill=PAL_MONO["ink_soft"])
+        draw_button(d, x0 + 18, y0 + 356, 524, "Check for Update", enabled=True)
+
+    # Node history traversal affordance:
+    # Back always returns to the previously focused node (camera pans back).
+    if mode == "boot":
+        draw_button(d, x0 + 18, y1 - 46, 150, "Back", enabled=False)
+        d.text((x0 + 178, y1 - 27), "No previous node yet", anchor="lm", font=F_SM, fill=PAL_MONO["disabled"])
+    else:
+        draw_button(d, x0 + 18, y1 - 46, 150, "Back", enabled=True)
+        d.text((x0 + 178, y1 - 27), "Returns to previous node", anchor="lm", font=F_SM, fill=PAL_MONO["ink_soft"])
+
+    return img
+
+
+def zoom_scene_map():
+    return {
+        "shadow_boot_logo_node": ("COI Node", "boot", []),
+        "shadow_logo_routes_node": (
+            "COI Node",
+            "logo",
+            [(-152, "enter account", True), (-36, "patch notes", True), (64, "system", True), (152, "quit", True)],
+        ),
+        "shadow_auth_node_menu": (
+            "Auth Node",
+            "auth",
+            [(-150, "register", True), (-72, "update", True), (16, "system", True), (96, "quit", True), (156, "play (locked)", False)],
+        ),
+        "shadow_register_node_menu": (
+            "Register Node",
+            "register",
+            [(-154, "auth", True), (-38, "update", True), (84, "quit", True)],
+        ),
+        "shadow_play_node_empty": (
+            "Play Hub Node",
+            "play_empty",
+            [(-150, "auth", True), (-54, "create", True), (22, "settings", True), (92, "update", True), (156, "select hero", True)],
+        ),
+        "shadow_play_node_selected": (
+            "Play Hub Node",
+            "play_selected",
+            [(-150, "auth", True), (-54, "create", True), (22, "settings", True), (92, "update", True), (156, "hero routes", True)],
+        ),
+        "shadow_create_node_menu": (
+            "Create Node",
+            "create",
+            [(-154, "play hub", True), (-44, "archetype", True), (78, "settings", True), (154, "auth", True)],
+        ),
+        "shadow_system_node_menu": (
+            "System Node",
+            "system",
+            [(-152, "security / MFA", True), (-58, "play", True), (36, "auth", True), (138, "update", True)],
+        ),
+        "shadow_update_node_menu": (
+            "Update Node",
+            "update",
+            [(-152, "auth", True), (-52, "play", True), (56, "system", True), (148, "quit", True)],
+        ),
+    }
+
+
+def render_zoom_pass(pass_no: int):
+    pass_dir = OUT_ROOT / f"pass_{pass_no:02d}"
+    pass_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for name, (title, mode, edges) in zoom_scene_map().items():
+        img = draw_zoom_node_scene(title, mode, edges, seed=7000 + pass_no * 53 + len(name))
+        p = pass_dir / f"{name}.png"
+        img.save(p)
+        paths.append(p)
+    contact_sheet(paths, pass_dir / "shadow_contact_sheet.png")
+    write_process(pass_no, pass_dir)
+
+
 def draw_graph_scene(pass_no: int, cam_xy, only_logo=False, highlight=None, logged_in=False):
     pal = palette_for_pass(pass_no)
     img = Image.new("RGBA", (W, H), pal["bg"])
@@ -425,7 +721,7 @@ def write_process(pass_no: int, pass_dir: Path):
             "- Review: Validate that pre-login graph no longer allows direct Play routing and camera traversal still reads clearly.\n"
             "- Next: continue with focused readability + hierarchy passes.\n"
         )
-    else:
+    elif pass_no < 6:
         txt = (
             f"# Shadow Graph Pass {pass_no:02d}\n\n"
             "- Plan: Keep graph-native navigation but ensure each focused node shows an actual functional menu payload.\n"
@@ -433,10 +729,21 @@ def write_process(pass_no: int, pass_dir: Path):
             "- Review: Graph now reads as navigation + usable UI payload instead of nodes-only mockups.\n"
             "- Next: iterate on panel anchoring and visual hierarchy once flow is approved.\n"
         )
+    else:
+        txt = (
+            f"# Shadow Graph Pass {pass_no:02d}\n\n"
+            "- Plan: Move to zoomed-node UX where only one focused node is visible and routes are edge-click navigation.\n"
+            "- Draw: Built high-fidelity monochrome shadow-blob node shells with in-node menus (auth/register/play/create/system/update) and route chips on edges.\n"
+            "- Review: This pass aligns to node-centric navigation and removes floating side panels.\n"
+            "- Next: refine edge placement density and per-node information hierarchy after review.\n"
+        )
     (pass_dir / "process.md").write_text(txt, encoding="utf-8")
 
 
 def render_pass(pass_no: int):
+    if pass_no >= 6:
+        render_zoom_pass(pass_no)
+        return
     pass_dir = OUT_ROOT / f"pass_{pass_no:02d}"
     pass_dir.mkdir(parents=True, exist_ok=True)
     imgs = {
