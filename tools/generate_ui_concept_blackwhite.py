@@ -18,46 +18,96 @@ OUT_DIR = SRC_DIR / "ui_concept_blackwhite"
 
 
 def quantize_gray(v: int) -> int:
-    # Tight neutral grayscale palette for a crisp black/white look.
-    if v >= 246:
+    # Neutral grayscale ramp biased toward light surfaces and crisp dark accents.
+    if v >= 248:
         return 252
-    if v >= 226:
-        return 238
-    if v >= 204:
-        return 220
+    if v >= 232:
+        return 244
+    if v >= 216:
+        return 236
+    if v >= 198:
+        return 226
     if v >= 178:
-        return 194
+        return 212
     if v >= 152:
-        return 166
-    if v >= 124:
-        return 136
-    if v >= 96:
-        return 104
-    if v >= 72:
-        return 76
-    if v >= 48:
-        return 44
-    return 16
+        return 194
+    if v >= 132:
+        return 170
+    if v >= 108:
+        return 142
+    if v >= 84:
+        return 110
+    if v >= 60:
+        return 82
+    if v >= 38:
+        return 52
+    return 14
+
+
+def _is_blue_accent(hue: int, sat: int, val: int) -> bool:
+    # Only high-saturation accent blues should collapse into deep black.
+    return 130 <= hue <= 195 and sat >= 70 and val <= 238
+
+
+def _curve_base_tone(gray_v: int) -> int:
+    # Lift mid-tones so backgrounds stay airy in monochrome.
+    return int((gray_v / 255.0) ** 0.9 * 255)
+
+
+def _title_band_contrast(y: int, h: int, g: int, base_gray: int) -> int:
+    # Recover visual hierarchy in the top banner/title region.
+    top_band = int(h * 0.18)
+    if y > top_band:
+        return g
+    # Keep header background light; force dark text/linework to stay visible.
+    if base_gray < 130:
+        return max(8, int(g * 0.30))
+    return max(228, g)
+
+
+def _neutral_surface_lift(sat: int, g: int) -> int:
+    if sat < 20 and g > 150:
+        return min(252, int(g * 1.08 + 6))
+    return g
+
+
+def _accent_darkening(hue: int, sat: int, val: int, g: int) -> int:
+    if _is_blue_accent(hue, sat, val):
+        if sat >= 58:
+            return int(g * 0.16)
+        if sat >= 44:
+            return int(g * 0.30)
+        return int(g * 0.55)
+    # Keep non-blue dark saturated spots strong, but avoid crushing neutral surfaces.
+    if sat >= 65 and val < 120:
+        return int(g * 0.40)
+    if 130 <= hue <= 195 and sat >= 45 and val <= 180:
+        return int(g * 0.62)
+    return g
 
 
 def recolor_one(src: Path, out: Path) -> None:
     rgb = Image.open(src).convert("RGB")
     gray = ImageOps.autocontrast(ImageOps.grayscale(rgb), cutoff=1)
-    sat = rgb.convert("HSV").split()[1]
+    hue, sat, val = rgb.convert("HSV").split()
 
     gp = gray.load()
+    hp = hue.load()
     sp = sat.load()
+    vp = val.load()
     w, h = gray.size
     for y in range(h):
         for x in range(w):
-            g = gp[x, y]
+            base = gp[x, y]
+            g = _curve_base_tone(base)
+            hh = hp[x, y]
             s = sp[x, y]
+            vv = vp[x, y]
 
-            # Darken saturated UI accents (old blue states) into strong black anchors.
-            if s > 42:
-                g = int(g * 0.23)
-            elif s > 26:
-                g = int(g * 0.55)
+            if y > int(h * 0.18):
+                g = _accent_darkening(hh, s, vv, g)
+            g = _neutral_surface_lift(s, g)
+            g = _title_band_contrast(y, h, g, base)
 
             gp[x, y] = quantize_gray(g)
 

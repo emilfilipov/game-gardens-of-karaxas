@@ -1,3 +1,4 @@
 - Stopped graph/blob concept churn and switched to a direct visual remap of baseline `ui_concept_*.png` screens.
 - Added `tools/generate_ui_concept_blackwhite.py` to produce black/white themed variants while preserving original layout structure.
 - Generated a full themed output set under `concept_art/ui_concept_blackwhite/` (`ui_concept_bw_*.png` + contact sheet).
+- Tuned the black/white conversion to keep the game title/header readable and avoid over-darkened gray backgrounds by applying selective accent remapping.
