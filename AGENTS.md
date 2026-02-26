@@ -19,6 +19,19 @@
 6. If the run fails, fetch failing logs, implement a fix, push again, and continue the poll/fix cycle.
 7. If the run succeeds, report success and wait for next instructions.
 
+## UI Concept Iteration Cycle (Mandatory)
+For UI concept generation work, each pass must be executed strictly one at a time using this exact loop:
+1. Plan one pass (specific layout/art/composition goals).
+2. Generate/draw assets and compose that single pass.
+3. Review that single pass visually.
+4. Record concrete issues and plan improvements.
+5. Implement improvements in tooling/assets.
+6. Only then generate the next pass.
+
+Explicitly forbidden for UI concept iteration work:
+- Batch-generating many passes first and reviewing later.
+- Reusing the same composition with only trivial deltas and calling it a new pass.
+
 ## Patch Notes Policy
 - Patch notes must include only improvements/fixes from the current development cycle.
 - Do not carry forward, re-list, or append items from older cycles/commits.
