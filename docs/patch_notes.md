@@ -1,2 +1,3 @@
-- Removed retired concept references `concept_art/sellsword_front.png` and `concept_art/sellsword_back.png` per the current UI concept direction.
-- Kept canonical documentation aligned so active concept sources are the structured option packs and generated concept families.
+- Refined all three UI concept families (`atlas`, `dual`, `command`) so auth-side navigation is `Login/Register/Quit` only, removing redundant auth update-menu routing.
+- Added missing `register` concept screens across every concept family and regenerated all per-screen/contact-sheet outputs.
+- Reworked selection/create concept layouts to keep graph context while improving usability: larger roster capacity in Dual Pane and a rebuilt structured Command Palette presentation.

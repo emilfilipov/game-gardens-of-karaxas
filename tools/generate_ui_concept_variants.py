@@ -127,6 +127,13 @@ def draw_header(img: Image.Image):
     d.line((24, 98, W - 24, 98), fill=PALETTE["border_soft"], width=1)
 
 
+def sidebar(draw: ImageDraw.ImageDraw, items: list[str], active: int | None, x=24, y=156, h=444):
+    rr(draw, (x, y, x + 136, y + h), PALETTE["panel_alt"], r=8, outline=PALETTE["border"], w=1)
+    by = y + (h - (len(items) * 34 + (len(items) - 1) * 10)) // 2
+    for i, item in enumerate(items):
+        button(draw, (x + 16, by + i * 44, x + 120, by + i * 44 + 34), item, primary=(active == i))
+
+
 def draw_graph(draw: ImageDraw.ImageDraw, rect, mode: str):
     x0, y0, x1, y1 = rect
     rr(draw, rect, PALETTE["panel"], r=6, outline=PALETTE["border_soft"], w=1)
@@ -145,7 +152,6 @@ def draw_graph(draw: ImageDraw.ImageDraw, rect, mode: str):
         draw.text(((x0 + x1) // 2, (y0 + y1) // 2 + 18), "Choose a hero to edit an offline build.", anchor="mm", font=FONT_XS, fill=PALETTE["text_muted"])
         return
 
-    # Shared node map.
     nodes = {
         "Core": (x0 + 255, y0 + 305, PALETTE["graph_node"]),
         "Resolve": (x0 + 165, y0 + 305, PALETTE["graph_node"]),
@@ -172,30 +178,50 @@ def draw_graph(draw: ImageDraw.ImageDraw, rect, mode: str):
         bx, by, _ = nodes[b]
         draw.line((ax, ay, bx, by), fill=(140, 162, 191), width=3)
 
-    for name, (nx, ny, c) in nodes.items():
-        color = c
+    for name, (nx, ny, col) in nodes.items():
+        draw_col = col
         if mode == "create" and name in {"Quick Strike", "Bandage", "Ember"}:
-            color = (203, 213, 228)
+            draw_col = (203, 213, 228)
         r = 11 if name == "Core" else 10
-        draw.ellipse((nx - r, ny - r, nx + r, ny + r), fill=color, outline=(120, 140, 168), width=1)
+        draw.ellipse((nx - r, ny - r, nx + r, ny + r), fill=draw_col, outline=(120, 140, 168), width=1)
         draw.text((nx, ny + 18), name, anchor="mm", font=FONT_XS, fill=PALETTE["text_soft"])
 
     if mode == "create":
-        draw.text((x0 + 24, y0 + 24), "Archetype Start: Core -> Resolve", font=FONT_XS, fill=PALETTE["success"])
+        draw.text((x0 + 22, y0 + 22), "Archetype Start: Core -> Resolve", font=FONT_XS, fill=PALETTE["success"])
 
 
-def sidebar(draw: ImageDraw.ImageDraw, items: list[str], active: int, x=24, y=156, h=444):
-    rr(draw, (x, y, x + 136, y + h), PALETTE["panel_alt"], r=8, outline=PALETTE["border"], w=1)
-    by = y + 90
-    for i, item in enumerate(items):
-        button(draw, (x + 16, by + i * 44, x + 120, by + i * 44 + 34), item, primary=(i == active))
+def draw_char_list(draw: ImageDraw.ImageDraw, rect, include_selected: bool):
+    x0, y0, x1, y1 = rect
+    rr(draw, rect, PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    draw.text((x0 + 18, y0 + 18), "Characters", font=FONT_H, fill=PALETTE["text"])
+    button(draw, (x0 + 18, y0 + 50, x1 - 18, y0 + 84), "Create Character")
 
+    list_box = (x0 + 18, y0 + 96, x1 - 18, y1 - 18)
+    rr(draw, list_box, PALETTE["panel"], r=6, outline=PALETTE["border_soft"], w=1)
+
+    if include_selected:
+        rr(draw, (list_box[0] + 10, list_box[1] + 10, list_box[2] - 10, list_box[1] + 58), PALETTE["primary"], r=4, outline=PALETTE["border_soft"], w=1)
+        draw.text((list_box[0] + 22, list_box[1] + 24), "Sellsword", font=FONT_SM, fill=PALETTE["primary_text"])
+        draw.text((list_box[0] + 22, list_box[1] + 42), "Lv 5 | Ironhold", font=FONT_XS, fill=PALETTE["primary_text"])
+        rr(draw, (list_box[0] + 10, list_box[1] + 66, list_box[2] - 10, list_box[1] + 114), PALETTE["panel_alt"], r=4, outline=PALETTE["border_soft"], w=1)
+        draw.text((list_box[0] + 22, list_box[1] + 80), "Scout", font=FONT_SM, fill=PALETTE["text"])
+        draw.text((list_box[0] + 22, list_box[1] + 98), "Lv 2 | Khar Grotto", font=FONT_XS, fill=PALETTE["text_muted"])
+        # More visible list capacity.
+        for i in range(3):
+            row_y = list_box[1] + 122 + i * 48
+            rr(draw, (list_box[0] + 10, row_y, list_box[2] - 10, row_y + 40), PALETTE["panel"], r=4, outline=PALETTE["border_soft"], w=1)
+            draw.text((list_box[0] + 22, row_y + 14), f"Empty Slot {i + 1}", font=FONT_XS, fill=PALETTE["text_muted"])
+    else:
+        tbox(draw, (list_box[0] + 18, list_box[1] + 20), "No characters yet. Create a hero to start building your path.", FONT_SM, PALETTE["text_muted"], (list_box[2] - list_box[0]) - 36, max_lines=5)
+
+
+# Option 1: Atlas Workspace
 
 def atlas_login() -> Image.Image:
     img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
     draw_header(img)
     d = ImageDraw.Draw(img, "RGBA")
-    sidebar(d, ["Login", "Register", "Update", "Quit"], 0)
+    sidebar(d, ["Login", "Register", "Quit"], 0)
 
     rr(d, (186, 132, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
     rr(d, (210, 170, 860, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
@@ -209,9 +235,34 @@ def atlas_login() -> Image.Image:
     d.text((232, 666), "Client version: v1.0.157", font=FONT_XS, fill=PALETTE["text_muted"])
     d.text((830, 666), "MFA available in Security settings", anchor="ra", font=FONT_XS, fill=PALETTE["text_muted"])
 
-    d.text((900, 198), "Atlas Workspace", font=FONT_H, fill=PALETTE["text"])
-    tbox(d, (900, 232), "Graph remains visible in character selection and creation.\n\nSelection supports offline build edits with explicit Save Build action before entering gameplay.", FONT_SM, PALETTE["text_soft"], 392, max_lines=12)
-    button(d, (900, 632, 1292, 668), "Open Update Center")
+    d.text((900, 198), "Update Center", font=FONT_H, fill=PALETTE["text"])
+    tbox(d, (900, 232), "Latest patch summary is shown here directly next to login.\n\nNo extra auth-sidebar update button needed.", FONT_SM, PALETTE["text_soft"], 392, max_lines=8)
+    rr(d, (900, 312, 1292, 610), PALETTE["panel"], r=6, outline=PALETTE["border_soft"], w=1)
+    d.text((918, 332), "Build: v1.0.157", font=FONT_XS, fill=PALETTE["text"])
+    tbox(d, (918, 360), "- Graph available in selection + creation.\n- Pre-launch Save Build enabled.\n- Cleaner roster capacity in Dual Pane v2.", FONT_XS, PALETTE["text_soft"], 356, max_lines=8)
+    button(d, (900, 632, 1292, 668), "Check for Update")
+    return img
+
+
+def atlas_register() -> Image.Image:
+    img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    draw_header(img)
+    d = ImageDraw.Draw(img, "RGBA")
+    sidebar(d, ["Login", "Register", "Quit"], 1)
+
+    rr(d, (186, 132, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
+    rr(d, (210, 170, 860, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    rr(d, (878, 170, 1316, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+
+    d.text((232, 198), "Create Account", font=FONT_H, fill=PALETTE["text"])
+    input_box(d, (232, 236, 838, 270), "Display Name")
+    input_box(d, (232, 280, 838, 314), "Email")
+    input_box(d, (232, 324, 838, 358), "Password")
+    button(d, (232, 376, 838, 412), "Register", primary=True)
+
+    d.text((900, 198), "New Player Flow", font=FONT_H, fill=PALETTE["text"])
+    tbox(d, (900, 232), "1. Register\n2. Select/Create character\n3. Configure build offline\n4. Launch", FONT_SM, PALETTE["text_soft"], 392, max_lines=8)
+    button(d, (900, 632, 1292, 668), "Back to Login")
     return img
 
 
@@ -222,35 +273,23 @@ def atlas_play(selected: bool) -> Image.Image:
     sidebar(d, ["Play", "Create", "Settings", "Update", "Log Out", "Quit"], 0)
 
     rr(d, (186, 132, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
+    draw_char_list(d, (210, 170, 470, 702), include_selected=selected)
 
-    rr(d, (210, 170, 412, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((230, 198), "Characters", font=FONT_H, fill=PALETTE["text"])
-    button(d, (230, 232, 392, 266), "Create Character", primary=not selected)
+    rr(d, (484, 170, 1132, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((502, 198), "Build Graph", font=FONT_H, fill=PALETTE["text"])
+    draw_graph(d, (502, 226, 1112, 620), "selected" if selected else "empty")
     if selected:
-        rr(d, (230, 286, 392, 336), PALETTE["primary"], r=5, outline=PALETTE["border_soft"], w=1)
-        d.text((242, 300), "Sellsword", font=FONT_SM, fill=PALETTE["primary_text"])
-        d.text((242, 320), "Lv 5 | Ironhold", font=FONT_XS, fill=PALETTE["primary_text"])
+        button(d, (502, 638, 792, 674), "Save Build (Offline)", primary=True)
+        d.text((804, 648), "Stored now; gold cost can apply on in-game commit.", font=FONT_XS, fill=PALETTE["text_muted"])
+
+    rr(d, (1146, 170, 1316, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((1160, 198), "Details", font=FONT_H, fill=PALETTE["text"])
+    if selected:
+        tbox(d, (1160, 232), "Name: Sellsword\nClass: Mercenary\nSex: Male\nZone: Ironhold", FONT_SM, PALETTE["text_soft"], 144, max_lines=8)
+        button(d, (1160, 640, 1232, 676), "Play", primary=True)
+        button(d, (1236, 640, 1308, 676), "Delete")
     else:
-        tbox(d, (230, 286), "No characters yet.", FONT_SM, PALETTE["text_muted"], 150, max_lines=2)
-
-    rr(d, (426, 170, 1118, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((446, 198), "Build Graph", font=FONT_H, fill=PALETTE["text"])
-    draw_graph(d, (446, 226, 1098, 620), "selected" if selected else "empty")
-
-    if selected:
-        button(d, (446, 638, 736, 674), "Save Build (Offline)", primary=True)
-        d.text((748, 648), "Stored now; gold cost can apply on in-game commit.", font=FONT_XS, fill=PALETTE["text_muted"])
-
-    rr(d, (1132, 170, 1316, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((1148, 198), "Character Details", font=FONT_H, fill=PALETTE["text"])
-    if selected:
-        tbox(d, (1148, 232), "Name: Sellsword\nClass: Mercenary\nSex: Male\nZone: Ironhold", FONT_SM, PALETTE["text_soft"], 152, max_lines=7)
-        button(d, (1148, 640, 1230, 676), "Play", primary=True)
-        button(d, (1234, 640, 1310, 676), "Delete")
-    else:
-        tbox(d, (1148, 232), "Select a character to enable build editing and launch actions.", FONT_SM, PALETTE["text_muted"], 152, max_lines=8)
-        button(d, (1148, 640, 1230, 676), "Play")
-        button(d, (1234, 640, 1310, 676), "Delete")
+        tbox(d, (1160, 232), "Select a character to enable graph editing and launch.", FONT_SM, PALETTE["text_muted"], 144, max_lines=7)
     return img
 
 
@@ -261,23 +300,18 @@ def atlas_create() -> Image.Image:
     sidebar(d, ["Play", "Create", "Settings", "Update", "Log Out", "Quit"], 1)
 
     rr(d, (186, 132, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
-    rr(d, (210, 170, 412, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((230, 198), "Archetypes", font=FONT_H, fill=PALETTE["text"])
-    rr(d, (230, 232, 392, 286), PALETTE["primary"], r=5, outline=PALETTE["border_soft"], w=1)
-    d.text((242, 246), "Sellsword", font=FONT_SM, fill=PALETTE["primary_text"])
-    d.text((242, 266), "Melee baseline", font=FONT_XS, fill=PALETTE["primary_text"])
 
-    rr(d, (426, 170, 1118, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((446, 198), "Archetype Graph Start", font=FONT_H, fill=PALETTE["text"])
-    draw_graph(d, (446, 226, 1098, 620), "create")
+    rr(d, (210, 170, 480, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((230, 198), "Identity", font=FONT_H, fill=PALETTE["text"])
+    input_box(d, (230, 236, 460, 270), "Character Name")
+    input_box(d, (230, 280, 460, 314), "Character Type", "Sellsword")
+    input_box(d, (230, 324, 460, 358), "Sex", "Male")
+    tbox(d, (230, 396), "Sellsword starts at Core and can branch into Resolve, Dexterity, or Vitality.", FONT_SM, PALETTE["text_soft"], 220, max_lines=8)
+    button(d, (230, 640, 460, 676), "Create Character", primary=True)
 
-    rr(d, (1132, 170, 1316, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((1148, 198), "Identity", font=FONT_H, fill=PALETTE["text"])
-    input_box(d, (1148, 232, 1310, 266), "Character Name")
-    input_box(d, (1148, 276, 1310, 310), "Character Type", "Sellsword")
-    input_box(d, (1148, 320, 1310, 354), "Sex", "Male")
-    tbox(d, (1148, 388), "Start node: Core\nFirst branches: Resolve, Dexterity, Vitality.", FONT_SM, PALETTE["text_soft"], 152, max_lines=7)
-    button(d, (1148, 640, 1310, 676), "Create Character", primary=True)
+    rr(d, (494, 170, 1316, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((514, 198), "Archetype Starting Graph", font=FONT_H, fill=PALETTE["text"])
+    draw_graph(d, (514, 226, 1296, 676), "create")
     return img
 
 
@@ -285,16 +319,15 @@ def atlas_update() -> Image.Image:
     img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
     draw_header(img)
     d = ImageDraw.Draw(img, "RGBA")
-    sidebar(d, ["Login", "Register", "Update", "Quit"], 2)
+    sidebar(d, ["Login", "Register", "Quit"], None)
 
     rr(d, (286, 154, 1120, 628), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
     rr(d, (312, 188, 1092, 228), PALETTE["panel_alt"], r=5, outline=PALETTE["border_soft"], w=1)
     d.text((330, 200), "Build: v1.0.157", font=FONT_SM, fill=PALETTE["text"])
-
     rr(d, (312, 240, 1092, 544), PALETTE["panel_alt"], r=6, outline=PALETTE["border_soft"], w=1)
     d.text((330, 262), "Release Notes", font=FONT_H, fill=PALETTE["text"])
-    tbox(d, (330, 298), "- Atlas lobby keeps graph available for both selection and creation.\n- Save Build action persists pre-launch edits.\n- UI structure trims friction between roster, graph, and launch paths.", FONT_SM, PALETTE["text_soft"], 742, max_lines=10)
-    button(d, (312, 556, 1092, 594), "Check for Update", primary=True)
+    tbox(d, (330, 298), "- Atlas keeps graph visible in both selection and creation.\n- Save Build can happen pre-launch.\n- Update remains adjacent to login flow.", FONT_SM, PALETTE["text_soft"], 742, max_lines=10)
+    button(d, (312, 556, 1092, 594), "Back to Login", primary=True)
     return img
 
 
@@ -331,7 +364,7 @@ def dual_login() -> Image.Image:
     img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
     draw_header(img)
     d = ImageDraw.Draw(img, "RGBA")
-    sidebar(d, ["Login", "Register", "Update", "Quit"], 0)
+    sidebar(d, ["Login", "Register", "Quit"], 0)
 
     rr(d, (196, 132, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
     rr(d, (220, 170, 770, 700), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
@@ -345,9 +378,33 @@ def dual_login() -> Image.Image:
     d.text((242, 660), "Client version: v1.0.157", font=FONT_XS, fill=PALETTE["text_muted"])
     d.text((740, 660), "MFA available in Security settings", anchor="ra", font=FONT_XS, fill=PALETTE["text_muted"])
 
-    d.text((806, 198), "Release Snapshot", font=FONT_H, fill=PALETTE["text"])
-    tbox(d, (806, 232), "Dual-pane layout separates account actions from update/notes context for cleaner scanning.", FONT_SM, PALETTE["text_soft"], 492, max_lines=10)
+    d.text((806, 198), "Update Snapshot", font=FONT_H, fill=PALETTE["text"])
+    rr(d, (806, 236, 1292, 610), PALETTE["panel"], r=6, outline=PALETTE["border_soft"], w=1)
+    d.text((824, 256), "Build: v1.0.157", font=FONT_XS, fill=PALETTE["text"])
+    tbox(d, (824, 282), "- Selection + creation both include graph context.\n- Offline Save Build path remains available before launch.", FONT_XS, PALETTE["text_soft"], 450, max_lines=8)
     button(d, (806, 646, 1292, 682), "Check for Update")
+    return img
+
+
+def dual_register() -> Image.Image:
+    img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    draw_header(img)
+    d = ImageDraw.Draw(img, "RGBA")
+    sidebar(d, ["Login", "Register", "Quit"], 1)
+
+    rr(d, (196, 132, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
+    rr(d, (220, 170, 770, 700), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    rr(d, (784, 170, 1316, 700), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+
+    d.text((242, 198), "Create Account", font=FONT_H, fill=PALETTE["text"])
+    input_box(d, (242, 236, 748, 270), "Display Name")
+    input_box(d, (242, 280, 748, 314), "Email")
+    input_box(d, (242, 324, 748, 358), "Password")
+    button(d, (242, 376, 748, 412), "Register", primary=True)
+
+    d.text((806, 198), "New Player Prep", font=FONT_H, fill=PALETTE["text"])
+    tbox(d, (806, 232), "Registration feeds directly into character creation where graph start routes are explained per archetype.", FONT_SM, PALETTE["text_soft"], 492, max_lines=8)
+    button(d, (806, 646, 1292, 682), "Back to Login")
     return img
 
 
@@ -359,34 +416,26 @@ def dual_play(selected: bool) -> Image.Image:
 
     rr(d, (196, 132, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
 
-    # Left pane = roster + details stack
-    rr(d, (220, 170, 580, 700), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((242, 198), "Characters", font=FONT_H, fill=PALETTE["text"])
-    button(d, (242, 232, 558, 266), "Create Character", primary=not selected)
+    # Widened roster column for real list capacity.
+    draw_char_list(d, (220, 170, 550, 702), include_selected=selected)
+
+    rr(d, (564, 170, 1088, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((584, 198), "Build Graph", font=FONT_H, fill=PALETTE["text"])
+    draw_graph(d, (584, 226, 1068, 620), "selected" if selected else "empty")
+
+    rr(d, (584, 638, 1068, 674), PALETTE["panel"], r=4, outline=PALETTE["border_soft"], w=1)
     if selected:
-        rr(d, (242, 286, 558, 336), PALETTE["primary"], r=5, outline=PALETTE["border_soft"], w=1)
-        d.text((256, 300), "Sellsword", font=FONT_SM, fill=PALETTE["primary_text"])
-        d.text((256, 320), "Lv 5 | Ironhold", font=FONT_XS, fill=PALETTE["primary_text"])
+        button(d, (592, 640, 772, 672), "Save Build", primary=True)
+        d.text((780, 648), "Saved offline before gameplay launch.", font=FONT_XS, fill=PALETTE["text_muted"])
+
+    rr(d, (1102, 170, 1316, 702), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((1118, 198), "Character Details", font=FONT_H, fill=PALETTE["text"])
+    if selected:
+        tbox(d, (1118, 232), "Name: Sellsword\nClass: Mercenary\nSex: Male\nZone: Ironhold\nFacing: East", FONT_SM, PALETTE["text_soft"], 178, max_lines=9)
+        button(d, (1118, 640, 1210, 676), "Play", primary=True)
+        button(d, (1214, 640, 1308, 676), "Delete")
     else:
-        tbox(d, (242, 286), "No characters yet.", FONT_SM, PALETTE["text_muted"], 310, max_lines=2)
-
-    rr(d, (242, 356, 558, 678), PALETTE["panel"], r=6, outline=PALETTE["border_soft"], w=1)
-    d.text((256, 374), "Character Details", font=FONT_H, fill=PALETTE["text"])
-    if selected:
-        tbox(d, (256, 406), "Class: Mercenary\nZone: Ironhold\nFacing: East", FONT_SM, PALETTE["text_soft"], 282, max_lines=6)
-        button(d, (256, 630, 406, 666), "Play", primary=True)
-        button(d, (414, 630, 544, 666), "Delete")
-
-    # Right pane = graph + inspector
-    rr(d, (594, 170, 1316, 700), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((616, 198), "Build Graph", font=FONT_H, fill=PALETTE["text"])
-    draw_graph(d, (616, 226, 1166, 664), "selected" if selected else "empty")
-
-    rr(d, (1178, 226, 1298, 664), PALETTE["panel"], r=6, outline=PALETTE["border_soft"], w=1)
-    d.text((1188, 244), "Node", font=FONT_H, fill=PALETTE["text"])
-    if selected:
-        tbox(d, (1188, 276), "Core\n+2 to all base stats\n\nNext: Resolve, Dexterity, Vitality", FONT_XS, PALETTE["text_soft"], 100, max_lines=12)
-        button(d, (1188, 620, 1288, 654), "Save Build", primary=True)
+        tbox(d, (1118, 232), "Pick a character to inspect details and edit build paths.", FONT_SM, PALETTE["text_muted"], 178, max_lines=7)
     return img
 
 
@@ -397,18 +446,18 @@ def dual_create() -> Image.Image:
     sidebar(d, ["Play", "Create", "Settings", "Update", "Log Out", "Quit"], 1)
 
     rr(d, (196, 132, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
-    rr(d, (220, 170, 580, 700), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    rr(d, (594, 170, 1316, 700), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    rr(d, (220, 170, 560, 700), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    rr(d, (574, 170, 1316, 700), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
 
     d.text((242, 198), "Identity", font=FONT_H, fill=PALETTE["text"])
-    input_box(d, (242, 236, 558, 270), "Character Name")
-    input_box(d, (242, 280, 558, 314), "Character Type", "Sellsword")
-    input_box(d, (242, 324, 558, 358), "Sex", "Male")
-    tbox(d, (242, 396), "Sellsword starts at Core and can branch early into Resolve, Dexterity, or Vitality lines.", FONT_SM, PALETTE["text_soft"], 312, max_lines=8)
-    button(d, (242, 630, 558, 666), "Create Character", primary=True)
+    input_box(d, (242, 236, 538, 270), "Character Name")
+    input_box(d, (242, 280, 538, 314), "Character Type", "Sellsword")
+    input_box(d, (242, 324, 538, 358), "Sex", "Male")
+    tbox(d, (242, 396), "Sellsword starts at Core and can branch early into Resolve, Dexterity, or Vitality lines.", FONT_SM, PALETTE["text_soft"], 292, max_lines=8)
+    button(d, (242, 640, 538, 676), "Create Character", primary=True)
 
-    d.text((616, 198), "Starting Graph", font=FONT_H, fill=PALETTE["text"])
-    draw_graph(d, (616, 226, 1294, 664), "create")
+    d.text((596, 198), "Starting Graph", font=FONT_H, fill=PALETTE["text"])
+    draw_graph(d, (596, 226, 1294, 676), "create")
     return img
 
 
@@ -416,109 +465,143 @@ def dual_update() -> Image.Image:
     img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
     draw_header(img)
     d = ImageDraw.Draw(img, "RGBA")
-    sidebar(d, ["Login", "Register", "Update", "Quit"], 2)
+    sidebar(d, ["Login", "Register", "Quit"], None)
 
     rr(d, (286, 154, 1120, 628), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
     rr(d, (312, 188, 1092, 228), PALETTE["panel_alt"], r=5, outline=PALETTE["border_soft"], w=1)
     d.text((330, 200), "Build: v1.0.157", font=FONT_SM, fill=PALETTE["text"])
     rr(d, (312, 240, 1092, 544), PALETTE["panel_alt"], r=6, outline=PALETTE["border_soft"], w=1)
     d.text((330, 262), "Release Notes", font=FONT_H, fill=PALETTE["text"])
-    tbox(d, (330, 298), "- Dual-pane mode: roster/actions left, graph+inspector right.\n- Selection and creation both expose graph context.\n- Offline build save available before entering gameplay.", FONT_SM, PALETTE["text_soft"], 742, max_lines=10)
-    button(d, (312, 556, 1092, 594), "Check for Update", primary=True)
+    tbox(d, (330, 298), "- Dual pane now gives much more room to character roster.\n- Graph stays visible in both selection and creation.\n- Save Build remains a pre-launch action.", FONT_SM, PALETTE["text_soft"], 742, max_lines=10)
+    button(d, (312, 556, 1092, 594), "Back to Login", primary=True)
     return img
 
 
 def dual_settings() -> Image.Image:
-    img = atlas_settings()
-    return img
+    return atlas_settings()
 
 
-# Option 3: Command-Palette UI
-
-def cmd_base(active: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
-    img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
-    draw_header(img)
-    d = ImageDraw.Draw(img, "RGBA")
-    sidebar(d, ["Play", "Create", "Settings", "Update", "Log Out", "Quit"], active, x=24, y=178, h=400)
-
-    # Central command strip.
-    rr(d, (214, 122, 1170, 162), PALETTE["panel"], r=8, outline=PALETTE["border_soft"], w=1)
-    d.text((236, 136), "Command: type action or press Ctrl+K", font=FONT_XS, fill=PALETTE["text_muted"])
-    button(d, (952, 128, 1062, 156), "Open Palette")
-    button(d, (1070, 128, 1158, 156), "Help")
-    return img, d
-
+# Option 3: Command Palette (fully restyled)
 
 def cmd_login() -> Image.Image:
     img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
     draw_header(img)
     d = ImageDraw.Draw(img, "RGBA")
-    sidebar(d, ["Login", "Register", "Update", "Quit"], 0, x=24, y=178, h=400)
+    sidebar(d, ["Login", "Register", "Quit"], 0, x=24, y=178, h=400)
 
-    rr(d, (254, 196, 824, 560), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
-    rr(d, (842, 196, 1256, 560), PALETTE["panel_alt"], r=10, outline=PALETTE["border_soft"], w=1)
+    rr(d, (204, 128, 1162, 170), PALETTE["panel"], r=8, outline=PALETTE["border_soft"], w=1)
+    d.text((224, 142), "Command Palette: Ctrl+K for quick actions", font=FONT_XS, fill=PALETTE["text_muted"])
+    button(d, (980, 134, 1088, 162), "Palette")
+    button(d, (1096, 134, 1146, 162), "?")
 
-    d.text((276, 224), "Account Access", font=FONT_H, fill=PALETTE["text"])
-    input_box(d, (276, 262, 802, 296), "Email", "admin@admin.com")
-    input_box(d, (276, 306, 802, 340), "Password")
-    input_box(d, (276, 350, 802, 384), "MFA Code (optional)")
-    button(d, (276, 402, 802, 438), "Login", primary=True)
-    d.text((276, 516), "Client version: v1.0.157", font=FONT_XS, fill=PALETTE["text_muted"])
-    d.text((794, 516), "MFA available in Security settings", anchor="ra", font=FONT_XS, fill=PALETTE["text_muted"])
+    rr(d, (204, 188, 1162, 700), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
+    rr(d, (228, 218, 748, 676), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    rr(d, (766, 218, 1138, 676), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
 
-    d.text((862, 224), "Quick Commands", font=FONT_H, fill=PALETTE["text"])
-    tbox(d, (862, 260), "login\nregister\nopen update\ncheck notes", FONT_SM, PALETTE["text_soft"], 374, max_lines=9)
+    d.text((248, 246), "Account Access", font=FONT_H, fill=PALETTE["text"])
+    input_box(d, (248, 284, 726, 318), "Email", "admin@admin.com")
+    input_box(d, (248, 328, 726, 362), "Password")
+    input_box(d, (248, 372, 726, 406), "MFA Code (optional)")
+    button(d, (248, 424, 726, 460), "Login", primary=True)
+    d.text((248, 648), "Client version: v1.0.157", font=FONT_XS, fill=PALETTE["text_muted"])
+    d.text((718, 648), "MFA available in Security settings", anchor="ra", font=FONT_XS, fill=PALETTE["text_muted"])
+
+    d.text((786, 246), "Quick Actions", font=FONT_H, fill=PALETTE["text"])
+    rr(d, (786, 284, 1118, 392), PALETTE["panel"], r=6, outline=PALETTE["border_soft"], w=1)
+    tbox(d, (800, 302), "login\nregister\nopen update\nopen settings", FONT_SM, PALETTE["text_soft"], 300, max_lines=8)
+    rr(d, (786, 408, 1118, 620), PALETTE["panel"], r=6, outline=PALETTE["border_soft"], w=1)
+    d.text((800, 428), "Update", font=FONT_H, fill=PALETTE["text"])
+    tbox(d, (800, 456), "Build: v1.0.157\nPatch notes and check action live beside login.", FONT_XS, PALETTE["text_soft"], 300, max_lines=6)
+    button(d, (786, 632, 1118, 668), "Check for Update")
+    return img
+
+
+def cmd_register() -> Image.Image:
+    img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    draw_header(img)
+    d = ImageDraw.Draw(img, "RGBA")
+    sidebar(d, ["Login", "Register", "Quit"], 1, x=24, y=178, h=400)
+
+    rr(d, (204, 128, 1162, 170), PALETTE["panel"], r=8, outline=PALETTE["border_soft"], w=1)
+    d.text((224, 142), "Command Palette: Ctrl+K for quick actions", font=FONT_XS, fill=PALETTE["text_muted"])
+
+    rr(d, (204, 188, 1162, 700), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
+    rr(d, (228, 218, 748, 676), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    rr(d, (766, 218, 1138, 676), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+
+    d.text((248, 246), "Create Account", font=FONT_H, fill=PALETTE["text"])
+    input_box(d, (248, 284, 726, 318), "Display Name")
+    input_box(d, (248, 328, 726, 362), "Email")
+    input_box(d, (248, 372, 726, 406), "Password")
+    button(d, (248, 424, 726, 460), "Register", primary=True)
+
+    d.text((786, 246), "Onboarding", font=FONT_H, fill=PALETTE["text"])
+    tbox(d, (800, 284), "After registration:\n1. Create character\n2. Review start graph\n3. Save starter build\n4. Launch", FONT_SM, PALETTE["text_soft"], 300, max_lines=9)
+    button(d, (786, 632, 1118, 668), "Back to Login")
     return img
 
 
 def cmd_play(selected: bool) -> Image.Image:
-    img, d = cmd_base(0)
+    img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    draw_header(img)
+    d = ImageDraw.Draw(img, "RGBA")
+    sidebar(d, ["Play", "Create", "Settings", "Update", "Log Out", "Quit"], 0, x=24, y=178, h=400)
+
+    rr(d, (204, 128, 1162, 170), PALETTE["panel"], r=8, outline=PALETTE["border_soft"], w=1)
+    d.text((224, 142), "Command Palette: Ctrl+K for quick actions", font=FONT_XS, fill=PALETTE["text_muted"])
+    button(d, (980, 134, 1088, 162), "Palette")
+    button(d, (1096, 134, 1146, 162), "Help")
 
     rr(d, (184, 176, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
-    draw_graph(d, (264, 236, 1110, 686), "selected" if selected else "empty")
 
-    # floating roster panel
-    rr(d, (204, 216, 248, 520), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((216, 236), "Roster", font=FONT_H, fill=PALETTE["text"])
-    button(d, (216, 266, 236, 300), "+", primary=True)
-    if selected:
-        rr(d, (216, 312, 236, 362), PALETTE["primary"], r=5, outline=PALETTE["border_soft"], w=1)
-        d.text((220, 324), "S", font=FONT_SM, fill=PALETTE["primary_text"])
-    # node inspector
-    rr(d, (1124, 216, 1320, 560), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((1140, 236), "Inspector", font=FONT_H, fill=PALETTE["text"])
-    if selected:
-        tbox(d, (1140, 268), "Core\n+2 base stats\n\nRoute to Resolve\nRoute to Dexterity", FONT_XS, PALETTE["text_soft"], 168, max_lines=10)
-        button(d, (1140, 516, 1304, 550), "Save Build", primary=True)
+    # Better structured than previous tiny floating widgets.
+    draw_char_list(d, (204, 202, 470, 716), include_selected=selected)
 
-    # action rail bottom
-    rr(d, (264, 696, 1110, 726), PALETTE["panel_alt"], r=5, outline=PALETTE["border_soft"], w=1)
-    button(d, (272, 698, 432, 724), "Save Build", primary=True)
-    button(d, (440, 698, 574, 724), "Reset")
-    button(d, (582, 698, 708, 724), "Play")
-    d.text((722, 705), "Offline edits are saved before gameplay entry.", font=FONT_XS, fill=PALETTE["text_muted"])
+    rr(d, (484, 202, 1118, 676), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((504, 224), "Graph Canvas", font=FONT_H, fill=PALETTE["text"])
+    draw_graph(d, (504, 252, 1098, 652), "selected" if selected else "empty")
+
+    rr(d, (1132, 202, 1316, 676), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((1148, 224), "Inspector", font=FONT_H, fill=PALETTE["text"])
+    if selected:
+        tbox(d, (1148, 252), "Core\n+2 base stats\n\nRoutes:\nResolve\nDexterity\nVitality", FONT_SM, PALETTE["text_soft"], 154, max_lines=10)
+        button(d, (1148, 624, 1300, 660), "Save Build", primary=True)
+
+    rr(d, (484, 686, 1118, 718), PALETTE["panel_alt"], r=5, outline=PALETTE["border_soft"], w=1)
+    button(d, (492, 688, 660, 716), "Save Build", primary=True)
+    button(d, (668, 688, 790, 716), "Reset")
+    button(d, (798, 688, 900, 716), "Play")
+    d.text((912, 694), "Offline edits are saved before gameplay entry.", font=FONT_XS, fill=PALETTE["text_muted"])
     return img
 
 
 def cmd_create() -> Image.Image:
-    img, d = cmd_base(1)
+    img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    draw_header(img)
+    d = ImageDraw.Draw(img, "RGBA")
+    sidebar(d, ["Play", "Create", "Settings", "Update", "Log Out", "Quit"], 1, x=24, y=178, h=400)
+
+    rr(d, (204, 128, 1162, 170), PALETTE["panel"], r=8, outline=PALETTE["border_soft"], w=1)
+    d.text((224, 142), "Command Palette: Ctrl+K for quick actions", font=FONT_XS, fill=PALETTE["text_muted"])
 
     rr(d, (184, 176, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
-    draw_graph(d, (264, 236, 1110, 686), "create")
 
-    rr(d, (204, 216, 248, 520), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((216, 236), "Create", font=FONT_H, fill=PALETTE["text"])
-    input_box(d, (216, 266, 236, 300), "Name")
-    input_box(d, (216, 310, 236, 344), "Class", "Sellsword")
-    input_box(d, (216, 354, 236, 388), "Sex", "Male")
+    rr(d, (204, 202, 470, 716), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((222, 224), "Create", font=FONT_H, fill=PALETTE["text"])
+    input_box(d, (222, 254, 452, 288), "Character Name")
+    input_box(d, (222, 298, 452, 332), "Character Type", "Sellsword")
+    input_box(d, (222, 342, 452, 376), "Sex", "Male")
+    tbox(d, (222, 408), "Use graph cues to understand starting node and early branch identity.", FONT_SM, PALETTE["text_soft"], 220, max_lines=7)
+    button(d, (222, 672, 452, 708), "Create Character", primary=True)
 
-    rr(d, (1124, 216, 1320, 560), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
-    d.text((1140, 236), "Start Route", font=FONT_H, fill=PALETTE["text"])
-    tbox(d, (1140, 268), "Starts at Core.\nRecommended early path:\nCore -> Resolve -> Quick Strike", FONT_XS, PALETTE["text_soft"], 168, max_lines=10)
+    rr(d, (484, 202, 1118, 716), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((504, 224), "Starting Graph", font=FONT_H, fill=PALETTE["text"])
+    draw_graph(d, (504, 252, 1098, 690), "create")
 
-    rr(d, (264, 696, 1110, 726), PALETTE["panel_alt"], r=5, outline=PALETTE["border_soft"], w=1)
-    button(d, (272, 698, 466, 724), "Create Character", primary=True)
-    button(d, (474, 698, 640, 724), "Back to Play")
+    rr(d, (1132, 202, 1316, 716), PALETTE["panel_alt"], r=7, outline=PALETTE["border_soft"], w=1)
+    d.text((1148, 224), "Route Notes", font=FONT_H, fill=PALETTE["text"])
+    tbox(d, (1148, 252), "Core start.\nRecommended opener:\nCore -> Resolve -> Quick Strike", FONT_SM, PALETTE["text_soft"], 154, max_lines=8)
+    button(d, (1148, 672, 1300, 708), "Back to Play")
     return img
 
 
@@ -526,21 +609,28 @@ def cmd_update() -> Image.Image:
     img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
     draw_header(img)
     d = ImageDraw.Draw(img, "RGBA")
-    sidebar(d, ["Login", "Register", "Update", "Quit"], 2, x=24, y=178, h=400)
+    sidebar(d, ["Login", "Register", "Quit"], None, x=24, y=178, h=400)
 
     rr(d, (254, 180, 1260, 640), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
     rr(d, (278, 214, 1234, 252), PALETTE["panel_alt"], r=5, outline=PALETTE["border_soft"], w=1)
     d.text((296, 226), "Build: v1.0.157", font=FONT_SM, fill=PALETTE["text"])
     rr(d, (278, 264, 1234, 556), PALETTE["panel_alt"], r=6, outline=PALETTE["border_soft"], w=1)
     d.text((296, 286), "Release Notes", font=FONT_H, fill=PALETTE["text"])
-    tbox(d, (296, 322), "- Command-palette UX supports power users while keeping core actions visible.\n- Graph editing remains available in both selection and creation.\n- Build save can happen before entering gameplay session.", FONT_SM, PALETTE["text_soft"], 916, max_lines=10)
-    button(d, (278, 570, 1234, 608), "Check for Update", primary=True)
+    tbox(d, (296, 322), "- Command palette option fully restyled with structured panels.\n- Graph present in selection and creation.\n- Save Build before launch remains core path.", FONT_SM, PALETTE["text_soft"], 916, max_lines=10)
+    button(d, (278, 570, 1234, 608), "Back to Login", primary=True)
     return img
 
 
 def cmd_settings() -> Image.Image:
-    img, d = cmd_base(2)
+    img = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    draw_header(img)
+    d = ImageDraw.Draw(img, "RGBA")
+    sidebar(d, ["Play", "Create", "Settings", "Update", "Log Out", "Quit"], 2, x=24, y=178, h=400)
+
     rr(d, (184, 176, 1340, 736), PALETTE["panel"], r=10, outline=PALETTE["border_soft"], w=1)
+    rr(d, (204, 128, 1162, 170), PALETTE["panel"], r=8, outline=PALETTE["border_soft"], w=1)
+    d.text((224, 142), "Command Palette: Ctrl+K for quick actions", font=FONT_XS, fill=PALETTE["text_muted"])
+
     d.text((206, 204), "Settings", font=FONT_H, fill=PALETTE["text"])
     button(d, (206, 236, 296, 270), "Video")
     button(d, (302, 236, 392, 270), "Audio")
@@ -577,11 +667,7 @@ def make_contact_sheet(images: list[tuple[str, Image.Image]]) -> Image.Image:
     return out
 
 
-def generate_option(
-    folder: Path,
-    prefix: str,
-    screens: list[tuple[str, Callable[[], Image.Image]]],
-):
+def generate_option(folder: Path, prefix: str, screens: list[tuple[str, Callable[[], Image.Image]]]):
     folder.mkdir(parents=True, exist_ok=True)
     rendered: list[tuple[str, Image.Image]] = []
     for short_name, fn in screens:
@@ -607,6 +693,7 @@ def main() -> None:
         "atlas",
         [
             ("login", atlas_login),
+            ("register", atlas_register),
             ("play_empty", lambda: atlas_play(False)),
             ("play_selected", lambda: atlas_play(True)),
             ("create", atlas_create),
@@ -620,6 +707,7 @@ def main() -> None:
         "dual",
         [
             ("login", dual_login),
+            ("register", dual_register),
             ("play_empty", lambda: dual_play(False)),
             ("play_selected", lambda: dual_play(True)),
             ("create", dual_create),
@@ -633,6 +721,7 @@ def main() -> None:
         "cmd",
         [
             ("login", cmd_login),
+            ("register", cmd_register),
             ("play_empty", lambda: cmd_play(False)),
             ("play_selected", lambda: cmd_play(True)),
             ("create", cmd_create),
