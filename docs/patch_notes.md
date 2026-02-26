@@ -1,3 +1,3 @@
-- Added a new standalone concept branch `concept_art/option_crazy_flux` focused on unconventional UI composition while preserving full functional surface coverage (auth, update notes, MFA, play/create, settings, graph editing).
-- Implemented `tools/generate_ui_concept_crazy.py` to produce five sequential refinement passes (`pass_1`..`pass_5`) plus contact sheets per pass.
-- Added iterative review trace at `concept_art/option_crazy_flux/pass_notes.md` documenting analysis and planned improvements for each pass.
+- Added a new concept branch `concept_art/option_nova_10pass` with ten sequential UI passes (`pass_01`..`pass_10`) executed as a generate-review-improve loop.
+- Implemented `tools/generate_ui_concept_nova10.py` to render multi-surface concept sets per pass (auth/register/hub empty+selected/create/system/update + contact sheet).
+- Shifted brand treatment in this concept line from static headline text to a custom-drawn `COI` emblem crest and introduced more complex shell geometry variants (wedge/floating/stage/hybrid) while preserving feature parity surfaces.
