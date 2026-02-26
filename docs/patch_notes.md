@@ -1,3 +1,3 @@
-- Rebooted UI concept generation to use `concept_art/ui_concept_*.png` as the only baseline source; deprecated graph-family references were removed from active technical/task docs.
-- Added `tools/generate_ui_concept_radial_reboot.py` for a clean black/white radial-menu exploration with camera-centered node focus and functional parity for login/register/play/create/system/update surfaces.
-- Generated fresh outputs under `concept_art/option_radial_reboot_blackwhite/pass_01` including per-screen renders, a contact sheet, and process notes.
+- Stopped graph/blob concept churn and switched to a direct visual remap of baseline `ui_concept_*.png` screens.
+- Added `tools/generate_ui_concept_blackwhite.py` to produce black/white themed variants while preserving original layout structure.
+- Generated a full themed output set under `concept_art/ui_concept_blackwhite/` (`ui_concept_bw_*.png` + contact sheet).

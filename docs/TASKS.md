@@ -12,6 +12,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Completed
 | Task ID | Status | Complexity | Detailed Description |
 | --- | --- | --- | --- |
+| COI-2D-055 | ✅ | 2 | Replaced further graph/blob concept iteration with a direct black/white theme remap of baseline `ui_concept_*.png` screens by adding `tools/generate_ui_concept_blackwhite.py` and generating `concept_art/ui_concept_blackwhite/ui_concept_bw_*.png` plus a contact sheet. |
 | COI-2D-054 | ✅ | 3 | Retired deprecated graph-concept references from canonical docs and rebooted UI concept iteration from `ui_concept_*` only by adding `tools/generate_ui_concept_radial_reboot.py`, generating a clean new `pass_01` under `concept_art/option_radial_reboot_blackwhite/pass_01` (boot/gateway/register/play empty/play selected/create/system/update + contact sheet + process notes). |
 | COI-2D-044 | ✅ | 2 | Updated concept direction to keep skill-graph context in both selection and creation screens and reflect pre-launch build-save intent in the selection UX exploration (future economy-gated commit path). |
 | COI-2D-043 | ✅ | 2 | Added a separate exploratory UI concept set under `concept_art/v2/` (without overwriting existing baseline concepts), emphasizing minimal launch-oriented account flows and optional build-planner placement outside default lobby critical path. |
