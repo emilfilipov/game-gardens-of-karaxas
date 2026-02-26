@@ -1,4 +1,4 @@
-# Children of Ikphelion v{{version}}
+# Plompers Arena Inc. v{{version}}
 
 Release Date: {{date}}
 

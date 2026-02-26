@@ -1,9 +1,13 @@
-# Children of Ikphelion - Technical
+# Plompers Arena Inc. - Technical
 
 ## Purpose
-Canonical technical source of truth for runtime architecture, backend boundaries, updater pipeline, and CI/CD behavior.
+Canonical technical source of truth for runtime architecture, backend boundaries, updater pipeline, and CI/CD behavior for the Plompers Arena Inc. refactor.
 
-## Active Architecture
+## Refactor Status
+This document defines the target architecture and migration constraints for the 3D pivot.
+Unless explicitly noted as "already implemented," items here are implementation targets.
+
+## Active Architecture (Unchanged Platform Stack)
 
 ### Runtime Stack
 - Bootstrap/orchestrator: Kotlin launcher (`launcher/`)
@@ -13,59 +17,54 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - External content tooling: standalone designer program (`designer-client/`)
 
 ### Directional Model
-- Online ARPG with instance-aware gameplay.
+- Online arena battle royale with instance-aware gameplay.
 - Server-authoritative gameplay values and progression.
 - Client handles rendering/input/UI and sends gameplay intent.
 
-## Runtime Entry
-- Godot scene entrypoint: `game-client/scenes/bootstrap.tscn`
-- Active shell script: `game-client/scripts/client_shell.gd`
-- Active world runtime: `game-client/scripts/world_canvas.gd` (2D baseline)
+## Product Rename Contract
+- Product name: `Plompers Arena Inc.`
+- All player-facing labels, launcher text, and release-note headers must migrate to new naming.
+- Legacy internal paths/binary identifiers may temporarily coexist during migration if required for updater compatibility.
+- Migration tasks must explicitly track any remaining `Children of Ikphelion` labels.
 
-## Client Surfaces (Current)
-- Auth (`login/register`)
+## Runtime Entry and 3D Migration Contract
+- Existing Godot bootstrap entrypoint remains: `game-client/scenes/bootstrap.tscn`.
+- Existing shell script remains: `game-client/scripts/client_shell.gd`.
+- World runtime is migrating from 2D baseline toward a 3D arena scene.
+- Top-down / PoE-like camera readability is mandatory after 3D conversion.
+- Skill graph viewer must remain accessible in account list/create flows during and after migration.
+
+## Functional Parity Requirements (Must Keep)
+- Auth (`login/register`, optional MFA)
 - Account hub (character list/create/select/play)
-- World runtime
-- Settings and log viewer
+- Skill graph viewer surface and interactions in account shell
+- Settings and update flows
+- Backend bootstrap contract from selected character to runtime instance entry
 
-### Account UX Baseline
-- Character list uses one left sidebar with top `Create Character` action and character rows below.
-- List remains default account view even when no characters exist.
-- List/create center area now hosts skill-tree graph (`skill_tree_graph.gd`).
-- Character list/create small preview cards are removed.
-- List graph is cleared when no character selection exists.
-- Character actions (`Play`, `Delete`) stay selection-gated.
+## 3D Arena Runtime Target
+- World presentation: 3D scene with high-angle top-down camera.
+- Avatar presentation: bouncy-ball player model with physics-based movement/impulse interactions.
+- Arena baseline map: flat surface with grass foliage.
+- Camera behavior:
+  - stable high-angle top-down framing,
+  - enough zoom for tactical readability,
+  - no disorienting cinematic drift by default.
 
-### 2D Character Pipeline Baseline
-- Runtime character preview/world actor use spritesheet catalog at:
-  - `assets/characters/sellsword_v1/catalog.json`
-- Baseline frame size: `512x512`
-- Baseline directions: `E/W` (`2dir` sheets)
-- Generator:
-  - `tools/generate_sellsword_sprite_pack.py`
+## Black/White Visual System Contract
+- Baseline state for world assets is monochrome (black/white/gray).
+- Color reveal occurs only on interaction events.
+- Interaction-driven colorization examples:
+  - ground/grass touched by player gains color,
+  - wall/object collision points gain color.
+- Colorization implementation must be deterministic enough for gameplay readability and QA replay checks.
 
-### UI Direction Baseline
-- Tokenized UI palette moved to lighter visual language in `ui_tokens.gd`.
-- Account shell composition supports graph-first center content and compact right-side preview/details.
-- Button hover feedback is highlight-only (no hover scale tween/growth).
-- Auth/login layout is simplified and form-only (redundant section headings and in-panel auth navigation removed).
-- Release notes are rendered only in the dedicated `Update` screen; auth/account surfaces no longer embed notes panels.
-- Primary shell navigation is now a persistent left sidebar; legacy cogwheel popup menu flow is removed from the Godot client shell.
-- Sidebar is rendered as a compact panel centered on the left edge; its button stack is centered within the panel.
-- Auth/create/update menu shells now share a smaller unified footprint to reduce empty space.
-- Menu selection state is sidebar-driven across auth/session states.
-- Selected sidebar items now use explicit highlighted styling instead of disabled-state rendering.
-- Auth form controls are compacted (narrower card, reduced field/button heights, smaller input text size) to avoid oversized login/register affordances.
-- Auth shell and card sizing are now split from update-shell sizing (`AUTH_SHELL_SIZE` vs `UPDATE_SHELL_SIZE`) so login/register can stay significantly tighter without constraining update notes UX.
-- Auth status messaging is contextual-only: blank state hides the status row entirely, then shows it only for validation/error/progress feedback.
-- Update-screen build metadata is pinned above the scrollable notes region.
-- Update release notes default to top-of-document on refresh (no bottom auto-scroll).
-- UI concept reboot baseline is the `concept_art/ui_concept_*.png` pack only.
-- Deprecated concept branches (`option_*`, `shadow_graph`, and other iterative experiment families) are retired from active direction and should not be used as source/reference for new iterations.
-- Active theme transformation output is generated by `tools/generate_ui_concept_blackwhite.py` into `concept_art/ui_concept_blackwhite/`, preserving baseline `ui_concept_*` layouts while remapping visuals to a black/white palette.
-- Black/white transformation now uses selective accent remapping (instead of uniform grayscale crush) so title/header hierarchy remains high-contrast and neutral surfaces stay bright.
+## UI Contract
+- Black/white UI direction is canonical.
+- Reference pack: `concept_art/ui_concept_blackwhite/ui_concept_bw_*.png`.
+- Migration must preserve existing feature coverage (not remove flows to simplify styling).
+- Skill graph viewer remains first-class in account flows.
 
-## Backend Responsibilities
+## Backend Responsibilities (Unchanged)
 - Auth/session lifecycle (register/login/refresh/logout + MFA)
 - Character lifecycle (list/create/select/delete/location/bootstrap)
 - Content/config delivery (`/content/runtime-config`, `/content/bootstrap`)
@@ -75,83 +74,29 @@ Canonical technical source of truth for runtime architecture, backend boundaries
 - Gameplay authority (`/gameplay/resolve-action`)
 - Release notes authority for builds via `release_records` (served through `/release/summary`)
 
-## Tooling Split
-- Runtime game client no longer exposes editor navigation in production menu flow.
-- External authoring tool is provided at:
-  - `designer-client/designer_tool.py`
-- Designer client currently supports:
-  - backend login/refresh flow using `/auth/login` and `/auth/refresh`
-  - load/save level payloads via `/levels`
-  - load/stage/publish runtime config via `/content/runtime-config/*`
-  - backend-mediated repo/CI publish request via `/designer/publish`
+## Packaging Contract (Migration Target)
+- Installer payload includes game launcher/runtime entry plus designer executable.
+- Player-facing names and shortcuts migrate to Plompers Arena Inc. naming.
+- Update status persistence contract remains `<install_root>/logs/update_status.json`.
+- Release notes remain visible in dedicated `Update` menu.
 
-## Auth and Version Gates
-- Backend auth gates enforce latest-build login for all users (no admin bypass for outdated builds).
-- Contract mismatch and force-update checks still apply after latest-build gate.
+## Test and Validation Direction
+Current checks remain in use while migration proceeds:
+- Backend syntax sanity:
+  - `python3 -m compileall backend/app`
+- Launcher tests:
+  - `./gradlew :launcher:test`
 
-## Updater UX Contract
-- Game client update flow writes/reads updater status at `<install_root>/logs/update_status.json`.
-- Update helper publishes stage + progress metrics (`percent`, `speed_bps`, `downloaded_bytes`, `total_bytes`).
-- Game update UI renders themed progress state and can resume status display on relaunch.
-- Release notes/version metadata now resolve from the active executable payload first, then install-root fallbacks, to prevent stale notes/version labels after updates.
-- Hybrid notes contract: the update surface fetches per-build notes from backend (`client_user_facing_notes` / `client_build_release_notes`) and only falls back to packaged local files when backend notes are unavailable.
-- Update notes rendering prepends the installed build-version header (`Build`) before the bullet list for manual version sanity checks.
-- Footer status text now shows only the build version marker (content config key is intentionally hidden from player-facing auth UI).
-- Release summary refresh now runs during startup/auth entry so update notes are current before users open the Update menu.
-- Update check flow preserves current menu context for non-restart outcomes (up-to-date/unavailable/failure) to avoid unexpected screen switches.
-- Character list refresh no longer force-switches account view mode to list when user is in create mode.
-
-## Release Policy Sync
-- Release workflow now attempts backend release-policy activation after successful package upload when `KARAXAS_OPS_BASE_URL` and `KARAXAS_OPS_API_TOKEN` are configured.
-- Backend release activation rejects accidental `latest_version` regression by default; explicit rollback must opt in via `allow_version_regression=true`.
-- Rollback helper script sets `allow_version_regression=true` to preserve intentional rollback capability.
-- Release workflow now prunes GCS feed/archive artifacts to retain only the 5 newest build versions, preserving short delta chains while controlling storage growth.
-
-## Packaging Contract
-- One installer payload now includes:
-  - `ChildrenOfIkphelionLauncher.exe` (game launcher/runtime entry),
-  - `designer/ChildrenOfIkphelionDesigner.exe` (designer executable).
-- Velopack hook handling creates/removes desktop shortcuts for both game and designer executables.
-- Icon set is unified across game, launcher, and setup wrapper assets (transparent `COI` light-blue mark).
-
-## Gameplay Config Model
-- Durable player/account state remains in DB.
-- Gameplay tuning is backend-managed runtime config delivered by API.
-- Active source file:
-  - `backend/runtime/gameplay_config.json`
-- Runtime config service:
-  - `backend/app/services/runtime_config.py`
-
-## Security and Trust
-- JWT access/refresh with security event logging
-- MFA support
-- Middleware hardening and rate limiting
-- Server-side validation for gameplay-critical operations
+Migration check additions required by tasks:
+- 3D runtime contract harness (top-down camera + arena scene load + movement spawn checks)
+- Graph viewer parity regression checks
+- Visual colorization-rule validation checks (interaction creates localized color changes)
 
 ## CI/CD Scope
 - Release workflow: `.github/workflows/release.yml`
 - Backend deploy workflow: `.github/workflows/deploy-backend.yml`
 - Security scan workflow: `.github/workflows/security-scan.yml`
-- Release workflow push triggers use a strict runtime/package allowlist (`launcher/**`, `game-client/**`, `designer-client/**`, `assets/**`, `scripts/**`, Gradle wrapper/build files) so docs/concepts/tooling-only commits cannot auto-publish new client versions.
-
-### Release Validation Gates (Current)
-- Asset ingest validation
-- UI regression harness
-- 2D runtime contract harness
-
-## Testing and Checks
-- Backend syntax sanity:
-  - `python3 -m compileall backend/app`
-- Launcher tests:
-  - `./gradlew :launcher:test`
-- 2D runtime contract harness:
-  - `python3 game-client/tests/check_2d_runtime_contract.py`
-- UI regression harness:
-  - `python3 game-client/tests/check_ui_regression.py`
-- Sellsword art pack generation:
-  - `python3 tools/generate_sellsword_sprite_pack.py`
-- Asset ingest manifest validation:
-  - `python3 tools/validate_asset_ingest.py --manifest assets/iso_asset_manifest.json`
+- Release workflow push triggers continue using strict runtime/package allowlist.
 
 ## Distribution Channels
 - Standalone launcher remains primary (`Velopack + GCS`).

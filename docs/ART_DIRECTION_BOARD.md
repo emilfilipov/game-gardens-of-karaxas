@@ -1,52 +1,35 @@
-# Children of Ikphelion - Art/Tech Reference Board (GOK-MMO-174)
+# Plompers Arena Inc. - Art/Tech Reference Board
 
-This board locks the visual-direction baseline for the isometric migration.
+This board locks the visual baseline for the 3D top-down arena pivot.
 
 ## Approved Baseline
-- Projection: `2:1` isometric (dimetric), not true isometric.
-- Camera baseline: slightly zoomed-out MMO view.
-- Palette/mood baseline: vibrant + warm color palette with soft global lighting.
-- Mood flexibility: localized effect layers can shift specific items/characters/zones toward grim-dark presentation.
+- Camera baseline: top-down / Path of Exile-like high-angle gameplay view.
+- Palette baseline: black/white/gray by default.
+- Color rule: world gains color only through player interaction.
+- Mood baseline: high contrast, readable silhouettes, minimal visual noise.
 
-## Projection and Camera
-- World tile footprint target: `64x32` logical diamonds for authored gameplay space.
-- Character authoring target: `128x128` frame space for primary actor sheets.
-- Default gameplay zoom: `0.80x`.
-- Supported runtime zoom range: `0.70x` to `1.10x`.
-- Camera behavior goal: preserve broad world visibility while maintaining readable silhouettes and interaction clarity.
+## Camera and Composition
+- Core gameplay camera is high-angle top-down with consistent tactical readability.
+- Arena floor readability takes priority over cinematic camera behavior.
+- UI and world must coexist without obstructing player movement awareness.
 
-## Color and Lighting Direction
-- Primary mood: warm/vibrant base world.
-- Global lighting target: soft and readable (no harsh global contrast by default).
-- Effect layering model:
-  - Global baseline lighting/post profile.
-  - Per-zone mood overrides.
-  - Per-character/item overlays (for example glints, fog aura, rune glow, grim tinting).
-
-## Palette Tokens (Baseline)
-- `karaxas_bg_warm`: `#3A261B`
-- `karaxas_surface_amber`: `#7B5132`
-- `karaxas_highlight_gold`: `#C79A5A`
-- `karaxas_ui_text`: `#F4E6C5`
-- `karaxas_grass_warm`: `#6C8A4D`
-- `karaxas_stone_warm`: `#8B735C`
-- `karaxas_accent_fire`: `#D96A3A`
-- `karaxas_shadow_soft`: `#1E1612`
+## Interaction Colorization Direction
+- Untouched assets remain monochrome.
+- Interaction events reveal local color (grass turns green on traversal, collision spots colorize).
+- Revealed color must remain localized and readable at gameplay zoom.
+- Colorization is feedback and territory expression, not random decoration.
 
 ## Readability Constraints
-- Interactive entities should remain legible against local background at all times.
-- Player/hostile silhouettes must remain distinguishable during overlapping VFX.
-- Status-critical visuals (damage zones, interaction prompts, pickups) cannot rely on color alone; shape/icon support required.
-- Darkening overrides must not collapse UI/world readability (maintain contrast floor for text and interactables).
+- Player avatars must remain legible against monochrome backgrounds.
+- Collision/impact feedback must be visible without relying only on hue.
+- Critical combat state should still be interpretable in grayscale.
 
 ## UI-over-World Composition Rules
-- Preserve a top safe band for persistent controls/title context.
-- Preserve a bottom safe band for version/status/footer context.
-- Keep central gameplay area primarily unobstructed by persistent panels.
-- Modal/popup overlays must be themed and translucent enough to preserve world context while foregrounding interaction.
+- Keep central arena view mostly unobstructed.
+- Keep persistent menu/status surfaces compact and themed.
+- Ensure graph viewer and account panels remain readable in black/white style.
 
-## Acceptance Criteria for GOK-MMO-174
-- Canonical docs reference this board as the source for visual-direction lock.
-- Projection/camera/scale values are explicitly fixed.
-- Warm/vibrant baseline and grim-dark override strategy are explicitly documented.
-- Readability and UI-over-world constraints are defined for downstream implementation tasks.
+## Acceptance Criteria
+- Canonical docs reference black/white + interaction-colorization baseline.
+- Top-down 3D camera rules are explicit.
+- Readability constraints are defined for implementation and QA.

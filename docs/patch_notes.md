@@ -1,4 +1,4 @@
-- Stopped graph/blob concept churn and switched to a direct visual remap of baseline `ui_concept_*.png` screens.
-- Added `tools/generate_ui_concept_blackwhite.py` to produce black/white themed variants while preserving original layout structure.
-- Generated a full themed output set under `concept_art/ui_concept_blackwhite/` (`ui_concept_bw_*.png` + contact sheet).
-- Tuned the black/white conversion to keep the game title/header readable and avoid over-darkened gray backgrounds by applying selective accent remapping.
+- Reframed canonical game direction to `Plompers Arena Inc.` with a 3D top-down arena battle-royale mandate.
+- Locked black/white UI and world-art direction with interaction-driven color reveal as core visual rule.
+- Preserved explicit product requirement to keep current account/character functionality, including the skill graph viewer.
+- Added a detailed implementation roadmap (`PAI-3D-*`) covering rename migration, 3D runtime conversion, flat grass arena level, player model creation, and end-to-end login-to-play wiring.

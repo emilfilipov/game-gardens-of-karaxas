@@ -17,8 +17,8 @@ Artifacts are written to `releases/windows/`.
 - Installed game executable launches Godot online client shell.
 - Installer payload also includes a separate designer executable.
 - Velopack install/update hooks create desktop shortcuts for:
-  - `Children of Ikphelion` (game launcher entry)
-  - `Children of Ikphelion Designer` (designer entry)
+  - `Plompers Arena Inc.` (game launcher entry)
+  - `Plompers Arena Inc. Designer` (designer entry)
 - Update control is available from main menu (`Update`).
 - Updater uses packaged `UpdateHelper.exe`.
 - Feed URL source order:
@@ -27,14 +27,17 @@ Artifacts are written to `releases/windows/`.
   3. `update_repo.txt` in packaged payload (release-time value)
 
 ## Local install path
-Default install root:
-`%LOCALAPPDATA%\ChildrenOfIkphelion`
+Default install root target:
+`%LOCALAPPDATA%\PlompersArenaInc`
+
+Compatibility note:
+- Legacy installs may still exist under `%LOCALAPPDATA%\ChildrenOfIkphelion` until migration task `PAI-3D-001` finalizes path migration handling.
 
 Logs:
-- launcher logs: `<install_root>\logs\launcher.log`
-- game logs: `<install_root>\logs\game.log`
-- updater logs: `<install_root>\logs\velopack.log`
-- updater status: `<install_root>\logs\update_status.json`
+- launcher logs: `<install_root>\\logs\\launcher.log`
+- game logs: `<install_root>\\logs\\game.log`
+- updater logs: `<install_root>\\logs\\velopack.log`
+- updater status: `<install_root>\\logs\\update_status.json`
 
 ## CI release
 - Workflow: `.github/workflows/release.yml`
@@ -42,7 +45,7 @@ Logs:
 - Release uploads Velopack artifacts to GCS feed path and versioned archive path.
 - Mutable feed artifacts receive `Cache-Control: no-cache, max-age=0`.
 - Historical `.nupkg` artifacts are prefetched from feed before packing to preserve delta continuity.
-- Post-upload retention now keeps the 5 newest feed/archive build versions and prunes older ones to balance delta-update continuity with GCS storage control.
+- Post-upload retention keeps the 5 newest feed/archive build versions and prunes older ones.
 
 ## Runtime host defaults in payload
 `runtime_host.properties` is emitted at package time:

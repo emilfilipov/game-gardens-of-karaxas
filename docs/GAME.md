@@ -1,20 +1,21 @@
-# Children of Ikphelion - Game
+# Plompers Arena Inc. - Game
 
 ## High Concept
-Children of Ikphelion is an online top-down ARPG.
+Plompers Arena Inc. is an online top-down arena battle royale where players control bouncy-ball fighters and compete to become the top spot holder for "bounciest ball."
 
-Current direction:
-- Runtime presentation is 2D spritesheet-driven.
-- Core gameplay model remains Path of Exile-like (instance-based online ARPG progression).
-- UI direction is being rebuilt to a lighter, more pleasant visual style.
+This is a product refactor mandate:
+- Runtime gameplay presentation pivots from 2D to 3D.
+- Camera remains top-down / Path of Exile-like (high-angle, readability-first).
+- Existing account flow and skill-graph viewer functionality must be preserved.
+- UI style is black and white, based on `concept_art/ui_concept_blackwhite/` direction.
+- World/assets default to black and white and gain color only through player interaction.
 
 ## Core Pillars
-- Fast, readable top-down combat and movement.
-- Character identity through presets, passives/actives, gear, and progression.
-- Server-authoritative gameplay values and progression.
-- Online account flow with secure auth and MFA.
-- Cohesive themed UI across auth/account/world surfaces.
-- Login/auth UI should remain concise and player-facing (minimal redundant copy, no internal config/version jargon in main notes text).
+- Physics-forward bouncy-ball combat in a readable top-down 3D arena.
+- Last-player-standing / top-rank arena loop with quick match pacing.
+- Character progression and build expression through the retained skill graph.
+- Black/white baseline world with interaction-driven color reveal as core visual identity.
+- Online login/account/character continuity with server-authoritative progression values.
 
 ## Runtime Flow
 1. Launcher starts client and checks updates.
@@ -23,80 +24,53 @@ Current direction:
 4. User enters account/character hub.
 5. User creates/selects character and presses `Play`.
 6. Client requests backend world bootstrap for the selected character.
-7. Client joins a gameplay instance (solo/party) or hub zone.
+7. Client joins an arena instance and spawns into the 3D top-down battle map.
 
-## Online ARPG Model
-- **Solo default**: gameplay entry without a party creates/joins a private instance.
-- **Party play**: grouped players share instance routing.
-- **Town hubs**: shared social visibility.
-- **Gameplay zones**: only same-instance players are relevant.
+## Arena/Battle Royale Direction
+- Match format is arena elimination/placement focused.
+- Player avatar fantasy is a combat-capable bouncy ball ("Plomper").
+- Primary objective: outlast/outplay opponents and secure the top ranking.
+- Collision, momentum, and bounce control are first-class combat expression.
+- Skill graph remains available for build strategy and progression decisions.
 
 ## Character and Account Flow
-- Character list/create/select/play remains the primary account loop.
-- Account list view remains default even for empty character sets.
-- Character list/create no longer use small preview cards.
-- The large center account canvas is now reserved for a skill-tree graph surface.
-- Character creation stays preset-driven with minimal onboarding fields: name, type, sex.
-- Character type lore remains visible in create flow.
-- If no character is selected in list view, the list skill-tree graph is intentionally empty.
-- Navigation is sidebar-first: auth/account/settings/update/logout/quit actions are presented in a persistent left menu instead of a popup cog menu.
-- Sidebar is a compact left-side navigation rail, vertically centered on screen.
-- Sidebar menu actions are vertically centered inside that rail and in-content back/exit navigation is intentionally removed.
-- Sidebar active menu state is highlighted as selected (not rendered as disabled).
-- Auth login/register form uses compact field sizing to prioritize readability and reduce oversized input affordances.
-- Auth login/register form now uses a tighter, narrow shell with shorter controls and contextual status text (shown only when needed) to reduce empty-space-heavy panels.
+- Login/register/MFA/account/character selection flow remains intact.
+- Character list/create/select/play remains the primary loop.
+- Skill graph viewer remains visible and usable in account list/create context.
+- Graph interactions and progression data remain compatible with backend authority model.
+- Refactor may change visual shell and 3D preview behavior, but not remove the graph surface.
 
-## Skill Tree Direction
-- Account list/create screens now include a graph-style skill tree panel as the primary center interaction surface.
-- Current implementation is a baseline node/edge interaction scaffold and will be expanded in future iterations.
-- Current UI exploration target keeps graph visibility in both character selection and character creation.
-- Selection flow should support pre-launch build-save actions (without requiring world entry first), enabling future in-game-cost gating (for example gold) at commit/apply points.
+## UI Direction
+- Canonical UI style is black/white themed.
+- `concept_art/ui_concept_blackwhite/` is the primary concept reference for shell composition.
+- Existing functionality remains: auth, account, character management, update, settings, and graph viewer.
+- UI copy/layout should stay concise and player-facing.
 
-## Character Art Direction
-- Runtime character baseline is 2D spritesheets at **512x512 frame size**.
-- Movement/action presentation is standardized to a 2-direction baseline (`E/W`) suitable for mirrored/flipped ARPG presentation.
-- Character visuals must support modular equipment overlays so worn gear is visible on player sprites.
+## World and Asset Colorization Rule
+- All environment objects, props, foliage, and interactive surfaces start in black and white.
+- Color appears only where interaction happens (examples: stepped grass turns green, impact points on walls gain color).
+- Color reveal is gameplay feedback, not a random post effect.
+- Colorization must remain localized and readable from top-down camera distance.
+
+## Level Direction for First 3D Vertical Slice
+- Initial playable level is a flat arena surface with grass foliage.
+- Level is intentionally simple to validate movement/combat readability and visual color-reveal behavior.
+- Spawn flow must support login -> character select/create -> load into this level.
 
 ## In-Game Systems Direction
-- Character Sheet and Inventory are planned first-class in-world ARPG systems.
-- Gear changes must propagate to modular sprite composition.
-
-## Tooling Direction
-- Game client is runtime-only.
-- Level/asset/content authoring is provided through a separate designer tool program.
-- Designer publish is backend-mediated for repo/CI orchestration (commit + workflow dispatch path).
+- Character Sheet, Inventory, and progression systems remain in scope and must survive the pivot.
+- Gear/progression data contracts remain server-authoritative.
+- The 3D pivot does not remove progression depth; it changes presentation and combat embodiment.
 
 ## Authority Model
 - Server is authoritative for gameplay values and progression.
-- Client is authoritative only for presentation and input intent.
+- Client is authoritative for presentation, input intent, and visual feedback.
 - World entry context is backend-authored per bootstrap payload.
 
-## Data Ownership Boundaries
-- DB stores durable account/character/progression state.
-- Gameplay tuning/config is backend-managed runtime config.
-
-## Security Baseline
-- JWT access/refresh session flow.
-- Optional MFA setup/challenge flow.
-- Server-side validation for gameplay-critical operations.
-- Publish drain/version enforcement remains active.
-
-## Update Policy
-- Velopack + GCS remains release/update channel.
-- Client can trigger update from UI.
-- Login requires an up-to-date build (`client_version` must match latest published build).
-- Update UX includes themed in-client update status with persisted updater state.
-- Release notes are surfaced under the dedicated `Update` menu (not embedded in auth/account screens).
-- Update notes use a hybrid source: backend per-build notes first, packaged local notes only as fallback.
-- Update notes always include the installed build version header before player-facing bullet points.
-- Player-facing update surfaces show only installed client build metadata; backend `latest_version` is not displayed to players.
-- Release notes are refreshed from backend on startup/auth flow so current build notes are available before users open Update.
-- Update checks should not auto-redirect users into another menu; menu context is preserved unless an actual restart is triggered.
-
-## Out of Scope (Current Pivot Stage)
-- Full economy/trade implementation.
-- Matchmaking automation beyond direct party flow.
-- Large social system redesigns before core loop stabilization.
+## Out of Scope (Current Refactor Cycle)
+- Large non-essential social redesigns.
+- Expansion maps before first arena vertical slice is stable.
+- Removing existing account/graph flows in favor of temporary shortcuts.
 
 ## Documentation Rule
 `docs/GAME.md` is the canonical product source of truth.

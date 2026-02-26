@@ -1,6 +1,6 @@
-# Children of Ikphelion
+# Plompers Arena Inc.
 
-Children of Ikphelion is an online isometric ARPG project with a Godot client runtime, Kotlin launcher/updater, and FastAPI backend services.
+Plompers Arena Inc. is an online top-down 3D arena battle-royale project with a Godot runtime client, Kotlin launcher/updater, and FastAPI backend services.
 
 ## Canonical Documentation
 - `docs/GAME.md` - product/game scope and player-facing behavior.
@@ -22,6 +22,8 @@ Children of Ikphelion is an online isometric ARPG project with a Godot client ru
   - `./gradlew :launcher:test`
 - UI regression harness:
   - `python3 game-client/tests/check_ui_regression.py`
+- Backend syntax sanity:
+  - `python3 -m compileall backend/app`
 
 ## Packaging and Release
 - Windows packaging script: `scripts/pack.ps1`
