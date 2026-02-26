@@ -1,3 +1,3 @@
-- Added a new concept branch `concept_art/option_nova_10pass` with ten sequential UI passes (`pass_01`..`pass_10`) executed as a generate-review-improve loop.
-- Implemented `tools/generate_ui_concept_nova10.py` to render multi-surface concept sets per pass (auth/register/hub empty+selected/create/system/update + contact sheet).
-- Shifted brand treatment in this concept line from static headline text to a custom-drawn `COI` emblem crest and introduced more complex shell geometry variants (wedge/floating/stage/hybrid) while preserving feature parity surfaces.
+- Added a new concept branch `concept_art/option_outsidebox_20pass` with twenty iterative passes (`pass_01`..`pass_20`) across gateway/lobby/create/system/update surfaces plus per-pass contact sheets.
+- Implemented `tools/generate_ui_concept_outsidebox_20.py` to produce a plan/draw/generate/evaluate concept loop with solid-color background direction, custom crest/corner motif art, and icon-first navigation experiments.
+- Expanded navigation and shell experimentation across four phases (top dock, right utility rail, bottom command dock, radial cluster) while keeping functional parity for login/register/optional-MFA/settings/character create-select/update flows.
