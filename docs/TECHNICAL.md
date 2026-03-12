@@ -65,7 +65,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Tick runner now also executes a deterministic real-time trade subsystem each tick (shipment execution with throughput/safety/tariff effects plus periodic market price recompute from shortage/surplus pressure).
 - Tick runner now also executes a deterministic real-time espionage subsystem each tick (informant lifecycle drift, reliability/deception pressure, deterministic report generation, and counter-intelligence sweep resolution).
 - Tick runner now also executes a deterministic real-time politics subsystem each tick (standing deltas, office assignment, treaty state transitions, and legitimacy/stability/influence recompute).
-- Tick runner now also executes a deterministic real-time battle instance contract subsystem each tick (instance creation, fixed-step advancement, and deterministic resolution/writeback payload generation).
+- Tick runner now also executes a deterministic real-time battle instance contract subsystem each tick (instance creation, fixed-step advancement, tactical formation/reserve effects, continuous outcome scoring, and deterministic resolution/writeback payload generation).
 - Signed internal endpoint `/internal/control/tick` advances deterministic ticks for PoC orchestration/testing.
 - World service now exposes deterministic travel APIs backed by shared `sim-core` graph contracts:
   - `GET /travel/map`
@@ -86,6 +86,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Internal signed control command contract now also includes espionage queueing actions (`recruit_informant`, `request_intel_report`, `counter_intel_sweep`) through `/internal/control/commands`.
 - Internal signed control command contract now also includes politics actions (`assign_political_office`, `set_treaty_status`) while `set_faction_stance` feeds deterministic politics standing updates.
 - Internal signed control command contract now also includes battle contract actions (`start_battle_encounter`, `force_resolve_battle_instance`) for campaign encounter -> instance lifecycle control.
+- Internal signed control command contract now also includes tactical battle controls (`set_battle_formation`, `deploy_battle_reserve`) for instance-level formation/reserve decisions.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 - Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, choke-point detection, and arrival estimates).
@@ -101,7 +102,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Sandbox UI now also includes a real-time trade panel (shipment queue control + market stock/price/pressure readouts) powered by shared `sim-core` trade rules.
 - Sandbox UI now also includes a real-time espionage panel (informant recruit/report/sweep controls + status/report readouts) powered by shared `sim-core` espionage rules.
 - Sandbox UI now also includes a real-time politics panel (standing/office/treaty controls + legitimacy/stability/influence readouts) powered by shared `sim-core` politics rules.
-- Sandbox UI now also includes a real-time battle contract panel (encounter start/force-resolve controls + live instance/result readouts) powered by shared `sim-core` battle contract rules.
+- Sandbox UI now also includes a real-time battle contract panel (encounter start, formation/reserve controls, force-resolve controls + live instance/result readouts) powered by shared `sim-core` battle contract rules.
 - Placeholder player sprite asset is generated in-repo (`tools/generate_player_placeholder_png.py` -> `client-app/assets/player_circle.png`) to keep early UI flow asset-stable.
 - Runtime priority is Windows-first for client delivery and manual validation loops; Linux/Steam client parity is deferred until post-PoC hardening.
 

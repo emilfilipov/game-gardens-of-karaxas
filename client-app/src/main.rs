@@ -9,12 +9,13 @@ mod sandbox {
     use bevy::prelude::*;
     use bevy_egui::{EguiContexts, EguiPlugin, egui};
     use sim_core::{
-        AdjustStandingOrder, ArmyId, AssignOfficeOrder, CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent,
-        EspionageWorld, InformantStatus, LogisticsTickEvent, LogisticsWorld, OfficeTitle, PoliticsOrder,
-        PoliticsTickEvent, PoliticsWorld, RequestIntelReportOrder, RiskModifiers, SetTreatyStatusOrder, SettlementId,
-        StartBattleEncounterOrder, SupplyStock, SupplyTransferOrder, Tick, TradeTickEvent, TradeWorld, TravelGraph,
-        TravelPlan, TravelPreference, TreatyKind, sample_battle_world, sample_espionage_world,
-        sample_levant_travel_graph, sample_logistics_world, sample_politics_world, sample_trade_world,
+        AdjustStandingOrder, ArmyId, AssignOfficeOrder, BattleSide, CounterIntelSweepOrder, DeployBattleReserveOrder,
+        EspionageOrder, EspionageTickEvent, EspionageWorld, FormationStance, InformantStatus, LogisticsTickEvent,
+        LogisticsWorld, OfficeTitle, PoliticsOrder, PoliticsTickEvent, PoliticsWorld, RequestIntelReportOrder,
+        RiskModifiers, SetBattleFormationOrder, SetTreatyStatusOrder, SettlementId, StartBattleEncounterOrder,
+        SupplyStock, SupplyTransferOrder, Tick, TradeTickEvent, TradeWorld, TravelGraph, TravelPlan, TravelPreference,
+        TreatyKind, sample_battle_world, sample_espionage_world, sample_levant_travel_graph, sample_logistics_world,
+        sample_politics_world, sample_trade_world,
     };
 
     const MAP_SCALE: f32 = 2.2;
@@ -815,6 +816,26 @@ mod sandbox {
                         }));
                     battle.last_status = "Queued encounter 1001".to_string();
                 }
+                if ui.button("Set Attacker Formation: Wedge (1001)").clicked() {
+                    battle
+                        .world
+                        .queue_order(sim_core::BattleOrder::SetFormation(SetBattleFormationOrder {
+                            instance_id: 1001,
+                            side: BattleSide::Attacker,
+                            formation: FormationStance::Wedge,
+                        }));
+                    battle.last_status = "Queued attacker wedge formation for 1001".to_string();
+                }
+                if ui.button("Deploy Attacker Reserve 35 (1001)").clicked() {
+                    battle
+                        .world
+                        .queue_order(sim_core::BattleOrder::DeployReserve(DeployBattleReserveOrder {
+                            instance_id: 1001,
+                            side: BattleSide::Attacker,
+                            reserve_strength: 35,
+                        }));
+                    battle.last_status = "Queued attacker reserve deploy for 1001".to_string();
+                }
                 if ui.button("Force Resolve 1001").clicked() {
                     battle
                         .world
@@ -839,15 +860,26 @@ mod sandbox {
                         instance.defender_morale_bp,
                         instance.step_cursor
                     ));
+                    ui.label(format!(
+                        "  tactical: A {:?} reserve {} | D {:?} reserve {} | outcome {}:{}",
+                        instance.attacker_formation,
+                        instance.attacker_reserve_available,
+                        instance.defender_formation,
+                        instance.defender_reserve_available,
+                        instance.attacker_outcome_score_bp,
+                        instance.defender_outcome_score_bp
+                    ));
                 }
                 for result in battle.world.recent_results().iter().rev().take(4) {
                     ui.label(format!(
-                        "Resolved {} | winner A{} loser A{} | rem {}:{} | steps {} | sig {}",
+                        "Resolved {} | winner A{} loser A{} | rem {}:{} | score {}:{} | steps {} | sig {}",
                         result.instance_id,
                         result.winner_army.0,
                         result.loser_army.0,
                         result.attacker_remaining_strength,
                         result.defender_remaining_strength,
+                        result.attacker_outcome_score_bp,
+                        result.defender_outcome_score_bp,
                         result.total_steps,
                         result.writeback_signature
                     ));

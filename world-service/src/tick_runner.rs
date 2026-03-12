@@ -5,13 +5,13 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sim_core::{
     AdjustStandingOrder, ArmyId, AssignOfficeOrder, BattleInstanceRecord, BattleOrder, BattleResultRecord,
-    BattleTickEvent, BattleWorld, CommandEnvelope, CommandPayload, CounterIntelSweepOrder, EspionageOrder,
-    EspionageTickEvent, EspionageWorld, EventEnvelope, EventPayload, FactionId, FactionPoliticalState, FactionStanding,
-    ForceResolveBattleOrder, InformantState, IntelReportRecord, LogisticsTickEvent, LogisticsWorld, MarketState,
-    OfficeAssignment, PoliticsOrder, PoliticsTickEvent, PoliticsWorld, RequestIntelReportOrder, SetTreatyStatusOrder,
-    SettlementId, StartBattleEncounterOrder, SupplyStock, SupplyTransferOrder, Tick, TradeRoute, TradeShipmentOrder,
-    TradeTickEvent, TradeWorld, TreatyRecord, sample_battle_world, sample_espionage_world, sample_logistics_world,
-    sample_politics_world, sample_trade_world,
+    BattleTickEvent, BattleWorld, CommandEnvelope, CommandPayload, CounterIntelSweepOrder, DeployBattleReserveOrder,
+    EspionageOrder, EspionageTickEvent, EspionageWorld, EventEnvelope, EventPayload, FactionId, FactionPoliticalState,
+    FactionStanding, ForceResolveBattleOrder, InformantState, IntelReportRecord, LogisticsTickEvent, LogisticsWorld,
+    MarketState, OfficeAssignment, PoliticsOrder, PoliticsTickEvent, PoliticsWorld, RequestIntelReportOrder,
+    SetBattleFormationOrder, SetTreatyStatusOrder, SettlementId, StartBattleEncounterOrder, SupplyStock,
+    SupplyTransferOrder, Tick, TradeRoute, TradeShipmentOrder, TradeTickEvent, TradeWorld, TreatyRecord,
+    sample_battle_world, sample_espionage_world, sample_logistics_world, sample_politics_world, sample_trade_world,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -511,6 +511,42 @@ impl TickRunner {
                     .queue_order(BattleOrder::ForceResolve(ForceResolveBattleOrder { instance_id }));
                 EventPayload::BattleResolveQueued { instance_id, tick }
             }
+            CommandPayload::SetBattleFormation {
+                instance_id,
+                side,
+                formation,
+            } => {
+                self.battle
+                    .queue_order(BattleOrder::SetFormation(SetBattleFormationOrder {
+                        instance_id,
+                        side,
+                        formation,
+                    }));
+                EventPayload::BattleFormationQueued {
+                    instance_id,
+                    side,
+                    formation,
+                    tick,
+                }
+            }
+            CommandPayload::DeployBattleReserve {
+                instance_id,
+                side,
+                reserve_strength,
+            } => {
+                self.battle
+                    .queue_order(BattleOrder::DeployReserve(DeployBattleReserveOrder {
+                        instance_id,
+                        side,
+                        reserve_strength,
+                    }));
+                EventPayload::BattleReserveQueued {
+                    instance_id,
+                    side,
+                    reserve_strength,
+                    tick,
+                }
+            }
         };
 
         vec![EventEnvelope::new(trace_id, payload)]
@@ -747,6 +783,43 @@ fn battle_event_to_payload(event: BattleTickEvent) -> EventPayload {
             defender_morale_bp,
             tick,
         },
+        BattleTickEvent::FormationUpdated {
+            instance_id,
+            side,
+            formation,
+            tick,
+        } => EventPayload::BattleFormationUpdated {
+            instance_id,
+            side,
+            formation,
+            tick,
+        },
+        BattleTickEvent::ReserveDeployed {
+            instance_id,
+            side,
+            reserve_strength,
+            total_strength_after_deploy,
+            step_index,
+            tick,
+        } => EventPayload::BattleReserveDeployed {
+            instance_id,
+            side,
+            reserve_strength,
+            total_strength_after_deploy,
+            step_index,
+            tick,
+        },
+        BattleTickEvent::OutcomeScored {
+            instance_id,
+            attacker_outcome_score_bp,
+            defender_outcome_score_bp,
+            tick,
+        } => EventPayload::BattleOutcomeScored {
+            instance_id,
+            attacker_outcome_score_bp,
+            defender_outcome_score_bp,
+            tick,
+        },
         BattleTickEvent::InstanceResolved { result, tick } => EventPayload::BattleInstanceResolved { result, tick },
     }
 }
@@ -944,15 +1017,48 @@ pub fn build_force_resolve_battle_command(trace_id: &str, instance_id: u64) -> C
     CommandEnvelope::new(trace_id, CommandPayload::ForceResolveBattleInstance { instance_id })
 }
 
+pub fn build_set_battle_formation_command(
+    trace_id: &str,
+    instance_id: u64,
+    side: sim_core::BattleSide,
+    formation: sim_core::FormationStance,
+) -> CommandEnvelope {
+    CommandEnvelope::new(
+        trace_id,
+        CommandPayload::SetBattleFormation {
+            instance_id,
+            side,
+            formation,
+        },
+    )
+}
+
+pub fn build_deploy_battle_reserve_command(
+    trace_id: &str,
+    instance_id: u64,
+    side: sim_core::BattleSide,
+    reserve_strength: u32,
+) -> CommandEnvelope {
+    CommandEnvelope::new(
+        trace_id,
+        CommandPayload::DeployBattleReserve {
+            instance_id,
+            side,
+            reserve_strength,
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use sim_core::{OfficeTitle, TreatyKind};
+    use sim_core::{BattleSide, FormationStance, OfficeTitle, TreatyKind};
 
     use super::{
         TickRunner, TickRunnerConfig, build_assign_political_office_command, build_counter_intel_sweep_command,
-        build_force_resolve_battle_command, build_move_army_command, build_recruit_informant_command,
-        build_request_intel_report_command, build_set_stance_command, build_set_treaty_status_command,
-        build_start_battle_encounter_command, build_supply_transfer_command, build_trade_shipment_command,
+        build_deploy_battle_reserve_command, build_force_resolve_battle_command, build_move_army_command,
+        build_recruit_informant_command, build_request_intel_report_command, build_set_battle_formation_command,
+        build_set_stance_command, build_set_treaty_status_command, build_start_battle_encounter_command,
+        build_supply_transfer_command, build_trade_shipment_command,
     };
 
     #[test]
@@ -1097,11 +1203,37 @@ mod tests {
             230,
             220,
         ));
+        runner.queue_command(build_set_battle_formation_command(
+            "trace-battle-formation",
+            1001,
+            BattleSide::Attacker,
+            FormationStance::Wedge,
+        ));
+        let _summary = runner.run_due_ticks(300);
+
+        runner.queue_command(build_deploy_battle_reserve_command(
+            "trace-battle-reserve",
+            1001,
+            BattleSide::Attacker,
+            35,
+        ));
         runner.queue_command(build_force_resolve_battle_command("trace-battle-resolve", 1001));
-        let _summary = runner.run_due_ticks(200);
+        let _summary = runner.run_due_ticks(600);
 
         let state = runner.battle_state();
         assert!(state.instances.iter().any(|row| row.instance_id == 1001));
         assert!(state.recent_results.iter().any(|row| row.instance_id == 1001));
+        assert!(
+            state
+                .instances
+                .iter()
+                .any(|row| row.instance_id == 1001 && row.attacker_formation == FormationStance::Wedge)
+        );
+        assert!(
+            state
+                .instances
+                .iter()
+                .any(|row| row.instance_id == 1001 && row.attacker_reserve_deployed)
+        );
     }
 }

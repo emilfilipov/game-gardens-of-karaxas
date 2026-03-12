@@ -56,7 +56,7 @@ Manual sandbox client run (feature-gated):
 - Sandbox includes real-time trade validation controls (shipment queue + market stock/price readouts).
 - Sandbox includes real-time espionage validation controls (informant recruit/report/sweep + reliability/confidence readouts).
 - Sandbox includes real-time politics validation controls (standing/office/treaty actions + legitimacy/stability/influence readouts).
-- Sandbox includes real-time battle-contract validation controls (encounter start/resolve + instance/result readouts).
+- Sandbox includes real-time battle-contract validation controls (encounter start, formation/reserve actions, resolve + instance/result readouts).
 
 ## Packaging and Release
 - Windows packaging script: `scripts/pack.ps1`

@@ -90,17 +90,17 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: encounter commands create auditable battle instance records, fixed-step battle ticks advance active instances, and resolved outcomes produce deterministic writeback payloads.
 - Gameplay impact: campaign collisions now map to explicit, replay-safe battle lifecycle records before full tactical ruleset complexity is layered in.
 
+#### Tactical battle MVP (real-time)
+- Purpose: provide first battlefield command loop inside the deterministic instance contract.
+- Loop: players can set formation stance, deploy reserves after timing gates, and observe continuous outcome scoring/morale pressure across fixed steps until resolution.
+- Gameplay impact: tactical posture and timing now directly influence battle outcome signals rather than only raw army strength.
+
 #### Real-time manual validation sandbox UI
 - Purpose: allow direct manual validation of simulation systems before full vertical-slice UX exists.
 - Loop: sandbox surfaces live simulation clock, travel controls, logistics/trade/espionage/politics/battle-contract controls, and world-state readouts each tick.
 - Gameplay impact: fast development iteration and early balancing feedback without editor-only workflows.
 
 ### Planned Core Gameplay Systems
-#### Tactical battle MVP (real-time)
-- Purpose: provide first battlefield command loop.
-- Loop: formations, reserves, morale, and reinforcement timing resolve continuously in instanced combat.
-- Gameplay impact: tactical timing and cohesion determine losses and strategic consequences.
-
 ### Planned Platform and Validation Systems
 #### PostgreSQL LISTEN/NOTIFY outbox worker
 - Purpose: provide low-cost PoC wake/fanout path before Redis adoption.

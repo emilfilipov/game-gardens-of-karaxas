@@ -27,10 +27,10 @@ use crate::config::AppConfig;
 use crate::tick_runner::{
     BattleStateSnapshot, EspionageStateSnapshot, LogisticsStateSnapshot, PoliticsStateSnapshot, TickAdvanceResult,
     TickMetrics, TickRunner, TickRunnerConfig, TickSnapshot, TradeStateSnapshot, build_assign_political_office_command,
-    build_counter_intel_sweep_command, build_force_resolve_battle_command, build_move_army_command,
-    build_recruit_informant_command, build_request_intel_report_command, build_set_stance_command,
-    build_set_treaty_status_command, build_start_battle_encounter_command, build_supply_transfer_command,
-    build_trade_shipment_command,
+    build_counter_intel_sweep_command, build_deploy_battle_reserve_command, build_force_resolve_battle_command,
+    build_move_army_command, build_recruit_informant_command, build_request_intel_report_command,
+    build_set_battle_formation_command, build_set_stance_command, build_set_treaty_status_command,
+    build_start_battle_encounter_command, build_supply_transfer_command, build_trade_shipment_command,
 };
 
 #[derive(Clone)]
@@ -138,6 +138,16 @@ enum ControlCommandKind {
     },
     ForceResolveBattleInstance {
         instance_id: u64,
+    },
+    SetBattleFormation {
+        instance_id: u64,
+        side: sim_core::BattleSide,
+        formation: sim_core::FormationStance,
+    },
+    DeployBattleReserve {
+        instance_id: u64,
+        side: sim_core::BattleSide,
+        reserve_strength: u32,
     },
 }
 
@@ -506,6 +516,22 @@ async fn control_command(
         ControlCommandKind::ForceResolveBattleInstance { instance_id } => (
             "force_resolve_battle_instance",
             build_force_resolve_battle_command(&payload.trace_id, instance_id),
+        ),
+        ControlCommandKind::SetBattleFormation {
+            instance_id,
+            side,
+            formation,
+        } => (
+            "set_battle_formation",
+            build_set_battle_formation_command(&payload.trace_id, instance_id, side, formation),
+        ),
+        ControlCommandKind::DeployBattleReserve {
+            instance_id,
+            side,
+            reserve_strength,
+        } => (
+            "deploy_battle_reserve",
+            build_deploy_battle_reserve_command(&payload.trace_id, instance_id, side, reserve_strength),
         ),
     };
 
@@ -1250,6 +1276,18 @@ mod tests {
             .expect("start queue response should resolve");
         assert_eq!(queued_start.status(), StatusCode::ACCEPTED);
 
+        let formation_body = r#"{"trace_id":"trace-battle-formation","command":{"type":"set_battle_formation","instance_id":1001,"side":"attacker","formation":"wedge"}}"#;
+        let queued_formation = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-battle-formation",
+                formation_body,
+            ))
+            .await
+            .expect("formation queue response should resolve");
+        assert_eq!(queued_formation.status(), StatusCode::ACCEPTED);
+
         let resolve_body = r#"{"trace_id":"trace-battle-resolve","command":{"type":"force_resolve_battle_instance","instance_id":1001}}"#;
         let queued_resolve = app
             .clone()
@@ -1295,7 +1333,7 @@ mod tests {
                 .as_array()
                 .expect("instances should be array")
                 .iter()
-                .any(|row| row["instance_id"] == 1001)
+                .any(|row| row["instance_id"] == 1001 && row["attacker_formation"] == "wedge")
         );
         assert!(
             payload["state"]["recent_results"]

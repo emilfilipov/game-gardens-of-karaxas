@@ -12,6 +12,21 @@ pub enum BattleInstanceStatus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BattleSide {
+    Attacker,
+    Defender,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FormationStance {
+    Line,
+    Wedge,
+    Defensive,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BattleInstanceRecord {
     pub instance_id: u64,
     pub encounter_id: u64,
@@ -24,6 +39,14 @@ pub struct BattleInstanceRecord {
     pub defender_strength: u32,
     pub attacker_morale_bp: u32,
     pub defender_morale_bp: u32,
+    pub attacker_formation: FormationStance,
+    pub defender_formation: FormationStance,
+    pub attacker_reserve_available: u32,
+    pub defender_reserve_available: u32,
+    pub attacker_reserve_deployed: bool,
+    pub defender_reserve_deployed: bool,
+    pub attacker_outcome_score_bp: i32,
+    pub defender_outcome_score_bp: i32,
     pub step_cursor: u32,
     pub started_tick: Tick,
     pub last_step_tick: Tick,
@@ -38,6 +61,8 @@ pub struct BattleResultRecord {
     pub loser_army: ArmyId,
     pub attacker_remaining_strength: u32,
     pub defender_remaining_strength: u32,
+    pub attacker_outcome_score_bp: i32,
+    pub defender_outcome_score_bp: i32,
     pub total_steps: u32,
     pub started_tick: Tick,
     pub resolved_tick: Tick,
@@ -61,9 +86,25 @@ pub struct ForceResolveBattleOrder {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetBattleFormationOrder {
+    pub instance_id: u64,
+    pub side: BattleSide,
+    pub formation: FormationStance,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeployBattleReserveOrder {
+    pub instance_id: u64,
+    pub side: BattleSide,
+    pub reserve_strength: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum BattleOrder {
     StartEncounter(StartBattleEncounterOrder),
+    SetFormation(SetBattleFormationOrder),
+    DeployReserve(DeployBattleReserveOrder),
     ForceResolve(ForceResolveBattleOrder),
 }
 
@@ -85,6 +126,26 @@ pub enum BattleTickEvent {
         defender_strength: u32,
         attacker_morale_bp: u32,
         defender_morale_bp: u32,
+        tick: Tick,
+    },
+    FormationUpdated {
+        instance_id: u64,
+        side: BattleSide,
+        formation: FormationStance,
+        tick: Tick,
+    },
+    ReserveDeployed {
+        instance_id: u64,
+        side: BattleSide,
+        reserve_strength: u32,
+        total_strength_after_deploy: u32,
+        step_index: u32,
+        tick: Tick,
+    },
+    OutcomeScored {
+        instance_id: u64,
+        attacker_outcome_score_bp: i32,
+        defender_outcome_score_bp: i32,
         tick: Tick,
     },
     InstanceResolved {
@@ -152,7 +213,9 @@ impl BattleWorld {
         queued.sort_by_key(|order| {
             let priority = match order {
                 BattleOrder::StartEncounter(_) => 0_u8,
-                BattleOrder::ForceResolve(_) => 1_u8,
+                BattleOrder::SetFormation(_) => 1_u8,
+                BattleOrder::DeployReserve(_) => 2_u8,
+                BattleOrder::ForceResolve(_) => 3_u8,
             };
             let payload = serde_json::to_string(order).unwrap_or_default();
             (priority, payload)
@@ -161,6 +224,8 @@ impl BattleWorld {
         for order in queued {
             match order {
                 BattleOrder::StartEncounter(order) => self.apply_start_encounter(order, tick, events),
+                BattleOrder::SetFormation(order) => self.apply_set_formation(order, tick, events),
+                BattleOrder::DeployReserve(order) => self.apply_deploy_reserve(order, tick, events),
                 BattleOrder::ForceResolve(order) => self.apply_force_resolve(order, tick, events),
             }
         }
@@ -207,6 +272,14 @@ impl BattleWorld {
                 defender_strength: order.defender_strength,
                 attacker_morale_bp: 10_000,
                 defender_morale_bp: 10_000,
+                attacker_formation: FormationStance::Line,
+                defender_formation: FormationStance::Line,
+                attacker_reserve_available: order.attacker_strength / 5,
+                defender_reserve_available: order.defender_strength / 5,
+                attacker_reserve_deployed: false,
+                defender_reserve_deployed: false,
+                attacker_outcome_score_bp: 0,
+                defender_outcome_score_bp: 0,
                 step_cursor: 0,
                 started_tick: tick,
                 last_step_tick: tick,
@@ -220,6 +293,73 @@ impl BattleWorld {
             location: order.location,
             attacker_army: order.attacker_army,
             defender_army: order.defender_army,
+            tick,
+        });
+    }
+
+    fn apply_set_formation(&mut self, order: SetBattleFormationOrder, tick: Tick, events: &mut Vec<BattleTickEvent>) {
+        let Some(record) = self.instances.get_mut(&order.instance_id) else {
+            return;
+        };
+        if record.status != BattleInstanceStatus::Active {
+            return;
+        }
+
+        match order.side {
+            BattleSide::Attacker => record.attacker_formation = order.formation,
+            BattleSide::Defender => record.defender_formation = order.formation,
+        }
+
+        events.push(BattleTickEvent::FormationUpdated {
+            instance_id: order.instance_id,
+            side: order.side,
+            formation: order.formation,
+            tick,
+        });
+    }
+
+    fn apply_deploy_reserve(&mut self, order: DeployBattleReserveOrder, tick: Tick, events: &mut Vec<BattleTickEvent>) {
+        let Some(record) = self.instances.get_mut(&order.instance_id) else {
+            return;
+        };
+        if record.status != BattleInstanceStatus::Active {
+            return;
+        }
+        if record.step_cursor < 3 {
+            return;
+        }
+
+        let (already_deployed, available, strength_ref) = match order.side {
+            BattleSide::Attacker => (
+                record.attacker_reserve_deployed,
+                &mut record.attacker_reserve_available,
+                &mut record.attacker_strength,
+            ),
+            BattleSide::Defender => (
+                record.defender_reserve_deployed,
+                &mut record.defender_reserve_available,
+                &mut record.defender_strength,
+            ),
+        };
+        if already_deployed || *available == 0 {
+            return;
+        }
+
+        let deployed = order.reserve_strength.min(*available);
+        *available = available.saturating_sub(deployed);
+        *strength_ref = strength_ref.saturating_add(deployed);
+
+        match order.side {
+            BattleSide::Attacker => record.attacker_reserve_deployed = true,
+            BattleSide::Defender => record.defender_reserve_deployed = true,
+        }
+
+        events.push(BattleTickEvent::ReserveDeployed {
+            instance_id: order.instance_id,
+            side: order.side,
+            reserve_strength: deployed,
+            total_strength_after_deploy: *strength_ref,
+            step_index: record.step_cursor,
             tick,
         });
     }
@@ -261,24 +401,28 @@ impl BattleWorld {
             };
             record.step_cursor = record.step_cursor.saturating_add(1);
 
-            let attacker_loss = compute_loss(
+            let base_attacker_loss = compute_loss(
                 tick,
                 record.instance_id,
                 record.step_cursor,
                 record.defender_strength,
                 record.defender_morale_bp,
                 17,
-            )
-            .min(record.attacker_strength);
-            let defender_loss = compute_loss(
+            );
+            let base_defender_loss = compute_loss(
                 tick,
                 record.instance_id,
                 record.step_cursor,
                 record.attacker_strength,
                 record.attacker_morale_bp,
                 29,
-            )
-            .min(record.defender_strength);
+            );
+            let attacker_loss =
+                apply_formation_modifiers(base_attacker_loss, record.attacker_formation, record.defender_formation)
+                    .min(record.attacker_strength);
+            let defender_loss =
+                apply_formation_modifiers(base_defender_loss, record.defender_formation, record.attacker_formation)
+                    .min(record.defender_strength);
 
             record.attacker_strength = record.attacker_strength.saturating_sub(attacker_loss);
             record.defender_strength = record.defender_strength.saturating_sub(defender_loss);
@@ -292,6 +436,16 @@ impl BattleWorld {
                 .max(100);
             record.last_step_tick = tick;
 
+            let attacker_score = i32::try_from(record.attacker_strength.saturating_mul(13))
+                .unwrap_or(i32::MAX)
+                .saturating_add(i32::try_from(record.attacker_morale_bp / 2).unwrap_or(i32::MAX));
+            let defender_score = i32::try_from(record.defender_strength.saturating_mul(13))
+                .unwrap_or(i32::MAX)
+                .saturating_add(i32::try_from(record.defender_morale_bp / 2).unwrap_or(i32::MAX));
+            let outcome = attacker_score.saturating_sub(defender_score).clamp(-25_000, 25_000);
+            record.attacker_outcome_score_bp = outcome;
+            record.defender_outcome_score_bp = -outcome;
+
             events.push(BattleTickEvent::StepAdvanced {
                 instance_id,
                 step_index: record.step_cursor,
@@ -299,6 +453,12 @@ impl BattleWorld {
                 defender_strength: record.defender_strength,
                 attacker_morale_bp: record.attacker_morale_bp,
                 defender_morale_bp: record.defender_morale_bp,
+                tick,
+            });
+            events.push(BattleTickEvent::OutcomeScored {
+                instance_id,
+                attacker_outcome_score_bp: record.attacker_outcome_score_bp,
+                defender_outcome_score_bp: record.defender_outcome_score_bp,
                 tick,
             });
 
@@ -343,6 +503,25 @@ fn compute_loss(
     scaled.saturating_add(morale_bonus).clamp(1, 240)
 }
 
+fn apply_formation_modifiers(
+    base_loss: u32,
+    defending_formation: FormationStance,
+    attacking_formation: FormationStance,
+) -> u32 {
+    let offense_bp = match attacking_formation {
+        FormationStance::Line => 10_000_u32,
+        FormationStance::Wedge => 11_400_u32,
+        FormationStance::Defensive => 9_000_u32,
+    };
+    let defense_bp = match defending_formation {
+        FormationStance::Line => 10_000_u32,
+        FormationStance::Wedge => 9_200_u32,
+        FormationStance::Defensive => 11_300_u32,
+    };
+    let adjusted = base_loss.saturating_mul(offense_bp) / defense_bp.max(1);
+    adjusted.clamp(1, 320)
+}
+
 fn build_result(record: BattleInstanceRecord, resolved_tick: Tick) -> BattleResultRecord {
     let attacker_score = record
         .attacker_strength
@@ -365,6 +544,8 @@ fn build_result(record: BattleInstanceRecord, resolved_tick: Tick) -> BattleResu
         loser_army,
         attacker_remaining_strength: record.attacker_strength,
         defender_remaining_strength: record.defender_strength,
+        attacker_outcome_score_bp: record.attacker_outcome_score_bp,
+        defender_outcome_score_bp: record.defender_outcome_score_bp,
         total_steps: record.step_cursor,
         started_tick: record.started_tick,
         resolved_tick,
@@ -400,7 +581,8 @@ mod tests {
     use crate::{ArmyId, SettlementId, Tick};
 
     use super::{
-        BattleInstanceStatus, BattleOrder, BattleTickEvent, ForceResolveBattleOrder, StartBattleEncounterOrder,
+        BattleInstanceStatus, BattleOrder, BattleSide, BattleTickEvent, DeployBattleReserveOrder,
+        ForceResolveBattleOrder, FormationStance, SetBattleFormationOrder, StartBattleEncounterOrder,
         sample_battle_world,
     };
 
@@ -485,5 +667,45 @@ mod tests {
         ));
         let instance = world.instance(1003).expect("instance should exist");
         assert_eq!(instance.status, BattleInstanceStatus::Resolved);
+    }
+
+    #[test]
+    fn formation_and_reserve_controls_affect_active_instance() {
+        let mut world = sample_battle_world();
+        world.queue_order(BattleOrder::StartEncounter(StartBattleEncounterOrder {
+            instance_id: 1004,
+            encounter_id: 7004,
+            location: SettlementId(5),
+            attacker_army: ArmyId(20),
+            defender_army: ArmyId(21),
+            attacker_strength: 260,
+            defender_strength: 250,
+        }));
+        world.queue_order(BattleOrder::SetFormation(SetBattleFormationOrder {
+            instance_id: 1004,
+            side: BattleSide::Attacker,
+            formation: FormationStance::Wedge,
+        }));
+        world.advance_tick(Tick(1));
+        world.advance_tick(Tick(2));
+        world.advance_tick(Tick(3));
+        world.queue_order(BattleOrder::DeployReserve(DeployBattleReserveOrder {
+            instance_id: 1004,
+            side: BattleSide::Attacker,
+            reserve_strength: 35,
+        }));
+        let result = world.advance_tick(Tick(4));
+
+        assert!(result.events.iter().any(
+            |event| matches!(event, BattleTickEvent::ReserveDeployed { instance_id, side: BattleSide::Attacker, .. } if *instance_id == 1004)
+        ));
+        assert!(
+            result.events.iter().any(
+                |event| matches!(event, BattleTickEvent::OutcomeScored { instance_id, .. } if *instance_id == 1004)
+            )
+        );
+        let instance = world.instance(1004).expect("instance should exist");
+        assert_eq!(instance.attacker_formation, FormationStance::Wedge);
+        assert!(instance.attacker_reserve_deployed);
     }
 }

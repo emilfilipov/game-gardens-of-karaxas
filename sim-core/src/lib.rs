@@ -10,8 +10,9 @@ mod trade;
 mod travel;
 
 pub use battle::{
-    BattleInstanceRecord, BattleInstanceStatus, BattleOrder, BattleResultRecord, BattleTickEvent, BattleTickResult,
-    BattleWorld, ForceResolveBattleOrder, StartBattleEncounterOrder, sample_battle_world,
+    BattleInstanceRecord, BattleInstanceStatus, BattleOrder, BattleResultRecord, BattleSide, BattleTickEvent,
+    BattleTickResult, BattleWorld, DeployBattleReserveOrder, ForceResolveBattleOrder, FormationStance,
+    SetBattleFormationOrder, StartBattleEncounterOrder, sample_battle_world,
 };
 pub use espionage::{
     CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent, EspionageTickResult, EspionageWorld, InformantState,
@@ -146,6 +147,16 @@ pub enum CommandPayload {
     },
     ForceResolveBattleInstance {
         instance_id: u64,
+    },
+    SetBattleFormation {
+        instance_id: u64,
+        side: BattleSide,
+        formation: FormationStance,
+    },
+    DeployBattleReserve {
+        instance_id: u64,
+        side: BattleSide,
+        reserve_strength: u32,
     },
 }
 
@@ -303,6 +314,18 @@ pub enum EventPayload {
         instance_id: u64,
         tick: Tick,
     },
+    BattleFormationQueued {
+        instance_id: u64,
+        side: BattleSide,
+        formation: FormationStance,
+        tick: Tick,
+    },
+    BattleReserveQueued {
+        instance_id: u64,
+        side: BattleSide,
+        reserve_strength: u32,
+        tick: Tick,
+    },
     BattleInstanceCreated {
         instance_id: u64,
         encounter_id: u64,
@@ -318,6 +341,26 @@ pub enum EventPayload {
         defender_strength: u32,
         attacker_morale_bp: u32,
         defender_morale_bp: u32,
+        tick: Tick,
+    },
+    BattleFormationUpdated {
+        instance_id: u64,
+        side: BattleSide,
+        formation: FormationStance,
+        tick: Tick,
+    },
+    BattleReserveDeployed {
+        instance_id: u64,
+        side: BattleSide,
+        reserve_strength: u32,
+        total_strength_after_deploy: u32,
+        step_index: u32,
+        tick: Tick,
+    },
+    BattleOutcomeScored {
+        instance_id: u64,
+        attacker_outcome_score_bp: i32,
+        defender_outcome_score_bp: i32,
         tick: Tick,
     },
     BattleInstanceResolved {
@@ -544,6 +587,8 @@ mod tests {
                 loser_army: ArmyId(8),
                 attacker_remaining_strength: 80,
                 defender_remaining_strength: 0,
+                attacker_outcome_score_bp: 6_400,
+                defender_outcome_score_bp: -6_400,
                 total_steps: 34,
                 started_tick: Tick(10),
                 resolved_tick: Tick(44),
