@@ -6,6 +6,7 @@ Ambitions of Peace is a persistent online medieval war-and-politics RPG in activ
 - `docs/GAME.md` - canonical product/game scope and gameplay contracts.
 - `docs/TECHNICAL.md` - canonical architecture, infra, and migration contracts.
 - `docs/TASKS.md` - granular execution backlog and strict sequencing for migration work.
+- `docs/adr/` - accepted architecture decision records for migration-critical decisions.
 
 ## Current Repository State
 Current modules include transitional prototype components plus backend/release infrastructure that remain reusable:

@@ -14,7 +14,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | --- | --- | --- | --- | --- |
 | AOP-PIVOT-001 | ✅ | 2 | - | Reset canonical docs from prior prototype direction to Crusades-era persistent strategy RPG scope and Rust-first architecture contract. |
 | AOP-PIVOT-002 | ✅ | 1 | - | Reduce release artifact retention from 5 to 3 versions in CI release workflow and supporting installer documentation. |
-| AOP-PIVOT-003 | ⬜ | 2 | AOP-PIVOT-001 | Create repository-level architecture decision records (ADR set) for engine/runtime, backend language strategy, and phased migration boundaries. |
+| AOP-PIVOT-003 | ✅ | 2 | AOP-PIVOT-001 | Create repository-level architecture decision records (ADR set) for engine/runtime, backend language strategy, and phased migration boundaries. |
 | AOP-PIVOT-032 | ⬜ | 2 | AOP-PIVOT-003 | Audit and remove redundant/deprecated files and documentation from the pre-pivot prototype while preserving required compatibility artifacts. |
 | AOP-PIVOT-004 | ⬜ | 3 | AOP-PIVOT-003 | Create Rust workspace scaffold (`sim-core`, `world-service`, `tooling-core`, `client-app`) with unified formatting/lint/test toolchain and CI wiring. |
 | AOP-PIVOT-005 | ⬜ | 3 | AOP-PIVOT-004 | Add shared domain contracts crate for deterministic simulation types/events used by both service and client. |
@@ -439,3 +439,4 @@ When work resumes after a pause:
 | --- | --- | --- | --- | --- |
 | AOP-PIVOT-001 | ✅ | 2 | - | Canonical docs migrated to the new Crusades-era strategy RPG direction and Rust-first architecture contract. |
 | AOP-PIVOT-002 | ✅ | 1 | - | Release retention policy updated to latest 3 builds and documentation aligned. |
+| AOP-PIVOT-003 | ✅ | 2 | AOP-PIVOT-001 | ADR baseline created under `docs/adr/` and linked from `docs/TECHNICAL.md`. |

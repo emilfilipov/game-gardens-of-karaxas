@@ -3,6 +3,13 @@
 ## Purpose
 Canonical technical source of truth for runtime architecture, backend/service boundaries, release/distribution behavior, and migration sequencing.
 
+## Architecture Decision Records
+Accepted ADRs for the current migration program:
+- `docs/adr/0001-rust-first-runtime-and-services.md`
+- `docs/adr/0002-bevy-code-first-ui-and-tooling.md`
+- `docs/adr/0003-phased-fastapi-to-rust-authority-migration.md`
+- `docs/adr/0004-redis-deferral-and-adoption-gate.md`
+
 ## Current State Summary (As Of 2026-03-12)
 The repository currently contains a prior prototype stack:
 - Kotlin launcher (`launcher/`)
