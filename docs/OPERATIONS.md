@@ -1,41 +1,42 @@
-# Operations Runbook
+# Operations Runbook (Transitional)
 
-## Active Operations Scope
-The active production surface is release packaging + GCS update distribution for the single-player client.
+## Scope
+Operational runbook for Ambitions of Peace during migration from legacy prototype modules to Rust-first runtime/services.
 
-## Release Runbook
-1. Update `docs/patch_notes.md` for the current development cycle.
-2. Push to `main`/`master` (non-markdown change).
-3. Confirm `.github/workflows/release.yml` starts.
-4. Verify workflow stages:
-   - preflight inputs
-   - cloud auth (WIF)
-   - launcher tests + UI regression
-   - packaging
-   - GCS upload
-5. Confirm feed artifacts exist in GCS (`RELEASES`, `.nupkg`, setup exe).
-6. Confirm mutable feed objects have `Cache-Control: no-cache, max-age=0`.
-7. Validate client update from an installed build.
+## Active CI/CD Workflows
+- Release packaging workflow: `.github/workflows/release.yml`
+- Backend deploy workflow: `.github/workflows/deploy-backend.yml`
+- Security scan workflow: `.github/workflows/security-scan.yml`
 
-## Rollback Runbook
-1. Identify previous stable version in `gs://<bucket>/archive/<version>/`.
-2. Copy archived artifacts back to feed prefix (`win/`) to revert active feed.
-3. Re-run client update test from a machine with the affected build.
-4. Publish corrective patch notes and new release if full rollback is not sufficient.
+## Standard Change-Set Flow
+1. Implement focused change set and required documentation updates.
+2. Run relevant local checks for changed surfaces.
+3. Commit and push.
+4. If push includes workflow-triggering paths, monitor GitHub Actions to completion.
+5. If push is docs-only and does not match workflow triggers, skip polling and report that condition.
 
-## Diagnostics
-- Launcher log: `<install_root>/logs/launcher.log`
-- Game log: `<install_root>/logs/game.log`
-- Updater log: `<install_root>/logs/velopack.log`
-- In-client diagnostics panel displays local log tail and key paths.
+## Release Operations (Current)
+1. Confirm patch notes contain only current-cycle changes.
+2. Run release prechecks used by workflow gates.
+3. Push workflow-triggering changes.
+4. Verify generated artifacts in `releases/windows/` and GCS feed/archive paths.
+5. Confirm retention policy keeps latest 3 feed/archive build versions.
 
-## CI/CD Notes
-- Only release workflow is active for production path.
-- Backend deploy/security workflows are removed from active pipeline in single-player mode.
+## Failure Handling
+### CI failure
+1. Identify failing workflow/job.
+2. Collect failing logs (`gh run view <run-id> --log-failed`).
+3. Implement focused fix.
+4. Push and repeat poll/fix cycle.
 
-## Checklist Before Shipping
-- `./gradlew :launcher:test` passes.
-- `python3 game-client/tests/check_ui_regression.py` passes.
-- Main menu actions all work locally.
-- Save/load flow verified.
-- Update action verified on installed build.
+### Release integrity failure
+1. Pause new release pushes.
+2. Restore last known-good feed artifacts from archive path.
+3. Validate updater behavior from installed client.
+4. Publish corrective release notes and replacement build.
+
+## Logging Surfaces
+- launcher logs: `<install_root>/logs/launcher.log`
+- runtime logs: `<install_root>/logs/game.log`
+- updater logs: `<install_root>/logs/velopack.log`
+- updater status: `<install_root>/logs/update_status.json`

@@ -8,6 +8,10 @@ Ambitions of Peace is a persistent online medieval war-and-politics RPG in activ
 - `docs/TASKS.md` - granular execution backlog and strict sequencing for migration work.
 - `docs/adr/` - accepted architecture decision records for migration-critical decisions.
 
+## Archived Documentation
+- `docs/archive/legacy-prototype/` - superseded prototype-era documents retained for historical traceability only.
+- `docs/DEPRECATION_AUDIT.md` - deprecation inventory and classification for migration cleanup.
+
 ## Current Repository State
 Current modules include transitional prototype components plus backend/release infrastructure that remain reusable:
 - `launcher/` - Kotlin bootstrap/updater orchestration.
@@ -16,6 +20,7 @@ Current modules include transitional prototype components plus backend/release i
 - `designer-client/` - legacy external authoring prototype (transitional).
 - `assets/` - shared content/assets.
 - `docs/` - canonical and supporting documentation.
+- `docs/archive/` - archived/superseded documentation.
 - `scripts/` - packaging/release scripts.
 - `tools/` - helper tooling.
 - `.github/workflows/` - CI/CD automation.

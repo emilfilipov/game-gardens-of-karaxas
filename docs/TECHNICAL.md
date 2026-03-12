@@ -18,6 +18,7 @@ The repository currently contains a prior prototype stack:
 - Velopack + GCS release pipeline
 
 This state is treated as transitional. The active implementation target is the Crusades-era persistent strategy RPG model documented in `docs/GAME.md`.
+Legacy prototype documents that conflict with this direction are archived under `docs/archive/legacy-prototype/` with inventory notes in `docs/DEPRECATION_AUDIT.md`.
 
 ## Architecture Direction
 ### Primary language and framework choice
