@@ -20,7 +20,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-005 | ✅ | 3 | AOP-PIVOT-004 | Add shared domain contracts crate for deterministic simulation types/events used by both service and client. |
 | AOP-PIVOT-006 | ✅ | 3 | AOP-PIVOT-004 | Stand up Rust world service shell (Axum + health/readiness/config endpoints + structured logging + tracing IDs). |
 | AOP-PIVOT-007 | ✅ | 3 | AOP-PIVOT-006 | Introduce service-to-service auth/signing model between legacy FastAPI control plane and Rust world service. |
-| AOP-PIVOT-008 | ⬜ | 3 | AOP-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
+| AOP-PIVOT-008 | ✅ | 3 | AOP-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
 | AOP-PIVOT-009 | ⬜ | 4 | AOP-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
 | AOP-PIVOT-010 | ⬜ | 4 | AOP-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
 | AOP-PIVOT-011 | ⬜ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs. |
@@ -445,3 +445,4 @@ When work resumes after a pause:
 | AOP-PIVOT-005 | ✅ | 3 | AOP-PIVOT-004 | Shared contracts implemented in `sim-core` (typed IDs, command/event envelopes, schema compatibility checks) and consumed by `world-service` and `client-app`. |
 | AOP-PIVOT-006 | ✅ | 3 | AOP-PIVOT-004 | `world-service` now boots an Axum server with env-based config, `/healthz` + `/readyz` + `/config` endpoints, request-ID propagation, and structured tracing. |
 | AOP-PIVOT-007 | ✅ | 3 | AOP-PIVOT-006 | Added HMAC-signed FastAPI -> Rust internal call contract with scope enforcement, nonce replay protection, and allow/deny integration tests for privileged `/internal/control/commands` calls. |
+| AOP-PIVOT-008 | ✅ | 3 | AOP-PIVOT-005 | Added Alembic migration `0021_campaign_world_foundation` and ORM models for campaign regions, settlements, routes, factions, households, armies, caravans, and espionage assets with FK/index and downgrade order safety coverage. |

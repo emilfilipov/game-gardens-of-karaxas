@@ -1,6 +1,16 @@
 from app.models.admin_audit import AdminActionAudit
 from app.models.character import Character
 from app.models.chat import ChatChannel, ChatMember, ChatMessage
+from app.models.campaign_world import (
+    CampaignArmy,
+    CampaignCaravan,
+    CampaignEspionageAsset,
+    CampaignFaction,
+    CampaignHousehold,
+    CampaignRegion,
+    CampaignRoute,
+    CampaignSettlement,
+)
 from app.models.content import ContentBundle, ContentVersion
 from app.models.guild import Guild, GuildMember
 from app.models.gameplay import GameplayActionAudit
@@ -17,6 +27,14 @@ from app.models.ws_ticket import WsConnectionTicket
 
 __all__ = [
     "Character",
+    "CampaignArmy",
+    "CampaignCaravan",
+    "CampaignEspionageAsset",
+    "CampaignFaction",
+    "CampaignHousehold",
+    "CampaignRegion",
+    "CampaignRoute",
+    "CampaignSettlement",
     "ChatChannel",
     "ChatMember",
     "ChatMessage",

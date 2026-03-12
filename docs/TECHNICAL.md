@@ -71,6 +71,8 @@ Legacy prototype documents that conflict with this direction are archived under 
 ### Persistence
 - PostgreSQL is canonical source of truth for durable entities/events.
 - Schema versioning remains migration-driven and source-controlled.
+- Campaign schema baseline is now established via `backend/alembic/versions/0021_campaign_world_foundation.py` with durable tables for regions, settlements, routes, factions, households, armies, caravans, and espionage assets.
+- ORM mappings for these entities are defined in `backend/app/models/campaign_world.py` for incremental authority-service integration.
 
 ### Eventing (PoC phase)
 - Transactional outbox table for service events.
