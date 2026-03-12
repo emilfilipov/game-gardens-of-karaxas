@@ -20,6 +20,7 @@ const DEFAULT_CLIENT_VERSION: &str = "dev-0.1.0";
 const DEFAULT_CONTENT_VERSION_KEY: &str = "runtime_gameplay_v1";
 const DEFAULT_PANEL_LAYOUT_PATH: &str = "client-app/runtime/panel_layout.json";
 const DEFAULT_AUTHORED_MAP_PATH: &str = "client-app/runtime/authored_map.json";
+const DEFAULT_PROVINCE_PACK_PATH: &str = "assets/content/provinces/acre/acre_poc_v1.json";
 const MAP_SCALE: f32 = 2.3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -198,6 +199,30 @@ struct RouteRenderEdge {
     is_sea_route: bool,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+struct ProvincePackSettlement {
+    id: u64,
+    name: String,
+    map_x: i32,
+    map_y: i32,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct ProvincePackRoute {
+    id: u64,
+    origin: u64,
+    destination: u64,
+    travel_hours: u32,
+    base_risk: u32,
+    is_sea_route: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct ProvincePackData {
+    settlements: Vec<ProvincePackSettlement>,
+    routes: Vec<ProvincePackRoute>,
+}
+
 #[derive(Clone, Debug)]
 struct MovingMapMarker {
     label: String,
@@ -219,14 +244,17 @@ struct CampaignMapSurface {
 
 impl CampaignMapSurface {
     fn sample() -> Self {
-        let graph = sample_levant_travel_graph();
+        let graph = load_default_campaign_graph().unwrap_or_else(sample_levant_travel_graph);
         let settlements = graph
             .settlements()
-            .map(|row| {
-                let fog = match row.id.0 {
-                    1..=3 => FogVisibility::Visible,
-                    4..=5 => FogVisibility::Shrouded,
-                    _ => FogVisibility::Obscured,
+            .enumerate()
+            .map(|(index, row)| {
+                let fog = if index < 2 {
+                    FogVisibility::Visible
+                } else if index < 5 {
+                    FogVisibility::Shrouded
+                } else {
+                    FogVisibility::Obscured
                 };
                 SettlementRenderNode {
                     id: row.id,
@@ -246,42 +274,27 @@ impl CampaignMapSurface {
             })
             .collect::<Vec<_>>();
 
+        let first_route = routes.first().cloned();
+        let second_route = routes.get(1).cloned().or_else(|| first_route.clone());
+
         Self {
             graph,
             settlements,
             routes,
-            army_markers: vec![
-                MovingMapMarker {
-                    label: "Army A7".to_string(),
-                    origin: SettlementId(1),
-                    destination: SettlementId(3),
-                    progress: 0.22,
-                    speed: 0.08,
-                },
-                MovingMapMarker {
-                    label: "Army A8".to_string(),
-                    origin: SettlementId(2),
-                    destination: SettlementId(4),
-                    progress: 0.61,
-                    speed: 0.05,
-                },
-            ],
-            caravan_markers: vec![
-                MovingMapMarker {
-                    label: "Caravan C12".to_string(),
-                    origin: SettlementId(3),
-                    destination: SettlementId(5),
-                    progress: 0.4,
-                    speed: 0.04,
-                },
-                MovingMapMarker {
-                    label: "Caravan C19".to_string(),
-                    origin: SettlementId(1),
-                    destination: SettlementId(6),
-                    progress: 0.75,
-                    speed: 0.03,
-                },
-            ],
+            army_markers: [
+                marker_from_route(first_route.clone(), "Army A7", 0.22, 0.08),
+                marker_from_route(second_route.clone(), "Army A8", 0.61, 0.05),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            caravan_markers: [
+                marker_from_route(second_route, "Caravan C12", 0.4, 0.04),
+                marker_from_route(first_route, "Caravan C19", 0.75, 0.03),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             zoom: 1.0,
         }
     }
@@ -291,6 +304,68 @@ impl CampaignMapSurface {
             .settlement(settlement_id)
             .map(|row| Vec2::new(row.map_x as f32 * MAP_SCALE, row.map_y as f32 * MAP_SCALE))
     }
+}
+
+fn marker_from_route(
+    route: Option<RouteRenderEdge>,
+    label: &str,
+    progress: f32,
+    speed: f32,
+) -> Option<MovingMapMarker> {
+    route.map(|route| MovingMapMarker {
+        label: label.to_string(),
+        origin: route.origin,
+        destination: route.destination,
+        progress,
+        speed,
+    })
+}
+
+fn load_default_campaign_graph() -> Option<TravelGraph> {
+    let pack_path = env::var("AOP_PROVINCE_PACK_PATH")
+        .ok()
+        .map(|raw| raw.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_PROVINCE_PACK_PATH.to_string());
+    let payload = fs::read_to_string(pack_path).ok()?;
+    let parsed = serde_json::from_str::<ProvincePackData>(&payload).ok()?;
+    build_graph_from_pack(&parsed).ok()
+}
+
+fn build_graph_from_pack(pack: &ProvincePackData) -> Result<TravelGraph, String> {
+    let mut graph = TravelGraph::default();
+    for settlement in &pack.settlements {
+        if settlement.name.trim().is_empty() {
+            return Err(format!("Settlement {} has empty name", settlement.id));
+        }
+        graph.insert_settlement(sim_core::SettlementNode {
+            id: SettlementId(settlement.id),
+            name: settlement.name.trim().to_string(),
+            map_x: settlement.map_x,
+            map_y: settlement.map_y,
+        });
+    }
+
+    for route in &pack.routes {
+        graph
+            .insert_route(sim_core::RouteEdge {
+                id: sim_core::RouteId(route.id),
+                origin: SettlementId(route.origin),
+                destination: SettlementId(route.destination),
+                travel_hours: route.travel_hours,
+                base_risk: route.base_risk,
+                is_sea_route: route.is_sea_route,
+            })
+            .map_err(|error| format!("Route {} invalid: {}", route.id, error))?;
+    }
+
+    if graph.settlements().next().is_none() {
+        return Err("Province pack has no settlements".to_string());
+    }
+    if graph.routes().next().is_none() {
+        return Err("Province pack has no routes".to_string());
+    }
+    Ok(graph)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -698,7 +773,7 @@ impl MapToolsState {
 }
 
 fn sample_authored_map_data() -> AuthoredMapData {
-    let graph = sample_levant_travel_graph();
+    let graph = load_default_campaign_graph().unwrap_or_else(sample_levant_travel_graph);
     let settlements = graph
         .settlements()
         .map(|row| AuthoredSettlement {
@@ -2107,10 +2182,13 @@ fn trimmed_nonempty(value: String) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+
     use super::{
         AuthoredMapData, AuthoredRoute, AuthoredSettlement, CharacterSummary, DOMAIN_PANELS, LayoutPreset,
-        default_layout_snapshot, extract_error_message, resolve_selected_character_id, sample_authored_map_data,
-        validate_and_build_graph,
+        ProvincePackData, build_graph_from_pack, default_layout_snapshot, extract_error_message,
+        resolve_selected_character_id, sample_authored_map_data, validate_and_build_graph,
     };
 
     #[test]
@@ -2188,5 +2266,17 @@ mod tests {
         let graph = validate_and_build_graph(&sample).expect("Sample authored map should validate");
         assert!(graph.settlements().count() > 0);
         assert!(graph.routes().count() > 0);
+    }
+
+    #[test]
+    fn acre_province_pack_builds_graph() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("assets/content/provinces/acre/acre_poc_v1.json");
+        let payload = fs::read_to_string(path).expect("acre province pack should exist");
+        let parsed = serde_json::from_str::<ProvincePackData>(&payload).expect("province pack should parse");
+        let graph = build_graph_from_pack(&parsed).expect("province pack graph should validate");
+        assert_eq!(graph.settlements().count(), 2);
+        assert_eq!(graph.routes().count(), 4);
     }
 }

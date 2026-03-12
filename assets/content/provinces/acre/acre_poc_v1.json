@@ -1,0 +1,103 @@
+{
+  "manifest_version": 1,
+  "province_id": "acre_poc_v1",
+  "display_name": "Acre Province PoC",
+  "settlements": [
+    {
+      "id": 101,
+      "name": "Acre Port",
+      "map_x": -120,
+      "map_y": 40,
+      "kind": "city"
+    },
+    {
+      "id": 102,
+      "name": "Montmusard Fortress",
+      "map_x": -20,
+      "map_y": -50,
+      "kind": "fortress"
+    }
+  ],
+  "routes": [
+    {
+      "id": 1001,
+      "origin": 101,
+      "destination": 102,
+      "travel_hours": 5,
+      "base_risk": 850,
+      "is_sea_route": false
+    },
+    {
+      "id": 1002,
+      "origin": 102,
+      "destination": 101,
+      "travel_hours": 5,
+      "base_risk": 900,
+      "is_sea_route": false
+    },
+    {
+      "id": 1003,
+      "origin": 101,
+      "destination": 102,
+      "travel_hours": 6,
+      "base_risk": 700,
+      "is_sea_route": true
+    },
+    {
+      "id": 1004,
+      "origin": 102,
+      "destination": 101,
+      "travel_hours": 6,
+      "base_risk": 760,
+      "is_sea_route": true
+    }
+  ],
+  "factions": [
+    {
+      "id": 201,
+      "name": "Kingdom of Jerusalem",
+      "starting_influence_bp": 7600,
+      "treasury": 1200
+    },
+    {
+      "id": 202,
+      "name": "Ayyubid Emirate of Damascus",
+      "starting_influence_bp": 6800,
+      "treasury": 1100
+    }
+  ],
+  "markets": [
+    {
+      "settlement_id": 101,
+      "food": 340,
+      "horses": 75,
+      "materiel": 180,
+      "price_index_bp": 10100
+    },
+    {
+      "settlement_id": 102,
+      "food": 190,
+      "horses": 48,
+      "materiel": 140,
+      "price_index_bp": 10750
+    }
+  ],
+  "intelligence_seeds": [
+    {
+      "id": 3001,
+      "handler_faction": 201,
+      "target_faction": 202,
+      "location": 101,
+      "reliability_bp": 7400,
+      "deception_bp": 1100
+    },
+    {
+      "id": 3002,
+      "handler_faction": 202,
+      "target_faction": 201,
+      "location": 102,
+      "reliability_bp": 7100,
+      "deception_bp": 1300
+    }
+  ]
+}

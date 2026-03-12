@@ -1,0 +1,5 @@
+id,origin,destination,travel_hours,base_risk,is_sea_route
+1001,101,102,5,850,false
+1002,102,101,5,900,false
+1003,101,102,6,700,true
+1004,102,101,6,760,true

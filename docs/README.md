@@ -30,6 +30,7 @@ Current modules include transitional prototype components plus backend/release i
     - `cargo run -p tooling-core -- hash --input <pack.json>`
 - `client-app/` - Rust client runtime with feature-gated Bevy bootstrap shell (`bootstrap-shell`) and simulation sandbox (`sandbox-ui`).
 - `assets/` - shared content/assets.
+  - First province pack: `assets/content/provinces/acre/` with CSV source + normalized JSON/signature artifacts.
 - `docs/` - canonical and supporting documentation.
 - `docs/archive/` - archived/superseded documentation.
 - `scripts/` - packaging/release scripts.
@@ -63,6 +64,7 @@ Manual sandbox client run (feature-gated):
 - Bootstrap shell campaign entry now includes a map rendering MVP (settlement nodes, roads/sea routes, army/caravan markers, fog-state coloring, zoom slider).
 - Bootstrap shell includes code-first domain panels (`character`, `household`, `logistics`, `trade`, `espionage`, `diplomacy`, `notifications`) with hotkeys (`F1`..`F7`) and persisted layout presets (`client-app/runtime/panel_layout.json` by default).
 - Bootstrap shell includes role-gated tools mode for in-client map authoring (settlement/route edit, validation before save, JSON load/save to `client-app/runtime/authored_map.json` by default).
+- Bootstrap shell now loads campaign map defaults from `AOP_PROVINCE_PACK_PATH` (default `assets/content/provinces/acre/acre_poc_v1.json`) before falling back to embedded sample map data.
 - Sandbox includes real-time logistics validation controls (army supply status + convoy queue action).
 - Sandbox includes real-time trade validation controls (shipment queue + market stock/price readouts).
 - Sandbox includes real-time espionage validation controls (informant recruit/report/sweep + reliability/confidence readouts).

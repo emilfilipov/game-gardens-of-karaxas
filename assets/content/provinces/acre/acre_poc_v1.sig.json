@@ -1,0 +1,10 @@
+{
+  "manifest_version": 1,
+  "province_id": "acre_poc_v1",
+  "content_hash_sha256": "0f8ffe4dc98679db25238d30836bae1ffad5dfaf643510618746220a3933e45e",
+  "settlement_count": 2,
+  "route_count": 4,
+  "faction_count": 2,
+  "market_count": 2,
+  "intelligence_seed_count": 2
+}

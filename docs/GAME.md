@@ -132,6 +132,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: tooling CLI normalizes JSON packs, converts to/from CSV authoring bundles, validates reference integrity, and emits stable SHA256 signatures for unchanged content.
 - Gameplay impact: content iteration can move quickly without silent drift; unchanged content remains byte-stable so regressions are easier to detect.
 
+#### First province content pack (Acre PoC)
+- Purpose: establish first concrete vertical-slice region with complete seed data across strategic domains.
+- Loop: checked-in Acre pack defines one city, one fortress, connected land/sea routes, two faction baselines, market seeds, and intelligence seeds; client bootstrap map can load this pack by default.
+- Gameplay impact: systems are now exercised against a real content slice instead of only synthetic in-code sample data.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.

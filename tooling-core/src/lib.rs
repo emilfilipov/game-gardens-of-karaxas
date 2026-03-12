@@ -380,7 +380,7 @@ mod tests {
     use super::{
         FactionRecord, IntelligenceSeed, MarketSeed, ProvinceContentPack, RouteRecord, SettlementKind,
         SettlementRecord, TOOLING_MANIFEST_VERSION, build_signature, content_hash_sha256, export_pack_to_csv,
-        import_pack_from_csv, is_valid_asset_key, normalize_and_validate,
+        import_pack_from_csv, is_valid_asset_key, normalize_and_validate, read_pack_json,
     };
 
     fn sample_pack() -> ProvinceContentPack {
@@ -463,6 +463,10 @@ mod tests {
         let path = std::env::temp_dir().join(format!("tooling-core-{name}-{timestamp}"));
         fs::create_dir_all(&path).expect("temp dir must be created");
         path
+    }
+
+    fn repo_path(relative: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(relative)
     }
 
     #[test]
@@ -582,5 +586,22 @@ mod tests {
 }"#;
 
         assert_eq!(json, expected);
+    }
+
+    #[test]
+    fn acre_pack_signature_matches_committed_snapshot() {
+        let pack = read_pack_json(&repo_path("assets/content/provinces/acre/acre_poc_v1.json"))
+            .expect("acre content pack should be readable");
+        let signature = build_signature(&pack).expect("signature should be generated");
+        let expected_signature = fs::read_to_string(repo_path("assets/content/provinces/acre/acre_poc_v1.sig.json"))
+            .expect("committed signature file should exist");
+        let expected_hash = serde_json::from_str::<serde_json::Value>(&expected_signature)
+            .expect("signature JSON should parse")
+            .get("content_hash_sha256")
+            .and_then(serde_json::Value::as_str)
+            .expect("signature hash should be present")
+            .to_string();
+
+        assert_eq!(signature.content_hash_sha256, expected_hash);
     }
 }

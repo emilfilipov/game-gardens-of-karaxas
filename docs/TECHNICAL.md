@@ -116,6 +116,11 @@ Legacy prototype documents that conflict with this direction are archived under 
   - enable via `AOP_TOOLS_ENABLED=true` or `AOP_TOOLS_ROLE=designer|admin`,
   - edit settlements and routes in-app, run schema validation before save, and view inline validation errors,
   - load/save authored map JSON (`AOP_TOOLS_MAP_PATH`, default `client-app/runtime/authored_map.json`) and apply validated graphs to live map rendering.
+- First province content pack baseline is now checked in at `assets/content/provinces/acre/`:
+  - one city (`Acre Port`) and one fortress (`Montmusard Fortress`),
+  - connected land + sea routes, faction setup, market seeds, and intelligence seeds,
+  - deterministic generated pack/signature artifacts (`acre_poc_v1.json`, `acre_poc_v1.sig.json`) from CSV source using `tooling-core`.
+- Bootstrap shell campaign map default source now attempts to load `AOP_PROVINCE_PACK_PATH` (default `assets/content/provinces/acre/acre_poc_v1.json`) before falling back to the in-code sample graph.
 - `tooling-core` now provides deterministic authored-content import/export pipeline CLI:
   - normalize and validate province packs from JSON (`cargo run -p tooling-core -- normalize-json ...`),
   - import/export canonical CSV bundles (`import-csv` / `export-csv`),
@@ -176,6 +181,8 @@ Current baseline checks retained during transition:
   - `cargo run -p tooling-core -- normalize-json --input <pack.json> --output <normalized.json> --signature-output <normalized.sig.json>`
   - `cargo run -p tooling-core -- import-csv --input-dir <csv_dir> --province-id <province_id> --display-name <display_name> --output <pack.json> --signature-output <pack.sig.json>`
   - `cargo run -p tooling-core -- export-csv --input <pack.json> --output-dir <csv_dir>`
+- Province-pack bootstrap smoke:
+  - `AOP_PROVINCE_PACK_PATH=assets/content/provinces/acre/acre_poc_v1.json cargo test -p client-app --features bootstrap-shell`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox` job in `.github/workflows/rust-checks.yml`).
