@@ -17,7 +17,7 @@ Core simulation contract: all core gameplay systems run in real-time (travel, lo
 Current modules include transitional prototype components plus backend/release infrastructure that remain reusable:
 - `launcher/` - Kotlin bootstrap/updater orchestration.
 - `game-client/` - legacy Godot runtime prototype (transitional).
-- `backend/` - FastAPI online services and Cloud SQL integration.
+- `backend/` - FastAPI online services and Cloud SQL integration, including PostgreSQL outbox event-store tables and LISTEN/NOTIFY wake worker scaffolding for PoC fanout.
 - `designer-client/` - legacy external authoring prototype (transitional).
 - `sim-core/` - shared Rust simulation-domain contracts (travel + real-time logistics/trade/espionage/politics/battle-instance contract).
 - `world-service/` - Rust world-authority service with deterministic tick runner, travel APIs, and real-time logistics/trade/espionage/politics/battle-contract authority endpoints.

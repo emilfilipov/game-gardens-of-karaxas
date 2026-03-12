@@ -15,6 +15,8 @@ from app.models.event_pipeline import (
     WorldProcessorCursor,
 )
 
+OUTBOX_NOTIFY_CHANNEL = "world_outbox_new"
+
 
 class IdempotencyConflictError(RuntimeError):
     pass
@@ -33,6 +35,16 @@ def _now_utc() -> datetime:
 def _stable_json_hash(payload: dict) -> str:
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def build_outbox_notify_payload(*, outbox_id: int, topic: str, event_id: int | None) -> str:
+    payload = {
+        "outbox_id": int(outbox_id),
+        "topic": (topic or "").strip() or "default",
+    }
+    if event_id is not None:
+        payload["event_id"] = int(event_id)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
 def reserve_idempotency_key(db: Session, *, scope: str, idempotency_key: str, request_payload: dict) -> IdempotencyReservation:

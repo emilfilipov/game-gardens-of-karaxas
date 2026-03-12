@@ -18,6 +18,14 @@ from app.db.session import SessionLocal
 from app.models.chat import ChatChannel
 from app.services.content import ensure_content_seed
 from app.services.instance_manager import expire_stale_instances
+from app.services.outbox_notify_worker import (
+    OutboxNotifyWorkerHandle,
+    PsycopgNotifyConnector,
+    build_noop_wake_handler,
+    psycopg_dsn_from_sqlalchemy_url,
+    start_outbox_notify_worker,
+    stop_outbox_notify_worker,
+)
 from app.services.release_policy import ensure_release_policy
 from app.services.session_drain import finalize_due_publish_drains
 from app.services.ws_ticket import purge_expired_ws_tickets
@@ -25,6 +33,7 @@ from app.services.ws_ticket import purge_expired_ws_tickets
 app = FastAPI(title="children-of-ikphelion-backend", version="0.1.0")
 configure_logging()
 logger = logging.getLogger("children-of-ikphelion.api")
+_outbox_notify_worker_handle: OutboxNotifyWorkerHandle | None = None
 
 _cors_origins = [entry.strip() for entry in settings.cors_allowed_origins.split(",") if entry.strip()]
 if _cors_origins:
@@ -40,6 +49,7 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 def startup_seed() -> None:
+    global _outbox_notify_worker_handle
     db = SessionLocal()
     try:
         ensure_content_seed(db)
@@ -55,6 +65,24 @@ def startup_seed() -> None:
             db.commit()
     finally:
         db.close()
+
+    if settings.outbox_notify_enabled:
+        connector = PsycopgNotifyConnector(psycopg_dsn_from_sqlalchemy_url(settings.database_url))
+        _outbox_notify_worker_handle = start_outbox_notify_worker(
+            connector=connector,
+            wake_handler=build_noop_wake_handler(logger=logger),
+            channel=settings.outbox_notify_channel,
+            listen_timeout_seconds=settings.outbox_notify_listen_timeout_seconds,
+            reconnect_delay_seconds=settings.outbox_notify_reconnect_delay_seconds,
+            logger=logger,
+        )
+
+
+@app.on_event("shutdown")
+def shutdown_workers() -> None:
+    global _outbox_notify_worker_handle
+    stop_outbox_notify_worker(_outbox_notify_worker_handle)
+    _outbox_notify_worker_handle = None
 
 
 def _request_id(request: Request) -> str:

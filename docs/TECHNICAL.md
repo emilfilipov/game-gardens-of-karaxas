@@ -122,6 +122,10 @@ Legacy prototype documents that conflict with this direction are archived under 
   - `world_outbox` (durable dispatch queue with retry lock fields),
   - `world_command_idempotency` (scope/key/request-hash dedupe records),
   - `world_processor_cursors` (restart-safe processor checkpoints).
+- PostgreSQL `LISTEN/NOTIFY` wake-up path is now wired for outbox inserts:
+  - migration `backend/alembic/versions/0023_outbox_notify_trigger.py` adds `world_outbox_notify_insert()` + `trg_world_outbox_notify_insert` on `world_outbox`,
+  - FastAPI control plane now starts a reconnecting listener worker (`backend/app/services/outbox_notify_worker.py`) on startup and stops it on shutdown,
+  - wake semantics are payload-aware (`outbox_id`, `topic`) while durable replay/idempotency remains grounded in outbox row claiming.
 
 ### Eventing (scale phase)
 - Introduce Redis and/or Pub/Sub for high-frequency hot-path fanout once PoC metrics justify it.

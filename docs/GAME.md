@@ -101,12 +101,13 @@ This section is the detailed product-level description of all implemented and pl
 - Gameplay impact: fast development iteration and early balancing feedback without editor-only workflows.
 
 ### Planned Core Gameplay Systems
-### Planned Platform and Validation Systems
+### Implemented Platform and Validation Systems
 #### PostgreSQL LISTEN/NOTIFY outbox worker
 - Purpose: provide low-cost PoC wake/fanout path before Redis adoption.
-- Loop: outbox writes trigger NOTIFY, processors resume idempotently from durable cursors.
+- Loop: outbox row inserts emit PostgreSQL `NOTIFY` payloads with outbox identifiers; reconnecting listeners treat notifications as wake signals and resume idempotent processing from durable outbox claims/cursors.
 - Gameplay impact: timely state propagation without early infrastructure cost expansion.
 
+### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.
 - Loop: migrate only when measured bottlenecks exceed defined latency/contention/backlog thresholds.
