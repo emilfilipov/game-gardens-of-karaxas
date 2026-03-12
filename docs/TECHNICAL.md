@@ -61,6 +61,8 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Rust world service (`world-service`) now provides the initial Axum skeleton with env-driven config and health/readiness/config endpoints; it will expand to own campaign simulation ticks, economic/logistics simulation, espionage state, and instanced battle authority orchestration.
 - FastAPI -> world-service privileged control calls now use an HMAC-SHA256 signed request contract (`x-aop-service-id`, `x-aop-scope`, `x-aop-timestamp`, `x-aop-nonce`, `x-aop-body-sha256`, `x-aop-signature`) with strict scope checks.
 - Privileged mutation routes in world-service (`/internal/control/commands`) enforce timestamp skew limits and nonce replay detection via in-memory replay window cache (PoC baseline).
+- World-service now also exposes signed internal world-entry bootstrap endpoint (`POST /internal/world-entry/bootstrap`) that returns campaign tick, nearest settlement anchor, and travel-map snapshot metadata for FastAPI handoff.
+- FastAPI `/characters/{character_id}/world-bootstrap` now bridges through `backend/app/services/world_entry_bridge.py` to call the Rust world-entry endpoint and stores result under `player_runtime.world_entry_bridge` while preserving existing launcher/client payload compatibility with fallback behavior.
 - World service now includes deterministic single-shard tick runner primitives (`world-service/src/tick_runner.rs`) with fixed cadence execution, deterministic command ordering, periodic snapshot hashing/checkpoints, and tick lag/duration metrics.
 - Tick runner now also executes a deterministic real-time logistics subsystem each tick (supply consumption, queued convoy transfers, shortage pressure, and attrition effects) backed by shared `sim-core` contracts.
 - Tick runner now also executes a deterministic real-time trade subsystem each tick (shipment execution with throughput/safety/tariff effects plus periodic market price recompute from shortage/surplus pressure).
@@ -88,6 +90,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Internal signed control command contract now also includes politics actions (`assign_political_office`, `set_treaty_status`) while `set_faction_stance` feeds deterministic politics standing updates.
 - Internal signed control command contract now also includes battle contract actions (`start_battle_encounter`, `force_resolve_battle_instance`) for campaign encounter -> instance lifecycle control.
 - Internal signed control command contract now also includes tactical battle controls (`set_battle_formation`, `deploy_battle_reserve`) for instance-level formation/reserve decisions.
+- Internal signed bridge contract now also includes world-entry handoff (`/internal/world-entry/bootstrap`) consumed by FastAPI auth/session/character bootstrap flow.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 - Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, choke-point detection, and arrival estimates).
@@ -183,6 +186,8 @@ Current baseline checks retained during transition:
   - `cargo run -p tooling-core -- export-csv --input <pack.json> --output-dir <csv_dir>`
 - Province-pack bootstrap smoke:
   - `AOP_PROVINCE_PACK_PATH=assets/content/provinces/acre/acre_poc_v1.json cargo test -p client-app --features bootstrap-shell`
+- FastAPI world-entry bridge regression smoke:
+  - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_world_entry_bridge.py backend/tests/test_world_bootstrap_3d_contract.py`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox` job in `.github/workflows/rust-checks.yml`).

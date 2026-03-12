@@ -19,6 +19,7 @@ Current modules include transitional prototype components plus backend/release i
 - `launcher/` - Kotlin bootstrap/updater orchestration.
 - `game-client/` - legacy Godot runtime prototype (transitional).
 - `backend/` - FastAPI online services and Cloud SQL integration, including PostgreSQL outbox event-store tables and LISTEN/NOTIFY wake worker scaffolding for PoC fanout.
+  - FastAPI world bootstrap now bridges to Rust world-service signed world-entry endpoint and preserves fallback compatibility if bridge calls fail.
 - `designer-client/` - legacy external authoring prototype (transitional).
 - `sim-core/` - shared Rust simulation-domain contracts (travel + real-time logistics/trade/espionage/politics/battle-instance contract).
 - `world-service/` - Rust world-authority service with deterministic tick runner, travel APIs, and real-time logistics/trade/espionage/politics/battle-contract authority endpoints.

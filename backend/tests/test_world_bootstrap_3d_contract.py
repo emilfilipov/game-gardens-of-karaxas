@@ -132,7 +132,8 @@ def test_world_bootstrap_returns_spawn_yaw_z_map_scale_and_camera_profile() -> N
     assert response.spawn.world_z == 1.5
     assert response.runtime.camera_profile_key == "arpg_poe_baseline"
     assert response.level.map_scale["tile_world_size"] == 32.0
-    assert response.level.scene_variant_hint == "expedition"
+    assert response.level.scene_variant_hint == "arena_flat_grass"
+    assert response.player_runtime["world_entry_bridge"]["status"] in {"ok", "fallback", "skipped"}
 
 
 def test_world_bootstrap_scene_variant_defaults_for_town_hub() -> None:

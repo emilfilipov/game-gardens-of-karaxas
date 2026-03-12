@@ -219,6 +219,45 @@ struct TravelPlanResponse {
     estimate: TravelEstimate,
 }
 
+#[derive(Debug, Deserialize)]
+struct WorldEntryBootstrapRequest {
+    character_id: u64,
+    character_name: String,
+    instance_id: String,
+    instance_kind: String,
+    spawn_world_x: i32,
+    spawn_world_y: i32,
+    #[serde(default)]
+    spawn_world_z: f32,
+    #[serde(default)]
+    yaw_deg: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct WorldEntryMapSnapshot {
+    settlements: Vec<SettlementNode>,
+    routes: Vec<RouteEdge>,
+    choke_points: Vec<u64>,
+}
+
+#[derive(Debug, Serialize)]
+struct WorldEntryBootstrapResponse {
+    status: &'static str,
+    character_id: u64,
+    character_name: String,
+    instance_id: String,
+    instance_kind: String,
+    campaign_tick: u64,
+    anchor_settlement_id: u64,
+    spawn_world_x: i32,
+    spawn_world_y: i32,
+    spawn_world_z: f32,
+    yaw_deg: f32,
+    map: WorldEntryMapSnapshot,
+    caller_service_id: String,
+    caller_scope: String,
+}
+
 #[derive(Debug, Serialize)]
 struct LogisticsStateResponse {
     status: &'static str,
@@ -312,6 +351,7 @@ fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header
     let internal_control_routes = Router::new()
         .route("/internal/control/commands", post(control_command))
         .route("/internal/control/tick", post(advance_ticks))
+        .route("/internal/world-entry/bootstrap", post(world_entry_bootstrap))
         .route_layer(middleware::from_fn_with_state(
             auth_state,
             auth::require_internal_service_auth,
@@ -686,6 +726,69 @@ async fn travel_plan(
     )
 }
 
+async fn world_entry_bootstrap(
+    State(state): State<AppState>,
+    Extension(caller): Extension<AuthenticatedServiceCall>,
+    Json(payload): Json<WorldEntryBootstrapRequest>,
+) -> (StatusCode, Json<WorldEntryBootstrapResponse>) {
+    let campaign_tick = state
+        .tick_runner
+        .lock()
+        .expect("tick runner lock should not be poisoned")
+        .current_tick()
+        .0;
+
+    let settlements = state.travel_graph.settlements().cloned().collect::<Vec<_>>();
+    let routes = state.travel_graph.routes().cloned().collect::<Vec<_>>();
+    let choke_points = state
+        .travel_graph
+        .choke_points()
+        .into_iter()
+        .map(|row| row.0)
+        .collect::<Vec<_>>();
+    let anchor_settlement_id =
+        nearest_settlement_id(&settlements, payload.spawn_world_x as f32, payload.spawn_world_y as f32)
+            .unwrap_or_else(|| settlements.first().map(|row| row.id.0).unwrap_or_default());
+
+    (
+        StatusCode::OK,
+        Json(WorldEntryBootstrapResponse {
+            status: "ok",
+            character_id: payload.character_id,
+            character_name: payload.character_name,
+            instance_id: payload.instance_id,
+            instance_kind: payload.instance_kind,
+            campaign_tick,
+            anchor_settlement_id,
+            spawn_world_x: payload.spawn_world_x,
+            spawn_world_y: payload.spawn_world_y,
+            spawn_world_z: payload.spawn_world_z,
+            yaw_deg: payload.yaw_deg,
+            map: WorldEntryMapSnapshot {
+                settlements,
+                routes,
+                choke_points,
+            },
+            caller_service_id: caller.service_id,
+            caller_scope: caller.scope,
+        }),
+    )
+}
+
+fn nearest_settlement_id(settlements: &[SettlementNode], world_x: f32, world_y: f32) -> Option<u64> {
+    let mut best: Option<(u64, f32)> = None;
+    for settlement in settlements {
+        let dx = settlement.map_x as f32 - world_x;
+        let dy = settlement.map_y as f32 - world_y;
+        let distance_sq = dx * dx + dy * dy;
+        match best {
+            Some((_, best_sq)) if distance_sq >= best_sq => {}
+            _ => best = Some((settlement.id.0, distance_sq)),
+        }
+    }
+    best.map(|row| row.0)
+}
+
 async fn logistics_state(State(state): State<AppState>) -> (StatusCode, Json<LogisticsStateResponse>) {
     let runner = state
         .tick_runner
@@ -952,6 +1055,33 @@ mod tests {
 
         assert_eq!(payload["ticks_executed"], 1);
         assert_eq!(payload["current_tick"], 1);
+    }
+
+    #[tokio::test]
+    async fn internal_world_entry_bootstrap_returns_campaign_snapshot() {
+        let app = test_app();
+        let body = r#"{"character_id":77,"character_name":"BridgeHero","instance_id":"inst-bridge","instance_kind":"campaign_shard","spawn_world_x":-120,"spawn_world_y":40,"spawn_world_z":0.0,"yaw_deg":90.0}"#;
+        let response = app
+            .oneshot(signed_json_request(
+                "/internal/world-entry/bootstrap",
+                "nonce-world-entry",
+                body,
+            ))
+            .await
+            .expect("response should resolve");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("response body should decode");
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
+
+        assert_eq!(payload["status"], "ok");
+        assert_eq!(payload["character_id"], 77);
+        assert_eq!(payload["caller_service_id"], "fastapi-control-plane");
+        assert!(payload["anchor_settlement_id"].as_u64().unwrap_or(0) > 0);
+        assert!(payload["map"]["settlements"].as_array().map_or(0, |rows| rows.len()) > 0);
+        assert!(payload["map"]["routes"].as_array().map_or(0, |rows| rows.len()) > 0);
     }
 
     #[tokio::test]

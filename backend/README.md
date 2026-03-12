@@ -9,6 +9,7 @@ FastAPI backend for Ambitions of Peace online account/control-plane systems duri
 - Chat channels/messages + websocket endpoint
 - Release policy ops endpoint for forced-update gating
 - Internal world-service call signing contract (`app/services/world_service_auth.py`) for authenticated FastAPI -> Rust control-plane requests
+- Character world bootstrap bridge client (`app/services/world_entry_bridge.py`) for signed FastAPI -> Rust world-entry handoff (`/internal/world-entry/bootstrap`) with compatibility fallback
 - PostgreSQL outbox LISTEN/NOTIFY wake worker scaffold (`app/services/outbox_notify_worker.py`) with reconnect loop and startup/shutdown wiring
 
 ## Local

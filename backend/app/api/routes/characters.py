@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext, get_auth_context, get_db, require_admin_context
+from app.core.config import settings
 from app.models.character import Character
 from app.models.level import Level
 from app.models.session import UserSession
@@ -32,8 +35,10 @@ from app.services.content import (
 from app.services.instance_manager import assign_session_world_instance
 from app.services.party_manager import get_active_party_for_user
 from app.services.runtime_config import load_runtime_gameplay_config
+from app.services.world_entry_bridge import WorldEntryBridgeError, fetch_world_entry_bootstrap
 
 router = APIRouter(prefix="/characters", tags=["characters"])
+logger = logging.getLogger(__name__)
 
 APPEARANCE_OPTION_KEYS = (
     "sex",
@@ -705,6 +710,27 @@ def bootstrap_character_world(
     db.add(context.session)
     db.commit()
     db.refresh(character)
+    bridge_entry: dict = {"status": "skipped", "reason": "bridge_disabled"}
+    if settings.world_service_world_entry_bridge_enabled:
+        try:
+            bridge_entry = fetch_world_entry_bootstrap(
+                {
+                    "character_id": character.id,
+                    "character_name": character.name,
+                    "instance_id": assignment.instance_id,
+                    "instance_kind": assignment.instance_kind,
+                    "spawn_world_x": world_x,
+                    "spawn_world_y": world_y,
+                    "spawn_world_z": spawn_world_z,
+                    "yaw_deg": spawn_yaw_deg,
+                }
+            )
+        except WorldEntryBridgeError as exc:
+            logger.warning(
+                "world entry bridge failed, falling back to legacy bootstrap payload",
+                extra={"character_id": character.id, "error": str(exc)},
+            )
+            bridge_entry = {"status": "fallback", "reason": str(exc)}
     return CharacterWorldBootstrapResponse(
         character=_to_response(character, xp_per_level=_xp_per_level(db)),
         level=level_payload,
@@ -735,6 +761,7 @@ def bootstrap_character_world(
             "player_level": character.level,
             "player_stats": character.stats if isinstance(character.stats, dict) else {},
             "equipment_bonus_stats": {},
+            "world_entry_bridge": bridge_entry,
         },
         version_status=_version_status_model(context),
     )

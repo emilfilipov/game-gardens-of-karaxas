@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     world_service_scope: str = "world.control.mutate"
     world_service_auth_secret: str = "dev-only-change-me"
     world_service_request_timeout_seconds: float = 5.0
+    world_service_world_entry_bridge_enabled: bool = True
     outbox_notify_enabled: bool = True
     outbox_notify_channel: str = "world_outbox_new"
     outbox_notify_listen_timeout_seconds: float = 5.0
