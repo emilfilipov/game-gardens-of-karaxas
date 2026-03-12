@@ -17,7 +17,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-003 | ✅ | 2 | AOP-PIVOT-001 | Create repository-level architecture decision records (ADR set) for engine/runtime, backend language strategy, and phased migration boundaries. |
 | AOP-PIVOT-032 | ✅ | 2 | AOP-PIVOT-003 | Audit and remove redundant/deprecated files and documentation from the pre-pivot prototype while preserving required compatibility artifacts. |
 | AOP-PIVOT-004 | ✅ | 3 | AOP-PIVOT-003 | Create Rust workspace scaffold (`sim-core`, `world-service`, `tooling-core`, `client-app`) with unified formatting/lint/test toolchain and CI wiring. |
-| AOP-PIVOT-005 | ⬜ | 3 | AOP-PIVOT-004 | Add shared domain contracts crate for deterministic simulation types/events used by both service and client. |
+| AOP-PIVOT-005 | ✅ | 3 | AOP-PIVOT-004 | Add shared domain contracts crate for deterministic simulation types/events used by both service and client. |
 | AOP-PIVOT-006 | ⬜ | 3 | AOP-PIVOT-004 | Stand up Rust world service shell (Axum + health/readiness/config endpoints + structured logging + tracing IDs). |
 | AOP-PIVOT-007 | ⬜ | 3 | AOP-PIVOT-006 | Introduce service-to-service auth/signing model between legacy FastAPI control plane and Rust world service. |
 | AOP-PIVOT-008 | ⬜ | 3 | AOP-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
@@ -442,3 +442,4 @@ When work resumes after a pause:
 | AOP-PIVOT-003 | ✅ | 2 | AOP-PIVOT-001 | ADR baseline created under `docs/adr/` and linked from `docs/TECHNICAL.md`. |
 | AOP-PIVOT-032 | ✅ | 2 | AOP-PIVOT-003 | Legacy prototype docs archived under `docs/archive/legacy-prototype/`, active operations/security docs rewritten, and deprecation audit recorded in `docs/DEPRECATION_AUDIT.md`. |
 | AOP-PIVOT-004 | ✅ | 3 | AOP-PIVOT-003 | Rust workspace scaffolded (`sim-core`, `world-service`, `tooling-core`, `client-app`) with root Cargo workspace, rust toolchain config, and CI workflow `rust-checks.yml`. |
+| AOP-PIVOT-005 | ✅ | 3 | AOP-PIVOT-004 | Shared contracts implemented in `sim-core` (typed IDs, command/event envelopes, schema compatibility checks) and consumed by `world-service` and `client-app`. |

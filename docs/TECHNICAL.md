@@ -59,6 +59,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 ### New world authority plane
 - Rust world service owns campaign simulation ticks, economic/logistics simulation, espionage state, and instanced battle authority orchestration.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
+- Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 
 ### Client
 - Bevy client renders campaign and battle surfaces.
