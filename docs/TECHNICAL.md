@@ -1,116 +1,100 @@
-# Plompers Arena Inc. - Technical
+# Gardens of Karaxas - Technical
 
 ## Purpose
-Canonical technical source of truth for runtime architecture, backend boundaries, updater pipeline, and CI/CD behavior for the Plompers Arena Inc. refactor.
+Canonical technical source of truth for runtime architecture, backend/service boundaries, release/distribution behavior, and migration sequencing.
 
-## Refactor Status
-This document defines the target architecture and migration constraints for the 3D pivot.
-Unless explicitly noted as "already implemented," items here are implementation targets.
+## Current State Summary (As Of 2026-03-12)
+The repository currently contains a prior prototype stack:
+- Kotlin launcher (`launcher/`)
+- Godot runtime client (`game-client/`)
+- FastAPI + PostgreSQL backend (`backend/`)
+- Velopack + GCS release pipeline
 
-Already implemented in current migration cycle:
-- `client_shell.gd` now defaults to and resolves `3d` world renderer mode from runtime domains.
-- Active world renderer path now supports `world_canvas_3d.gd` with top-down camera and plomper-ball avatar runtime.
-- Arena fallback scene generation is now a flat grass field with boundary walls and interaction-driven color reveal markers.
-- Release workflow runtime gate migrated from `check_2d_runtime_contract.py` to `check_3d_runtime_contract.py`.
+This state is treated as transitional. The active implementation target is the Crusades-era persistent strategy RPG model documented in `docs/GAME.md`.
 
-## Active Architecture (Unchanged Platform Stack)
+## Architecture Direction
+### Primary language and framework choice
+- Primary language: Rust
+- Client runtime/framework: Bevy
+- In-game and tool UI: egui (`bevy_egui`)
+- World/simulation service runtime: Axum + Tokio
+- Persistence: PostgreSQL (Cloud SQL)
 
-### Runtime Stack
-- Bootstrap/orchestrator: Kotlin launcher (`launcher/`)
-- Game runtime client: Godot 4.x (`game-client/`)
-- Online backend API: FastAPI + PostgreSQL (`backend/`)
-- Distribution/update: Velopack + GCS feed
-- External content tooling: standalone designer program (`designer-client/`)
+### Why this is canonical
+- Single-language system implementation path across gameplay logic, tools, and authority services.
+- Code-first workflow for UI/editor/tooling (no mandatory engine editor UI dependency).
+- Strong performance and memory safety profile suitable for long-lived online simulation services.
 
-### Directional Model
-- Online arena battle royale with instance-aware gameplay.
-- Server-authoritative gameplay values and progression.
-- Client handles rendering/input/UI and sends gameplay intent.
+## Platform Contracts
+### GCP services kept in active use
+- Cloud SQL PostgreSQL: canonical persistent game state and release metadata.
+- Cloud Run: API/control-plane services.
+- GCS: release artifacts and downloadable build payloads.
+- Artifact Registry: container images.
+- GitHub Actions + GCP Workload Identity Federation: CI/CD authentication and deployment.
 
-## Product Rename Contract
-- Product name: `Plompers Arena Inc.`
-- All player-facing labels, launcher text, and release-note headers must migrate to new naming.
-- Legacy internal paths/binary identifiers may temporarily coexist during migration if required for updater compatibility.
-- Migration tasks must explicitly track any remaining `Children of Ikphelion` labels.
+### Release artifact policy
+- Release binaries remain in GCS.
+- GCS feed/archive retention keeps only the latest 3 build versions.
+- PostgreSQL stores release metadata (version/channel/checksum/notes/publish timestamps), not binary payload blobs.
 
-## Runtime Entry and 3D Migration Contract
-- Existing Godot bootstrap entrypoint remains: `game-client/scenes/bootstrap.tscn`.
-- Existing shell script remains: `game-client/scripts/client_shell.gd`.
-- Active world runtime path now defaults to 3D arena rendering (`game-client/scripts/world_canvas_3d.gd`), with 2D script retained as legacy fallback path.
-- Top-down / PoE-like camera readability is mandatory after 3D conversion.
-- Skill graph viewer must remain accessible in account list/create flows during and after migration.
+### Redis policy
+- Redis is deferred for PoC cost control.
+- PoC eventing uses PostgreSQL outbox + LISTEN/NOTIFY where practical.
+- Redis (Memorystore) adoption trigger is defined by measured latency/contention/throughput pressure, not by assumption.
 
-## Functional Parity Requirements (Must Keep)
-- Auth (`login/register`, optional MFA)
-- Account hub (character list/create/select/play)
-- Skill graph viewer surface and interactions in account shell
-- Settings and update flows
-- Backend bootstrap contract from selected character to runtime instance entry
+## Runtime and Service Topology (Target)
+### Control plane (transitional)
+- Existing FastAPI auth/session/account/content/release endpoints remain operational during migration.
 
-## 3D Arena Runtime Target
-- World presentation: 3D scene with high-angle top-down camera.
-- Avatar presentation: bouncy-ball player model with physics-based movement/impulse interactions.
-- Arena baseline map: flat surface with grass foliage.
-- Camera behavior:
-  - stable high-angle top-down framing,
-  - enough zoom for tactical readability,
-  - no disorienting cinematic drift by default.
+### New world authority plane
+- Rust world service owns campaign simulation ticks, economic/logistics simulation, espionage state, and instanced battle authority orchestration.
+- Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 
-## Black/White Visual System Contract
-- Baseline state for world assets is monochrome (black/white/gray).
-- Color reveal occurs only on interaction events.
-- Interaction-driven colorization examples:
-  - ground/grass touched by player gains color,
-  - wall/object collision points gain color.
-- Colorization implementation must be deterministic enough for gameplay readability and QA replay checks.
+### Client
+- Bevy client renders campaign and battle surfaces.
+- Client sends intent; authority services resolve final state transitions.
 
-## UI Contract
-- Black/white UI direction is canonical.
-- Reference pack: `concept_art/ui_concept_blackwhite/ui_concept_bw_*.png`.
-- Migration must preserve existing feature coverage (not remove flows to simplify styling).
-- Skill graph viewer remains first-class in account flows.
+## Data and Eventing Model
+### Persistence
+- PostgreSQL is canonical source of truth for durable entities/events.
+- Schema versioning remains migration-driven and source-controlled.
 
-## Backend Responsibilities (Unchanged)
-- Auth/session lifecycle (register/login/refresh/logout + MFA)
-- Character lifecycle (list/create/select/delete/location/bootstrap)
-- Content/config delivery (`/content/runtime-config`, `/content/bootstrap`)
-- Level authoring APIs (`/levels`) for external designer tooling
-- Runtime publish/version operations under `/content/*`
-- Designer publish orchestration under `/designer/publish` (backend-mediated GitHub commit + workflow dispatch)
-- Gameplay authority (`/gameplay/resolve-action`)
-- Release notes authority for builds via `release_records` (served through `/release/summary`)
+### Eventing (PoC phase)
+- Transactional outbox table for service events.
+- LISTEN/NOTIFY for low-volume wakeup/fanout signaling.
+- Replay-safe processors for idempotent side effects.
 
-## Packaging Contract (Migration Target)
-- Installer payload includes game launcher/runtime entry plus designer executable.
-- Player-facing names and shortcuts migrate to Plompers Arena Inc. naming.
-- Update status persistence contract remains `<install_root>/logs/update_status.json`.
-- Release notes remain visible in dedicated `Update` menu.
+### Eventing (scale phase)
+- Introduce Redis and/or Pub/Sub for high-frequency hot-path fanout once PoC metrics justify it.
 
-## Test and Validation Direction
-Current checks remain in use while migration proceeds:
-- Backend syntax sanity:
-  - `python3 -m compileall backend/app`
-- Launcher tests:
-  - `./gradlew :launcher:test`
-- UI regression harness:
-  - `python3 game-client/tests/check_ui_regression.py`
-- 3D runtime contract harness:
-  - `python3 game-client/tests/check_3d_runtime_contract.py`
+## Security and Authority Model
+- Server authoritative for gameplay outcomes, progression values, and persistent state transitions.
+- Clients are authoritative only for input intent and presentation.
+- Existing auth/session policy remains in place while gameplay authority shifts to Rust services.
 
-Migration check additions still required by tasks:
-- Graph viewer parity regression checks
-- Visual colorization-rule validation checks (interaction creates localized color changes)
+## Build, Packaging, and Distribution
+- Windows distribution remains launcher-based with Velopack feed in GCS.
+- Release workflow continues to package launcher/runtime payloads and upload to GCS feed/archive.
+- Installer/updater logging contract remains under `<install_root>/logs`.
 
-## CI/CD Scope
-- Release workflow: `.github/workflows/release.yml`
-- Backend deploy workflow: `.github/workflows/deploy-backend.yml`
-- Security scan workflow: `.github/workflows/security-scan.yml`
-- Release workflow push triggers continue using strict runtime/package allowlist.
+## Validation and Quality Gates
+Current baseline checks retained during transition:
+- `python3 -m compileall backend/app`
+- `./gradlew :launcher:test`
 
-## Distribution Channels
-- Standalone launcher remains primary (`Velopack + GCS`).
-- Dual-distribution Steam strategy remains documented in:
-  - `docs/STEAM_DUAL_DISTRIBUTION.md`
+Migration-era additions (to be introduced with Rust modules):
+- `cargo fmt --all -- --check`
+- `cargo clippy --workspace --all-targets -- -D warnings`
+- `cargo test --workspace`
+- simulation determinism replay checks
+- API contract compatibility tests (FastAPI <-> Rust world service)
+
+## Cost-Control Baseline (PoC)
+- Keep Cloud Run minimum instances at zero unless a warm instance is operationally required.
+- Keep GCS artifact retention at 3 builds.
+- Defer Redis/Memorystore until objective performance triggers occur.
+- Reassess monthly cost envelope after first fully playable province vertical slice.
 
 ## Documentation Rule
 `docs/TECHNICAL.md` is canonical for technical decisions.

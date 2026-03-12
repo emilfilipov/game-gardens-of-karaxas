@@ -278,7 +278,7 @@ jobs:
         shell: pwsh
         run: |
           $PSNativeCommandUseErrorActionPreference = $false
-          $keepVersionCount = 5
+          $keepVersionCount = 3
 
           if ($keepVersionCount -lt 1) {
             Write-Host "Invalid keep count configured ($keepVersionCount); skipping prune step."

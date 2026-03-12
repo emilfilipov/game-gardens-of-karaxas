@@ -45,7 +45,7 @@ Logs:
 - Release uploads Velopack artifacts to GCS feed path and versioned archive path.
 - Mutable feed artifacts receive `Cache-Control: no-cache, max-age=0`.
 - Historical `.nupkg` artifacts are prefetched from feed before packing to preserve delta continuity.
-- Post-upload retention keeps the 5 newest feed/archive build versions and prunes older ones.
+- Post-upload retention keeps the 3 newest feed/archive build versions and prunes older ones.
 
 ## Runtime host defaults in payload
 `runtime_host.properties` is emitted at package time:

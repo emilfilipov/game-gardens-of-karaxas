@@ -1,82 +1,105 @@
-# Plompers Arena Inc. - Game
+# Gardens of Karaxas - Game
 
 ## High Concept
-Plompers Arena Inc. is an online top-down arena battle royale where players control bouncy-ball fighters and compete to become the top spot holder for "bounciest ball."
+Gardens of Karaxas is a persistent online medieval war-and-politics RPG set in the late 12th-century Levant.
 
-This is a product refactor mandate:
-- Runtime gameplay presentation pivots from 2D to 3D.
-- Camera remains top-down / Path of Exile-like (high-angle, readability-first).
-- Existing account flow and skill-graph viewer functionality must be preserved.
-- UI style is black and white, based on `concept_art/ui_concept_blackwhite/` direction.
-- World/assets default to black and white and gain color only through player interaction.
+The core experience is not a full 3D open-world MMORPG. The product target is a systems-heavy online strategy RPG with:
+- a persistent shared campaign map,
+- player-controlled characters who command armies and households,
+- instanced tactical battles,
+- deep non-combat power paths (trade, logistics, diplomacy, espionage, governance).
 
-Current implemented vertical-slice baseline:
-- Account/login/character flow remains active and can route into 3D runtime.
-- First 3D arena fallback is a flat grass field with wall boundaries.
-- Player avatar in 3D runtime is currently a plomper-ball prototype.
-- Interaction currently reveals localized ground/grass/wall color feedback.
+## Product Identity and Tone
+- Setting tone: historically inspired, politically grounded, morally complex.
+- Narrative framing: no good-vs-evil faction simplification.
+- Strategic framing: Jerusalem is a high-prestige objective, but regional control of routes, ports, fortresses, and intelligence networks is equally important.
 
-## Core Pillars
-- Physics-forward bouncy-ball combat in a readable top-down 3D arena.
-- Last-player-standing / top-rank arena loop with quick match pacing.
-- Character progression and build expression through the retained skill graph.
-- Black/white baseline world with interaction-driven color reveal as core visual identity.
-- Online login/account/character continuity with server-authoritative progression values.
+## Core Gameplay Layers
+### 1. Campaign Layer (Persistent)
+Players operate on a shared top-down region map where they:
+- travel,
+- trade,
+- negotiate,
+- manage holdings,
+- recruit and supply armies,
+- build spy networks,
+- contest territorial influence.
 
-## Runtime Flow
-1. Launcher starts client and checks updates.
-2. User logs in or registers.
-3. Optional MFA challenge when enabled.
-4. User enters account/character hub.
-5. User creates/selects character and presses `Play`.
-6. Client requests backend world bootstrap for the selected character.
-7. Client joins an arena instance and spawns into the 3D top-down battle map.
+### 2. Battle Layer (Instanced)
+When armies engage, they enter isolated tactical battles focused on:
+- troop control,
+- formation and positioning,
+- morale and reinforcement timing,
+- terrain and supply-aware outcomes.
 
-## Arena/Battle Royale Direction
-- Match format is arena elimination/placement focused.
-- Player avatar fantasy is a combat-capable bouncy ball ("Plomper").
-- Primary objective: outlast/outplay opponents and secure the top ranking.
-- Collision, momentum, and bounce control are first-class combat expression.
-- Skill graph remains available for build strategy and progression decisions.
+Battle outcomes write back to the campaign layer.
 
-## Character and Account Flow
-- Login/register/MFA/account/character selection flow remains intact.
-- Character list/create/select/play remains the primary loop.
-- Skill graph viewer remains visible and usable in account list/create context.
-- Graph interactions and progression data remain compatible with backend authority model.
-- Refactor may change visual shell and 3D preview behavior, but not remove the graph surface.
+## Design Pillars
+- Politics: titles, legitimacy, alliances, offices, influence.
+- Logistics: food, horses, materiel, supply lines, transport risk.
+- Trade: routes, tariffs, shortages/surpluses, convoy protection.
+- Espionage: informants, report quality, misinformation, counter-intelligence.
+- Warfare: raids, field battles, sieges, garrisons, territorial pressure.
+- Social hierarchy: vassalage, guild/house ties, patronage, reputation.
+- Personal progression: character skills, education, renown, identity.
 
-## UI Direction
-- Canonical UI style is black/white themed.
-- `concept_art/ui_concept_blackwhite/` is the primary concept reference for shell composition.
-- Existing functionality remains: auth, account, character management, update, settings, and graph viewer.
-- UI copy/layout should stay concise and player-facing.
+## Player Fantasy
+The player is simultaneously:
+- a person,
+- a commander,
+- a household leader,
+- a political/economic actor,
+- a potential intelligence broker.
 
-## World and Asset Colorization Rule
-- All environment objects, props, foliage, and interactive surfaces start in black and white.
-- Color appears only where interaction happens (examples: stepped grass turns green, impact points on walls gain color).
-- Color reveal is gameplay feedback, not a random post effect.
-- Colorization must remain localized and readable from top-down camera distance.
+Primary progression fantasy: rise from minor local actor to regional power broker.
 
-## Level Direction for First 3D Vertical Slice
-- Initial playable level is a flat arena surface with grass foliage.
-- Level is intentionally simple to validate movement/combat readability and visual color-reveal behavior.
-- Spawn flow must support login -> character select/create -> load into this level.
+## Progression Model
+### Primary progression tracks
+- Character progression: skills, education, reputation, renown.
+- Army/household progression: troop quality, officers, morale, supply endurance.
+- Political progression: rank, offices, faction standing, legal claims, legitimacy.
 
-## In-Game Systems Direction
-- Character Sheet, Inventory, and progression systems remain in scope and must survive the pivot.
-- Gear/progression data contracts remain server-authoritative.
-- The 3D pivot does not remove progression depth; it changes presentation and combat embodiment.
+### Secondary supporting progression
+- Equipment quality and standardization.
+- Artisan professions and production roles.
+- Education/learning branches.
+- Espionage network maturity.
 
-## Authority Model
-- Server is authoritative for gameplay values and progression.
-- Client is authoritative for presentation, input intent, and visual feedback.
-- World entry context is backend-authored per bootstrap payload.
+## Espionage Contract
+Espionage is a first-class system, not a single button action.
 
-## Out of Scope (Current Refactor Cycle)
-- Large non-essential social redesigns.
-- Expansion maps before first arena vertical slice is stable.
-- Removing existing account/graph flows in favor of temporary shortcuts.
+Required gameplay properties:
+- informants are socially grounded assets,
+- information quality is imperfect and variable,
+- misinformation is a strategic tool,
+- counter-intelligence can detect/disrupt hostile networks,
+- espionage supports war, trade, diplomacy, and governance.
+
+## Non-Combat Role Viability
+Non-combat roles must remain competitive in influence gain and strategic relevance:
+- merchants,
+- logistics organizers,
+- governors,
+- political operators,
+- artisans,
+- intelligence specialists.
+
+## Vertical Slice Definition (Current Program Target)
+The first production vertical slice must include:
+- one province-scale campaign area,
+- one major city,
+- one fortress,
+- one functioning local economy and caravan route,
+- faction influence progression,
+- espionage network setup + reports,
+- army movement and supply pressure,
+- one instanced battle type,
+- end-to-end account-to-playable loop.
+
+## Out of Scope (Current Cycle)
+- Full 3D open-world avatar MMO implementation.
+- Massive handcrafted content volume before systems validation.
+- Large social/meta systems unrelated to campaign-battle core loop.
 
 ## Documentation Rule
 `docs/GAME.md` is the canonical product source of truth.

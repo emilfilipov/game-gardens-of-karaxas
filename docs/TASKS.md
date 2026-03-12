@@ -2,188 +2,426 @@
 
 Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 
+## Current Program
+- Program name: `GOK-PIVOT-RUST-POC`
+- Program objective: migrate from current prototype stack to a Rust-first, code-first persistent online war-and-politics RPG vertical slice.
+- Canonical references:
+  - `docs/GAME.md`
+  - `docs/TECHNICAL.md`
+
 ## Active Backlog
-| Task ID | Status | Complexity | Detailed Description |
-| --- | --- | --- | --- |
-| PAI-3D-001 | ⬜ | 3 | Rename all player-facing game identity surfaces to `Plompers Arena Inc.` (launcher text, runtime title text, update/release strings, docs references) while preserving updater compatibility for legacy install paths during transition. |
-| PAI-3D-002 | ⏳ | 4 | Convert runtime UI theme to black/white using `concept_art/ui_concept_blackwhite/` as layout/style target without removing any existing auth/account/update/settings functionality. |
-| PAI-3D-003 | ⬜ | 4 | Preserve and harden account/character/skill-graph parity through the pivot so graph viewer interactions remain available in character list/create and are not regressed by shell/theme refactors. |
-| PAI-3D-004 | ⬜ | 5 | Define and implement arena battle-royale gameplay rules for bouncy-ball players (spawn, elimination/placement, ranking objective, and match-end conditions) with server-authoritative values. |
-| PAI-3D-005 | ⏳ | 5 | Migrate active runtime world from 2D baseline to a 3D top-down arena scene while keeping login/bootstrap flow intact and preserving backend contracts. |
-| PAI-3D-006 | ⏳ | 4 | Implement top-down / Path-of-Exile-like camera rig in 3D with fixed readability constraints (angle, zoom bounds, no disorienting drift). |
-| PAI-3D-007 | ⏳ | 5 | Build monochrome-to-color interaction system: all assets default black/white and gain localized color only after player interaction/collision, with reproducible behavior for QA. |
-| PAI-3D-008 | ✅ | 3 | Author first 3D playable level as flat arena ground with grass foliage only, optimized for movement/combat readability and colorization validation. |
-| PAI-3D-009 | ⏳ | 5 | Create first playable 3D character model (bouncy ball combat avatar), movement controller, collision profile, and animation/VFX hooks required for arena testing. |
-| PAI-3D-010 | ⏳ | 5 | Wire end-to-end playable loop: login/register -> character create/select -> play -> spawn in flat grass arena -> controlled movement and interaction colorization. |
-| PAI-3D-011 | ⏳ | 4 | Add automated and manual regression gates for new 3D runtime (scene boot, camera contract, movement, graph parity, colorization events) and keep launcher/backend checks green. |
+| Task ID | Status | Complexity | Depends On | Detailed Description |
+| --- | --- | --- | --- | --- |
+| GOK-PIVOT-001 | ✅ | 2 | - | Reset canonical docs from prior prototype direction to Crusades-era persistent strategy RPG scope and Rust-first architecture contract. |
+| GOK-PIVOT-002 | ✅ | 1 | - | Reduce release artifact retention from 5 to 3 versions in CI release workflow and supporting installer documentation. |
+| GOK-PIVOT-003 | ⬜ | 2 | GOK-PIVOT-001 | Create repository-level architecture decision records (ADR set) for engine/runtime, backend language strategy, and phased migration boundaries. |
+| GOK-PIVOT-004 | ⬜ | 3 | GOK-PIVOT-003 | Create Rust workspace scaffold (`sim-core`, `world-service`, `tooling-core`, `client-app`) with unified formatting/lint/test toolchain and CI wiring. |
+| GOK-PIVOT-005 | ⬜ | 3 | GOK-PIVOT-004 | Add shared domain contracts crate for deterministic simulation types/events used by both service and client. |
+| GOK-PIVOT-006 | ⬜ | 3 | GOK-PIVOT-004 | Stand up Rust world service shell (Axum + health/readiness/config endpoints + structured logging + tracing IDs). |
+| GOK-PIVOT-007 | ⬜ | 3 | GOK-PIVOT-006 | Introduce service-to-service auth/signing model between legacy FastAPI control plane and Rust world service. |
+| GOK-PIVOT-008 | ⬜ | 3 | GOK-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
+| GOK-PIVOT-009 | ⬜ | 4 | GOK-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
+| GOK-PIVOT-010 | ⬜ | 4 | GOK-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
+| GOK-PIVOT-011 | ⬜ | 3 | GOK-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs. |
+| GOK-PIVOT-012 | ⬜ | 4 | GOK-PIVOT-010 | Implement logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
+| GOK-PIVOT-013 | ⬜ | 4 | GOK-PIVOT-010 | Implement trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
+| GOK-PIVOT-014 | ⬜ | 4 | GOK-PIVOT-010 | Implement espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
+| GOK-PIVOT-015 | ⬜ | 3 | GOK-PIVOT-010 | Implement politics model (faction standing, offices, legitimacy metrics, treaty records, influence deltas). |
+| GOK-PIVOT-016 | ⬜ | 4 | GOK-PIVOT-011 | Implement battle instancing contract (campaign encounter -> battle instance record -> battle result writeback). |
+| GOK-PIVOT-017 | ⬜ | 3 | GOK-PIVOT-016 | Implement first tactical battle ruleset MVP (formation slots, morale pressure, reserve timing, outcome scoring). |
+| GOK-PIVOT-018 | ⬜ | 3 | GOK-PIVOT-006 | Add PostgreSQL LISTEN/NOTIFY worker for PoC fanout and wake-up semantics tied to outbox rows. |
+| GOK-PIVOT-019 | ⬜ | 2 | GOK-PIVOT-018 | Add explicit Redis adoption gate document and metrics thresholds (p95 write latency, fanout lag, queue backlog, lock contention). |
+| GOK-PIVOT-020 | ⬜ | 3 | GOK-PIVOT-004 | Build Bevy client bootstrap shell with login handoff, session bootstrap fetch, and campaign map entry scene. |
+| GOK-PIVOT-021 | ⬜ | 3 | GOK-PIVOT-020 | Implement Bevy campaign map rendering MVP (province map tiles, settlements, roads, army/caravan markers, fog visibility states). |
+| GOK-PIVOT-022 | ⬜ | 4 | GOK-PIVOT-021 | Implement code-first in-game UI panels via `bevy_egui` (character, household, logistics, trade, espionage, diplomacy, notifications). |
+| GOK-PIVOT-023 | ⬜ | 3 | GOK-PIVOT-022 | Build code-first tools mode for map/system authoring (no external editor dependency), including save/load and schema validation. |
+| GOK-PIVOT-024 | ⬜ | 3 | GOK-PIVOT-023 | Implement CLI import/export pipelines for authored content (JSON/CSV) with deterministic normalization and hash signatures. |
+| GOK-PIVOT-025 | ⬜ | 3 | GOK-PIVOT-024 | Implement first province content pack (Acre region + one city + one fortress + connected trade routes + faction setup). |
+| GOK-PIVOT-026 | ⬜ | 3 | GOK-PIVOT-025 | Bridge FastAPI auth/session/character selection flow to Rust world entry endpoint without breaking existing launcher/login paths. |
+| GOK-PIVOT-027 | ⬜ | 3 | GOK-PIVOT-026 | Implement end-to-end playable loop: login -> character select -> campaign actions -> battle instance -> persistence writeback. |
+| GOK-PIVOT-028 | ⬜ | 4 | GOK-PIVOT-027 | Add deterministic replay validation suite for campaign and battle outcomes with golden snapshots. |
+| GOK-PIVOT-029 | ⬜ | 3 | GOK-PIVOT-027 | Add operational dashboards/alerts for world tick lag, DB latency, outbox lag, release feed publish health. |
+| GOK-PIVOT-030 | ⬜ | 2 | GOK-PIVOT-029 | Define monthly PoC cost report process and enforce budget guardrails for Cloud Run, Cloud SQL, GCS, and optional Redis adoption. |
+| GOK-PIVOT-031 | ⬜ | 3 | GOK-PIVOT-027 | Prepare external playtest hardening checklist (security, abuse controls, rollback drills, release rollback, data backups). |
 
 ## Detailed Task Specs
 
-### PAI-3D-001 - Product Rename Migration
-- Objective: complete rename from legacy `Children of Ikphelion` branding to `Plompers Arena Inc.` for player-facing surfaces.
+### GOK-PIVOT-001 - Canonical Documentation Reset
+- Objective: establish new canonical scope and architecture for the Crusades-era strategy RPG direction.
 - Implementation checklist:
-  - update launcher/game/designer visible title strings,
-  - update release-note title templates and update-screen labels,
-  - update installer shortcut display names,
-  - audit docs for stale legacy naming and keep only intentional compatibility notes.
+  - rewrite `docs/GAME.md` to new game pillars and loop,
+  - rewrite `docs/TECHNICAL.md` to Rust/Bevy/Axum architecture,
+  - remove obsolete Plompers-specific canonical requirements.
 - Acceptance criteria:
-  - no player-visible legacy name in active runtime flows,
-  - explicit technical note exists for any temporary legacy binary/path identifier.
+  - both canonical docs align with the same product direction,
+  - no canonical references to the old bouncy-ball arena scope remain.
 - Validation:
-  - `grep -Rsn "Children of Ikphelion\|ChildrenOfIkphelion" docs launcher game-client designer-client`
+  - manual review of `docs/GAME.md` and `docs/TECHNICAL.md`.
 
-### PAI-3D-002 - UI Black/White Conversion
-- Objective: enforce black/white UI direction aligned to `concept_art/ui_concept_blackwhite/`.
+### GOK-PIVOT-002 - Release Retention Hard Cap
+- Objective: minimize artifact storage growth while retaining rollback safety.
 - Implementation checklist:
-  - define/update UI tokens for monochrome palette,
-  - align shell, cards, controls, and typography to concept composition,
-  - apply theme to auth/account/settings/update,
-  - preserve menu discoverability and selected-state clarity.
+  - set CI retention to 3 latest versions in release prune step,
+  - update installer/release docs to match retention value.
 - Acceptance criteria:
-  - all core screens render in black/white theme,
-  - no fallback/default system-looking surfaces remain in core flow.
+  - workflow prune logic keeps 3 newest feed/archive versions,
+  - docs match workflow behavior.
 - Validation:
-  - `python3 game-client/tests/check_ui_regression.py`
+  - `grep -n "keepVersionCount" .github/workflows/release.yml docs/INSTALLER.md`
 
-### PAI-3D-003 - Graph Viewer and Account Parity
-- Objective: preserve current account functionality, especially graph viewer.
+### GOK-PIVOT-003 - ADR Baseline
+- Objective: make migration decisions explicit and traceable.
 - Implementation checklist:
-  - keep list/create graph panel mounted and interactive,
-  - preserve selection gating behavior for character actions,
-  - verify graph state behavior for empty/non-empty character selections,
-  - ensure UI/theme changes do not drop graph events.
+  - add ADR for Rust-first architecture,
+  - add ADR for Bevy + code-first UI/tooling,
+  - add ADR for phased FastAPI -> Rust authority transition,
+  - add ADR for deferred Redis adoption strategy.
 - Acceptance criteria:
-  - graph viewer visible and functional in account list/create,
-  - no loss of existing character/account actions.
+  - ADRs reviewed and linked from `docs/TECHNICAL.md`.
 - Validation:
-  - extend and run UI/runtime regression checks for graph surface parity.
+  - docs link check + repository grep for ADR IDs.
 
-### PAI-3D-004 - Arena Ruleset
-- Objective: codify battle-royale style gameplay for bouncy-ball players.
+### GOK-PIVOT-004 - Rust Workspace Scaffold
+- Objective: create implementation foundation for all new modules.
 - Implementation checklist:
-  - define match lifecycle states,
-  - define ranking/elimination conditions,
-  - define spawn rules and safe start behavior,
-  - define scoring/placement payload for progression hooks,
-  - integrate with server-authoritative gameplay value resolution.
+  - add top-level Cargo workspace,
+  - create crates: `sim-core`, `world-service`, `client-app`, `tooling-core`,
+  - configure `rustfmt`, clippy, workspace test command,
+  - add CI job for Rust checks.
 - Acceptance criteria:
-  - reproducible match start -> play -> finish lifecycle,
-  - clear top-rank outcome emitted at match end.
+  - workspace builds in CI and local dev machine,
+  - all crates pass baseline lint/test gates.
 - Validation:
-  - targeted gameplay integration tests in backend + runtime smoke run.
+  - `cargo fmt --all -- --check`
+  - `cargo clippy --workspace --all-targets -- -D warnings`
+  - `cargo test --workspace`
 
-### PAI-3D-005 - 3D Runtime Migration
-- Objective: replace active 2D world path with 3D arena runtime path.
+### GOK-PIVOT-005 - Shared Simulation Contracts
+- Objective: prevent client/server divergence in core simulation typing.
 - Implementation checklist:
-  - create/activate 3D arena scene and controller scripts,
-  - port movement/input glue from shell bootstrap into 3D world entry,
-  - preserve world bootstrap contract usage,
-  - ensure runtime still enters world only after valid auth/character selection.
+  - define IDs/newtypes for entities,
+  - define serializable command and event envelopes,
+  - define versioned schema compatibility policy.
 - Acceptance criteria:
-  - authenticated player can load into 3D arena from account flow,
-  - no bootstrap contract regressions.
+  - same crate imported by world service and client app,
+  - compatibility tests enforce schema versioning.
 - Validation:
-  - new 3D runtime contract test + manual login-to-world verification.
+  - Rust unit tests + serde roundtrip tests.
 
-### PAI-3D-006 - Camera Contract
-- Objective: maintain top-down/PoE-like camera in 3D runtime.
+### GOK-PIVOT-006 - World Service Skeleton
+- Objective: provide deployable Rust authority service baseline.
 - Implementation checklist:
-  - implement fixed high-angle camera rig,
-  - set zoom bounds and default zoom,
-  - ensure player remains readable near arena bounds,
-  - avoid abrupt camera jitter/drift.
+  - add Axum service bootstrap,
+  - config + secrets loading,
+  - health/readiness endpoints,
+  - structured request logging + trace IDs.
 - Acceptance criteria:
-  - camera angle/zoom contract documented and enforced in scene config,
-  - movement/combat remains readable in default window sizes.
+  - service deployable to Cloud Run,
+  - health probes succeed,
+  - logs include request/trace identifiers.
 - Validation:
-  - runtime contract check for camera transform constraints.
+  - local run + Cloud Run smoke request.
 
-### PAI-3D-007 - Interaction-Driven Colorization
-- Objective: implement monochrome default with localized interaction color reveal.
+### GOK-PIVOT-007 - Inter-Service Auth Boundary
+- Objective: secure FastAPI-to-Rust world control calls.
 - Implementation checklist:
-  - create shader/material contract for grayscale baseline,
-  - add gameplay event hooks for contact/overlap color triggers,
-  - apply grass-to-green and wall-impact color prototypes,
-  - define persistence/decay policy for revealed color regions,
-  - ensure performance stays acceptable with repeated interactions.
+  - define signed token contract or mTLS-equivalent gate,
+  - enforce scope-limited service credentials,
+  - add replay protection for privileged mutation endpoints.
 - Acceptance criteria:
-  - untouched scene remains monochrome,
-  - interaction areas gain expected color response,
-  - colorization is localized and visible from gameplay camera.
+  - unauthorized cross-service calls are rejected,
+  - privileged calls are auditable.
 - Validation:
-  - visual regression captures + runtime interaction smoke checks.
+  - integration tests for allow/deny cases.
 
-### PAI-3D-008 - Flat Grass Arena Level
-- Objective: author first playable map requested for vertical slice.
+### GOK-PIVOT-008 - Campaign Schema Foundation
+- Objective: model durable world entities for campaign systems.
 - Implementation checklist:
-  - create flat arena terrain,
-  - place grass foliage at readable density,
-  - define spawn points and boundary collisions,
-  - tune lighting for black/white baseline readability.
+  - create tables and indexes for map/faction/household/army/caravan/espionage domains,
+  - define foreign key and cascade behavior,
+  - add migration rollback safety notes.
 - Acceptance criteria:
-  - level loads reliably as first playable arena,
-  - grass density supports clear movement and interaction testing.
+  - migrations apply/rollback cleanly,
+  - schema supports planned vertical slice queries.
 - Validation:
-  - runtime load smoke test + FPS sanity check on target dev hardware.
+  - migration test + query explain review.
 
-### PAI-3D-009 - Playable Character Model
-- Objective: create first 3D player model and movement-ready controller stack.
+### GOK-PIVOT-009 - Event Store and Outbox
+- Objective: support replay, auditing, and reliable async side effects.
 - Implementation checklist:
-  - produce bouncy-ball character model and material setup,
-  - configure collision/physics parameters for bounce behavior,
-  - bind input to movement/impulse actions,
-  - expose hooks for future ability/skill effects.
+  - implement append-only events table,
+  - add transactional outbox table,
+  - add idempotency keys and processing cursors.
 - Acceptance criteria:
-  - player avatar is controllable and behaves as intended bouncy-ball fighter,
-  - collisions with level geometry are stable.
+  - duplicate command submissions resolve safely,
+  - processors can resume after interruption.
 - Validation:
-  - runtime movement/collision smoke tests in flat grass arena.
+  - replay tests + failure-injection tests.
 
-### PAI-3D-010 - End-to-End Playable Wiring
-- Objective: deliver testable vertical slice from auth to in-level control.
+### GOK-PIVOT-010 - Deterministic Tick Runner
+- Objective: authoritative world progression loop for one shard.
 - Implementation checklist:
-  - preserve login/register + character create/select,
-  - route play action into 3D arena spawn,
-  - verify graph viewer remains available in account hub,
-  - confirm movement and colorization are active after spawn.
+  - fixed tick cadence and deterministic processing order,
+  - periodic snapshot checkpointing,
+  - tick lag metrics.
 - Acceptance criteria:
-  - user can create account/character and play in arena without debug shortcuts,
-  - all required steps work in one normal player flow.
+  - identical input stream reproduces identical output state,
+  - tick lag remains under target threshold in local tests.
 - Validation:
-  - scripted/manual end-to-end smoke checklist executed and recorded.
+  - determinism test harness + perf smoke.
 
-### PAI-3D-011 - Regression Gates
-- Objective: keep quality gates in sync with 3D pivot.
+### GOK-PIVOT-011 - Campaign Graph and Travel
+- Objective: make movement and geography first-class simulation inputs.
 - Implementation checklist:
-  - add 3D runtime contract check script,
-  - add graph parity and colorization-event assertions,
-  - maintain launcher/backend check coverage,
-  - document expected local validation sequence.
+  - region graph and route definitions,
+  - travel-time and risk calculation APIs,
+  - settlement adjacency and choke-point contracts.
 - Acceptance criteria:
-  - CI/local checks catch camera/spawn/graph/colorization regressions,
-  - release gating references 3D contract instead of legacy 2D-only assumptions.
+  - travel and interception queries are deterministic and validated.
 - Validation:
-  - `python3 -m compileall backend/app`
-  - `./gradlew :launcher:test`
-  - `python3 game-client/tests/check_ui_regression.py`
-  - `python3 game-client/tests/check_3d_runtime_contract.py`
+  - route/path integration tests.
 
-## Superseded Backlog (Kept for Traceability)
-| Task ID | Status | Complexity | Detailed Description |
-| --- | --- | --- | --- |
-| COI-2D-006 | ⏳ | 5 | Superseded by 3D pivot; original 2D modular spritesheet pipeline task retained only for history. |
-| COI-2D-007 | ⏳ | 5 | Superseded by 3D pivot; inventory/character sheet goals migrate to 3D runtime presentation tasks. |
-| COI-2D-009 | ⏳ | 3 | Superseded scope; progression config work continues under 3D task IDs where applicable. |
+### GOK-PIVOT-012 - Logistics Simulation
+- Objective: enforce supply constraints as strategic pressure.
+- Implementation checklist:
+  - supply inventory model,
+  - attrition/consumption rules,
+  - convoy supply transfer events.
+- Acceptance criteria:
+  - unsupplied forces degrade predictably,
+  - supply actions affect campaign outcomes.
+- Validation:
+  - scenario tests (supplied vs unsupplied outcomes).
+
+### GOK-PIVOT-013 - Trade Simulation
+- Objective: create non-combat power path with strategic economic effects.
+- Implementation checklist:
+  - market inventory and price model,
+  - tariffs and route safety impact,
+  - shortage/surplus update job.
+- Acceptance criteria:
+  - trade actions measurably affect local economies and political leverage.
+- Validation:
+  - economy progression tests over N ticks.
+
+### GOK-PIVOT-014 - Espionage Simulation
+- Objective: implement imperfect information as core gameplay.
+- Implementation checklist:
+  - informant entity lifecycle,
+  - reliability and deception parameters,
+  - counter-intelligence detection/conflict flows.
+- Acceptance criteria:
+  - reports include confidence/reliability metadata,
+  - misinformation and detection outcomes are reproducible.
+- Validation:
+  - espionage scenario tests and replay consistency checks.
+
+### GOK-PIVOT-015 - Political Systems
+- Objective: allow influence-based progression outside military strength.
+- Implementation checklist:
+  - faction standing deltas,
+  - office/title assignment rules,
+  - treaty and legitimacy records.
+- Acceptance criteria:
+  - political actions unlock gameplay options and constraints.
+- Validation:
+  - integration tests for rank/office/treaty transitions.
+
+### GOK-PIVOT-016 - Battle Instance Contract
+- Objective: formalize campaign-to-battle and battle-to-campaign state handoff.
+- Implementation checklist:
+  - encounter trigger rules,
+  - battle instance record schema,
+  - deterministic resolution payload contract.
+- Acceptance criteria:
+  - each encounter has auditable pre/post state,
+  - writeback can be replayed safely.
+- Validation:
+  - end-to-end contract tests.
+
+### GOK-PIVOT-017 - Tactical Battle MVP
+- Objective: provide first command-focused battle implementation.
+- Implementation checklist:
+  - formation and reserve controls,
+  - morale pressure system,
+  - outcome score and casualty model.
+- Acceptance criteria:
+  - battle results produce strategic consequences in campaign layer.
+- Validation:
+  - tactical simulation tests + campaign writeback tests.
+
+### GOK-PIVOT-018 - PostgreSQL LISTEN/NOTIFY Worker
+- Objective: low-cost PoC event fanout without Redis dependency.
+- Implementation checklist:
+  - implement NOTIFY trigger points from outbox writes,
+  - implement resilient LISTEN worker with reconnect,
+  - keep events replay-safe and idempotent.
+- Acceptance criteria:
+  - service wakeup latency within PoC target,
+  - no lost durable events (outbox remains source of truth).
+- Validation:
+  - integration tests with worker restarts.
+
+### GOK-PIVOT-019 - Redis Adoption Gate
+- Objective: avoid premature managed Redis spend.
+- Implementation checklist:
+  - define objective cutover metrics,
+  - define migration plan for cache/session/queue pathways,
+  - document rollback and dual-write period strategy.
+- Acceptance criteria:
+  - clear go/no-go criteria exists before enabling Memorystore.
+- Validation:
+  - gate document approved and linked from `docs/TECHNICAL.md`.
+
+### GOK-PIVOT-020 - Bevy Client Bootstrap
+- Objective: establish playable Rust client entry path.
+- Implementation checklist:
+  - implement app bootstrap and scene/state management,
+  - implement auth/session bootstrap fetch,
+  - show campaign entry view on successful bootstrap.
+- Acceptance criteria:
+  - user can authenticate and load campaign shell via Bevy client.
+- Validation:
+  - manual login-to-shell flow + integration smoke.
+
+### GOK-PIVOT-021 - Campaign Map Rendering MVP
+- Objective: visualize strategic world state in client.
+- Implementation checklist:
+  - map rendering pipeline,
+  - route and settlement overlays,
+  - army/caravan marker rendering.
+- Acceptance criteria:
+  - map readability and event updates are stable at target zoom levels.
+- Validation:
+  - rendering smoke checks + perf capture.
+
+### GOK-PIVOT-022 - Code-First Gameplay UI Panels
+- Objective: deliver required gameplay surfaces without editor-authored UI.
+- Implementation checklist:
+  - implement `bevy_egui` panels for core domains,
+  - unify keyboard/mouse navigation patterns,
+  - add panel state persistence and layout presets.
+- Acceptance criteria:
+  - all vertical-slice control surfaces are usable from code-defined UI.
+- Validation:
+  - UI integration tests + manual workflow runbook.
+
+### GOK-PIVOT-023 - Code-First Authoring Tools Mode
+- Objective: build internal level/system authoring inside codebase.
+- Implementation checklist:
+  - implement tools mode toggle and role gating,
+  - implement map node/route/settlement editing commands,
+  - implement validation/error surface before save.
+- Acceptance criteria:
+  - authored data can be produced without external editor UI.
+- Validation:
+  - tool output schema validation tests.
+
+### GOK-PIVOT-024 - Content Import/Export CLI
+- Objective: deterministic content pipeline for versioning and review.
+- Implementation checklist:
+  - implement CLI converters for JSON/CSV formats,
+  - implement canonical ordering and normalization,
+  - emit content hashes and signatures.
+- Acceptance criteria:
+  - repeated export of unchanged content yields identical hashes.
+- Validation:
+  - snapshot tests for converter outputs.
+
+### GOK-PIVOT-025 - First Province Content Pack
+- Objective: assemble first playable strategic region.
+- Implementation checklist:
+  - configure one city + one fortress + route network,
+  - configure factions and initial power distribution,
+  - configure baseline markets and intelligence seeds.
+- Acceptance criteria:
+  - province content boots cleanly and supports all core actions.
+- Validation:
+  - content validation CLI + in-client smoke run.
+
+### GOK-PIVOT-026 - Legacy Control Plane Bridge
+- Objective: preserve existing auth/account/release workflows while migrating gameplay authority.
+- Implementation checklist:
+  - maintain FastAPI auth/session endpoints,
+  - forward world bootstrap handoff to Rust service,
+  - preserve launcher compatibility contract.
+- Acceptance criteria:
+  - existing login/account flow remains functional during migration.
+- Validation:
+  - regression tests for auth/account/bootstrap endpoints.
+
+### GOK-PIVOT-027 - End-to-End Vertical Slice Loop
+- Objective: prove concept loop from login to strategic consequence.
+- Implementation checklist:
+  - wire campaign action execution,
+  - wire battle instance trigger and completion,
+  - wire persistence and reload integrity.
+- Acceptance criteria:
+  - one-player loop is fully playable without debug shortcuts.
+- Validation:
+  - scripted e2e smoke checklist and recorded run.
+
+### GOK-PIVOT-028 - Determinism Replay Suite
+- Objective: prevent simulation drift and hidden authority bugs.
+- Implementation checklist:
+  - capture command streams,
+  - replay against snapshots,
+  - fail on divergence in entity states/events.
+- Acceptance criteria:
+  - replay tests pass across clean environments.
+- Validation:
+  - deterministic replay CI job.
+
+### GOK-PIVOT-029 - Observability and Alerts
+- Objective: operationally safe solo-dev runtime monitoring.
+- Implementation checklist:
+  - instrument tick latency, DB latency, outbox lag,
+  - publish dashboards,
+  - define page-worthy vs log-only alert severities.
+- Acceptance criteria:
+  - critical failure modes generate actionable alerts.
+- Validation:
+  - alert fire drills and runbook verification.
+
+### GOK-PIVOT-030 - Cost Guardrails
+- Objective: keep PoC spend predictable.
+- Implementation checklist:
+  - define monthly budget target and threshold alerts,
+  - report Cloud Run/SQL/GCS costs monthly,
+  - enforce no-Redis-by-default policy unless adoption gate is met.
+- Acceptance criteria:
+  - monthly cost report exists and is linked in docs/tasks notes.
+- Validation:
+  - monthly billing export review checklist.
+
+### GOK-PIVOT-031 - Playtest Hardening Checklist
+- Objective: prepare first external testing pass safely.
+- Implementation checklist:
+  - security and abuse control review,
+  - rollback and backup drill,
+  - release feed rollback verification,
+  - incident response checklist.
+- Acceptance criteria:
+  - first external playtest can be run with documented rollback path.
+- Validation:
+  - hardening checklist sign-off.
+
+## Sequencing Guide (Strict Order)
+1. Program setup tasks: `GOK-PIVOT-003` to `GOK-PIVOT-007`.
+2. Persistence/simulation foundation: `GOK-PIVOT-008` to `GOK-PIVOT-019`.
+3. Client/tooling buildout: `GOK-PIVOT-020` to `GOK-PIVOT-024`.
+4. Vertical slice assembly: `GOK-PIVOT-025` to `GOK-PIVOT-028`.
+5. Operations and launch readiness: `GOK-PIVOT-029` to `GOK-PIVOT-031`.
+
+## Resume Protocol
+When work resumes after a pause:
+1. Read `docs/GAME.md` and `docs/TECHNICAL.md` first.
+2. Continue from the first non-`✅` task in sequencing order.
+3. Do not start a higher-order task until all dependencies are `✅`.
+4. For each completed task, update this file in the same commit.
 
 ## Completed (Current Cycle)
-| Task ID | Status | Complexity | Detailed Description |
-| --- | --- | --- | --- |
-| PAI-3D-000 | ✅ | 2 | Updated canonical/product-support documentation for Plompers Arena Inc. refactor mandate and produced detailed implementation-ready task breakdown for 3D black/white arena pivot. |
-| PAI-3D-012 | ✅ | 4 | Activated 3D runtime path in `client_shell.gd`, added flat grass arena generation with wall boundaries and interaction-driven color reveal in `world_canvas_3d.gd`, introduced plomper ball avatar generation in `sellsword_3d_factory.gd`, and added `check_3d_runtime_contract.py` with release workflow gate migration. |
-
-## Legacy Completed (Pre-Pivot)
-| Task ID | Status | Complexity | Detailed Description |
-| --- | --- | --- | --- |
-| COI-2D-056 | ✅ | 1 | Refined `tools/generate_ui_concept_blackwhite.py` to preserve title/header contrast and prevent background over-darkening by switching to selective accent darkening; regenerated `concept_art/ui_concept_blackwhite/ui_concept_bw_*.png`. |
-| COI-2D-055 | ✅ | 2 | Replaced further graph/blob concept iteration with a direct black/white theme remap of baseline `ui_concept_*.png` screens by adding `tools/generate_ui_concept_blackwhite.py` and generating `concept_art/ui_concept_blackwhite/ui_concept_bw_*.png` plus a contact sheet. |
-| COI-2D-054 | ✅ | 3 | Retired deprecated graph-concept references from canonical docs and rebooted UI concept iteration from `ui_concept_*` only by adding `tools/generate_ui_concept_radial_reboot.py`, generating a clean new `pass_01` under `concept_art/option_radial_reboot_blackwhite/pass_01` (boot/gateway/register/play empty/play selected/create/system/update + contact sheet + process notes). |
+| Task ID | Status | Complexity | Depends On | Detailed Description |
+| --- | --- | --- | --- | --- |
+| GOK-PIVOT-001 | ✅ | 2 | - | Canonical docs migrated to the new Crusades-era strategy RPG direction and Rust-first architecture contract. |
+| GOK-PIVOT-002 | ✅ | 1 | - | Release retention policy updated to latest 3 builds and documentation aligned. |
