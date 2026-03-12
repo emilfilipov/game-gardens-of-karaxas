@@ -23,7 +23,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-008 | ✅ | 3 | AOP-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
 | AOP-PIVOT-009 | ✅ | 4 | AOP-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
 | AOP-PIVOT-010 | ✅ | 4 | AOP-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
-| AOP-PIVOT-011 | ⬜ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs. |
+| AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs. |
 | AOP-PIVOT-012 | ⬜ | 4 | AOP-PIVOT-010 | Implement logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
 | AOP-PIVOT-013 | ⬜ | 4 | AOP-PIVOT-010 | Implement trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
 | AOP-PIVOT-014 | ⬜ | 4 | AOP-PIVOT-010 | Implement espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
@@ -44,6 +44,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-029 | ⬜ | 3 | AOP-PIVOT-027 | Add operational dashboards/alerts for world tick lag, DB latency, outbox lag, release feed publish health. |
 | AOP-PIVOT-030 | ⬜ | 2 | AOP-PIVOT-029 | Define monthly PoC cost report process and enforce budget guardrails for Cloud Run, Cloud SQL, GCS, and optional Redis adoption. |
 | AOP-PIVOT-031 | ⬜ | 3 | AOP-PIVOT-027 | Prepare external playtest hardening checklist (security, abuse controls, rollback drills, release rollback, data backups). |
+| AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Add manual validation Bevy sandbox surface (clock panel + route planning controls + moving player placeholder sprite generated as PNG) for local systems smoke testing. |
 
 ## Detailed Task Specs
 
@@ -194,6 +195,19 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
   - travel and interception queries are deterministic and validated.
 - Validation:
   - route/path integration tests.
+
+### AOP-PIVOT-033 - Manual Sandbox Surface
+- Objective: provide a low-friction visual/manual validation surface before full vertical-slice UI is complete.
+- Implementation checklist:
+  - add feature-gated Bevy sandbox client mode,
+  - render campaign route graph and settlement markers from shared simulation graph,
+  - provide manual route dispatch controls and clock panel for fast validation loops,
+  - generate player placeholder sprite PNG asset in-repo.
+- Acceptance criteria:
+  - local run produces interactive map sandbox and moving player marker,
+  - sandbox works without requiring ad-hoc editor setup.
+- Validation:
+  - `cargo run -p client-app --features sandbox-ui`
 
 ### AOP-PIVOT-012 - Logistics Simulation
 - Objective: enforce supply constraints as strategic pressure.
@@ -448,3 +462,5 @@ When work resumes after a pause:
 | AOP-PIVOT-008 | ✅ | 3 | AOP-PIVOT-005 | Added Alembic migration `0021_campaign_world_foundation` and ORM models for campaign regions, settlements, routes, factions, households, armies, caravans, and espionage assets with FK/index and downgrade order safety coverage. |
 | AOP-PIVOT-009 | ✅ | 4 | AOP-PIVOT-008 | Added migration `0022_event_store_outbox`, event-pipeline ORM models/services, and replay/idempotency/outbox-resume tests for duplicate-safe command handling and restart-safe processor progress. |
 | AOP-PIVOT-010 | ✅ | 4 | AOP-PIVOT-009 | Implemented deterministic `TickRunner` (fixed cadence, deterministic command ordering, periodic snapshot checkpoints, lag/duration metrics) and wired signed internal control endpoints for queueing commands and advancing ticks. |
+| AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Added deterministic travel graph/pathing domain in `sim-core` (adjacency, risk modifiers, fastest/safest planning, choke-point detection, arrival estimates) and exposed world-service travel map/adjacency/plan APIs with route integration tests. |
+| AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Added feature-gated Bevy sandbox in `client-app` with live clocks, route-planning controls, and animated player marker loaded from generated placeholder asset `client-app/assets/player_circle.png`. |

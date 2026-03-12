@@ -47,6 +47,10 @@ Current baseline checks retained during transition:
 Rust CI workflow:
 - `.github/workflows/rust-checks.yml`
 
+Manual sandbox client run (feature-gated):
+- `cargo run -p client-app --features sandbox-ui`
+- Placeholder player sprite generation: `python3 tools/generate_player_placeholder_png.py`
+
 ## Packaging and Release
 - Windows packaging script: `scripts/pack.ps1`
 - Release automation: `.github/workflows/release.yml`

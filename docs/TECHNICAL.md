@@ -62,12 +62,19 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Privileged mutation routes in world-service (`/internal/control/commands`) enforce timestamp skew limits and nonce replay detection via in-memory replay window cache (PoC baseline).
 - World service now includes deterministic single-shard tick runner primitives (`world-service/src/tick_runner.rs`) with fixed cadence execution, deterministic command ordering, periodic snapshot hashing/checkpoints, and tick lag/duration metrics.
 - Signed internal endpoint `/internal/control/tick` advances deterministic ticks for PoC orchestration/testing.
+- World service now exposes deterministic travel APIs backed by shared `sim-core` graph contracts:
+  - `GET /travel/map`
+  - `GET /travel/adjacency/{settlement_id}`
+  - `POST /travel/plan`
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
+- Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, choke-point detection, and arrival estimates).
 
 ### Client
 - Bevy client renders campaign and battle surfaces.
 - Client sends intent; authority services resolve final state transitions.
+- `client-app` now includes a feature-gated manual sandbox UI (`cargo run -p client-app --features sandbox-ui`) with map rendering, route dispatch controls, and simulation clocks for PoC systems validation.
+- Placeholder player sprite asset is generated in-repo (`tools/generate_player_placeholder_png.py` -> `client-app/assets/player_circle.png`) to keep early UI flow asset-stable.
 
 ## Data and Eventing Model
 ### Persistence
@@ -107,6 +114,7 @@ Current baseline checks retained during transition:
 - `cargo fmt --all -- --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
+- Manual sandbox smoke: `cargo run -p client-app --features sandbox-ui` (requires host GUI toolchain such as `pkg-config`/Wayland or X11 dev packages on Linux).
 
 Migration-era additions (implemented in scaffold phase):
 - Rust CI workflow: `.github/workflows/rust-checks.yml`

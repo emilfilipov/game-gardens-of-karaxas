@@ -2,6 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 
+mod travel;
+
+pub use travel::{
+    RiskModifiers, RouteEdge, RouteId, SettlementNode, TravelEstimate, TravelGraph, TravelPlan, TravelPreference,
+    adjusted_route_risk, sample_levant_travel_graph,
+};
+
 /// Latest schema version for shared simulation payloads.
 pub const SIM_SCHEMA_VERSION: u32 = 1;
 

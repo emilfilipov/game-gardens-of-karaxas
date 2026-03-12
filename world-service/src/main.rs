@@ -6,13 +6,17 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{HeaderName, StatusCode};
 use axum::middleware;
 use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 use sim_core::SIM_SCHEMA_VERSION;
+use sim_core::{
+    RiskModifiers, RouteEdge, SettlementId, SettlementNode, Tick, TravelEstimate, TravelGraph, TravelPreference,
+    sample_levant_travel_graph,
+};
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
@@ -30,6 +34,7 @@ struct AppState {
     config: Arc<AppConfig>,
     started_at_unix: u64,
     tick_runner: Arc<Mutex<TickRunner>>,
+    travel_graph: Arc<TravelGraph>,
 }
 
 #[derive(Serialize)]
@@ -111,6 +116,47 @@ struct TickAdvanceResponse {
     caller_scope: String,
 }
 
+#[derive(Debug, Serialize)]
+struct TravelMapResponse {
+    settlements: Vec<SettlementNode>,
+    routes: Vec<RouteEdge>,
+    choke_points: Vec<u64>,
+}
+
+#[derive(Debug, Serialize)]
+struct TravelAdjacencyResponse {
+    settlement_id: u64,
+    adjacent_settlement_ids: Vec<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TravelPlanRequest {
+    origin_settlement_id: u64,
+    destination_settlement_id: u64,
+    #[serde(default = "default_travel_preference")]
+    preference: TravelPreference,
+    #[serde(default)]
+    risk_modifiers: Option<RiskModifiers>,
+    departure_tick: u64,
+    #[serde(default = "default_ticks_per_hour")]
+    ticks_per_hour: u32,
+}
+
+#[derive(Debug, Serialize)]
+struct TravelPlanResponse {
+    status: &'static str,
+    plan: sim_core::TravelPlan,
+    estimate: TravelEstimate,
+}
+
+fn default_travel_preference() -> TravelPreference {
+    TravelPreference::Fastest
+}
+
+fn default_ticks_per_hour() -> u32 {
+    4
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = AppConfig::from_env();
@@ -127,6 +173,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config: Arc::new(config),
         started_at_unix: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
         tick_runner: Arc::new(Mutex::new(tick_runner)),
+        travel_graph: Arc::new(sample_levant_travel_graph()),
     };
 
     let request_id_header = HeaderName::from_static("x-request-id");
@@ -169,6 +216,9 @@ fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
         .route("/config", get(config_endpoint))
+        .route("/travel/map", get(travel_map))
+        .route("/travel/adjacency/{settlement_id}", get(travel_adjacency))
+        .route("/travel/plan", post(travel_plan))
         .merge(internal_control_routes)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
@@ -316,6 +366,87 @@ async fn advance_ticks(
     )
 }
 
+async fn travel_map(State(state): State<AppState>) -> (StatusCode, Json<TravelMapResponse>) {
+    let settlements = state.travel_graph.settlements().cloned().collect();
+    let routes = state.travel_graph.routes().cloned().collect();
+    let choke_points = state.travel_graph.choke_points().into_iter().map(|row| row.0).collect();
+
+    (
+        StatusCode::OK,
+        Json(TravelMapResponse {
+            settlements,
+            routes,
+            choke_points,
+        }),
+    )
+}
+
+async fn travel_adjacency(
+    State(state): State<AppState>,
+    Path(settlement_id): Path<u64>,
+) -> (StatusCode, Json<TravelAdjacencyResponse>) {
+    let adjacent = state
+        .travel_graph
+        .adjacent_settlements(SettlementId(settlement_id))
+        .into_iter()
+        .map(|row| row.0)
+        .collect();
+
+    (
+        StatusCode::OK,
+        Json(TravelAdjacencyResponse {
+            settlement_id,
+            adjacent_settlement_ids: adjacent,
+        }),
+    )
+}
+
+async fn travel_plan(
+    State(state): State<AppState>,
+    Json(payload): Json<TravelPlanRequest>,
+) -> (StatusCode, Json<TravelPlanResponse>) {
+    let origin = SettlementId(payload.origin_settlement_id);
+    let destination = SettlementId(payload.destination_settlement_id);
+    let modifiers = payload.risk_modifiers.unwrap_or_else(RiskModifiers::neutral);
+
+    let Some(plan) = state
+        .travel_graph
+        .plan_route(origin, destination, payload.preference, modifiers)
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(TravelPlanResponse {
+                status: "route_not_found",
+                plan: sim_core::TravelPlan {
+                    settlements: Vec::new(),
+                    route_ids: Vec::new(),
+                    total_travel_hours: 0,
+                    total_risk: 0,
+                },
+                estimate: TravelEstimate {
+                    departure_tick: Tick(payload.departure_tick),
+                    arrival_tick: Tick(payload.departure_tick),
+                    total_travel_hours: 0,
+                    total_risk: 0,
+                },
+            }),
+        );
+    };
+
+    let estimate = state
+        .travel_graph
+        .estimate_arrival(Tick(payload.departure_tick), &plan, payload.ticks_per_hour);
+
+    (
+        StatusCode::OK,
+        Json(TravelPlanResponse {
+            status: "ok",
+            plan,
+            estimate,
+        }),
+    )
+}
+
 fn init_tracing(log_level: &str) {
     let filter = EnvFilter::try_new(log_level)
         .or_else(|_| EnvFilter::try_new("info"))
@@ -377,6 +508,7 @@ mod tests {
             config: Arc::new(config),
             started_at_unix: 1_700_000_000,
             tick_runner: Arc::new(std::sync::Mutex::new(tick_runner)),
+            travel_graph: Arc::new(sim_core::sample_levant_travel_graph()),
         };
         build_router(state, auth_state, HeaderName::from_static("x-request-id"))
     }
@@ -501,5 +633,35 @@ mod tests {
 
         assert_eq!(payload["ticks_executed"], 1);
         assert_eq!(payload["current_tick"], 1);
+    }
+
+    #[tokio::test]
+    async fn travel_plan_endpoint_returns_deterministic_route() {
+        let app = test_app();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/travel/plan")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"origin_settlement_id":1,"destination_settlement_id":5,"preference":"fastest","departure_tick":100,"ticks_per_hour":4}"#,
+                    ))
+                    .expect("request should build"),
+            )
+            .await
+            .expect("response should resolve");
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let bytes = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("response body should decode");
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
+
+        assert_eq!(payload["status"], "ok");
+        assert_eq!(payload["plan"]["settlements"], serde_json::json!([1, 2, 3, 4, 5]));
+        assert_eq!(payload["estimate"]["arrival_tick"], 240);
     }
 }
