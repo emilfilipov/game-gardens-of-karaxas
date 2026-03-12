@@ -234,17 +234,22 @@ mod sandbox {
         mut sandbox: ResMut<TravelSandbox>,
         mut player_query: Single<&mut Transform, With<PlayerMarker>>,
     ) {
-        let Some(plan) = sandbox.active_plan.as_ref() else {
-            return;
+        let (from_id, to_id, plan_len) = {
+            let Some(plan) = sandbox.active_plan.as_ref() else {
+                return;
+            };
+
+            if sandbox.active_segment_index + 1 >= plan.settlements.len() {
+                sandbox.active_plan = None;
+                return;
+            }
+
+            (
+                plan.settlements[sandbox.active_segment_index],
+                plan.settlements[sandbox.active_segment_index + 1],
+                plan.settlements.len(),
+            )
         };
-
-        if sandbox.active_segment_index + 1 >= plan.settlements.len() {
-            sandbox.active_plan = None;
-            return;
-        }
-
-        let from_id = plan.settlements[sandbox.active_segment_index];
-        let to_id = plan.settlements[sandbox.active_segment_index + 1];
 
         let from = settlement_position(&sandbox.graph, from_id);
         let to = settlement_position(&sandbox.graph, to_id);
@@ -261,7 +266,7 @@ mod sandbox {
             sandbox.active_segment_index += 1;
             sandbox.active_segment_progress = 0.0;
 
-            if sandbox.active_segment_index + 1 >= plan.settlements.len() {
+            if sandbox.active_segment_index + 1 >= plan_len {
                 sandbox.active_plan = None;
                 sandbox.last_plan_summary = format!("Arrived at settlement {}", sandbox.current_settlement.0);
             }
