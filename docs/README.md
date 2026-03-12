@@ -23,6 +23,11 @@ Current modules include transitional prototype components plus backend/release i
 - `sim-core/` - shared Rust simulation-domain contracts (travel + real-time logistics/trade/espionage/politics/battle-instance contract).
 - `world-service/` - Rust world-authority service with deterministic tick runner, travel APIs, and real-time logistics/trade/espionage/politics/battle-contract authority endpoints.
 - `tooling-core/` - Rust tooling/shared validation scaffold.
+  - Deterministic content CLI commands:
+    - `cargo run -p tooling-core -- normalize-json --input <pack.json> --output <normalized.json> --signature-output <normalized.sig.json>`
+    - `cargo run -p tooling-core -- import-csv --input-dir <csv_dir> --province-id <province_id> --display-name <display_name> --output <pack.json> --signature-output <pack.sig.json>`
+    - `cargo run -p tooling-core -- export-csv --input <pack.json> --output-dir <csv_dir>`
+    - `cargo run -p tooling-core -- hash --input <pack.json>`
 - `client-app/` - Rust client runtime with feature-gated Bevy bootstrap shell (`bootstrap-shell`) and simulation sandbox (`sandbox-ui`).
 - `assets/` - shared content/assets.
 - `docs/` - canonical and supporting documentation.

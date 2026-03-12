@@ -127,6 +127,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: role-gated tools mode edits settlement/route data in-app, validates schema constraints before save, and persists/load authored map JSON for iterative tuning.
 - Gameplay impact: playable map/system content can now be created and adjusted directly in the client code/UI workflow.
 
+#### Deterministic content import/export pipeline
+- Purpose: keep authored province/system content reviewable, reproducible, and safe to promote between local/dev/prod environments.
+- Loop: tooling CLI normalizes JSON packs, converts to/from CSV authoring bundles, validates reference integrity, and emits stable SHA256 signatures for unchanged content.
+- Gameplay impact: content iteration can move quickly without silent drift; unchanged content remains byte-stable so regressions are easier to detect.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.
