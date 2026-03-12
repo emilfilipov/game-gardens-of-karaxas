@@ -87,3 +87,7 @@ Manual sandbox client run (feature-gated):
 - Release automation: `.github/workflows/release.yml`
 - Installer/updater behavior: `docs/INSTALLER.md`
 - Standalone + Steam channel strategy: `docs/STEAM_DUAL_DISTRIBUTION.md`
+- Release automation now also publishes Windows Rust runtime artifacts:
+  - `AmbitionsOfPeace-client-app-win-x64-<version>.zip`
+  - `AmbitionsOfPeace-client-app-win-x64-<version>.manifest.json`
+  - `AmbitionsOfPeace-client-app-win-x64-<version>.sha256`

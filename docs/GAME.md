@@ -162,6 +162,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: checklist + validation script gate security controls, abuse controls, observability readiness, rollback/backup drills, and incident-response preparation before playtest launch.
 - Gameplay impact: reduces risk of corrupted progression, prolonged outages, or unmanaged abuse during first public exposure.
 
+#### Windows Rust runtime release artifacts baseline
+- Purpose: ship install-ready Rust client runtime payloads through the existing release channel before launcher handoff migration is complete.
+- Loop: release automation builds Windows `client-app` runtime, packages deterministic bundle + manifest/checksum, publishes to GCS feed/archive, and retains only the latest three versions.
+- Gameplay impact: narrows the gap between local Rust client validation and downloadable release artifacts needed for install/launch testing.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.

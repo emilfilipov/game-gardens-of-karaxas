@@ -16,6 +16,7 @@ Artifacts are written to `releases/windows/`.
 ## Runtime behavior
 - Installed game executable launches Godot online client shell.
 - Installer payload also includes a separate designer executable.
+- Release feed now also includes standalone Windows Rust runtime artifacts (`client-app`) with deterministic manifest/checksum metadata for migration validation.
 - Velopack install/update hooks create desktop shortcuts for:
   - `Ambitions of Peace` (game launcher entry)
   - `Ambitions of Peace Designer` (designer entry)
@@ -41,11 +42,15 @@ Logs:
 
 ## CI release
 - Workflow: `.github/workflows/release.yml`
-- Trigger: pushes to `main`/`master` only when runtime/package paths change (`launcher/**`, `game-client/**`, `designer-client/**`, `assets/**`, `scripts/**`, Gradle wrapper/build files). Concept docs/images/tooling-only changes do not auto-trigger releases.
+- Trigger: pushes to `main`/`master` only when runtime/package paths change (`launcher/**`, `game-client/**`, `client-app/**`, `sim-core/**`, `designer-client/**`, `assets/**`, `scripts/**`, `tools/package_client_app_release.py`, Cargo/Gradle wrapper/build files). Concept docs/images/tooling-only changes do not auto-trigger releases.
 - Release uploads Velopack artifacts to GCS feed path and versioned archive path.
+- Release also uploads versioned Windows Rust runtime artifacts to the same feed/archive path:
+  - `AmbitionsOfPeace-client-app-win-x64-<version>.zip`
+  - `AmbitionsOfPeace-client-app-win-x64-<version>.manifest.json`
+  - `AmbitionsOfPeace-client-app-win-x64-<version>.sha256`
 - Mutable feed artifacts receive `Cache-Control: no-cache, max-age=0`.
 - Historical `.nupkg` artifacts are prefetched from feed before packing to preserve delta continuity.
-- Post-upload retention keeps the 3 newest feed/archive build versions and prunes older ones.
+- Post-upload retention keeps the 3 newest feed/archive build versions and prunes older ones (Velopack packages and versioned Rust runtime artifacts).
 
 ## Runtime host defaults in payload
 `runtime_host.properties` is emitted at package time:

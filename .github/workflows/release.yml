@@ -8,10 +8,15 @@ on:
     paths:
       - "launcher/**"
       - "game-client/**"
+      - "client-app/**"
+      - "sim-core/**"
       - "designer-client/**"
       - "assets/**"
       - "scripts/**"
+      - "tools/package_client_app_release.py"
       - "gradle/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "gradlew"
@@ -112,6 +117,12 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Setup Rust
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
 
       - name: Bundle Godot Runtime (Windows)
         id: bundle-godot
@@ -239,6 +250,21 @@ jobs:
           }
           powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 @args
 
+      - name: Build Rust Client Runtime (Windows)
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          cargo build -p client-app --release --features bootstrap-shell --target x86_64-pc-windows-msvc
+
+      - name: Package Rust Client Runtime Artifact
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          python tools/package_client_app_release.py `
+            --version "${{ steps.get-version.outputs.version }}" `
+            --exe "target/x86_64-pc-windows-msvc/release/client-app.exe" `
+            --output-dir "releases/windows"
+
       - name: Verify Release Artifacts
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
@@ -249,6 +275,12 @@ jobs:
           if (-not (Test-Path $releases)) { throw "Missing $releases" }
           $nupkg = Get-ChildItem "releases/windows" -Filter "*.nupkg" -ErrorAction SilentlyContinue
           if (-not $nupkg -or $nupkg.Count -eq 0) { throw "Missing .nupkg in releases/windows" }
+          $clientZip = Get-ChildItem "releases/windows" -Filter "AmbitionsOfPeace-client-app-win-x64-*.zip" -ErrorAction SilentlyContinue
+          if (-not $clientZip -or $clientZip.Count -eq 0) { throw "Missing client-app zip artifact in releases/windows" }
+          $clientManifest = Get-ChildItem "releases/windows" -Filter "AmbitionsOfPeace-client-app-win-x64-*.manifest.json" -ErrorAction SilentlyContinue
+          if (-not $clientManifest -or $clientManifest.Count -eq 0) { throw "Missing client-app manifest artifact in releases/windows" }
+          $clientChecksum = Get-ChildItem "releases/windows" -Filter "AmbitionsOfPeace-client-app-win-x64-*.sha256" -ErrorAction SilentlyContinue
+          if (-not $clientChecksum -or $clientChecksum.Count -eq 0) { throw "Missing client-app checksum artifact in releases/windows" }
 
       - name: Upload Velopack Feed To GCS
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
@@ -336,6 +368,67 @@ jobs:
               foreach ($stalePkgPath in $entry.Value.Paths) {
                 Write-Host "Removing stale feed package: $stalePkgPath"
                 & gsutil rm $stalePkgPath
+              }
+            }
+          }
+
+          Write-Host "Pruning feed Rust client artifacts to keep newest $keepVersionCount versions from $feedPrefix"
+          $clientArtifactPatterns = @(
+            "$feedPrefix/AmbitionsOfPeace-client-app-win-x64-*.zip",
+            "$feedPrefix/AmbitionsOfPeace-client-app-win-x64-*.manifest.json",
+            "$feedPrefix/AmbitionsOfPeace-client-app-win-x64-*.sha256"
+          )
+          $clientVersionBuckets = @{}
+          foreach ($pattern in $clientArtifactPatterns) {
+            $artifactPaths = & gsutil ls $pattern 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $artifactPaths) {
+              continue
+            }
+            foreach ($artifact in $artifactPaths) {
+              $artifactPath = $artifact.Trim()
+              if ([string]::IsNullOrWhiteSpace($artifactPath)) {
+                continue
+              }
+              $match = $versionRegex.Match($artifactPath)
+              if (-not $match.Success) {
+                continue
+              }
+              $versionText = $match.Value
+              try {
+                $versionObj = [version]$versionText
+              } catch {
+                continue
+              }
+              if (-not $clientVersionBuckets.ContainsKey($versionText)) {
+                $clientVersionBuckets[$versionText] = @{
+                  Version = $versionObj
+                  Paths = @()
+                }
+              }
+              $clientVersionBuckets[$versionText].Paths += $artifactPath
+            }
+          }
+
+          if ($clientVersionBuckets.Count -eq 0) {
+            Write-Host "No Rust client artifacts found to prune."
+          } else {
+            $orderedClientVersions = $clientVersionBuckets.GetEnumerator() |
+              Sort-Object { $_.Value.Version } -Descending
+            $keepClientVersions = $orderedClientVersions |
+              Select-Object -First $keepVersionCount |
+              ForEach-Object { $_.Key }
+            $keepClientSet = @{}
+            foreach ($keepVersion in $keepClientVersions) {
+              $keepClientSet[$keepVersion] = $true
+            }
+
+            foreach ($entry in $orderedClientVersions) {
+              if ($keepClientSet.ContainsKey($entry.Key)) {
+                continue
+              }
+              foreach ($staleArtifactPath in $entry.Value.Paths | Sort-Object -Unique) {
+                Write-Host "Removing stale Rust client artifact: $staleArtifactPath"
+                & gsutil rm $staleArtifactPath
               }
             }
           }

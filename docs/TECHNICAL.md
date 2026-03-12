@@ -46,6 +46,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Release binaries remain in GCS.
 - GCS feed/archive retention keeps only the latest 3 build versions.
 - PostgreSQL stores release metadata (version/channel/checksum/notes/publish timestamps), not binary payload blobs.
+- Release workflow now also publishes a versioned Windows Rust client runtime bundle (`AmbitionsOfPeace-client-app-win-x64-<version>.zip`) with deterministic file manifest (`*.manifest.json`) and SHA256 checksum (`*.sha256`) to the same GCS feed/archive channels.
 
 ### Redis policy
 - Redis is deferred for PoC cost control.
@@ -176,6 +177,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 ## Build, Packaging, and Distribution
 - Windows distribution remains launcher-based with Velopack feed in GCS.
 - Release workflow continues to package launcher/runtime payloads and upload to GCS feed/archive.
+- Release workflow now also builds `client-app` with `bootstrap-shell` on Windows and publishes standalone runtime artifacts for upcoming launcher handoff integration.
 - Installer/updater logging contract remains under `<install_root>/logs`.
 
 ## Validation and Quality Gates
@@ -204,6 +206,8 @@ Current baseline checks retained during transition:
   - `backend/scripts/generate_monthly_cost_report.py --month YYYY-MM --output docs/cost-reports/YYYY-MM-estimate.md --budget-total 80`
 - Playtest hardening baseline smoke:
   - `backend/scripts/validate_playtest_hardening.sh`
+- Windows Rust runtime packaging smoke:
+  - `python tools/package_client_app_release.py --version <x.y.z> --exe <path/to/client-app.exe> --output-dir releases/windows`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox`) and deterministic replay gate (`determinism-replay`) in `.github/workflows/rust-checks.yml`.
