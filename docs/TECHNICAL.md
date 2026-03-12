@@ -71,6 +71,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, choke-point detection, and arrival estimates).
 - Campaign traversal is now rendered in client sandbox using route-duration-driven real-time interpolation tied to campaign clock scale (not distance-speed heuristics).
 - Battle architecture contract is real-time instanced simulation authority (fixed-step runtime), not turn-based resolution.
+- Real-time is the global gameplay contract: logistics, trade, espionage, and politics systems are also continuous-time simulations executed on fixed deterministic ticks.
 
 ### Client
 - Bevy client renders campaign and battle surfaces.

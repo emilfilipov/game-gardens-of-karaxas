@@ -24,10 +24,10 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-009 | ✅ | 4 | AOP-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
 | AOP-PIVOT-010 | ✅ | 4 | AOP-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
 | AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs, then bind client movement to route-duration real-time progression. |
-| AOP-PIVOT-012 | ⬜ | 4 | AOP-PIVOT-010 | Implement logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
-| AOP-PIVOT-013 | ⬜ | 4 | AOP-PIVOT-010 | Implement trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
-| AOP-PIVOT-014 | ⬜ | 4 | AOP-PIVOT-010 | Implement espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
-| AOP-PIVOT-015 | ⬜ | 3 | AOP-PIVOT-010 | Implement politics model (faction standing, offices, legitimacy metrics, treaty records, influence deltas). |
+| AOP-PIVOT-012 | ⬜ | 4 | AOP-PIVOT-010 | Implement real-time logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
+| AOP-PIVOT-013 | ⬜ | 4 | AOP-PIVOT-010 | Implement real-time trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
+| AOP-PIVOT-014 | ⬜ | 4 | AOP-PIVOT-010 | Implement real-time espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
+| AOP-PIVOT-015 | ⬜ | 3 | AOP-PIVOT-010 | Implement real-time politics model (faction standing, offices, legitimacy metrics, treaty records, influence deltas). |
 | AOP-PIVOT-016 | ⬜ | 4 | AOP-PIVOT-011 | Implement real-time battle instancing contract (campaign encounter -> battle instance record -> battle result writeback) with fixed-step authority loop. |
 | AOP-PIVOT-017 | ⬜ | 3 | AOP-PIVOT-016 | Implement first real-time tactical battle ruleset MVP (formation controls, morale pressure, reserve timing, continuous outcome scoring). |
 | AOP-PIVOT-018 | ⬜ | 3 | AOP-PIVOT-006 | Add PostgreSQL LISTEN/NOTIFY worker for PoC fanout and wake-up semantics tied to outbox rows. |
@@ -215,7 +215,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Objective: enforce supply constraints as strategic pressure.
 - Implementation checklist:
   - supply inventory model,
-  - attrition/consumption rules,
+  - attrition/consumption rules in continuous time,
   - convoy supply transfer events.
 - Acceptance criteria:
   - unsupplied forces degrade predictably,
@@ -227,7 +227,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Objective: create non-combat power path with strategic economic effects.
 - Implementation checklist:
   - market inventory and price model,
-  - tariffs and route safety impact,
+  - tariffs and route safety impact in continuous time,
   - shortage/surplus update job.
 - Acceptance criteria:
   - trade actions measurably affect local economies and political leverage.
@@ -238,7 +238,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Objective: implement imperfect information as core gameplay.
 - Implementation checklist:
   - informant entity lifecycle,
-  - reliability and deception parameters,
+  - reliability and deception parameters that evolve in continuous time,
   - counter-intelligence detection/conflict flows.
 - Acceptance criteria:
   - reports include confidence/reliability metadata,
@@ -249,7 +249,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ### AOP-PIVOT-015 - Political Systems
 - Objective: allow influence-based progression outside military strength.
 - Implementation checklist:
-  - faction standing deltas,
+  - faction standing deltas in continuous time,
   - office/title assignment rules,
   - treaty and legitimacy records.
 - Acceptance criteria:

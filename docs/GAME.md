@@ -40,7 +40,7 @@ Battle outcomes write back to the campaign layer.
 
 ## Temporal Model
 - One continuous real-time simulation model across campaign and battle contexts.
-- Strategic travel and tactical combat resolve over elapsed time, not by discrete player turns.
+- All core systems (travel, logistics, trade, espionage, politics, and combat) resolve over elapsed time, not by discrete player turns.
 
 ## Design Pillars
 - Politics: titles, legitimacy, alliances, offices, influence.

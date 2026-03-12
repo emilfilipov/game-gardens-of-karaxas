@@ -1,7 +1,7 @@
 # Ambitions of Peace
 
 Ambitions of Peace is a persistent online medieval war-and-politics RPG in active migration from a prior prototype stack to a Rust-first implementation.
-Core simulation contract: campaign and battle gameplay are both real-time; battles run as instanced real-time encounters.
+Core simulation contract: all core gameplay systems run in real-time (travel, logistics, trade, espionage, politics, combat); battles run as instanced real-time encounters.
 
 ## Canonical Documentation
 - `docs/GAME.md` - canonical product/game scope and gameplay contracts.
