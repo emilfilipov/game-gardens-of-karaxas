@@ -2,8 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 
+mod logistics;
 mod travel;
 
+pub use logistics::{
+    ArmyLogisticsState, LogisticsTickEvent, LogisticsTickResult, LogisticsWorld, SupplyStock, SupplyTransferOrder,
+    sample_logistics_world,
+};
 pub use travel::{
     RiskModifiers, RouteEdge, RouteId, SettlementNode, TravelEstimate, TravelGraph, TravelPlan, TravelPreference,
     adjusted_route_risk, sample_levant_travel_graph,
@@ -69,6 +74,11 @@ pub enum CommandPayload {
         target_faction: FactionId,
         relation_delta: i32,
     },
+    QueueSupplyTransfer {
+        from_army: ArmyId,
+        to_army: ArmyId,
+        stock: SupplyStock,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,6 +93,33 @@ pub enum EventPayload {
         actor_faction: FactionId,
         target_faction: FactionId,
         relation_delta: i32,
+        tick: Tick,
+    },
+    SupplyTransferQueued {
+        from_army: ArmyId,
+        to_army: ArmyId,
+        stock: SupplyStock,
+        tick: Tick,
+    },
+    SupplyTransferApplied {
+        from_army: ArmyId,
+        to_army: ArmyId,
+        stock: SupplyStock,
+        tick: Tick,
+    },
+    ArmySupplyConsumed {
+        army_id: ArmyId,
+        consumed: SupplyStock,
+        remaining: SupplyStock,
+        troop_strength: u32,
+        shortage_ticks: u32,
+        tick: Tick,
+    },
+    ArmyAttritionApplied {
+        army_id: ArmyId,
+        attrition: u32,
+        troop_strength: u32,
+        shortage_ticks: u32,
         tick: Tick,
     },
 }

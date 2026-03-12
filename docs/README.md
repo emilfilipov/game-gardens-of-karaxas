@@ -19,8 +19,8 @@ Current modules include transitional prototype components plus backend/release i
 - `game-client/` - legacy Godot runtime prototype (transitional).
 - `backend/` - FastAPI online services and Cloud SQL integration.
 - `designer-client/` - legacy external authoring prototype (transitional).
-- `sim-core/` - shared Rust simulation-domain contracts scaffold.
-- `world-service/` - Rust world-authority service skeleton (Axum + health/readiness/config endpoints + tracing/request IDs).
+- `sim-core/` - shared Rust simulation-domain contracts (travel + real-time logistics).
+- `world-service/` - Rust world-authority service with deterministic tick runner, travel APIs, and real-time logistics authority endpoints.
 - `tooling-core/` - Rust tooling/shared validation scaffold.
 - `client-app/` - Rust client runtime scaffold.
 - `assets/` - shared content/assets.
@@ -52,6 +52,7 @@ Rust CI workflow:
 Manual sandbox client run (feature-gated):
 - `cargo run -p client-app --features sandbox-ui`
 - Placeholder player sprite generation: `python3 tools/generate_player_placeholder_png.py`
+- Sandbox includes real-time logistics validation controls (army supply status + convoy queue action).
 
 ## Packaging and Release
 - Windows packaging script: `scripts/pack.ps1`

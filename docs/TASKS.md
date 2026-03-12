@@ -24,7 +24,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-009 | ✅ | 4 | AOP-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
 | AOP-PIVOT-010 | ✅ | 4 | AOP-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
 | AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs, then bind client movement to route-duration real-time progression. |
-| AOP-PIVOT-012 | ⬜ | 4 | AOP-PIVOT-010 | Implement real-time logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
+| AOP-PIVOT-012 | ✅ | 4 | AOP-PIVOT-010 | Implement real-time logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
 | AOP-PIVOT-013 | ⬜ | 4 | AOP-PIVOT-010 | Implement real-time trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
 | AOP-PIVOT-014 | ⬜ | 4 | AOP-PIVOT-010 | Implement real-time espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
 | AOP-PIVOT-015 | ⬜ | 3 | AOP-PIVOT-010 | Implement real-time politics model (faction standing, offices, legitimacy metrics, treaty records, influence deltas). |
@@ -465,4 +465,5 @@ When work resumes after a pause:
 | AOP-PIVOT-009 | ✅ | 4 | AOP-PIVOT-008 | Added migration `0022_event_store_outbox`, event-pipeline ORM models/services, and replay/idempotency/outbox-resume tests for duplicate-safe command handling and restart-safe processor progress. |
 | AOP-PIVOT-010 | ✅ | 4 | AOP-PIVOT-009 | Implemented deterministic `TickRunner` (fixed cadence, deterministic command ordering, periodic snapshot checkpoints, lag/duration metrics) and wired signed internal control endpoints for queueing commands and advancing ticks. |
 | AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Added deterministic travel graph/pathing domain in `sim-core` (adjacency, risk modifiers, fastest/safest planning, choke-point detection, arrival estimates), exposed world-service travel map/adjacency/plan APIs, and aligned client sandbox movement to route-duration real-time progression. |
+| AOP-PIVOT-012 | ✅ | 4 | AOP-PIVOT-010 | Added shared `sim-core` logistics domain (supply stocks, convoy transfers, shortage-driven attrition), integrated logistics processing into `world-service` deterministic ticks with signed `queue_supply_transfer` command support and `GET /logistics/state`, and expanded sandbox UI with real-time logistics status/convoy controls for manual validation. |
 | AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Added feature-gated Bevy sandbox in `client-app` with live clocks, route-planning controls, and animated player marker loaded from generated placeholder asset `client-app/assets/player_circle.png`. |

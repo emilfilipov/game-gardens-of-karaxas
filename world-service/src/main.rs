@@ -25,8 +25,8 @@ use tracing_subscriber::EnvFilter;
 use crate::auth::{AuthenticatedServiceCall, ServiceAuthConfig, ServiceAuthState};
 use crate::config::AppConfig;
 use crate::tick_runner::{
-    TickAdvanceResult, TickMetrics, TickRunner, TickRunnerConfig, TickSnapshot, build_move_army_command,
-    build_set_stance_command,
+    LogisticsStateSnapshot, TickAdvanceResult, TickMetrics, TickRunner, TickRunnerConfig, TickSnapshot,
+    build_move_army_command, build_set_stance_command, build_supply_transfer_command,
 };
 
 #[derive(Clone)]
@@ -78,6 +78,13 @@ enum ControlCommandKind {
         actor_faction: u64,
         target_faction: u64,
         relation_delta: i32,
+    },
+    QueueSupplyTransfer {
+        from_army: u64,
+        to_army: u64,
+        food: u32,
+        horses: u32,
+        materiel: u32,
     },
 }
 
@@ -147,6 +154,13 @@ struct TravelPlanResponse {
     status: &'static str,
     plan: sim_core::TravelPlan,
     estimate: TravelEstimate,
+}
+
+#[derive(Debug, Serialize)]
+struct LogisticsStateResponse {
+    status: &'static str,
+    current_tick: u64,
+    state: LogisticsStateSnapshot,
 }
 
 fn default_travel_preference() -> TravelPreference {
@@ -219,6 +233,7 @@ fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header
         .route("/travel/map", get(travel_map))
         .route("/travel/adjacency/{settlement_id}", get(travel_adjacency))
         .route("/travel/plan", post(travel_plan))
+        .route("/logistics/state", get(logistics_state))
         .merge(internal_control_routes)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
@@ -293,6 +308,16 @@ async fn control_command(
         } => (
             "set_faction_stance",
             build_set_stance_command(&payload.trace_id, actor_faction, target_faction, relation_delta),
+        ),
+        ControlCommandKind::QueueSupplyTransfer {
+            from_army,
+            to_army,
+            food,
+            horses,
+            materiel,
+        } => (
+            "queue_supply_transfer",
+            build_supply_transfer_command(&payload.trace_id, from_army, to_army, food, horses, materiel),
         ),
     };
 
@@ -443,6 +468,22 @@ async fn travel_plan(
             status: "ok",
             plan,
             estimate,
+        }),
+    )
+}
+
+async fn logistics_state(State(state): State<AppState>) -> (StatusCode, Json<LogisticsStateResponse>) {
+    let runner = state
+        .tick_runner
+        .lock()
+        .expect("tick runner lock should not be poisoned");
+
+    (
+        StatusCode::OK,
+        Json(LogisticsStateResponse {
+            status: "ok",
+            current_tick: runner.current_tick().0,
+            state: runner.logistics_state(),
         }),
     )
 }
@@ -663,5 +704,59 @@ mod tests {
         assert_eq!(payload["status"], "ok");
         assert_eq!(payload["plan"]["settlements"], serde_json::json!([1, 2, 3, 4, 5]));
         assert_eq!(payload["estimate"]["arrival_tick"], 240);
+    }
+
+    #[tokio::test]
+    async fn logistics_state_reflects_transfer_after_tick() {
+        let app = test_app();
+
+        let queue_transfer_body = r#"{"trace_id":"trace-logistics","command":{"type":"queue_supply_transfer","from_army":7,"to_army":8,"food":12,"horses":0,"materiel":0}}"#;
+        let queued = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-logistics-queue",
+                queue_transfer_body,
+            ))
+            .await
+            .expect("queue response should resolve");
+        assert_eq!(queued.status(), StatusCode::ACCEPTED);
+
+        let ticked = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/tick",
+                "nonce-logistics-tick",
+                r#"{"now_ms":0}"#,
+            ))
+            .await
+            .expect("tick response should resolve");
+        assert_eq!(ticked.status(), StatusCode::ACCEPTED);
+
+        let state_response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/logistics/state")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("state response should resolve");
+        assert_eq!(state_response.status(), StatusCode::OK);
+
+        let bytes = to_bytes(state_response.into_body(), usize::MAX)
+            .await
+            .expect("response body should decode");
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
+
+        let army8 = payload["state"]["armies"]
+            .as_array()
+            .expect("armies should be array")
+            .iter()
+            .find(|row| row["army_id"] == 8)
+            .expect("army 8 should exist");
+
+        assert!(army8["stock"]["food"].as_u64().unwrap_or(0) >= 15);
     }
 }

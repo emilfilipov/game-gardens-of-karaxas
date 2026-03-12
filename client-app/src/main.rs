@@ -9,7 +9,8 @@ mod sandbox {
     use bevy::prelude::*;
     use bevy_egui::{EguiContexts, EguiPlugin, egui};
     use sim_core::{
-        RiskModifiers, SettlementId, TravelGraph, TravelPlan, TravelPreference, sample_levant_travel_graph,
+        ArmyId, LogisticsTickEvent, LogisticsWorld, RiskModifiers, SettlementId, SupplyStock, SupplyTransferOrder,
+        Tick, TravelGraph, TravelPlan, TravelPreference, sample_levant_travel_graph, sample_logistics_world,
     };
 
     const MAP_SCALE: f32 = 2.2;
@@ -33,6 +34,23 @@ mod sandbox {
                 campaign_minutes: 8.0 * 60.0,
                 sim_tick: 0,
                 tick_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
+            }
+        }
+    }
+
+    #[derive(Resource)]
+    struct LogisticsSandbox {
+        world: LogisticsWorld,
+        processed_sim_tick: u64,
+        last_status: String,
+    }
+
+    impl Default for LogisticsSandbox {
+        fn default() -> Self {
+            Self {
+                world: sample_logistics_world(),
+                processed_sim_tick: 0,
+                last_status: "Logistics idle".to_string(),
             }
         }
     }
@@ -162,6 +180,7 @@ mod sandbox {
             .insert_resource(ClearColor(Color::srgb(0.055, 0.07, 0.09)))
             .insert_resource(ClockState::default())
             .insert_resource(TravelSandbox::new(sample_levant_travel_graph()))
+            .insert_resource(LogisticsSandbox::default())
             .add_plugins(DefaultPlugins.set(AssetPlugin {
                 file_path: "client-app/assets".to_string(),
                 ..default()
@@ -174,6 +193,7 @@ mod sandbox {
                     update_clocks,
                     handle_input,
                     animate_player,
+                    advance_logistics,
                     draw_map_gizmos,
                     sync_player_when_idle,
                     ui_panel,
@@ -320,7 +340,30 @@ mod sandbox {
         }
     }
 
-    fn ui_panel(mut egui_contexts: EguiContexts, clocks: Res<ClockState>, sandbox: Res<TravelSandbox>) {
+    fn advance_logistics(clocks: Res<ClockState>, mut logistics: ResMut<LogisticsSandbox>) {
+        while logistics.processed_sim_tick < clocks.sim_tick {
+            logistics.processed_sim_tick += 1;
+            let result = logistics.world.advance_tick(Tick(logistics.processed_sim_tick));
+            let attrition_events = result
+                .events
+                .iter()
+                .filter(|row| matches!(row, LogisticsTickEvent::ArmyAttritionApplied { .. }))
+                .count();
+            logistics.last_status = format!(
+                "Processed logistics tick {} (events: {}, attrition: {})",
+                logistics.processed_sim_tick,
+                result.events.len(),
+                attrition_events
+            );
+        }
+    }
+
+    fn ui_panel(
+        mut egui_contexts: EguiContexts,
+        clocks: Res<ClockState>,
+        sandbox: Res<TravelSandbox>,
+        mut logistics: ResMut<LogisticsSandbox>,
+    ) {
         let Ok(ctx) = egui_contexts.ctx_mut() else {
             return;
         };
@@ -368,6 +411,34 @@ mod sandbox {
                 }
                 ui.separator();
                 ui.label(format!("Status: {}", sandbox.last_plan_summary));
+                ui.separator();
+                ui.heading("Real-Time Logistics");
+                ui.label(format!("Logistics Tick Cursor: {}", logistics.processed_sim_tick));
+                if ui.button("Queue Convoy 7 -> 8 (food 12, horses 2)").clicked() {
+                    logistics.world.queue_transfer(SupplyTransferOrder {
+                        from_army: ArmyId(7),
+                        to_army: ArmyId(8),
+                        stock: SupplyStock::new(12, 2, 0),
+                    });
+                    logistics.last_status = "Queued convoy from army 7 to army 8".to_string();
+                }
+                ui.label(format!(
+                    "Pending Transfers: {}",
+                    logistics.world.pending_transfers().len()
+                ));
+                ui.label(format!("Logistics Status: {}", logistics.last_status));
+                for army in logistics.world.armies() {
+                    ui.label(format!(
+                        "Army {} @ settlement {} | troops {} | stock F{} H{} M{} | shortage {}",
+                        army.army_id.0,
+                        army.location.0,
+                        army.troop_strength,
+                        army.stock.food,
+                        army.stock.horses,
+                        army.stock.materiel,
+                        army.shortage_ticks
+                    ));
+                }
             });
     }
 
