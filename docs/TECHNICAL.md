@@ -75,6 +75,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Client sends intent; authority services resolve final state transitions.
 - `client-app` now includes a feature-gated manual sandbox UI (`cargo run -p client-app --features sandbox-ui`) with map rendering, route dispatch controls, and simulation clocks for PoC systems validation.
 - Placeholder player sprite asset is generated in-repo (`tools/generate_player_placeholder_png.py` -> `client-app/assets/player_circle.png`) to keep early UI flow asset-stable.
+- Runtime priority is Windows-first for client delivery and manual validation loops; Linux/Steam client parity is deferred until post-PoC hardening.
 
 ## Data and Eventing Model
 ### Persistence
@@ -114,7 +115,8 @@ Current baseline checks retained during transition:
 - `cargo fmt --all -- --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
-- Manual sandbox smoke: `cargo run -p client-app --features sandbox-ui` (requires host GUI toolchain such as `pkg-config`/Wayland or X11 dev packages on Linux).
+- Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
+- CI now includes Windows client sandbox compile gate (`client-windows-sandbox` job in `.github/workflows/rust-checks.yml`).
 
 Migration-era additions (implemented in scaffold phase):
 - Rust CI workflow: `.github/workflows/rust-checks.yml`

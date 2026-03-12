@@ -35,6 +35,7 @@ Current modules include transitional prototype components plus backend/release i
 - Authority services: Rust (Axum/Tokio) with PostgreSQL persistence.
 - Existing FastAPI control-plane services remain active during migration.
 - Release artifacts remain in GCS with strict retention cap.
+- Client runtime priority is Windows-first; Linux/Steam client parity is deferred until after PoC maturity.
 
 ## Build and Test Baseline
 Current baseline checks retained during transition:

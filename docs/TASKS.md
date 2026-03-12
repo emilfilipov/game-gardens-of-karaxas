@@ -207,7 +207,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
   - local run produces interactive map sandbox and moving player marker,
   - sandbox works without requiring ad-hoc editor setup.
 - Validation:
-  - `cargo run -p client-app --features sandbox-ui`
+  - `cargo run -p client-app --features sandbox-ui` (Windows-first validation target).
 
 ### AOP-PIVOT-012 - Logistics Simulation
 - Objective: enforce supply constraints as strategic pressure.
