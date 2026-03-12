@@ -98,6 +98,12 @@ Legacy prototype documents that conflict with this direction are archived under 
 ### Client
 - Bevy client renders campaign and battle surfaces.
 - Client sends intent; authority services resolve final state transitions.
+- `client-app` now includes a feature-gated Bevy bootstrap shell (`cargo run -p client-app --features bootstrap-shell`) with:
+  - credential login to FastAPI `/auth/login`,
+  - optional launcher session handoff via environment (`AOP_HANDOFF_ACCESS_TOKEN`, `AOP_HANDOFF_SESSION_ID`, etc.),
+  - authenticated character roster fetch from `/characters`,
+  - session bootstrap fetch from `/characters/{character_id}/world-bootstrap`,
+  - campaign entry scene handoff with spawned player marker at bootstrap world coordinates.
 - `client-app` now includes a feature-gated manual sandbox UI (`cargo run -p client-app --features sandbox-ui`) with map rendering, route dispatch controls, and simulation clocks for PoC systems validation.
 - Sandbox UI now includes a real-time logistics panel (army stocks/shortage status + convoy queue button) powered by shared `sim-core` logistics rules for manual system validation.
 - Sandbox UI now also includes a real-time trade panel (shipment queue control + market stock/price/pressure readouts) powered by shared `sim-core` trade rules.
@@ -149,6 +155,7 @@ Current baseline checks retained during transition:
 - `cargo fmt --all -- --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
+- Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox` job in `.github/workflows/rust-checks.yml`).
 - Regression policy: each implemented simulation subsystem must include deterministic unit tests plus payload serialization roundtrip tests to prevent cross-system breakage during rapid iteration.

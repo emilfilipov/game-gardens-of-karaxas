@@ -23,7 +23,7 @@ Current modules include transitional prototype components plus backend/release i
 - `sim-core/` - shared Rust simulation-domain contracts (travel + real-time logistics/trade/espionage/politics/battle-instance contract).
 - `world-service/` - Rust world-authority service with deterministic tick runner, travel APIs, and real-time logistics/trade/espionage/politics/battle-contract authority endpoints.
 - `tooling-core/` - Rust tooling/shared validation scaffold.
-- `client-app/` - Rust client runtime scaffold.
+- `client-app/` - Rust client runtime with feature-gated Bevy bootstrap shell (`bootstrap-shell`) and simulation sandbox (`sandbox-ui`).
 - `assets/` - shared content/assets.
 - `docs/` - canonical and supporting documentation.
 - `docs/archive/` - archived/superseded documentation.
@@ -51,8 +51,10 @@ Rust CI workflow:
 - `.github/workflows/rust-checks.yml`
 
 Manual sandbox client run (feature-gated):
+- `cargo run -p client-app --features bootstrap-shell`
 - `cargo run -p client-app --features sandbox-ui`
 - Placeholder player sprite generation: `python3 tools/generate_player_placeholder_png.py`
+- Bootstrap shell supports launcher/session handoff via env vars (`AOP_HANDOFF_ACCESS_TOKEN`, `AOP_HANDOFF_SESSION_ID`, optional user metadata) and performs authenticated `/characters` + `/characters/{id}/world-bootstrap` fetches before campaign entry.
 - Sandbox includes real-time logistics validation controls (army supply status + convoy queue action).
 - Sandbox includes real-time trade validation controls (shipment queue + market stock/price readouts).
 - Sandbox includes real-time espionage validation controls (informant recruit/report/sweep + reliability/confidence readouts).

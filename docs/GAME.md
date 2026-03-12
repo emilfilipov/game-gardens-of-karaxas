@@ -107,6 +107,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: outbox row inserts emit PostgreSQL `NOTIFY` payloads with outbox identifiers; reconnecting listeners treat notifications as wake signals and resume idempotent processing from durable outbox claims/cursors.
 - Gameplay impact: timely state propagation without early infrastructure cost expansion.
 
+#### Bevy bootstrap shell (login -> world bootstrap -> campaign entry)
+- Purpose: provide the first Rust client entry path without external editor/UI tooling.
+- Loop: player logs in (or uses launcher handoff session), client fetches authenticated character roster, requests world bootstrap payload for selected character, then enters a campaign-ready scene with bootstrap-derived spawn context.
+- Gameplay impact: establishes the practical account/session-to-world handoff path needed for vertical-slice playability.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.

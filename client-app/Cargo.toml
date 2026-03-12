@@ -5,9 +5,13 @@ edition = "2024"
 
 [features]
 default = []
+bootstrap-shell = ["dep:bevy", "dep:bevy_egui", "dep:reqwest", "dep:serde", "dep:serde_json"]
 sandbox-ui = ["dep:bevy", "dep:bevy_egui"]
 
 [dependencies]
 bevy = { version = "0.17", optional = true }
 bevy_egui = { version = "0.38", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"], optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
 sim-core = { path = "../sim-core" }

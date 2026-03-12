@@ -1,7 +1,10 @@
-#[cfg(not(feature = "sandbox-ui"))]
+#[cfg(all(not(feature = "sandbox-ui"), not(feature = "bootstrap-shell")))]
 fn main() {
-    println!("client-app sandbox UI is disabled. Run with: cargo run -p client-app --features sandbox-ui");
+    println!("client-app UI features are disabled. Run with: cargo run -p client-app --features bootstrap-shell");
 }
+
+#[cfg(all(feature = "bootstrap-shell", not(feature = "sandbox-ui")))]
+mod bootstrap_shell;
 
 #[cfg(feature = "sandbox-ui")]
 mod sandbox {
@@ -899,4 +902,9 @@ mod sandbox {
 #[cfg(feature = "sandbox-ui")]
 fn main() {
     sandbox::run();
+}
+
+#[cfg(all(feature = "bootstrap-shell", not(feature = "sandbox-ui")))]
+fn main() {
+    bootstrap_shell::run();
 }
