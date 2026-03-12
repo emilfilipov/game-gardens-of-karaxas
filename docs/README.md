@@ -1,6 +1,6 @@
-# Gardens of Karaxas
+# Ambitions of Peace
 
-Gardens of Karaxas is a persistent online medieval war-and-politics RPG in active migration from a prior prototype stack to a Rust-first implementation.
+Ambitions of Peace is a persistent online medieval war-and-politics RPG in active migration from a prior prototype stack to a Rust-first implementation.
 
 ## Canonical Documentation
 - `docs/GAME.md` - canonical product/game scope and gameplay contracts.

@@ -1,4 +1,4 @@
-# Gardens of Karaxas - Technical
+# Ambitions of Peace - Technical
 
 ## Purpose
 Canonical technical source of truth for runtime architecture, backend/service boundaries, release/distribution behavior, and migration sequencing.

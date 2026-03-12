@@ -1,4 +1,4 @@
-# Plompers Arena Inc. v{{version}}
+# Ambitions of Peace v{{version}}
 
 Release Date: {{date}}
 

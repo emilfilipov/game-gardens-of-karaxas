@@ -1,7 +1,9 @@
-# Plompers Arena Inc.
+# Ambitions of Peace - Legacy Lore Notes (Deprecated)
 
-## High Concept
+This file is a legacy artifact from the superseded arena prototype and is not canonical for the current product direction.
 
-Plompers Arena Inc. is a competitive arena spectacle where engineered combat spheres ("Plompers") enter sanctioned battle-royale circuits to prove who is the bounciest champion.
+Current canonical product scope is defined in:
+- `docs/GAME.md`
 
-Matches begin in stark black-and-white arenas. As Plompers move, collide, and dominate zones, color erupts across the battlefield. The arena itself becomes a record of impact, control, and survival.
+Retention policy:
+- keep only until cleanup task `AOP-PIVOT-032` executes final archive/delete decisions.

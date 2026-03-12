@@ -17,8 +17,8 @@ Artifacts are written to `releases/windows/`.
 - Installed game executable launches Godot online client shell.
 - Installer payload also includes a separate designer executable.
 - Velopack install/update hooks create desktop shortcuts for:
-  - `Plompers Arena Inc.` (game launcher entry)
-  - `Plompers Arena Inc. Designer` (designer entry)
+  - `Ambitions of Peace` (game launcher entry)
+  - `Ambitions of Peace Designer` (designer entry)
 - Update control is available from main menu (`Update`).
 - Updater uses packaged `UpdateHelper.exe`.
 - Feed URL source order:
@@ -28,10 +28,10 @@ Artifacts are written to `releases/windows/`.
 
 ## Local install path
 Default install root target:
-`%LOCALAPPDATA%\PlompersArenaInc`
+`%LOCALAPPDATA%\AmbitionsOfPeace`
 
 Compatibility note:
-- Legacy installs may still exist under `%LOCALAPPDATA%\ChildrenOfIkphelion` until migration task `PAI-3D-001` finalizes path migration handling.
+- Legacy installs may still exist under `%LOCALAPPDATA%\PlompersArenaInc` and `%LOCALAPPDATA%\ChildrenOfIkphelion` until naming/path migration is finalized.
 
 Logs:
 - launcher logs: `<install_root>\\logs\\launcher.log`

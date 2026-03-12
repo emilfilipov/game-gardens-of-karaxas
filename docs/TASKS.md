@@ -3,7 +3,7 @@
 Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 
 ## Current Program
-- Program name: `GOK-PIVOT-RUST-POC`
+- Program name: `AOP-PIVOT-RUST-POC`
 - Program objective: migrate from current prototype stack to a Rust-first, code-first persistent online war-and-politics RPG vertical slice.
 - Canonical references:
   - `docs/GAME.md`
@@ -12,41 +12,42 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 ## Active Backlog
 | Task ID | Status | Complexity | Depends On | Detailed Description |
 | --- | --- | --- | --- | --- |
-| GOK-PIVOT-001 | ✅ | 2 | - | Reset canonical docs from prior prototype direction to Crusades-era persistent strategy RPG scope and Rust-first architecture contract. |
-| GOK-PIVOT-002 | ✅ | 1 | - | Reduce release artifact retention from 5 to 3 versions in CI release workflow and supporting installer documentation. |
-| GOK-PIVOT-003 | ⬜ | 2 | GOK-PIVOT-001 | Create repository-level architecture decision records (ADR set) for engine/runtime, backend language strategy, and phased migration boundaries. |
-| GOK-PIVOT-004 | ⬜ | 3 | GOK-PIVOT-003 | Create Rust workspace scaffold (`sim-core`, `world-service`, `tooling-core`, `client-app`) with unified formatting/lint/test toolchain and CI wiring. |
-| GOK-PIVOT-005 | ⬜ | 3 | GOK-PIVOT-004 | Add shared domain contracts crate for deterministic simulation types/events used by both service and client. |
-| GOK-PIVOT-006 | ⬜ | 3 | GOK-PIVOT-004 | Stand up Rust world service shell (Axum + health/readiness/config endpoints + structured logging + tracing IDs). |
-| GOK-PIVOT-007 | ⬜ | 3 | GOK-PIVOT-006 | Introduce service-to-service auth/signing model between legacy FastAPI control plane and Rust world service. |
-| GOK-PIVOT-008 | ⬜ | 3 | GOK-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
-| GOK-PIVOT-009 | ⬜ | 4 | GOK-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
-| GOK-PIVOT-010 | ⬜ | 4 | GOK-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
-| GOK-PIVOT-011 | ⬜ | 3 | GOK-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs. |
-| GOK-PIVOT-012 | ⬜ | 4 | GOK-PIVOT-010 | Implement logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
-| GOK-PIVOT-013 | ⬜ | 4 | GOK-PIVOT-010 | Implement trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
-| GOK-PIVOT-014 | ⬜ | 4 | GOK-PIVOT-010 | Implement espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
-| GOK-PIVOT-015 | ⬜ | 3 | GOK-PIVOT-010 | Implement politics model (faction standing, offices, legitimacy metrics, treaty records, influence deltas). |
-| GOK-PIVOT-016 | ⬜ | 4 | GOK-PIVOT-011 | Implement battle instancing contract (campaign encounter -> battle instance record -> battle result writeback). |
-| GOK-PIVOT-017 | ⬜ | 3 | GOK-PIVOT-016 | Implement first tactical battle ruleset MVP (formation slots, morale pressure, reserve timing, outcome scoring). |
-| GOK-PIVOT-018 | ⬜ | 3 | GOK-PIVOT-006 | Add PostgreSQL LISTEN/NOTIFY worker for PoC fanout and wake-up semantics tied to outbox rows. |
-| GOK-PIVOT-019 | ⬜ | 2 | GOK-PIVOT-018 | Add explicit Redis adoption gate document and metrics thresholds (p95 write latency, fanout lag, queue backlog, lock contention). |
-| GOK-PIVOT-020 | ⬜ | 3 | GOK-PIVOT-004 | Build Bevy client bootstrap shell with login handoff, session bootstrap fetch, and campaign map entry scene. |
-| GOK-PIVOT-021 | ⬜ | 3 | GOK-PIVOT-020 | Implement Bevy campaign map rendering MVP (province map tiles, settlements, roads, army/caravan markers, fog visibility states). |
-| GOK-PIVOT-022 | ⬜ | 4 | GOK-PIVOT-021 | Implement code-first in-game UI panels via `bevy_egui` (character, household, logistics, trade, espionage, diplomacy, notifications). |
-| GOK-PIVOT-023 | ⬜ | 3 | GOK-PIVOT-022 | Build code-first tools mode for map/system authoring (no external editor dependency), including save/load and schema validation. |
-| GOK-PIVOT-024 | ⬜ | 3 | GOK-PIVOT-023 | Implement CLI import/export pipelines for authored content (JSON/CSV) with deterministic normalization and hash signatures. |
-| GOK-PIVOT-025 | ⬜ | 3 | GOK-PIVOT-024 | Implement first province content pack (Acre region + one city + one fortress + connected trade routes + faction setup). |
-| GOK-PIVOT-026 | ⬜ | 3 | GOK-PIVOT-025 | Bridge FastAPI auth/session/character selection flow to Rust world entry endpoint without breaking existing launcher/login paths. |
-| GOK-PIVOT-027 | ⬜ | 3 | GOK-PIVOT-026 | Implement end-to-end playable loop: login -> character select -> campaign actions -> battle instance -> persistence writeback. |
-| GOK-PIVOT-028 | ⬜ | 4 | GOK-PIVOT-027 | Add deterministic replay validation suite for campaign and battle outcomes with golden snapshots. |
-| GOK-PIVOT-029 | ⬜ | 3 | GOK-PIVOT-027 | Add operational dashboards/alerts for world tick lag, DB latency, outbox lag, release feed publish health. |
-| GOK-PIVOT-030 | ⬜ | 2 | GOK-PIVOT-029 | Define monthly PoC cost report process and enforce budget guardrails for Cloud Run, Cloud SQL, GCS, and optional Redis adoption. |
-| GOK-PIVOT-031 | ⬜ | 3 | GOK-PIVOT-027 | Prepare external playtest hardening checklist (security, abuse controls, rollback drills, release rollback, data backups). |
+| AOP-PIVOT-001 | ✅ | 2 | - | Reset canonical docs from prior prototype direction to Crusades-era persistent strategy RPG scope and Rust-first architecture contract. |
+| AOP-PIVOT-002 | ✅ | 1 | - | Reduce release artifact retention from 5 to 3 versions in CI release workflow and supporting installer documentation. |
+| AOP-PIVOT-003 | ⬜ | 2 | AOP-PIVOT-001 | Create repository-level architecture decision records (ADR set) for engine/runtime, backend language strategy, and phased migration boundaries. |
+| AOP-PIVOT-032 | ⬜ | 2 | AOP-PIVOT-003 | Audit and remove redundant/deprecated files and documentation from the pre-pivot prototype while preserving required compatibility artifacts. |
+| AOP-PIVOT-004 | ⬜ | 3 | AOP-PIVOT-003 | Create Rust workspace scaffold (`sim-core`, `world-service`, `tooling-core`, `client-app`) with unified formatting/lint/test toolchain and CI wiring. |
+| AOP-PIVOT-005 | ⬜ | 3 | AOP-PIVOT-004 | Add shared domain contracts crate for deterministic simulation types/events used by both service and client. |
+| AOP-PIVOT-006 | ⬜ | 3 | AOP-PIVOT-004 | Stand up Rust world service shell (Axum + health/readiness/config endpoints + structured logging + tracing IDs). |
+| AOP-PIVOT-007 | ⬜ | 3 | AOP-PIVOT-006 | Introduce service-to-service auth/signing model between legacy FastAPI control plane and Rust world service. |
+| AOP-PIVOT-008 | ⬜ | 3 | AOP-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
+| AOP-PIVOT-009 | ⬜ | 4 | AOP-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
+| AOP-PIVOT-010 | ⬜ | 4 | AOP-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
+| AOP-PIVOT-011 | ⬜ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs. |
+| AOP-PIVOT-012 | ⬜ | 4 | AOP-PIVOT-010 | Implement logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
+| AOP-PIVOT-013 | ⬜ | 4 | AOP-PIVOT-010 | Implement trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
+| AOP-PIVOT-014 | ⬜ | 4 | AOP-PIVOT-010 | Implement espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
+| AOP-PIVOT-015 | ⬜ | 3 | AOP-PIVOT-010 | Implement politics model (faction standing, offices, legitimacy metrics, treaty records, influence deltas). |
+| AOP-PIVOT-016 | ⬜ | 4 | AOP-PIVOT-011 | Implement battle instancing contract (campaign encounter -> battle instance record -> battle result writeback). |
+| AOP-PIVOT-017 | ⬜ | 3 | AOP-PIVOT-016 | Implement first tactical battle ruleset MVP (formation slots, morale pressure, reserve timing, outcome scoring). |
+| AOP-PIVOT-018 | ⬜ | 3 | AOP-PIVOT-006 | Add PostgreSQL LISTEN/NOTIFY worker for PoC fanout and wake-up semantics tied to outbox rows. |
+| AOP-PIVOT-019 | ⬜ | 2 | AOP-PIVOT-018 | Add explicit Redis adoption gate document and metrics thresholds (p95 write latency, fanout lag, queue backlog, lock contention). |
+| AOP-PIVOT-020 | ⬜ | 3 | AOP-PIVOT-004 | Build Bevy client bootstrap shell with login handoff, session bootstrap fetch, and campaign map entry scene. |
+| AOP-PIVOT-021 | ⬜ | 3 | AOP-PIVOT-020 | Implement Bevy campaign map rendering MVP (province map tiles, settlements, roads, army/caravan markers, fog visibility states). |
+| AOP-PIVOT-022 | ⬜ | 4 | AOP-PIVOT-021 | Implement code-first in-game UI panels via `bevy_egui` (character, household, logistics, trade, espionage, diplomacy, notifications). |
+| AOP-PIVOT-023 | ⬜ | 3 | AOP-PIVOT-022 | Build code-first tools mode for map/system authoring (no external editor dependency), including save/load and schema validation. |
+| AOP-PIVOT-024 | ⬜ | 3 | AOP-PIVOT-023 | Implement CLI import/export pipelines for authored content (JSON/CSV) with deterministic normalization and hash signatures. |
+| AOP-PIVOT-025 | ⬜ | 3 | AOP-PIVOT-024 | Implement first province content pack (Acre region + one city + one fortress + connected trade routes + faction setup). |
+| AOP-PIVOT-026 | ⬜ | 3 | AOP-PIVOT-025 | Bridge FastAPI auth/session/character selection flow to Rust world entry endpoint without breaking existing launcher/login paths. |
+| AOP-PIVOT-027 | ⬜ | 3 | AOP-PIVOT-026 | Implement end-to-end playable loop: login -> character select -> campaign actions -> battle instance -> persistence writeback. |
+| AOP-PIVOT-028 | ⬜ | 4 | AOP-PIVOT-027 | Add deterministic replay validation suite for campaign and battle outcomes with golden snapshots. |
+| AOP-PIVOT-029 | ⬜ | 3 | AOP-PIVOT-027 | Add operational dashboards/alerts for world tick lag, DB latency, outbox lag, release feed publish health. |
+| AOP-PIVOT-030 | ⬜ | 2 | AOP-PIVOT-029 | Define monthly PoC cost report process and enforce budget guardrails for Cloud Run, Cloud SQL, GCS, and optional Redis adoption. |
+| AOP-PIVOT-031 | ⬜ | 3 | AOP-PIVOT-027 | Prepare external playtest hardening checklist (security, abuse controls, rollback drills, release rollback, data backups). |
 
 ## Detailed Task Specs
 
-### GOK-PIVOT-001 - Canonical Documentation Reset
+### AOP-PIVOT-001 - Canonical Documentation Reset
 - Objective: establish new canonical scope and architecture for the Crusades-era strategy RPG direction.
 - Implementation checklist:
   - rewrite `docs/GAME.md` to new game pillars and loop,
@@ -58,7 +59,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - manual review of `docs/GAME.md` and `docs/TECHNICAL.md`.
 
-### GOK-PIVOT-002 - Release Retention Hard Cap
+### AOP-PIVOT-002 - Release Retention Hard Cap
 - Objective: minimize artifact storage growth while retaining rollback safety.
 - Implementation checklist:
   - set CI retention to 3 latest versions in release prune step,
@@ -69,7 +70,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - `grep -n "keepVersionCount" .github/workflows/release.yml docs/INSTALLER.md`
 
-### GOK-PIVOT-003 - ADR Baseline
+### AOP-PIVOT-003 - ADR Baseline
 - Objective: make migration decisions explicit and traceable.
 - Implementation checklist:
   - add ADR for Rust-first architecture,
@@ -81,7 +82,20 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - docs link check + repository grep for ADR IDs.
 
-### GOK-PIVOT-004 - Rust Workspace Scaffold
+### AOP-PIVOT-032 - Repository Cleanup and Deprecation Removal
+- Objective: reduce migration noise and remove stale prototype assets/docs that can cause implementation drift.
+- Implementation checklist:
+  - inventory deprecated runtime/tooling/docs that are no longer part of the Ambitions of Peace target architecture,
+  - classify each item as delete/archive/keep-for-compatibility,
+  - remove or archive deprecated files with explicit commit notes,
+  - update surviving docs to remove stale references and add migration notes where needed.
+- Acceptance criteria:
+  - no conflicting legacy product-direction docs remain in active references,
+  - retained legacy artifacts are explicitly marked as compatibility-only.
+- Validation:
+  - `git diff --name-status` review + grep audit for deprecated scope terms.
+
+### AOP-PIVOT-004 - Rust Workspace Scaffold
 - Objective: create implementation foundation for all new modules.
 - Implementation checklist:
   - add top-level Cargo workspace,
@@ -96,7 +110,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
   - `cargo clippy --workspace --all-targets -- -D warnings`
   - `cargo test --workspace`
 
-### GOK-PIVOT-005 - Shared Simulation Contracts
+### AOP-PIVOT-005 - Shared Simulation Contracts
 - Objective: prevent client/server divergence in core simulation typing.
 - Implementation checklist:
   - define IDs/newtypes for entities,
@@ -108,7 +122,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - Rust unit tests + serde roundtrip tests.
 
-### GOK-PIVOT-006 - World Service Skeleton
+### AOP-PIVOT-006 - World Service Skeleton
 - Objective: provide deployable Rust authority service baseline.
 - Implementation checklist:
   - add Axum service bootstrap,
@@ -122,7 +136,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - local run + Cloud Run smoke request.
 
-### GOK-PIVOT-007 - Inter-Service Auth Boundary
+### AOP-PIVOT-007 - Inter-Service Auth Boundary
 - Objective: secure FastAPI-to-Rust world control calls.
 - Implementation checklist:
   - define signed token contract or mTLS-equivalent gate,
@@ -134,7 +148,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - integration tests for allow/deny cases.
 
-### GOK-PIVOT-008 - Campaign Schema Foundation
+### AOP-PIVOT-008 - Campaign Schema Foundation
 - Objective: model durable world entities for campaign systems.
 - Implementation checklist:
   - create tables and indexes for map/faction/household/army/caravan/espionage domains,
@@ -146,7 +160,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - migration test + query explain review.
 
-### GOK-PIVOT-009 - Event Store and Outbox
+### AOP-PIVOT-009 - Event Store and Outbox
 - Objective: support replay, auditing, and reliable async side effects.
 - Implementation checklist:
   - implement append-only events table,
@@ -158,7 +172,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - replay tests + failure-injection tests.
 
-### GOK-PIVOT-010 - Deterministic Tick Runner
+### AOP-PIVOT-010 - Deterministic Tick Runner
 - Objective: authoritative world progression loop for one shard.
 - Implementation checklist:
   - fixed tick cadence and deterministic processing order,
@@ -170,7 +184,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - determinism test harness + perf smoke.
 
-### GOK-PIVOT-011 - Campaign Graph and Travel
+### AOP-PIVOT-011 - Campaign Graph and Travel
 - Objective: make movement and geography first-class simulation inputs.
 - Implementation checklist:
   - region graph and route definitions,
@@ -181,7 +195,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - route/path integration tests.
 
-### GOK-PIVOT-012 - Logistics Simulation
+### AOP-PIVOT-012 - Logistics Simulation
 - Objective: enforce supply constraints as strategic pressure.
 - Implementation checklist:
   - supply inventory model,
@@ -193,7 +207,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - scenario tests (supplied vs unsupplied outcomes).
 
-### GOK-PIVOT-013 - Trade Simulation
+### AOP-PIVOT-013 - Trade Simulation
 - Objective: create non-combat power path with strategic economic effects.
 - Implementation checklist:
   - market inventory and price model,
@@ -204,7 +218,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - economy progression tests over N ticks.
 
-### GOK-PIVOT-014 - Espionage Simulation
+### AOP-PIVOT-014 - Espionage Simulation
 - Objective: implement imperfect information as core gameplay.
 - Implementation checklist:
   - informant entity lifecycle,
@@ -216,7 +230,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - espionage scenario tests and replay consistency checks.
 
-### GOK-PIVOT-015 - Political Systems
+### AOP-PIVOT-015 - Political Systems
 - Objective: allow influence-based progression outside military strength.
 - Implementation checklist:
   - faction standing deltas,
@@ -227,7 +241,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - integration tests for rank/office/treaty transitions.
 
-### GOK-PIVOT-016 - Battle Instance Contract
+### AOP-PIVOT-016 - Battle Instance Contract
 - Objective: formalize campaign-to-battle and battle-to-campaign state handoff.
 - Implementation checklist:
   - encounter trigger rules,
@@ -239,7 +253,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - end-to-end contract tests.
 
-### GOK-PIVOT-017 - Tactical Battle MVP
+### AOP-PIVOT-017 - Tactical Battle MVP
 - Objective: provide first command-focused battle implementation.
 - Implementation checklist:
   - formation and reserve controls,
@@ -250,7 +264,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - tactical simulation tests + campaign writeback tests.
 
-### GOK-PIVOT-018 - PostgreSQL LISTEN/NOTIFY Worker
+### AOP-PIVOT-018 - PostgreSQL LISTEN/NOTIFY Worker
 - Objective: low-cost PoC event fanout without Redis dependency.
 - Implementation checklist:
   - implement NOTIFY trigger points from outbox writes,
@@ -262,7 +276,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - integration tests with worker restarts.
 
-### GOK-PIVOT-019 - Redis Adoption Gate
+### AOP-PIVOT-019 - Redis Adoption Gate
 - Objective: avoid premature managed Redis spend.
 - Implementation checklist:
   - define objective cutover metrics,
@@ -273,7 +287,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - gate document approved and linked from `docs/TECHNICAL.md`.
 
-### GOK-PIVOT-020 - Bevy Client Bootstrap
+### AOP-PIVOT-020 - Bevy Client Bootstrap
 - Objective: establish playable Rust client entry path.
 - Implementation checklist:
   - implement app bootstrap and scene/state management,
@@ -284,7 +298,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - manual login-to-shell flow + integration smoke.
 
-### GOK-PIVOT-021 - Campaign Map Rendering MVP
+### AOP-PIVOT-021 - Campaign Map Rendering MVP
 - Objective: visualize strategic world state in client.
 - Implementation checklist:
   - map rendering pipeline,
@@ -295,7 +309,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - rendering smoke checks + perf capture.
 
-### GOK-PIVOT-022 - Code-First Gameplay UI Panels
+### AOP-PIVOT-022 - Code-First Gameplay UI Panels
 - Objective: deliver required gameplay surfaces without editor-authored UI.
 - Implementation checklist:
   - implement `bevy_egui` panels for core domains,
@@ -306,7 +320,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - UI integration tests + manual workflow runbook.
 
-### GOK-PIVOT-023 - Code-First Authoring Tools Mode
+### AOP-PIVOT-023 - Code-First Authoring Tools Mode
 - Objective: build internal level/system authoring inside codebase.
 - Implementation checklist:
   - implement tools mode toggle and role gating,
@@ -317,7 +331,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - tool output schema validation tests.
 
-### GOK-PIVOT-024 - Content Import/Export CLI
+### AOP-PIVOT-024 - Content Import/Export CLI
 - Objective: deterministic content pipeline for versioning and review.
 - Implementation checklist:
   - implement CLI converters for JSON/CSV formats,
@@ -328,7 +342,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - snapshot tests for converter outputs.
 
-### GOK-PIVOT-025 - First Province Content Pack
+### AOP-PIVOT-025 - First Province Content Pack
 - Objective: assemble first playable strategic region.
 - Implementation checklist:
   - configure one city + one fortress + route network,
@@ -339,7 +353,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - content validation CLI + in-client smoke run.
 
-### GOK-PIVOT-026 - Legacy Control Plane Bridge
+### AOP-PIVOT-026 - Legacy Control Plane Bridge
 - Objective: preserve existing auth/account/release workflows while migrating gameplay authority.
 - Implementation checklist:
   - maintain FastAPI auth/session endpoints,
@@ -350,7 +364,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - regression tests for auth/account/bootstrap endpoints.
 
-### GOK-PIVOT-027 - End-to-End Vertical Slice Loop
+### AOP-PIVOT-027 - End-to-End Vertical Slice Loop
 - Objective: prove concept loop from login to strategic consequence.
 - Implementation checklist:
   - wire campaign action execution,
@@ -361,7 +375,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - scripted e2e smoke checklist and recorded run.
 
-### GOK-PIVOT-028 - Determinism Replay Suite
+### AOP-PIVOT-028 - Determinism Replay Suite
 - Objective: prevent simulation drift and hidden authority bugs.
 - Implementation checklist:
   - capture command streams,
@@ -372,7 +386,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - deterministic replay CI job.
 
-### GOK-PIVOT-029 - Observability and Alerts
+### AOP-PIVOT-029 - Observability and Alerts
 - Objective: operationally safe solo-dev runtime monitoring.
 - Implementation checklist:
   - instrument tick latency, DB latency, outbox lag,
@@ -383,7 +397,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - alert fire drills and runbook verification.
 
-### GOK-PIVOT-030 - Cost Guardrails
+### AOP-PIVOT-030 - Cost Guardrails
 - Objective: keep PoC spend predictable.
 - Implementation checklist:
   - define monthly budget target and threshold alerts,
@@ -394,7 +408,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - monthly billing export review checklist.
 
-### GOK-PIVOT-031 - Playtest Hardening Checklist
+### AOP-PIVOT-031 - Playtest Hardening Checklist
 - Objective: prepare first external testing pass safely.
 - Implementation checklist:
   - security and abuse control review,
@@ -407,11 +421,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
   - hardening checklist sign-off.
 
 ## Sequencing Guide (Strict Order)
-1. Program setup tasks: `GOK-PIVOT-003` to `GOK-PIVOT-007`.
-2. Persistence/simulation foundation: `GOK-PIVOT-008` to `GOK-PIVOT-019`.
-3. Client/tooling buildout: `GOK-PIVOT-020` to `GOK-PIVOT-024`.
-4. Vertical slice assembly: `GOK-PIVOT-025` to `GOK-PIVOT-028`.
-5. Operations and launch readiness: `GOK-PIVOT-029` to `GOK-PIVOT-031`.
+1. Program setup tasks: `AOP-PIVOT-003`, `AOP-PIVOT-032`, then `AOP-PIVOT-004` to `AOP-PIVOT-007`.
+2. Persistence/simulation foundation: `AOP-PIVOT-008` to `AOP-PIVOT-019`.
+3. Client/tooling buildout: `AOP-PIVOT-020` to `AOP-PIVOT-024`.
+4. Vertical slice assembly: `AOP-PIVOT-025` to `AOP-PIVOT-028`.
+5. Operations and launch readiness: `AOP-PIVOT-029` to `AOP-PIVOT-031`.
 
 ## Resume Protocol
 When work resumes after a pause:
@@ -423,5 +437,5 @@ When work resumes after a pause:
 ## Completed (Current Cycle)
 | Task ID | Status | Complexity | Depends On | Detailed Description |
 | --- | --- | --- | --- | --- |
-| GOK-PIVOT-001 | ✅ | 2 | - | Canonical docs migrated to the new Crusades-era strategy RPG direction and Rust-first architecture contract. |
-| GOK-PIVOT-002 | ✅ | 1 | - | Release retention policy updated to latest 3 builds and documentation aligned. |
+| AOP-PIVOT-001 | ✅ | 2 | - | Canonical docs migrated to the new Crusades-era strategy RPG direction and Rust-first architecture contract. |
+| AOP-PIVOT-002 | ✅ | 1 | - | Release retention policy updated to latest 3 builds and documentation aligned. |

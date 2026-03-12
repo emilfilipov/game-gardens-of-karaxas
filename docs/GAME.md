@@ -1,7 +1,7 @@
-# Gardens of Karaxas - Game
+# Ambitions of Peace - Game
 
 ## High Concept
-Gardens of Karaxas is a persistent online medieval war-and-politics RPG set in the late 12th-century Levant.
+Ambitions of Peace is a persistent online medieval war-and-politics RPG set in the late 12th-century Levant.
 
 The core experience is not a full 3D open-world MMORPG. The product target is a systems-heavy online strategy RPG with:
 - a persistent shared campaign map,
