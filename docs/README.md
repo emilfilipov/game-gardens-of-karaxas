@@ -19,8 +19,8 @@ Current modules include transitional prototype components plus backend/release i
 - `game-client/` - legacy Godot runtime prototype (transitional).
 - `backend/` - FastAPI online services and Cloud SQL integration.
 - `designer-client/` - legacy external authoring prototype (transitional).
-- `sim-core/` - shared Rust simulation-domain contracts (travel + real-time logistics/trade/espionage).
-- `world-service/` - Rust world-authority service with deterministic tick runner, travel APIs, and real-time logistics/trade/espionage authority endpoints.
+- `sim-core/` - shared Rust simulation-domain contracts (travel + real-time logistics/trade/espionage/politics).
+- `world-service/` - Rust world-authority service with deterministic tick runner, travel APIs, and real-time logistics/trade/espionage/politics authority endpoints.
 - `tooling-core/` - Rust tooling/shared validation scaffold.
 - `client-app/` - Rust client runtime scaffold.
 - `assets/` - shared content/assets.
@@ -55,6 +55,7 @@ Manual sandbox client run (feature-gated):
 - Sandbox includes real-time logistics validation controls (army supply status + convoy queue action).
 - Sandbox includes real-time trade validation controls (shipment queue + market stock/price readouts).
 - Sandbox includes real-time espionage validation controls (informant recruit/report/sweep + reliability/confidence readouts).
+- Sandbox includes real-time politics validation controls (standing/office/treaty actions + legitimacy/stability/influence readouts).
 
 ## Packaging and Release
 - Windows packaging script: `scripts/pack.ps1`

@@ -4,11 +4,12 @@ use std::time::Instant;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sim_core::{
-    ArmyId, CommandEnvelope, CommandPayload, CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent,
-    EspionageWorld, EventEnvelope, EventPayload, FactionId, InformantState, IntelReportRecord, LogisticsTickEvent,
-    LogisticsWorld, MarketState, RequestIntelReportOrder, SettlementId, SupplyStock, SupplyTransferOrder, Tick,
-    TradeRoute, TradeShipmentOrder, TradeTickEvent, TradeWorld, sample_espionage_world, sample_logistics_world,
-    sample_trade_world,
+    AdjustStandingOrder, ArmyId, AssignOfficeOrder, CommandEnvelope, CommandPayload, CounterIntelSweepOrder,
+    EspionageOrder, EspionageTickEvent, EspionageWorld, EventEnvelope, EventPayload, FactionId, FactionPoliticalState,
+    FactionStanding, InformantState, IntelReportRecord, LogisticsTickEvent, LogisticsWorld, MarketState,
+    OfficeAssignment, PoliticsOrder, PoliticsTickEvent, PoliticsWorld, RequestIntelReportOrder, SetTreatyStatusOrder,
+    SettlementId, SupplyStock, SupplyTransferOrder, Tick, TradeRoute, TradeShipmentOrder, TradeTickEvent, TradeWorld,
+    TreatyRecord, sample_espionage_world, sample_logistics_world, sample_politics_world, sample_trade_world,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,6 +86,15 @@ pub struct EspionageStateSnapshot {
     pub recent_reports: Vec<IntelReportRecord>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct PoliticsStateSnapshot {
+    pub factions: Vec<FactionPoliticalState>,
+    pub standings: Vec<FactionStanding>,
+    pub offices: Vec<OfficeAssignment>,
+    pub treaties: Vec<TreatyRecord>,
+    pub pending_orders: Vec<PoliticsOrder>,
+}
+
 pub struct TickRunner {
     config: TickRunnerConfig,
     current_tick: Tick,
@@ -96,6 +106,7 @@ pub struct TickRunner {
     logistics: LogisticsWorld,
     trade: TradeWorld,
     espionage: EspionageWorld,
+    politics: PoliticsWorld,
 }
 
 impl TickRunner {
@@ -111,6 +122,7 @@ impl TickRunner {
             logistics: sample_logistics_world(),
             trade: sample_trade_world(),
             espionage: sample_espionage_world(),
+            politics: sample_politics_world(),
         }
     }
 
@@ -190,6 +202,16 @@ impl TickRunner {
         }
     }
 
+    pub fn politics_state(&self) -> PoliticsStateSnapshot {
+        PoliticsStateSnapshot {
+            factions: self.politics.factions().copied().collect(),
+            standings: self.politics.standings(),
+            offices: self.politics.offices().copied().collect(),
+            treaties: self.politics.treaties().copied().collect(),
+            pending_orders: self.politics.pending_orders().to_vec(),
+        }
+    }
+
     fn run_single_tick(&mut self, now_ms: u64) {
         let work_started = Instant::now();
         let lag_ms = now_ms.saturating_sub(self.next_tick_due_ms);
@@ -228,6 +250,13 @@ impl TickRunner {
             let trace_id = format!("espionage-{}-{}", tick_now.0, self.event_log.len());
             self.event_log
                 .push(EventEnvelope::new(trace_id, espionage_event_to_payload(event)));
+        }
+
+        let politics_tick = self.politics.advance_tick(tick_now);
+        for event in politics_tick.events {
+            let trace_id = format!("politics-{}-{}", tick_now.0, self.event_log.len());
+            self.event_log
+                .push(EventEnvelope::new(trace_id, politics_event_to_payload(event)));
         }
 
         self.metrics.total_ticks = self.metrics.total_ticks.saturating_add(1);
@@ -269,12 +298,20 @@ impl TickRunner {
                 actor_faction,
                 target_faction,
                 relation_delta,
-            } => EventPayload::FactionStanceUpdated {
-                actor_faction,
-                target_faction,
-                relation_delta,
-                tick,
-            },
+            } => {
+                self.politics
+                    .queue_order(PoliticsOrder::AdjustStanding(AdjustStandingOrder {
+                        actor_faction,
+                        target_faction,
+                        delta_bp: relation_delta,
+                    }));
+                EventPayload::FactionStanceUpdated {
+                    actor_faction,
+                    target_faction,
+                    relation_delta,
+                    tick,
+                }
+            }
             CommandPayload::QueueSupplyTransfer {
                 from_army,
                 to_army,
@@ -366,6 +403,52 @@ impl TickRunner {
                     defender_faction,
                     settlement_id,
                     intensity_bp,
+                    tick,
+                }
+            }
+            CommandPayload::AssignPoliticalOffice {
+                faction_id,
+                title,
+                household_id,
+            } => {
+                self.politics
+                    .queue_order(PoliticsOrder::AssignOffice(AssignOfficeOrder {
+                        faction_id,
+                        title,
+                        household_id,
+                    }));
+                EventPayload::PoliticalOfficeAssigned {
+                    faction_id,
+                    title,
+                    household_id,
+                    replaced_household_id: None,
+                    tick,
+                }
+            }
+            CommandPayload::SetTreatyStatus {
+                treaty_id,
+                faction_a,
+                faction_b,
+                treaty_kind,
+                active,
+                trust_bp,
+            } => {
+                self.politics
+                    .queue_order(PoliticsOrder::SetTreatyStatus(SetTreatyStatusOrder {
+                        treaty_id,
+                        faction_a,
+                        faction_b,
+                        treaty_kind,
+                        active,
+                        trust_bp,
+                    }));
+                EventPayload::TreatyStatusChanged {
+                    treaty_id,
+                    faction_a,
+                    faction_b,
+                    treaty_kind,
+                    active,
+                    trust_bp,
                     tick,
                 }
             }
@@ -508,6 +591,69 @@ fn espionage_event_to_payload(event: EspionageTickEvent) -> EventPayload {
     }
 }
 
+fn politics_event_to_payload(event: PoliticsTickEvent) -> EventPayload {
+    match event {
+        PoliticsTickEvent::FactionStandingUpdated {
+            actor_faction,
+            target_faction,
+            previous_standing_bp,
+            standing_bp,
+            delta_bp,
+            tick,
+        } => EventPayload::PoliticalStandingUpdated {
+            actor_faction,
+            target_faction,
+            previous_standing_bp,
+            standing_bp,
+            delta_bp,
+            tick,
+        },
+        PoliticsTickEvent::OfficeAssigned {
+            faction_id,
+            title,
+            household_id,
+            replaced_household_id,
+            tick,
+        } => EventPayload::PoliticalOfficeAssigned {
+            faction_id,
+            title,
+            household_id,
+            replaced_household_id,
+            tick,
+        },
+        PoliticsTickEvent::TreatyStatusChanged {
+            treaty_id,
+            faction_a,
+            faction_b,
+            treaty_kind,
+            active,
+            trust_bp,
+            tick,
+        } => EventPayload::TreatyStatusChanged {
+            treaty_id,
+            faction_a,
+            faction_b,
+            treaty_kind,
+            active,
+            trust_bp,
+            tick,
+        },
+        PoliticsTickEvent::LegitimacyUpdated {
+            faction_id,
+            legitimacy_bp,
+            stability_bp,
+            influence_points,
+            tick,
+        } => EventPayload::PoliticalLegitimacyUpdated {
+            faction_id,
+            legitimacy_bp,
+            stability_bp,
+            influence_points,
+            tick,
+        },
+    }
+}
+
 fn hash_events(events: &[EventEnvelope]) -> String {
     let mut hasher = Sha256::new();
     for event in events {
@@ -633,12 +779,54 @@ pub fn build_counter_intel_sweep_command(
     )
 }
 
+pub fn build_assign_political_office_command(
+    trace_id: &str,
+    faction_id: u64,
+    title: sim_core::OfficeTitle,
+    household_id: u64,
+) -> CommandEnvelope {
+    CommandEnvelope::new(
+        trace_id,
+        CommandPayload::AssignPoliticalOffice {
+            faction_id: FactionId(faction_id),
+            title,
+            household_id: sim_core::HouseholdId(household_id),
+        },
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn build_set_treaty_status_command(
+    trace_id: &str,
+    treaty_id: u64,
+    faction_a: u64,
+    faction_b: u64,
+    treaty_kind: sim_core::TreatyKind,
+    active: bool,
+    trust_bp: u32,
+) -> CommandEnvelope {
+    CommandEnvelope::new(
+        trace_id,
+        CommandPayload::SetTreatyStatus {
+            treaty_id,
+            faction_a: FactionId(faction_a),
+            faction_b: FactionId(faction_b),
+            treaty_kind,
+            active,
+            trust_bp,
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
+    use sim_core::{OfficeTitle, TreatyKind};
+
     use super::{
-        TickRunner, TickRunnerConfig, build_counter_intel_sweep_command, build_move_army_command,
-        build_recruit_informant_command, build_request_intel_report_command, build_set_stance_command,
-        build_supply_transfer_command, build_trade_shipment_command,
+        TickRunner, TickRunnerConfig, build_assign_political_office_command, build_counter_intel_sweep_command,
+        build_move_army_command, build_recruit_informant_command, build_request_intel_report_command,
+        build_set_stance_command, build_set_treaty_status_command, build_supply_transfer_command,
+        build_trade_shipment_command,
     };
 
     #[test]
@@ -731,5 +919,42 @@ mod tests {
         let state = runner.espionage_state();
         assert!(state.recent_reports.iter().any(|row| row.informant_id.0 == 9001));
         assert!(state.informants.iter().any(|row| row.informant_id.0 == 9001));
+    }
+
+    #[test]
+    fn political_offices_treaties_and_legitimacy_progress_over_ticks() {
+        let mut runner = TickRunner::new(TickRunnerConfig::new(100, 10, 16));
+        runner.queue_command(build_set_stance_command("trace-stance", 1, 2, 800));
+        runner.queue_command(build_assign_political_office_command(
+            "trace-office",
+            1,
+            OfficeTitle::Marshal,
+            444,
+        ));
+        runner.queue_command(build_set_treaty_status_command(
+            "trace-treaty",
+            7001,
+            1,
+            3,
+            TreatyKind::TradePact,
+            true,
+            6_500,
+        ));
+        let _summary = runner.run_due_ticks(200);
+
+        let state = runner.politics_state();
+        assert!(
+            state
+                .offices
+                .iter()
+                .any(|row| row.faction_id.0 == 1 && row.household_id.0 == 444)
+        );
+        assert!(state.treaties.iter().any(|row| row.treaty_id == 7001 && row.active));
+        assert!(
+            state
+                .factions
+                .iter()
+                .any(|row| row.faction_id.0 == 1 && row.influence_points > 0)
+        );
     }
 }

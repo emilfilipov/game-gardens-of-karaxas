@@ -25,9 +25,10 @@ use tracing_subscriber::EnvFilter;
 use crate::auth::{AuthenticatedServiceCall, ServiceAuthConfig, ServiceAuthState};
 use crate::config::AppConfig;
 use crate::tick_runner::{
-    EspionageStateSnapshot, LogisticsStateSnapshot, TickAdvanceResult, TickMetrics, TickRunner, TickRunnerConfig,
-    TickSnapshot, TradeStateSnapshot, build_counter_intel_sweep_command, build_move_army_command,
-    build_recruit_informant_command, build_request_intel_report_command, build_set_stance_command,
+    EspionageStateSnapshot, LogisticsStateSnapshot, PoliticsStateSnapshot, TickAdvanceResult, TickMetrics, TickRunner,
+    TickRunnerConfig, TickSnapshot, TradeStateSnapshot, build_assign_political_office_command,
+    build_counter_intel_sweep_command, build_move_army_command, build_recruit_informant_command,
+    build_request_intel_report_command, build_set_stance_command, build_set_treaty_status_command,
     build_supply_transfer_command, build_trade_shipment_command,
 };
 
@@ -111,6 +112,19 @@ enum ControlCommandKind {
         defender_faction: u64,
         settlement_id: u64,
         intensity_bp: u32,
+    },
+    AssignPoliticalOffice {
+        faction_id: u64,
+        title: sim_core::OfficeTitle,
+        household_id: u64,
+    },
+    SetTreatyStatus {
+        treaty_id: u64,
+        faction_a: u64,
+        faction_b: u64,
+        treaty_kind: sim_core::TreatyKind,
+        active: bool,
+        trust_bp: u32,
     },
 }
 
@@ -203,6 +217,13 @@ struct EspionageStateResponse {
     state: EspionageStateSnapshot,
 }
 
+#[derive(Debug, Serialize)]
+struct PoliticsStateResponse {
+    status: &'static str,
+    current_tick: u64,
+    state: PoliticsStateSnapshot,
+}
+
 fn default_travel_preference() -> TravelPreference {
     TravelPreference::Fastest
 }
@@ -276,6 +297,7 @@ fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header
         .route("/logistics/state", get(logistics_state))
         .route("/trade/state", get(trade_state))
         .route("/espionage/state", get(espionage_state))
+        .route("/politics/state", get(politics_state))
         .merge(internal_control_routes)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
@@ -411,6 +433,33 @@ async fn control_command(
         } => (
             "counter_intel_sweep",
             build_counter_intel_sweep_command(&payload.trace_id, defender_faction, settlement_id, intensity_bp),
+        ),
+        ControlCommandKind::AssignPoliticalOffice {
+            faction_id,
+            title,
+            household_id,
+        } => (
+            "assign_political_office",
+            build_assign_political_office_command(&payload.trace_id, faction_id, title, household_id),
+        ),
+        ControlCommandKind::SetTreatyStatus {
+            treaty_id,
+            faction_a,
+            faction_b,
+            treaty_kind,
+            active,
+            trust_bp,
+        } => (
+            "set_treaty_status",
+            build_set_treaty_status_command(
+                &payload.trace_id,
+                treaty_id,
+                faction_a,
+                faction_b,
+                treaty_kind,
+                active,
+                trust_bp,
+            ),
         ),
     };
 
@@ -609,6 +658,22 @@ async fn espionage_state(State(state): State<AppState>) -> (StatusCode, Json<Esp
             status: "ok",
             current_tick: runner.current_tick().0,
             state: runner.espionage_state(),
+        }),
+    )
+}
+
+async fn politics_state(State(state): State<AppState>) -> (StatusCode, Json<PoliticsStateResponse>) {
+    let runner = state
+        .tick_runner
+        .lock()
+        .expect("tick runner lock should not be poisoned");
+
+    (
+        StatusCode::OK,
+        Json(PoliticsStateResponse {
+            status: "ok",
+            current_tick: runner.current_tick().0,
+            state: runner.politics_state(),
         }),
     )
 }
@@ -1020,6 +1085,90 @@ mod tests {
                 .expect("recent_reports should be array")
                 .iter()
                 .any(|row| row["informant_id"] == 9001)
+        );
+    }
+
+    #[tokio::test]
+    async fn politics_state_reflects_office_and_treaty_after_tick() {
+        let app = test_app();
+
+        let stance_body = r#"{"trace_id":"trace-politics-stance","command":{"type":"set_faction_stance","actor_faction":1,"target_faction":2,"relation_delta":800}}"#;
+        let queued_stance = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-politics-stance",
+                stance_body,
+            ))
+            .await
+            .expect("stance queue response should resolve");
+        assert_eq!(queued_stance.status(), StatusCode::ACCEPTED);
+
+        let office_body = r#"{"trace_id":"trace-politics-office","command":{"type":"assign_political_office","faction_id":1,"title":"marshal","household_id":444}}"#;
+        let queued_office = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-politics-office",
+                office_body,
+            ))
+            .await
+            .expect("office queue response should resolve");
+        assert_eq!(queued_office.status(), StatusCode::ACCEPTED);
+
+        let treaty_body = r#"{"trace_id":"trace-politics-treaty","command":{"type":"set_treaty_status","treaty_id":7001,"faction_a":1,"faction_b":3,"treaty_kind":"trade_pact","active":true,"trust_bp":6500}}"#;
+        let queued_treaty = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-politics-treaty",
+                treaty_body,
+            ))
+            .await
+            .expect("treaty queue response should resolve");
+        assert_eq!(queued_treaty.status(), StatusCode::ACCEPTED);
+
+        let ticked = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/tick",
+                "nonce-politics-tick",
+                r#"{"now_ms":200}"#,
+            ))
+            .await
+            .expect("tick response should resolve");
+        assert_eq!(ticked.status(), StatusCode::ACCEPTED);
+
+        let state_response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/politics/state")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("state response should resolve");
+        assert_eq!(state_response.status(), StatusCode::OK);
+
+        let bytes = to_bytes(state_response.into_body(), usize::MAX)
+            .await
+            .expect("response body should decode");
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
+
+        assert!(
+            payload["state"]["offices"]
+                .as_array()
+                .expect("offices should be array")
+                .iter()
+                .any(|row| row["faction_id"] == 1 && row["household_id"] == 444)
+        );
+        assert!(
+            payload["state"]["treaties"]
+                .as_array()
+                .expect("treaties should be array")
+                .iter()
+                .any(|row| row["treaty_id"] == 7001 && row["active"] == true)
         );
     }
 }

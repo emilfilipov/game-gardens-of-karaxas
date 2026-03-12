@@ -9,10 +9,12 @@ mod sandbox {
     use bevy::prelude::*;
     use bevy_egui::{EguiContexts, EguiPlugin, egui};
     use sim_core::{
-        ArmyId, CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent, EspionageWorld, InformantStatus,
-        LogisticsTickEvent, LogisticsWorld, RequestIntelReportOrder, RiskModifiers, SettlementId, SupplyStock,
-        SupplyTransferOrder, Tick, TradeTickEvent, TradeWorld, TravelGraph, TravelPlan, TravelPreference,
-        sample_espionage_world, sample_levant_travel_graph, sample_logistics_world, sample_trade_world,
+        AdjustStandingOrder, ArmyId, AssignOfficeOrder, CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent,
+        EspionageWorld, InformantStatus, LogisticsTickEvent, LogisticsWorld, OfficeTitle, PoliticsOrder,
+        PoliticsTickEvent, PoliticsWorld, RequestIntelReportOrder, RiskModifiers, SetTreatyStatusOrder, SettlementId,
+        SupplyStock, SupplyTransferOrder, Tick, TradeTickEvent, TradeWorld, TravelGraph, TravelPlan, TravelPreference,
+        TreatyKind, sample_espionage_world, sample_levant_travel_graph, sample_logistics_world, sample_politics_world,
+        sample_trade_world,
     };
 
     const MAP_SCALE: f32 = 2.2;
@@ -71,6 +73,13 @@ mod sandbox {
         last_status: String,
     }
 
+    #[derive(Resource)]
+    struct PoliticsSandbox {
+        world: PoliticsWorld,
+        processed_sim_tick: u64,
+        last_status: String,
+    }
+
     impl Default for EspionageSandbox {
         fn default() -> Self {
             Self {
@@ -87,6 +96,16 @@ mod sandbox {
                 world: sample_trade_world(),
                 processed_sim_tick: 0,
                 last_status: "Trade idle".to_string(),
+            }
+        }
+    }
+
+    impl Default for PoliticsSandbox {
+        fn default() -> Self {
+            Self {
+                world: sample_politics_world(),
+                processed_sim_tick: 0,
+                last_status: "Politics idle".to_string(),
             }
         }
     }
@@ -219,6 +238,7 @@ mod sandbox {
             .insert_resource(LogisticsSandbox::default())
             .insert_resource(TradeSandbox::default())
             .insert_resource(EspionageSandbox::default())
+            .insert_resource(PoliticsSandbox::default())
             .add_plugins(DefaultPlugins.set(AssetPlugin {
                 file_path: "client-app/assets".to_string(),
                 ..default()
@@ -234,6 +254,7 @@ mod sandbox {
                     advance_logistics,
                     advance_trade,
                     advance_espionage,
+                    advance_politics,
                     draw_map_gizmos,
                     sync_player_when_idle,
                     ui_panel,
@@ -443,6 +464,31 @@ mod sandbox {
         }
     }
 
+    fn advance_politics(clocks: Res<ClockState>, mut politics: ResMut<PoliticsSandbox>) {
+        while politics.processed_sim_tick < clocks.sim_tick {
+            let next_tick = politics.processed_sim_tick + 1;
+            politics.processed_sim_tick = next_tick;
+            let result = politics.world.advance_tick(Tick(next_tick));
+            let legitimacy_events = result
+                .events
+                .iter()
+                .filter(|row| matches!(row, PoliticsTickEvent::LegitimacyUpdated { .. }))
+                .count();
+            let treaty_events = result
+                .events
+                .iter()
+                .filter(|row| matches!(row, PoliticsTickEvent::TreatyStatusChanged { .. }))
+                .count();
+            politics.last_status = format!(
+                "Processed politics tick {} (events: {}, legitimacy: {}, treaties: {})",
+                politics.processed_sim_tick,
+                result.events.len(),
+                legitimacy_events,
+                treaty_events
+            );
+        }
+    }
+
     fn ui_panel(
         mut egui_contexts: EguiContexts,
         clocks: Res<ClockState>,
@@ -450,6 +496,7 @@ mod sandbox {
         mut logistics: ResMut<LogisticsSandbox>,
         mut trade: ResMut<TradeSandbox>,
         mut espionage: ResMut<EspionageSandbox>,
+        mut politics: ResMut<PoliticsSandbox>,
     ) {
         let Ok(ctx) = egui_contexts.ctx_mut() else {
             return;
@@ -619,6 +666,91 @@ mod sandbox {
                         report.confidence_bp,
                         report.reliability_bp,
                         report.false_report
+                    ));
+                }
+                ui.separator();
+                ui.heading("Real-Time Politics");
+                ui.label(format!("Politics Tick Cursor: {}", politics.processed_sim_tick));
+                if ui.button("Improve Standing F1 -> F2 (+800)").clicked() {
+                    politics
+                        .world
+                        .queue_order(PoliticsOrder::AdjustStanding(AdjustStandingOrder {
+                            actor_faction: sim_core::FactionId(1),
+                            target_faction: sim_core::FactionId(2),
+                            delta_bp: 800,
+                        }));
+                    politics.last_status = "Queued standing improvement 1 -> 2".to_string();
+                }
+                if ui.button("Assign Marshal to Household 444 (F1)").clicked() {
+                    politics
+                        .world
+                        .queue_order(PoliticsOrder::AssignOffice(AssignOfficeOrder {
+                            faction_id: sim_core::FactionId(1),
+                            title: OfficeTitle::Marshal,
+                            household_id: sim_core::HouseholdId(444),
+                        }));
+                    politics.last_status = "Queued marshal assignment for faction 1".to_string();
+                }
+                if ui.button("Toggle Treaty 7001 (F1 <-> F3)").clicked() {
+                    let currently_active = politics
+                        .world
+                        .treaties()
+                        .find(|row| row.treaty_id == 7001)
+                        .map(|row| row.active)
+                        .unwrap_or(false);
+                    politics
+                        .world
+                        .queue_order(PoliticsOrder::SetTreatyStatus(SetTreatyStatusOrder {
+                            treaty_id: 7001,
+                            faction_a: sim_core::FactionId(1),
+                            faction_b: sim_core::FactionId(3),
+                            treaty_kind: TreatyKind::TradePact,
+                            active: !currently_active,
+                            trust_bp: 6_500,
+                        }));
+                    politics.last_status = if currently_active {
+                        "Queued treaty 7001 deactivation".to_string()
+                    } else {
+                        "Queued treaty 7001 activation".to_string()
+                    };
+                }
+                ui.label(format!(
+                    "Pending Politics Orders: {}",
+                    politics.world.pending_orders().len()
+                ));
+                ui.label(format!("Politics Status: {}", politics.last_status));
+                for faction in politics.world.factions() {
+                    ui.label(format!(
+                        "Faction {} | legitimacy {}bp | stability {}bp | influence {}",
+                        faction.faction_id.0,
+                        faction.legitimacy_bp,
+                        faction.stability_bp,
+                        faction.influence_points
+                    ));
+                }
+                for standing in politics.world.standings().iter().take(4) {
+                    ui.label(format!(
+                        "Standing F{} -> F{} = {}bp",
+                        standing.actor_faction.0,
+                        standing.target_faction.0,
+                        standing.standing_bp
+                    ));
+                }
+                for office in politics.world.offices() {
+                    ui.label(format!(
+                        "Office {:?} | faction {} | household {}",
+                        office.title, office.faction_id.0, office.household_id.0
+                    ));
+                }
+                for treaty in politics.world.treaties() {
+                    ui.label(format!(
+                        "Treaty {} {:?} F{}<->F{} | active {} | trust {}bp",
+                        treaty.treaty_id,
+                        treaty.treaty_kind,
+                        treaty.faction_a.0,
+                        treaty.faction_b.0,
+                        treaty.active,
+                        treaty.trust_bp
                     ));
                 }
             });

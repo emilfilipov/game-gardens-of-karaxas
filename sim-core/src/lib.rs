@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 mod espionage;
 mod logistics;
+mod politics;
 mod trade;
 mod travel;
 
@@ -14,6 +15,11 @@ pub use espionage::{
 pub use logistics::{
     ArmyLogisticsState, LogisticsTickEvent, LogisticsTickResult, LogisticsWorld, SupplyStock, SupplyTransferOrder,
     sample_logistics_world,
+};
+pub use politics::{
+    AdjustStandingOrder, AssignOfficeOrder, FactionPoliticalState, FactionStanding, OfficeAssignment, OfficeTitle,
+    PoliticsOrder, PoliticsTickEvent, PoliticsTickResult, PoliticsWorld, SetTreatyStatusOrder, TreatyKind,
+    TreatyRecord, sample_politics_world,
 };
 pub use trade::{
     MarketState, TradeRoute, TradeShipmentOrder, TradeTickEvent, TradeTickResult, TradeWorld, sample_trade_world,
@@ -110,6 +116,19 @@ pub enum CommandPayload {
         defender_faction: FactionId,
         settlement_id: SettlementId,
         intensity_bp: u32,
+    },
+    AssignPoliticalOffice {
+        faction_id: FactionId,
+        title: OfficeTitle,
+        household_id: HouseholdId,
+    },
+    SetTreatyStatus {
+        treaty_id: u64,
+        faction_a: FactionId,
+        faction_b: FactionId,
+        treaty_kind: TreatyKind,
+        active: bool,
+        trust_bp: u32,
     },
 }
 
@@ -224,6 +243,37 @@ pub enum EventPayload {
         intensity_bp: u32,
         tick: Tick,
     },
+    PoliticalStandingUpdated {
+        actor_faction: FactionId,
+        target_faction: FactionId,
+        previous_standing_bp: i32,
+        standing_bp: i32,
+        delta_bp: i32,
+        tick: Tick,
+    },
+    PoliticalOfficeAssigned {
+        faction_id: FactionId,
+        title: OfficeTitle,
+        household_id: HouseholdId,
+        replaced_household_id: Option<HouseholdId>,
+        tick: Tick,
+    },
+    TreatyStatusChanged {
+        treaty_id: u64,
+        faction_a: FactionId,
+        faction_b: FactionId,
+        treaty_kind: TreatyKind,
+        active: bool,
+        trust_bp: u32,
+        tick: Tick,
+    },
+    PoliticalLegitimacyUpdated {
+        faction_id: FactionId,
+        legitimacy_bp: u32,
+        stability_bp: u32,
+        influence_points: u32,
+        tick: Tick,
+    },
 }
 
 pub type CommandEnvelope = Envelope<CommandPayload>;
@@ -256,9 +306,9 @@ pub fn evaluate_schema_version(version: u32) -> SchemaCompatibility {
 #[cfg(test)]
 mod tests {
     use super::{
-        ArmyId, CommandEnvelope, CommandPayload, EventPayload, FactionId, InformantId, InformantStatus,
-        IntelReportRecord, MIN_COMPATIBLE_SCHEMA_VERSION, SIM_SCHEMA_VERSION, SchemaCompatibility, SettlementId, Tick,
-        evaluate_schema_version,
+        ArmyId, CommandEnvelope, CommandPayload, EventPayload, FactionId, HouseholdId, InformantId, InformantStatus,
+        IntelReportRecord, MIN_COMPATIBLE_SCHEMA_VERSION, OfficeTitle, SIM_SCHEMA_VERSION, SchemaCompatibility,
+        SettlementId, Tick, TreatyKind, evaluate_schema_version,
     };
 
     #[test]
@@ -370,6 +420,41 @@ mod tests {
             reliability_bp: 5_500,
             exposure_bp: 7_800,
             tick: Tick(88),
+        };
+
+        let json = serde_json::to_string(&payload).expect("serialize event payload");
+        let decoded: EventPayload = serde_json::from_str(&json).expect("deserialize event payload");
+
+        assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn politics_command_payload_roundtrip_is_stable() {
+        let envelope = CommandEnvelope::new(
+            "trace-politics-command",
+            CommandPayload::AssignPoliticalOffice {
+                faction_id: FactionId(2),
+                title: OfficeTitle::Marshal,
+                household_id: HouseholdId(501),
+            },
+        );
+
+        let json = serde_json::to_string(&envelope).expect("serialize command envelope");
+        let decoded: CommandEnvelope = serde_json::from_str(&json).expect("deserialize command envelope");
+
+        assert_eq!(decoded, envelope);
+    }
+
+    #[test]
+    fn politics_event_payload_roundtrip_is_stable() {
+        let payload = EventPayload::TreatyStatusChanged {
+            treaty_id: 99,
+            faction_a: FactionId(1),
+            faction_b: FactionId(3),
+            treaty_kind: TreatyKind::TradePact,
+            active: true,
+            trust_bp: 6_200,
+            tick: Tick(77),
         };
 
         let json = serde_json::to_string(&payload).expect("serialize event payload");

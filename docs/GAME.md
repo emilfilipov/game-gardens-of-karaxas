@@ -80,17 +80,17 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: informants progress through lifecycle states (active/dormant/burned), report generation emits reliability/confidence metadata with deterministic false-report pressure, and counter-intelligence sweeps detect/neutralize hostile assets over time.
 - Gameplay impact: intelligence posture is now a controllable competitive axis rather than binary fog-of-war.
 
+#### Real-time politics simulation
+- Purpose: support influence-based progression and strategic leverage outside direct warfare.
+- Loop: faction standings shift through actions and treaties, offices/titles are assigned by deterministic rules, and legitimacy/stability/influence drift continuously from current political posture.
+- Gameplay impact: players can now gain durable power through governance and diplomatic positioning, not only military actions.
+
 #### Real-time manual validation sandbox UI
 - Purpose: allow direct manual validation of simulation systems before full vertical-slice UX exists.
-- Loop: sandbox surfaces live simulation clock, travel controls, logistics/trade/espionage controls, and world-state readouts each tick.
+- Loop: sandbox surfaces live simulation clock, travel controls, logistics/trade/espionage/politics controls, and world-state readouts each tick.
 - Gameplay impact: fast development iteration and early balancing feedback without editor-only workflows.
 
 ### Planned Core Gameplay Systems
-#### Real-time politics simulation
-- Purpose: support influence-based progression beyond military strength.
-- Loop: faction standing, legitimacy, offices, and treaty effects evolve continuously with action-driven deltas.
-- Gameplay impact: players can win through governance, alliances, and legitimacy pressure.
-
 #### Real-time battle instancing contract
 - Purpose: connect campaign encounters to tactical resolution without breaking world continuity.
 - Loop: campaign collision/engagement triggers an instance, instance resolves on authoritative fixed steps, and outcomes write back to campaign state.
