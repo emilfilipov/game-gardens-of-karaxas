@@ -2,12 +2,17 @@
 
 use serde::{Deserialize, Serialize};
 
+mod battle;
 mod espionage;
 mod logistics;
 mod politics;
 mod trade;
 mod travel;
 
+pub use battle::{
+    BattleInstanceRecord, BattleInstanceStatus, BattleOrder, BattleResultRecord, BattleTickEvent, BattleTickResult,
+    BattleWorld, ForceResolveBattleOrder, StartBattleEncounterOrder, sample_battle_world,
+};
 pub use espionage::{
     CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent, EspionageTickResult, EspionageWorld, InformantState,
     InformantStatus, IntelReportRecord, RecruitInformantOrder, RequestIntelReportOrder, sample_espionage_world,
@@ -129,6 +134,18 @@ pub enum CommandPayload {
         treaty_kind: TreatyKind,
         active: bool,
         trust_bp: u32,
+    },
+    StartBattleEncounter {
+        instance_id: u64,
+        encounter_id: u64,
+        location: SettlementId,
+        attacker_army: ArmyId,
+        defender_army: ArmyId,
+        attacker_strength: u32,
+        defender_strength: u32,
+    },
+    ForceResolveBattleInstance {
+        instance_id: u64,
     },
 }
 
@@ -274,6 +291,39 @@ pub enum EventPayload {
         influence_points: u32,
         tick: Tick,
     },
+    BattleEncounterQueued {
+        instance_id: u64,
+        encounter_id: u64,
+        location: SettlementId,
+        attacker_army: ArmyId,
+        defender_army: ArmyId,
+        tick: Tick,
+    },
+    BattleResolveQueued {
+        instance_id: u64,
+        tick: Tick,
+    },
+    BattleInstanceCreated {
+        instance_id: u64,
+        encounter_id: u64,
+        location: SettlementId,
+        attacker_army: ArmyId,
+        defender_army: ArmyId,
+        tick: Tick,
+    },
+    BattleInstanceStepAdvanced {
+        instance_id: u64,
+        step_index: u32,
+        attacker_strength: u32,
+        defender_strength: u32,
+        attacker_morale_bp: u32,
+        defender_morale_bp: u32,
+        tick: Tick,
+    },
+    BattleInstanceResolved {
+        result: BattleResultRecord,
+        tick: Tick,
+    },
 }
 
 pub type CommandEnvelope = Envelope<CommandPayload>;
@@ -306,9 +356,9 @@ pub fn evaluate_schema_version(version: u32) -> SchemaCompatibility {
 #[cfg(test)]
 mod tests {
     use super::{
-        ArmyId, CommandEnvelope, CommandPayload, EventPayload, FactionId, HouseholdId, InformantId, InformantStatus,
-        IntelReportRecord, MIN_COMPATIBLE_SCHEMA_VERSION, OfficeTitle, SIM_SCHEMA_VERSION, SchemaCompatibility,
-        SettlementId, Tick, TreatyKind, evaluate_schema_version,
+        ArmyId, BattleResultRecord, CommandEnvelope, CommandPayload, EventPayload, FactionId, HouseholdId, InformantId,
+        InformantStatus, IntelReportRecord, MIN_COMPATIBLE_SCHEMA_VERSION, OfficeTitle, SIM_SCHEMA_VERSION,
+        SchemaCompatibility, SettlementId, Tick, TreatyKind, evaluate_schema_version,
     };
 
     #[test]
@@ -455,6 +505,51 @@ mod tests {
             active: true,
             trust_bp: 6_200,
             tick: Tick(77),
+        };
+
+        let json = serde_json::to_string(&payload).expect("serialize event payload");
+        let decoded: EventPayload = serde_json::from_str(&json).expect("deserialize event payload");
+
+        assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn battle_command_payload_roundtrip_is_stable() {
+        let envelope = CommandEnvelope::new(
+            "trace-battle-command",
+            CommandPayload::StartBattleEncounter {
+                instance_id: 1001,
+                encounter_id: 7001,
+                location: SettlementId(3),
+                attacker_army: ArmyId(7),
+                defender_army: ArmyId(8),
+                attacker_strength: 220,
+                defender_strength: 210,
+            },
+        );
+
+        let json = serde_json::to_string(&envelope).expect("serialize command envelope");
+        let decoded: CommandEnvelope = serde_json::from_str(&json).expect("deserialize command envelope");
+
+        assert_eq!(decoded, envelope);
+    }
+
+    #[test]
+    fn battle_event_payload_roundtrip_is_stable() {
+        let payload = EventPayload::BattleInstanceResolved {
+            result: BattleResultRecord {
+                instance_id: 1001,
+                encounter_id: 7001,
+                winner_army: ArmyId(7),
+                loser_army: ArmyId(8),
+                attacker_remaining_strength: 80,
+                defender_remaining_strength: 0,
+                total_steps: 34,
+                started_tick: Tick(10),
+                resolved_tick: Tick(44),
+                writeback_signature: 123_456,
+            },
+            tick: Tick(44),
         };
 
         let json = serde_json::to_string(&payload).expect("serialize event payload");

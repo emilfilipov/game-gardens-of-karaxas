@@ -4,12 +4,14 @@ use std::time::Instant;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sim_core::{
-    AdjustStandingOrder, ArmyId, AssignOfficeOrder, CommandEnvelope, CommandPayload, CounterIntelSweepOrder,
-    EspionageOrder, EspionageTickEvent, EspionageWorld, EventEnvelope, EventPayload, FactionId, FactionPoliticalState,
-    FactionStanding, InformantState, IntelReportRecord, LogisticsTickEvent, LogisticsWorld, MarketState,
+    AdjustStandingOrder, ArmyId, AssignOfficeOrder, BattleInstanceRecord, BattleOrder, BattleResultRecord,
+    BattleTickEvent, BattleWorld, CommandEnvelope, CommandPayload, CounterIntelSweepOrder, EspionageOrder,
+    EspionageTickEvent, EspionageWorld, EventEnvelope, EventPayload, FactionId, FactionPoliticalState, FactionStanding,
+    ForceResolveBattleOrder, InformantState, IntelReportRecord, LogisticsTickEvent, LogisticsWorld, MarketState,
     OfficeAssignment, PoliticsOrder, PoliticsTickEvent, PoliticsWorld, RequestIntelReportOrder, SetTreatyStatusOrder,
-    SettlementId, SupplyStock, SupplyTransferOrder, Tick, TradeRoute, TradeShipmentOrder, TradeTickEvent, TradeWorld,
-    TreatyRecord, sample_espionage_world, sample_logistics_world, sample_politics_world, sample_trade_world,
+    SettlementId, StartBattleEncounterOrder, SupplyStock, SupplyTransferOrder, Tick, TradeRoute, TradeShipmentOrder,
+    TradeTickEvent, TradeWorld, TreatyRecord, sample_battle_world, sample_espionage_world, sample_logistics_world,
+    sample_politics_world, sample_trade_world,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,6 +97,13 @@ pub struct PoliticsStateSnapshot {
     pub pending_orders: Vec<PoliticsOrder>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct BattleStateSnapshot {
+    pub instances: Vec<BattleInstanceRecord>,
+    pub recent_results: Vec<BattleResultRecord>,
+    pub pending_orders: Vec<BattleOrder>,
+}
+
 pub struct TickRunner {
     config: TickRunnerConfig,
     current_tick: Tick,
@@ -107,6 +116,7 @@ pub struct TickRunner {
     trade: TradeWorld,
     espionage: EspionageWorld,
     politics: PoliticsWorld,
+    battle: BattleWorld,
 }
 
 impl TickRunner {
@@ -123,6 +133,7 @@ impl TickRunner {
             trade: sample_trade_world(),
             espionage: sample_espionage_world(),
             politics: sample_politics_world(),
+            battle: sample_battle_world(),
         }
     }
 
@@ -212,6 +223,14 @@ impl TickRunner {
         }
     }
 
+    pub fn battle_state(&self) -> BattleStateSnapshot {
+        BattleStateSnapshot {
+            instances: self.battle.instances().copied().collect(),
+            recent_results: self.battle.recent_results().to_vec(),
+            pending_orders: self.battle.pending_orders().to_vec(),
+        }
+    }
+
     fn run_single_tick(&mut self, now_ms: u64) {
         let work_started = Instant::now();
         let lag_ms = now_ms.saturating_sub(self.next_tick_due_ms);
@@ -257,6 +276,13 @@ impl TickRunner {
             let trace_id = format!("politics-{}-{}", tick_now.0, self.event_log.len());
             self.event_log
                 .push(EventEnvelope::new(trace_id, politics_event_to_payload(event)));
+        }
+
+        let battle_tick = self.battle.advance_tick(tick_now);
+        for event in battle_tick.events {
+            let trace_id = format!("battle-{}-{}", tick_now.0, self.event_log.len());
+            self.event_log
+                .push(EventEnvelope::new(trace_id, battle_event_to_payload(event)));
         }
 
         self.metrics.total_ticks = self.metrics.total_ticks.saturating_add(1);
@@ -451,6 +477,39 @@ impl TickRunner {
                     trust_bp,
                     tick,
                 }
+            }
+            CommandPayload::StartBattleEncounter {
+                instance_id,
+                encounter_id,
+                location,
+                attacker_army,
+                defender_army,
+                attacker_strength,
+                defender_strength,
+            } => {
+                self.battle
+                    .queue_order(BattleOrder::StartEncounter(StartBattleEncounterOrder {
+                        instance_id,
+                        encounter_id,
+                        location,
+                        attacker_army,
+                        defender_army,
+                        attacker_strength,
+                        defender_strength,
+                    }));
+                EventPayload::BattleEncounterQueued {
+                    instance_id,
+                    encounter_id,
+                    location,
+                    attacker_army,
+                    defender_army,
+                    tick,
+                }
+            }
+            CommandPayload::ForceResolveBattleInstance { instance_id } => {
+                self.battle
+                    .queue_order(BattleOrder::ForceResolve(ForceResolveBattleOrder { instance_id }));
+                EventPayload::BattleResolveQueued { instance_id, tick }
             }
         };
 
@@ -654,6 +713,44 @@ fn politics_event_to_payload(event: PoliticsTickEvent) -> EventPayload {
     }
 }
 
+fn battle_event_to_payload(event: BattleTickEvent) -> EventPayload {
+    match event {
+        BattleTickEvent::EncounterCreated {
+            instance_id,
+            encounter_id,
+            location,
+            attacker_army,
+            defender_army,
+            tick,
+        } => EventPayload::BattleInstanceCreated {
+            instance_id,
+            encounter_id,
+            location,
+            attacker_army,
+            defender_army,
+            tick,
+        },
+        BattleTickEvent::StepAdvanced {
+            instance_id,
+            step_index,
+            attacker_strength,
+            defender_strength,
+            attacker_morale_bp,
+            defender_morale_bp,
+            tick,
+        } => EventPayload::BattleInstanceStepAdvanced {
+            instance_id,
+            step_index,
+            attacker_strength,
+            defender_strength,
+            attacker_morale_bp,
+            defender_morale_bp,
+            tick,
+        },
+        BattleTickEvent::InstanceResolved { result, tick } => EventPayload::BattleInstanceResolved { result, tick },
+    }
+}
+
 fn hash_events(events: &[EventEnvelope]) -> String {
     let mut hasher = Sha256::new();
     for event in events {
@@ -818,15 +915,44 @@ pub fn build_set_treaty_status_command(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn build_start_battle_encounter_command(
+    trace_id: &str,
+    instance_id: u64,
+    encounter_id: u64,
+    location: u64,
+    attacker_army: u64,
+    defender_army: u64,
+    attacker_strength: u32,
+    defender_strength: u32,
+) -> CommandEnvelope {
+    CommandEnvelope::new(
+        trace_id,
+        CommandPayload::StartBattleEncounter {
+            instance_id,
+            encounter_id,
+            location: SettlementId(location),
+            attacker_army: ArmyId(attacker_army),
+            defender_army: ArmyId(defender_army),
+            attacker_strength,
+            defender_strength,
+        },
+    )
+}
+
+pub fn build_force_resolve_battle_command(trace_id: &str, instance_id: u64) -> CommandEnvelope {
+    CommandEnvelope::new(trace_id, CommandPayload::ForceResolveBattleInstance { instance_id })
+}
+
 #[cfg(test)]
 mod tests {
     use sim_core::{OfficeTitle, TreatyKind};
 
     use super::{
         TickRunner, TickRunnerConfig, build_assign_political_office_command, build_counter_intel_sweep_command,
-        build_move_army_command, build_recruit_informant_command, build_request_intel_report_command,
-        build_set_stance_command, build_set_treaty_status_command, build_supply_transfer_command,
-        build_trade_shipment_command,
+        build_force_resolve_battle_command, build_move_army_command, build_recruit_informant_command,
+        build_request_intel_report_command, build_set_stance_command, build_set_treaty_status_command,
+        build_start_battle_encounter_command, build_supply_transfer_command, build_trade_shipment_command,
     };
 
     #[test]
@@ -956,5 +1082,26 @@ mod tests {
                 .iter()
                 .any(|row| row.faction_id.0 == 1 && row.influence_points > 0)
         );
+    }
+
+    #[test]
+    fn battle_instance_contract_advances_and_resolves() {
+        let mut runner = TickRunner::new(TickRunnerConfig::new(100, 10, 16));
+        runner.queue_command(build_start_battle_encounter_command(
+            "trace-battle-start",
+            1001,
+            7001,
+            3,
+            7,
+            8,
+            230,
+            220,
+        ));
+        runner.queue_command(build_force_resolve_battle_command("trace-battle-resolve", 1001));
+        let _summary = runner.run_due_ticks(200);
+
+        let state = runner.battle_state();
+        assert!(state.instances.iter().any(|row| row.instance_id == 1001));
+        assert!(state.recent_results.iter().any(|row| row.instance_id == 1001));
     }
 }

@@ -12,9 +12,9 @@ mod sandbox {
         AdjustStandingOrder, ArmyId, AssignOfficeOrder, CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent,
         EspionageWorld, InformantStatus, LogisticsTickEvent, LogisticsWorld, OfficeTitle, PoliticsOrder,
         PoliticsTickEvent, PoliticsWorld, RequestIntelReportOrder, RiskModifiers, SetTreatyStatusOrder, SettlementId,
-        SupplyStock, SupplyTransferOrder, Tick, TradeTickEvent, TradeWorld, TravelGraph, TravelPlan, TravelPreference,
-        TreatyKind, sample_espionage_world, sample_levant_travel_graph, sample_logistics_world, sample_politics_world,
-        sample_trade_world,
+        StartBattleEncounterOrder, SupplyStock, SupplyTransferOrder, Tick, TradeTickEvent, TradeWorld, TravelGraph,
+        TravelPlan, TravelPreference, TreatyKind, sample_battle_world, sample_espionage_world,
+        sample_levant_travel_graph, sample_logistics_world, sample_politics_world, sample_trade_world,
     };
 
     const MAP_SCALE: f32 = 2.2;
@@ -80,6 +80,13 @@ mod sandbox {
         last_status: String,
     }
 
+    #[derive(Resource)]
+    struct BattleSandbox {
+        world: sim_core::BattleWorld,
+        processed_sim_tick: u64,
+        last_status: String,
+    }
+
     impl Default for EspionageSandbox {
         fn default() -> Self {
             Self {
@@ -106,6 +113,16 @@ mod sandbox {
                 world: sample_politics_world(),
                 processed_sim_tick: 0,
                 last_status: "Politics idle".to_string(),
+            }
+        }
+    }
+
+    impl Default for BattleSandbox {
+        fn default() -> Self {
+            Self {
+                world: sample_battle_world(),
+                processed_sim_tick: 0,
+                last_status: "Battle contract idle".to_string(),
             }
         }
     }
@@ -239,6 +256,7 @@ mod sandbox {
             .insert_resource(TradeSandbox::default())
             .insert_resource(EspionageSandbox::default())
             .insert_resource(PoliticsSandbox::default())
+            .insert_resource(BattleSandbox::default())
             .add_plugins(DefaultPlugins.set(AssetPlugin {
                 file_path: "client-app/assets".to_string(),
                 ..default()
@@ -255,6 +273,7 @@ mod sandbox {
                     advance_trade,
                     advance_espionage,
                     advance_politics,
+                    advance_battle_contract,
                     draw_map_gizmos,
                     sync_player_when_idle,
                     ui_panel,
@@ -489,6 +508,31 @@ mod sandbox {
         }
     }
 
+    fn advance_battle_contract(clocks: Res<ClockState>, mut battle: ResMut<BattleSandbox>) {
+        while battle.processed_sim_tick < clocks.sim_tick {
+            let next_tick = battle.processed_sim_tick + 1;
+            battle.processed_sim_tick = next_tick;
+            let result = battle.world.advance_tick(Tick(next_tick));
+            let step_events = result
+                .events
+                .iter()
+                .filter(|row| matches!(row, sim_core::BattleTickEvent::StepAdvanced { .. }))
+                .count();
+            let resolve_events = result
+                .events
+                .iter()
+                .filter(|row| matches!(row, sim_core::BattleTickEvent::InstanceResolved { .. }))
+                .count();
+            battle.last_status = format!(
+                "Processed battle tick {} (events: {}, steps: {}, resolves: {})",
+                battle.processed_sim_tick,
+                result.events.len(),
+                step_events,
+                resolve_events
+            );
+        }
+    }
+
     fn ui_panel(
         mut egui_contexts: EguiContexts,
         clocks: Res<ClockState>,
@@ -497,6 +541,7 @@ mod sandbox {
         mut trade: ResMut<TradeSandbox>,
         mut espionage: ResMut<EspionageSandbox>,
         mut politics: ResMut<PoliticsSandbox>,
+        mut battle: ResMut<BattleSandbox>,
     ) {
         let Ok(ctx) = egui_contexts.ctx_mut() else {
             return;
@@ -751,6 +796,60 @@ mod sandbox {
                         treaty.faction_b.0,
                         treaty.active,
                         treaty.trust_bp
+                    ));
+                }
+                ui.separator();
+                ui.heading("Real-Time Battle Contract");
+                ui.label(format!("Battle Tick Cursor: {}", battle.processed_sim_tick));
+                if ui.button("Start Encounter 1001 (A7 vs D8 @ S3)").clicked() {
+                    battle
+                        .world
+                        .queue_order(sim_core::BattleOrder::StartEncounter(StartBattleEncounterOrder {
+                            instance_id: 1001,
+                            encounter_id: 7001,
+                            location: SettlementId(3),
+                            attacker_army: ArmyId(7),
+                            defender_army: ArmyId(8),
+                            attacker_strength: 230,
+                            defender_strength: 220,
+                        }));
+                    battle.last_status = "Queued encounter 1001".to_string();
+                }
+                if ui.button("Force Resolve 1001").clicked() {
+                    battle
+                        .world
+                        .queue_order(sim_core::BattleOrder::ForceResolve(sim_core::ForceResolveBattleOrder {
+                            instance_id: 1001,
+                        }));
+                    battle.last_status = "Queued force resolve for 1001".to_string();
+                }
+                ui.label(format!("Pending Battle Orders: {}", battle.world.pending_orders().len()));
+                ui.label(format!("Battle Status: {}", battle.last_status));
+                for instance in battle.world.instances() {
+                    ui.label(format!(
+                        "Instance {} (enc {}) {:?} | A{}:{} M{} | D{}:{} M{} | step {}",
+                        instance.instance_id,
+                        instance.encounter_id,
+                        instance.status,
+                        instance.attacker_army.0,
+                        instance.attacker_strength,
+                        instance.attacker_morale_bp,
+                        instance.defender_army.0,
+                        instance.defender_strength,
+                        instance.defender_morale_bp,
+                        instance.step_cursor
+                    ));
+                }
+                for result in battle.world.recent_results().iter().rev().take(4) {
+                    ui.label(format!(
+                        "Resolved {} | winner A{} loser A{} | rem {}:{} | steps {} | sig {}",
+                        result.instance_id,
+                        result.winner_army.0,
+                        result.loser_army.0,
+                        result.attacker_remaining_strength,
+                        result.defender_remaining_strength,
+                        result.total_steps,
+                        result.writeback_signature
                     ));
                 }
             });

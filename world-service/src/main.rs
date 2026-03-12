@@ -25,11 +25,12 @@ use tracing_subscriber::EnvFilter;
 use crate::auth::{AuthenticatedServiceCall, ServiceAuthConfig, ServiceAuthState};
 use crate::config::AppConfig;
 use crate::tick_runner::{
-    EspionageStateSnapshot, LogisticsStateSnapshot, PoliticsStateSnapshot, TickAdvanceResult, TickMetrics, TickRunner,
-    TickRunnerConfig, TickSnapshot, TradeStateSnapshot, build_assign_political_office_command,
-    build_counter_intel_sweep_command, build_move_army_command, build_recruit_informant_command,
-    build_request_intel_report_command, build_set_stance_command, build_set_treaty_status_command,
-    build_supply_transfer_command, build_trade_shipment_command,
+    BattleStateSnapshot, EspionageStateSnapshot, LogisticsStateSnapshot, PoliticsStateSnapshot, TickAdvanceResult,
+    TickMetrics, TickRunner, TickRunnerConfig, TickSnapshot, TradeStateSnapshot, build_assign_political_office_command,
+    build_counter_intel_sweep_command, build_force_resolve_battle_command, build_move_army_command,
+    build_recruit_informant_command, build_request_intel_report_command, build_set_stance_command,
+    build_set_treaty_status_command, build_start_battle_encounter_command, build_supply_transfer_command,
+    build_trade_shipment_command,
 };
 
 #[derive(Clone)]
@@ -125,6 +126,18 @@ enum ControlCommandKind {
         treaty_kind: sim_core::TreatyKind,
         active: bool,
         trust_bp: u32,
+    },
+    StartBattleEncounter {
+        instance_id: u64,
+        encounter_id: u64,
+        location: u64,
+        attacker_army: u64,
+        defender_army: u64,
+        attacker_strength: u32,
+        defender_strength: u32,
+    },
+    ForceResolveBattleInstance {
+        instance_id: u64,
     },
 }
 
@@ -224,6 +237,13 @@ struct PoliticsStateResponse {
     state: PoliticsStateSnapshot,
 }
 
+#[derive(Debug, Serialize)]
+struct BattleStateResponse {
+    status: &'static str,
+    current_tick: u64,
+    state: BattleStateSnapshot,
+}
+
 fn default_travel_preference() -> TravelPreference {
     TravelPreference::Fastest
 }
@@ -298,6 +318,7 @@ fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header
         .route("/trade/state", get(trade_state))
         .route("/espionage/state", get(espionage_state))
         .route("/politics/state", get(politics_state))
+        .route("/battle/state", get(battle_state))
         .merge(internal_control_routes)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
@@ -460,6 +481,31 @@ async fn control_command(
                 active,
                 trust_bp,
             ),
+        ),
+        ControlCommandKind::StartBattleEncounter {
+            instance_id,
+            encounter_id,
+            location,
+            attacker_army,
+            defender_army,
+            attacker_strength,
+            defender_strength,
+        } => (
+            "start_battle_encounter",
+            build_start_battle_encounter_command(
+                &payload.trace_id,
+                instance_id,
+                encounter_id,
+                location,
+                attacker_army,
+                defender_army,
+                attacker_strength,
+                defender_strength,
+            ),
+        ),
+        ControlCommandKind::ForceResolveBattleInstance { instance_id } => (
+            "force_resolve_battle_instance",
+            build_force_resolve_battle_command(&payload.trace_id, instance_id),
         ),
     };
 
@@ -674,6 +720,22 @@ async fn politics_state(State(state): State<AppState>) -> (StatusCode, Json<Poli
             status: "ok",
             current_tick: runner.current_tick().0,
             state: runner.politics_state(),
+        }),
+    )
+}
+
+async fn battle_state(State(state): State<AppState>) -> (StatusCode, Json<BattleStateResponse>) {
+    let runner = state
+        .tick_runner
+        .lock()
+        .expect("tick runner lock should not be poisoned");
+
+    (
+        StatusCode::OK,
+        Json(BattleStateResponse {
+            status: "ok",
+            current_tick: runner.current_tick().0,
+            state: runner.battle_state(),
         }),
     )
 }
@@ -1169,6 +1231,78 @@ mod tests {
                 .expect("treaties should be array")
                 .iter()
                 .any(|row| row["treaty_id"] == 7001 && row["active"] == true)
+        );
+    }
+
+    #[tokio::test]
+    async fn battle_state_reflects_started_and_resolved_instance_after_tick() {
+        let app = test_app();
+
+        let start_body = r#"{"trace_id":"trace-battle-start","command":{"type":"start_battle_encounter","instance_id":1001,"encounter_id":7001,"location":3,"attacker_army":7,"defender_army":8,"attacker_strength":230,"defender_strength":220}}"#;
+        let queued_start = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-battle-start",
+                start_body,
+            ))
+            .await
+            .expect("start queue response should resolve");
+        assert_eq!(queued_start.status(), StatusCode::ACCEPTED);
+
+        let resolve_body = r#"{"trace_id":"trace-battle-resolve","command":{"type":"force_resolve_battle_instance","instance_id":1001}}"#;
+        let queued_resolve = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-battle-resolve",
+                resolve_body,
+            ))
+            .await
+            .expect("resolve queue response should resolve");
+        assert_eq!(queued_resolve.status(), StatusCode::ACCEPTED);
+
+        let ticked = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/tick",
+                "nonce-battle-tick",
+                r#"{"now_ms":200}"#,
+            ))
+            .await
+            .expect("tick response should resolve");
+        assert_eq!(ticked.status(), StatusCode::ACCEPTED);
+
+        let state_response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/battle/state")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("state response should resolve");
+        assert_eq!(state_response.status(), StatusCode::OK);
+
+        let bytes = to_bytes(state_response.into_body(), usize::MAX)
+            .await
+            .expect("response body should decode");
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
+
+        assert!(
+            payload["state"]["instances"]
+                .as_array()
+                .expect("instances should be array")
+                .iter()
+                .any(|row| row["instance_id"] == 1001)
+        );
+        assert!(
+            payload["state"]["recent_results"]
+                .as_array()
+                .expect("recent_results should be array")
+                .iter()
+                .any(|row| row["instance_id"] == 1001)
         );
     }
 }

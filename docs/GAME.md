@@ -85,17 +85,17 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: faction standings shift through actions and treaties, offices/titles are assigned by deterministic rules, and legitimacy/stability/influence drift continuously from current political posture.
 - Gameplay impact: players can now gain durable power through governance and diplomatic positioning, not only military actions.
 
+#### Real-time battle instancing contract
+- Purpose: connect campaign encounters to deterministic tactical resolution records without breaking world continuity.
+- Loop: encounter commands create auditable battle instance records, fixed-step battle ticks advance active instances, and resolved outcomes produce deterministic writeback payloads.
+- Gameplay impact: campaign collisions now map to explicit, replay-safe battle lifecycle records before full tactical ruleset complexity is layered in.
+
 #### Real-time manual validation sandbox UI
 - Purpose: allow direct manual validation of simulation systems before full vertical-slice UX exists.
-- Loop: sandbox surfaces live simulation clock, travel controls, logistics/trade/espionage/politics controls, and world-state readouts each tick.
+- Loop: sandbox surfaces live simulation clock, travel controls, logistics/trade/espionage/politics/battle-contract controls, and world-state readouts each tick.
 - Gameplay impact: fast development iteration and early balancing feedback without editor-only workflows.
 
 ### Planned Core Gameplay Systems
-#### Real-time battle instancing contract
-- Purpose: connect campaign encounters to tactical resolution without breaking world continuity.
-- Loop: campaign collision/engagement triggers an instance, instance resolves on authoritative fixed steps, and outcomes write back to campaign state.
-- Gameplay impact: tactical execution directly changes campaign momentum and territorial pressure.
-
 #### Tactical battle MVP (real-time)
 - Purpose: provide first battlefield command loop.
 - Loop: formations, reserves, morale, and reinforcement timing resolve continuously in instanced combat.
