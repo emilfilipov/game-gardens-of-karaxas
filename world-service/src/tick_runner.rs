@@ -1051,6 +1051,7 @@ pub fn build_deploy_battle_reserve_command(
 
 #[cfg(test)]
 mod tests {
+    use serde::Serialize;
     use sim_core::{BattleSide, FormationStance, OfficeTitle, TreatyKind};
 
     use super::{
@@ -1060,6 +1061,120 @@ mod tests {
         build_set_stance_command, build_set_treaty_status_command, build_start_battle_encounter_command,
         build_supply_transfer_command, build_trade_shipment_command,
     };
+
+    #[derive(Debug, Serialize, PartialEq, Eq)]
+    struct ReplayGoldenSnapshot {
+        final_tick: u64,
+        total_events: usize,
+        snapshot_hashes: Vec<String>,
+        logistics_army_8_food: u32,
+        market_3_price_index_bp: u32,
+        report_count: usize,
+        faction_1_influence_points: u32,
+        battle_result_instance_id: u64,
+        battle_result_winner_army: u64,
+        battle_result_signature: u64,
+    }
+
+    fn build_campaign_battle_replay_snapshot() -> ReplayGoldenSnapshot {
+        let mut runner = TickRunner::new(TickRunnerConfig::new(100, 2, 16));
+        runner.queue_command(build_move_army_command("replay-move", 7, 1, 2));
+        runner.queue_command(build_supply_transfer_command("replay-logistics", 7, 8, 12, 1, 0));
+        runner.queue_command(build_trade_shipment_command("replay-trade", 1, 3, 20, 5, 4));
+        runner.queue_command(build_recruit_informant_command(
+            "replay-recruit",
+            9001,
+            1,
+            2,
+            3,
+            6_500,
+            2_200,
+        ));
+        runner.queue_command(build_request_intel_report_command("replay-report", 9001, 5));
+        runner.queue_command(build_counter_intel_sweep_command("replay-sweep", 2, 3, 8_000));
+        runner.queue_command(build_set_stance_command("replay-stance", 1, 2, 800));
+        runner.queue_command(build_assign_political_office_command(
+            "replay-office",
+            1,
+            OfficeTitle::Marshal,
+            444,
+        ));
+        runner.queue_command(build_set_treaty_status_command(
+            "replay-treaty",
+            7001,
+            1,
+            3,
+            TreatyKind::TradePact,
+            true,
+            6_500,
+        ));
+        runner.queue_command(build_start_battle_encounter_command(
+            "replay-battle-start",
+            1001,
+            7001,
+            3,
+            7,
+            8,
+            230,
+            220,
+        ));
+        runner.queue_command(build_set_battle_formation_command(
+            "replay-battle-formation",
+            1001,
+            BattleSide::Attacker,
+            FormationStance::Wedge,
+        ));
+        runner.queue_command(build_deploy_battle_reserve_command(
+            "replay-battle-reserve",
+            1001,
+            BattleSide::Attacker,
+            35,
+        ));
+        runner.queue_command(build_force_resolve_battle_command("replay-battle-resolve", 1001));
+        let _summary = runner.run_due_ticks(2_500);
+
+        let logistics = runner.logistics_state();
+        let army8 = logistics
+            .armies
+            .iter()
+            .find(|row| row.army_id == 8)
+            .expect("army 8 should exist");
+
+        let trade = runner.trade_state();
+        let market3 = trade
+            .markets
+            .iter()
+            .find(|row| row.settlement_id.0 == 3)
+            .expect("market 3 should exist");
+
+        let espionage = runner.espionage_state();
+        let politics = runner.politics_state();
+        let faction1 = politics
+            .factions
+            .iter()
+            .find(|row| row.faction_id.0 == 1)
+            .expect("faction 1 should exist");
+
+        let battle = runner.battle_state();
+        let battle_result = battle
+            .recent_results
+            .iter()
+            .find(|row| row.instance_id == 1001)
+            .expect("battle result should exist");
+
+        ReplayGoldenSnapshot {
+            final_tick: runner.current_tick().0,
+            total_events: runner.events().len(),
+            snapshot_hashes: runner.snapshots().iter().map(|row| row.state_hash.clone()).collect(),
+            logistics_army_8_food: army8.stock.food,
+            market_3_price_index_bp: market3.price_index_bp,
+            report_count: espionage.recent_reports.len(),
+            faction_1_influence_points: faction1.influence_points,
+            battle_result_instance_id: battle_result.instance_id,
+            battle_result_winner_army: battle_result.winner_army.0,
+            battle_result_signature: battle_result.writeback_signature,
+        }
+    }
 
     #[test]
     fn deterministic_processing_is_order_stable() {
@@ -1235,5 +1350,20 @@ mod tests {
                 .iter()
                 .any(|row| row.instance_id == 1001 && row.attacker_reserve_deployed)
         );
+    }
+
+    #[test]
+    fn replay_stream_is_deterministic_between_runs() {
+        let first = build_campaign_battle_replay_snapshot();
+        let second = build_campaign_battle_replay_snapshot();
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn replay_golden_campaign_and_battle_sequence_matches_snapshot() {
+        let snapshot = build_campaign_battle_replay_snapshot();
+        let encoded = serde_json::to_string_pretty(&snapshot).expect("snapshot should serialize");
+        let expected = include_str!("../tests/golden/campaign_battle_replay_v1.json").trim();
+        assert_eq!(encoded, expected);
     }
 }

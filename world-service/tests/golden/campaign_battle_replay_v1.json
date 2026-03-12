@@ -1,0 +1,26 @@
+{
+  "final_tick": 26,
+  "total_events": 234,
+  "snapshot_hashes": [
+    "0e82f75ad561ac7d5afe6b6977b9f0ce6c551f551fc29876d6d53aaa4cb32186",
+    "a8d3acc7f70eeeadc733722ca73fea6d0c6f85acc572e3d5b0432ff80d0b0541",
+    "97191aa57114c6ba5d965fa6433add22e469ef69eb74f85de8b05f2e4c32e674",
+    "8352b05c7a0796ab65c2b780a75a0478929c03e8576cc375b771d6d4df2d722d",
+    "fe5973ca657952e905b8a4529f0091a88ff67df477b63b8b2824f005b13bdf72",
+    "975da08c1da6d974680b1fa94b6ccdfd415c8d44faba98c81a0d3e63f6a2f166",
+    "239531b899db881e62d078c67476a397cefe64580ae36f0dc20426206c35c00c",
+    "24cc1dbd52e640032327736faffc1b2e585784a27f99b03b0801afb6175f50cd",
+    "91d9c153e3cd61a7a89e8523943c4ebdde9f2e94a1b8738a90ff6f28a038b089",
+    "45ec450e460e34f3eadca4f95112a25f3ce733327371e38c79738166c4efd830",
+    "76513412ff7309afd3588266f6b2e0c44f4659b29d12fd8d0c239478fee93ee7",
+    "22ecb321df682be267a2e34df5e52ce105c5ff73a17e9402a4ff609d4a38a4d8",
+    "af7901cc4539b3169605dc61720df042049536b3c9377980d586cb691c17c909"
+  ],
+  "logistics_army_8_food": 0,
+  "market_3_price_index_bp": 11741,
+  "report_count": 20,
+  "faction_1_influence_points": 180,
+  "battle_result_instance_id": 1001,
+  "battle_result_winner_army": 7,
+  "battle_result_signature": 1527
+}

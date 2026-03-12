@@ -46,6 +46,18 @@ jobs:
       - name: Cargo test
         run: cargo test --workspace
 
+  determinism-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Campaign/Battle replay determinism gate
+        run: cargo test -p world-service replay_
+
   client-windows-sandbox:
     runs-on: windows-latest
     steps:

@@ -142,6 +142,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: authenticated backend orchestration triggers campaign movement command, starts/resolves a real-time battle instance in world-service, then writes battle-derived progression/location updates back to persistent character state.
 - Gameplay impact: one-player PoC loop is now executable without manual debug stitching between independent subsystems.
 
+#### Deterministic replay baseline
+- Purpose: detect simulation drift across campaign+battle command streams before runtime changes reach players.
+- Loop: world-service replay tests run the same mixed campaign/battle stream twice, compare deterministic snapshot output against committed golden data, and fail CI on divergence.
+- Gameplay impact: authority-state regressions are caught early, reducing hidden balance and persistence bugs.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.

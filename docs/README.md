@@ -57,6 +57,7 @@ Current baseline checks retained during transition:
 
 Rust CI workflow:
 - `.github/workflows/rust-checks.yml`
+  - Includes deterministic replay gate (`determinism-replay`) for campaign+battle golden snapshot validation.
 
 Manual sandbox client run (feature-gated):
 - `cargo run -p client-app --features bootstrap-shell`

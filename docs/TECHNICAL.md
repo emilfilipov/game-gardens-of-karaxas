@@ -193,16 +193,18 @@ Current baseline checks retained during transition:
 - Vertical-slice loop regression smoke:
   - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_vertical_slice_loop.py`
   - `python3 backend/scripts/smoke_online_loop.py --base-url <backend_base_url>`
+- Deterministic replay/golden smoke:
+  - `cargo test -p world-service replay_`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
-- CI now includes Windows client sandbox compile gate (`client-windows-sandbox` job in `.github/workflows/rust-checks.yml`).
+- CI now includes Windows client sandbox compile gate (`client-windows-sandbox`) and deterministic replay gate (`determinism-replay`) in `.github/workflows/rust-checks.yml`.
 - Regression policy: each implemented simulation subsystem must include deterministic unit tests plus payload serialization roundtrip tests to prevent cross-system breakage during rapid iteration.
 
 Migration-era additions (implemented in scaffold phase):
 - Rust CI workflow: `.github/workflows/rust-checks.yml`
 
 Migration-era additions still pending:
-- long-horizon simulation determinism replay/golden snapshot suites
+- long-horizon multi-scenario replay/golden suites beyond current campaign+battle baseline
 - broader API contract compatibility tests (FastAPI <-> Rust world service gameplay endpoints beyond inter-service auth boundary)
 
 ## Cost-Control Baseline (PoC)
