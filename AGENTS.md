@@ -15,9 +15,10 @@
 2. Run relevant tests/checks before finalizing the change.
 3. Commit after each completed change set.
 4. Push commits automatically after each completed change set; do not ask for push confirmation.
-5. After each push, poll the latest GitHub Actions run every 2-3 minutes until it finishes.
-6. If the run fails, fetch failing logs, implement a fix, push again, and continue the poll/fix cycle.
-7. If the run succeeds, report success and wait for next instructions.
+5. If the push includes workflow-triggering paths, poll the latest GitHub Actions run every 2-3 minutes until it finishes.
+6. If the push is docs-only (for example markdown-only changes under `docs/`), do not poll; report that no workflow-triggering changes were included.
+7. If a polled run fails, fetch failing logs, implement a fix, push again, and continue the poll/fix cycle.
+8. If a polled run succeeds, report success and wait for next instructions.
 
 ## UI Concept Iteration Cycle (Mandatory)
 For UI concept generation work, each pass must be executed strictly one at a time using this exact loop:
@@ -64,6 +65,7 @@ Explicitly forbidden for UI concept iteration work:
   - `gh run view <run-id> --json status,conclusion,jobs,url`
   - `gh run view <run-id> --log-failed` (when a run fails and logs are needed)
   - `sleep 125 && ...` (repeat until `status=completed` for relevant workflows)
+  - Skip polling when the pushed change set is docs-only and does not match workflow path triggers.
 
 ## Supporting Docs
 - `docs/INSTALLER.md` - Windows installer/updater operation details.
