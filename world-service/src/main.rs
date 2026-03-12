@@ -1,19 +1,23 @@
+mod auth;
 mod config;
 
+use std::io;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::State;
 use axum::http::{HeaderName, StatusCode};
-use axum::routing::get;
-use axum::{Json, Router};
-use serde::Serialize;
+use axum::middleware;
+use axum::routing::{get, post};
+use axum::{Extension, Json, Router};
+use serde::{Deserialize, Serialize};
 use sim_core::SIM_SCHEMA_VERSION;
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::trace::TraceLayer;
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
+use crate::auth::{AuthenticatedServiceCall, ServiceAuthConfig, ServiceAuthState};
 use crate::config::AppConfig;
 
 #[derive(Clone)]
@@ -41,6 +45,25 @@ struct ConfigResponse {
     bind_addr: String,
     service_name: String,
     log_level: String,
+    internal_auth_enabled: bool,
+    allowed_caller_id: String,
+    required_scope: String,
+    max_clock_skew_seconds: u64,
+    replay_window_seconds: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct ControlCommandRequest {
+    command: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ControlCommandResponse {
+    status: &'static str,
+    accepted: bool,
+    command: String,
+    caller_service_id: String,
+    caller_scope: String,
 }
 
 #[tokio::main]
@@ -49,26 +72,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_tracing(&config.log_level);
 
     let addr = config.socket_addr()?;
+    let auth_state = build_auth_state(&config)?;
     let state = AppState {
         config: Arc::new(config),
         started_at_unix: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
     };
 
     let request_id_header = HeaderName::from_static("x-request-id");
-
-    let app = Router::new()
-        .route("/healthz", get(healthz))
-        .route("/readyz", get(readyz))
-        .route("/config", get(config_endpoint))
-        .with_state(state)
-        .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
-        .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid))
-        .layer(TraceLayer::new_for_http());
+    let app = build_router(state, auth_state, request_id_header.clone());
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     info!(bind_addr = %addr, "world-service listening");
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+fn build_auth_state(config: &AppConfig) -> Result<ServiceAuthState, io::Error> {
+    if config.internal_auth_enabled && config.internal_auth_secret == "dev-only-change-me" {
+        warn!("WORLD_SERVICE_INTERNAL_AUTH_SECRET is using the default development value; set a strong shared secret");
+    }
+
+    ServiceAuthState::new(ServiceAuthConfig {
+        enabled: config.internal_auth_enabled,
+        shared_secret: config.internal_auth_secret.clone(),
+        expected_service_id: config.allowed_caller_id.clone(),
+        allowed_scopes: config.allowed_scope_list(),
+        required_scope: config.required_scope.clone(),
+        max_clock_skew_seconds: config.max_clock_skew_seconds,
+        replay_window_seconds: config.replay_window_seconds,
+        max_body_bytes: config.internal_max_body_bytes,
+    })
+    .map_err(io::Error::other)
+}
+
+fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header: HeaderName) -> Router {
+    let internal_control_route = post(control_command).route_layer(middleware::from_fn_with_state(
+        auth_state,
+        auth::require_internal_service_auth,
+    ));
+
+    Router::new()
+        .route("/healthz", get(healthz))
+        .route("/readyz", get(readyz))
+        .route("/config", get(config_endpoint))
+        .route("/internal/control/commands", internal_control_route)
+        .with_state(state)
+        .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
+        .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid))
+        .layer(TraceLayer::new_for_http())
 }
 
 async fn healthz(State(state): State<AppState>) -> (StatusCode, Json<HealthResponse>) {
@@ -100,6 +151,34 @@ async fn config_endpoint(State(state): State<AppState>) -> (StatusCode, Json<Con
             bind_addr: state.config.bind_addr.clone(),
             service_name: state.config.service_name.clone(),
             log_level: state.config.log_level.clone(),
+            internal_auth_enabled: state.config.internal_auth_enabled,
+            allowed_caller_id: state.config.allowed_caller_id.clone(),
+            required_scope: state.config.required_scope.clone(),
+            max_clock_skew_seconds: state.config.max_clock_skew_seconds,
+            replay_window_seconds: state.config.replay_window_seconds,
+        }),
+    )
+}
+
+async fn control_command(
+    Extension(caller): Extension<AuthenticatedServiceCall>,
+    Json(payload): Json<ControlCommandRequest>,
+) -> (StatusCode, Json<ControlCommandResponse>) {
+    info!(
+        caller_service_id = %caller.service_id,
+        caller_scope = %caller.scope,
+        command = %payload.command,
+        "internal control command accepted"
+    );
+
+    (
+        StatusCode::ACCEPTED,
+        Json(ControlCommandResponse {
+            status: "accepted",
+            accepted: true,
+            command: payload.command,
+            caller_service_id: caller.service_id,
+            caller_scope: caller.scope,
         }),
     )
 }
@@ -115,4 +194,131 @@ fn init_tracing(log_level: &str) {
         .with_current_span(true)
         .with_span_list(true)
         .init();
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use axum::body::Body;
+    use axum::http::{HeaderName, Request, StatusCode};
+    use tower::ServiceExt;
+
+    use crate::auth::{
+        HEADER_BODY_SHA256, HEADER_NONCE, HEADER_SCOPE, HEADER_SERVICE_ID, HEADER_SIGNATURE, HEADER_TIMESTAMP,
+        SigningContract, sign_request,
+    };
+    use crate::config::AppConfig;
+    use crate::{AppState, build_auth_state, build_router};
+
+    fn test_config() -> AppConfig {
+        AppConfig {
+            bind_addr: "127.0.0.1:8088".to_string(),
+            service_name: "world-service".to_string(),
+            log_level: "info".to_string(),
+            internal_auth_enabled: true,
+            internal_auth_secret: "integration-secret".to_string(),
+            allowed_caller_id: "fastapi-control-plane".to_string(),
+            allowed_scopes: "world.control.mutate".to_string(),
+            required_scope: "world.control.mutate".to_string(),
+            max_clock_skew_seconds: 120,
+            replay_window_seconds: 600,
+            internal_max_body_bytes: 64 * 1024,
+        }
+    }
+
+    fn test_app() -> axum::Router {
+        let config = test_config();
+        let auth_state = build_auth_state(&config).expect("auth state should build");
+        let state = AppState {
+            config: Arc::new(config),
+            started_at_unix: 1_700_000_000,
+        };
+        build_router(state, auth_state, HeaderName::from_static("x-request-id"))
+    }
+
+    fn signed_command_request(nonce: &str, command: &str) -> Request<Body> {
+        let method = "POST";
+        let path = "/internal/control/commands";
+        let now_unix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time should be valid")
+            .as_secs();
+        let body = format!(r#"{{"command":"{command}"}}"#);
+
+        let (body_hash, signature) = sign_request(
+            &SigningContract {
+                secret: "integration-secret",
+                method,
+                path_and_query: path,
+                service_id: "fastapi-control-plane",
+                scope: "world.control.mutate",
+                timestamp_unix: now_unix,
+                nonce,
+            },
+            body.as_bytes(),
+        );
+
+        Request::builder()
+            .method(method)
+            .uri(path)
+            .header("content-type", "application/json")
+            .header(HEADER_SERVICE_ID, "fastapi-control-plane")
+            .header(HEADER_SCOPE, "world.control.mutate")
+            .header(HEADER_TIMESTAMP, now_unix.to_string())
+            .header(HEADER_NONCE, nonce)
+            .header(HEADER_BODY_SHA256, body_hash)
+            .header(HEADER_SIGNATURE, signature)
+            .body(Body::from(body))
+            .expect("request should build")
+    }
+
+    #[tokio::test]
+    async fn internal_control_endpoint_rejects_unsigned_requests() {
+        let app = test_app();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/internal/control/commands")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"command":"tick"}"#))
+                    .expect("request should build"),
+            )
+            .await
+            .expect("response should resolve");
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn internal_control_endpoint_accepts_signed_requests() {
+        let app = test_app();
+        let response = app
+            .oneshot(signed_command_request("nonce-accept", "tick"))
+            .await
+            .expect("response should resolve");
+
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+    }
+
+    #[tokio::test]
+    async fn internal_control_endpoint_blocks_replay_nonce() {
+        let app = test_app();
+
+        let first = app
+            .clone()
+            .oneshot(signed_command_request("nonce-replay", "tick"))
+            .await
+            .expect("first response should resolve");
+        assert_eq!(first.status(), StatusCode::ACCEPTED);
+
+        let replay = app
+            .oneshot(signed_command_request("nonce-replay", "tick"))
+            .await
+            .expect("replay response should resolve");
+        assert_eq!(replay.status(), StatusCode::CONFLICT);
+    }
 }

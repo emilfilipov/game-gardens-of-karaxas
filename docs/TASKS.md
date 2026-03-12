@@ -19,7 +19,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-004 | ✅ | 3 | AOP-PIVOT-003 | Create Rust workspace scaffold (`sim-core`, `world-service`, `tooling-core`, `client-app`) with unified formatting/lint/test toolchain and CI wiring. |
 | AOP-PIVOT-005 | ✅ | 3 | AOP-PIVOT-004 | Add shared domain contracts crate for deterministic simulation types/events used by both service and client. |
 | AOP-PIVOT-006 | ✅ | 3 | AOP-PIVOT-004 | Stand up Rust world service shell (Axum + health/readiness/config endpoints + structured logging + tracing IDs). |
-| AOP-PIVOT-007 | ⬜ | 3 | AOP-PIVOT-006 | Introduce service-to-service auth/signing model between legacy FastAPI control plane and Rust world service. |
+| AOP-PIVOT-007 | ✅ | 3 | AOP-PIVOT-006 | Introduce service-to-service auth/signing model between legacy FastAPI control plane and Rust world service. |
 | AOP-PIVOT-008 | ⬜ | 3 | AOP-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
 | AOP-PIVOT-009 | ⬜ | 4 | AOP-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
 | AOP-PIVOT-010 | ⬜ | 4 | AOP-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
@@ -444,3 +444,4 @@ When work resumes after a pause:
 | AOP-PIVOT-004 | ✅ | 3 | AOP-PIVOT-003 | Rust workspace scaffolded (`sim-core`, `world-service`, `tooling-core`, `client-app`) with root Cargo workspace, rust toolchain config, and CI workflow `rust-checks.yml`. |
 | AOP-PIVOT-005 | ✅ | 3 | AOP-PIVOT-004 | Shared contracts implemented in `sim-core` (typed IDs, command/event envelopes, schema compatibility checks) and consumed by `world-service` and `client-app`. |
 | AOP-PIVOT-006 | ✅ | 3 | AOP-PIVOT-004 | `world-service` now boots an Axum server with env-based config, `/healthz` + `/readyz` + `/config` endpoints, request-ID propagation, and structured tracing. |
+| AOP-PIVOT-007 | ✅ | 3 | AOP-PIVOT-006 | Added HMAC-signed FastAPI -> Rust internal call contract with scope enforcement, nonce replay protection, and allow/deny integration tests for privileged `/internal/control/commands` calls. |

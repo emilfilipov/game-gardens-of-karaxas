@@ -8,6 +8,7 @@ FastAPI backend for Ambitions of Peace online account/control-plane systems duri
 - Character create/list/select
 - Chat channels/messages + websocket endpoint
 - Release policy ops endpoint for forced-update gating
+- Internal world-service call signing contract (`app/services/world_service_auth.py`) for authenticated FastAPI -> Rust control-plane requests
 
 ## Local
 1. Copy `backend/.env.example` to `backend/.env` and fill values.

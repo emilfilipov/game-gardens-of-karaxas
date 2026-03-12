@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     github_token: str = ""
     github_release_workflow: str = "release.yml"
     github_backend_workflow: str = "deploy-backend.yml"
+    world_service_base_url: str = "http://127.0.0.1:8088"
+    world_service_caller_id: str = "fastapi-control-plane"
+    world_service_scope: str = "world.control.mutate"
+    world_service_auth_secret: str = "dev-only-change-me"
+    world_service_request_timeout_seconds: float = 5.0
 
     db_host: str
     db_port: int = 5432
