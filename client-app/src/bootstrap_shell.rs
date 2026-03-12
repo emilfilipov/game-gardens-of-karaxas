@@ -19,6 +19,7 @@ const DEFAULT_API_BASE_URL: &str = "http://127.0.0.1:8000";
 const DEFAULT_CLIENT_VERSION: &str = "dev-0.1.0";
 const DEFAULT_CONTENT_VERSION_KEY: &str = "runtime_gameplay_v1";
 const DEFAULT_PANEL_LAYOUT_PATH: &str = "client-app/runtime/panel_layout.json";
+const DEFAULT_AUTHORED_MAP_PATH: &str = "client-app/runtime/authored_map.json";
 const MAP_SCALE: f32 = 2.3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -574,6 +575,217 @@ fn default_layout_snapshot(preset: LayoutPreset) -> PanelLayoutSnapshot {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct AuthoredSettlement {
+    id: u64,
+    name: String,
+    map_x: i32,
+    map_y: i32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct AuthoredRoute {
+    id: u64,
+    origin: u64,
+    destination: u64,
+    travel_hours: u32,
+    base_risk: u32,
+    is_sea_route: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct AuthoredMapData {
+    settlements: Vec<AuthoredSettlement>,
+    routes: Vec<AuthoredRoute>,
+}
+
+#[derive(Resource)]
+struct MapToolsState {
+    tools_enabled: bool,
+    storage_path: PathBuf,
+    data: AuthoredMapData,
+    selected_settlement_index: usize,
+    draft_route_origin_index: usize,
+    draft_route_destination_index: usize,
+    draft_route_travel_hours: u32,
+    draft_route_base_risk: u32,
+    draft_route_is_sea: bool,
+    last_status: String,
+    validation_errors: Vec<String>,
+}
+
+impl MapToolsState {
+    fn from_env() -> Self {
+        let storage_path = env::var("AOP_TOOLS_MAP_PATH")
+            .ok()
+            .and_then(trimmed_nonempty)
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(DEFAULT_AUTHORED_MAP_PATH));
+        let tools_enabled = env::var("AOP_TOOLS_ENABLED")
+            .ok()
+            .map(|raw| raw.trim().eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
+            || env::var("AOP_TOOLS_ROLE")
+                .ok()
+                .map(|raw| {
+                    let normalized = raw.trim().to_lowercase();
+                    matches!(normalized.as_str(), "designer" | "admin")
+                })
+                .unwrap_or(false);
+
+        let mut state = Self {
+            tools_enabled,
+            storage_path,
+            data: sample_authored_map_data(),
+            selected_settlement_index: 0,
+            draft_route_origin_index: 0,
+            draft_route_destination_index: 0,
+            draft_route_travel_hours: 24,
+            draft_route_base_risk: 800,
+            draft_route_is_sea: false,
+            last_status: "Tools mode inactive".to_string(),
+            validation_errors: Vec::new(),
+        };
+        if state.tools_enabled {
+            state.last_status = "Tools mode active".to_string();
+            state.load_from_disk();
+        }
+        state
+    }
+
+    fn load_from_disk(&mut self) {
+        let raw = match fs::read_to_string(&self.storage_path) {
+            Ok(raw) => raw,
+            Err(_) => return,
+        };
+        match serde_json::from_str::<AuthoredMapData>(&raw) {
+            Ok(mut data) => {
+                normalize_authored_map(&mut data);
+                self.data = data;
+                self.selected_settlement_index = 0;
+                self.last_status = format!("Loaded authored map from {}", self.storage_path.display());
+            }
+            Err(error) => {
+                self.last_status = format!("Failed loading authored map: {error}");
+            }
+        }
+    }
+
+    fn save_to_disk(&mut self) {
+        let mut data = self.data.clone();
+        normalize_authored_map(&mut data);
+        if let Some(parent) = self.storage_path.parent()
+            && let Err(error) = fs::create_dir_all(parent)
+        {
+            self.last_status = format!("Save failed: {error}");
+            return;
+        }
+        match serde_json::to_string_pretty(&data) {
+            Ok(payload) => match fs::write(&self.storage_path, payload) {
+                Ok(()) => {
+                    self.data = data;
+                    self.last_status = format!("Saved authored map to {}", self.storage_path.display());
+                }
+                Err(error) => {
+                    self.last_status = format!("Save failed: {error}");
+                }
+            },
+            Err(error) => {
+                self.last_status = format!("Save failed: {error}");
+            }
+        }
+    }
+}
+
+fn sample_authored_map_data() -> AuthoredMapData {
+    let graph = sample_levant_travel_graph();
+    let settlements = graph
+        .settlements()
+        .map(|row| AuthoredSettlement {
+            id: row.id.0,
+            name: row.name.clone(),
+            map_x: row.map_x,
+            map_y: row.map_y,
+        })
+        .collect::<Vec<_>>();
+    let routes = graph
+        .routes()
+        .map(|row| AuthoredRoute {
+            id: row.id.0,
+            origin: row.origin.0,
+            destination: row.destination.0,
+            travel_hours: row.travel_hours,
+            base_risk: row.base_risk,
+            is_sea_route: row.is_sea_route,
+        })
+        .collect::<Vec<_>>();
+    AuthoredMapData { settlements, routes }
+}
+
+fn normalize_authored_map(data: &mut AuthoredMapData) {
+    data.settlements.sort_by_key(|row| row.id);
+    data.routes.sort_by_key(|row| row.id);
+}
+
+fn validate_and_build_graph(data: &AuthoredMapData) -> Result<TravelGraph, Vec<String>> {
+    let mut errors = Vec::new();
+    let mut graph = TravelGraph::default();
+    let mut settlement_ids = BTreeMap::new();
+
+    for settlement in &data.settlements {
+        let name = settlement.name.trim();
+        if name.is_empty() {
+            errors.push(format!("Settlement {} has empty name", settlement.id));
+            continue;
+        }
+        if settlement_ids.insert(settlement.id, true).is_some() {
+            errors.push(format!("Duplicate settlement id {}", settlement.id));
+            continue;
+        }
+        graph.insert_settlement(sim_core::SettlementNode {
+            id: SettlementId(settlement.id),
+            name: name.to_string(),
+            map_x: settlement.map_x,
+            map_y: settlement.map_y,
+        });
+    }
+
+    let mut route_ids = BTreeMap::new();
+    for route in &data.routes {
+        if route_ids.insert(route.id, true).is_some() {
+            errors.push(format!("Duplicate route id {}", route.id));
+            continue;
+        }
+        if !settlement_ids.contains_key(&route.origin) {
+            errors.push(format!(
+                "Route {} origin settlement {} does not exist",
+                route.id, route.origin
+            ));
+            continue;
+        }
+        if !settlement_ids.contains_key(&route.destination) {
+            errors.push(format!(
+                "Route {} destination settlement {} does not exist",
+                route.id, route.destination
+            ));
+            continue;
+        }
+
+        if let Err(error) = graph.insert_route(sim_core::RouteEdge {
+            id: sim_core::RouteId(route.id),
+            origin: SettlementId(route.origin),
+            destination: SettlementId(route.destination),
+            travel_hours: route.travel_hours,
+            base_risk: route.base_risk,
+            is_sea_route: route.is_sea_route,
+        }) {
+            errors.push(format!("Route {} invalid: {}", route.id, error));
+        }
+    }
+
+    if errors.is_empty() { Ok(graph) } else { Err(errors) }
+}
+
 enum BackendRequest {
     Login {
         email: String,
@@ -676,10 +888,14 @@ pub fn run() {
         .insert_resource(CampaignScene::default())
         .insert_resource(CampaignMapSurface::sample())
         .insert_resource(PanelUiState::from_env())
+        .insert_resource(MapToolsState::from_env())
         .insert_resource(ClearColor(Color::srgb(0.05, 0.07, 0.08)))
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin::default())
-        .add_systems(Startup, (setup_scene, startup_handoff_fetch))
+        .add_systems(
+            Startup,
+            (setup_scene, startup_handoff_fetch, startup_apply_authored_map),
+        )
         .add_systems(
             Update,
             (
@@ -922,6 +1138,23 @@ fn startup_handoff_fetch(mut shell: ResMut<ShellState>, bridge: Res<BackendBridg
     }
 }
 
+fn startup_apply_authored_map(mut map: ResMut<CampaignMapSurface>, mut tools: ResMut<MapToolsState>) {
+    if !tools.tools_enabled {
+        return;
+    }
+    match validate_and_build_graph(&tools.data) {
+        Ok(graph) => {
+            apply_graph_to_surface(&mut map, graph);
+            tools.validation_errors.clear();
+            tools.last_status = "Tools map loaded and validated.".to_string();
+        }
+        Err(errors) => {
+            tools.validation_errors = errors;
+            tools.last_status = "Tools map validation failed on startup; using fallback map.".to_string();
+        }
+    }
+}
+
 fn poll_backend_responses(mut shell: ResMut<ShellState>, bridge: Res<BackendBridge>) {
     let mut messages = Vec::new();
     {
@@ -1100,6 +1333,38 @@ fn marker_world_position(map: &CampaignMapSurface, marker: &MovingMapMarker) -> 
     Some(origin.lerp(destination, marker.progress.clamp(0.0, 1.0)))
 }
 
+fn apply_graph_to_surface(map: &mut CampaignMapSurface, graph: TravelGraph) {
+    let settlements = graph
+        .settlements()
+        .map(|row| {
+            let fog = match row.id.0 {
+                1..=3 => FogVisibility::Visible,
+                4..=5 => FogVisibility::Shrouded,
+                _ => FogVisibility::Obscured,
+            };
+            SettlementRenderNode {
+                id: row.id,
+                name: row.name.clone(),
+                map_x: row.map_x as f32,
+                map_y: row.map_y as f32,
+                fog,
+            }
+        })
+        .collect::<Vec<_>>();
+    let routes = graph
+        .routes()
+        .map(|row| RouteRenderEdge {
+            origin: row.origin,
+            destination: row.destination,
+            is_sea_route: row.is_sea_route,
+        })
+        .collect::<Vec<_>>();
+
+    map.graph = graph;
+    map.settlements = settlements;
+    map.routes = routes;
+}
+
 fn draw_shell_ui(
     mut egui_contexts: EguiContexts,
     mut shell: ResMut<ShellState>,
@@ -1107,6 +1372,7 @@ fn draw_shell_ui(
     bridge: Res<BackendBridge>,
     mut map: ResMut<CampaignMapSurface>,
     mut panels: ResMut<PanelUiState>,
+    mut tools: ResMut<MapToolsState>,
 ) {
     let Ok(ctx) = egui_contexts.ctx_mut() else {
         return;
@@ -1145,6 +1411,7 @@ fn draw_shell_ui(
 
     if shell.phase == ShellPhase::CampaignReady {
         render_domain_panels(ctx, &shell, &map, &mut panels);
+        render_tools_window(ctx, &mut map, &mut tools);
     }
 }
 
@@ -1544,6 +1811,237 @@ where
     }
 }
 
+fn render_tools_window(ctx: &egui::Context, map: &mut CampaignMapSurface, tools: &mut MapToolsState) {
+    if !tools.tools_enabled {
+        return;
+    }
+
+    egui::Window::new("Tools Mode - Map Authoring")
+        .anchor(egui::Align2::RIGHT_TOP, [-16.0, 16.0])
+        .default_size([460.0, 620.0])
+        .resizable(true)
+        .show(ctx, |ui| {
+            ui.label("Role-gated tools mode is active.");
+            ui.label("Edit settlements/routes, validate schema, then save authored map JSON.");
+            ui.label(format!("Storage: {}", tools.storage_path.display()));
+            ui.label(format!("Status: {}", tools.last_status));
+
+            ui.separator();
+            ui.heading("Settlement Editor");
+            if tools.data.settlements.is_empty() {
+                ui.label("No settlements available.");
+            } else {
+                tools.selected_settlement_index = tools
+                    .selected_settlement_index
+                    .min(tools.data.settlements.len().saturating_sub(1));
+                let selected_label = tools
+                    .data
+                    .settlements
+                    .get(tools.selected_settlement_index)
+                    .map(|row| format!("#{} {}", row.id, row.name))
+                    .unwrap_or_else(|| "None".to_string());
+                egui::ComboBox::from_label("Selected Settlement")
+                    .selected_text(selected_label)
+                    .show_ui(ui, |ui| {
+                        for (index, settlement) in tools.data.settlements.iter().enumerate() {
+                            ui.selectable_value(
+                                &mut tools.selected_settlement_index,
+                                index,
+                                format!("#{} {}", settlement.id, settlement.name),
+                            );
+                        }
+                    });
+
+                if let Some(selected) = tools.data.settlements.get_mut(tools.selected_settlement_index) {
+                    ui.horizontal(|ui| {
+                        ui.label("Name");
+                        ui.text_edit_singleline(&mut selected.name);
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Map X");
+                        ui.add(egui::DragValue::new(&mut selected.map_x).range(-200..=200));
+                        ui.label("Map Y");
+                        ui.add(egui::DragValue::new(&mut selected.map_y).range(-200..=200));
+                    });
+                }
+
+                ui.horizontal(|ui| {
+                    if ui.button("Add Settlement").clicked() {
+                        let next_id = tools
+                            .data
+                            .settlements
+                            .iter()
+                            .map(|row| row.id)
+                            .max()
+                            .unwrap_or(0)
+                            .saturating_add(1);
+                        tools.data.settlements.push(AuthoredSettlement {
+                            id: next_id,
+                            name: format!("New Settlement {next_id}"),
+                            map_x: 0,
+                            map_y: 0,
+                        });
+                        normalize_authored_map(&mut tools.data);
+                        tools.selected_settlement_index = tools
+                            .data
+                            .settlements
+                            .iter()
+                            .position(|row| row.id == next_id)
+                            .unwrap_or(0);
+                        tools.last_status = format!("Added settlement {next_id}");
+                    }
+                    if ui.button("Delete Selected").clicked() && !tools.data.settlements.is_empty() {
+                        let removed = tools.data.settlements.remove(tools.selected_settlement_index);
+                        tools.selected_settlement_index = tools
+                            .selected_settlement_index
+                            .min(tools.data.settlements.len().saturating_sub(1));
+                        tools.last_status = format!("Deleted settlement {}", removed.id);
+                        tools
+                            .data
+                            .routes
+                            .retain(|row| row.origin != removed.id && row.destination != removed.id);
+                    }
+                });
+            }
+
+            ui.separator();
+            ui.heading("Route Editor");
+            if tools.data.settlements.len() < 2 {
+                ui.label("Need at least two settlements to define routes.");
+            } else {
+                tools.draft_route_origin_index = tools
+                    .draft_route_origin_index
+                    .min(tools.data.settlements.len().saturating_sub(1));
+                tools.draft_route_destination_index = tools
+                    .draft_route_destination_index
+                    .min(tools.data.settlements.len().saturating_sub(1));
+
+                egui::ComboBox::from_label("Origin")
+                    .selected_text(tools.data.settlements[tools.draft_route_origin_index].name.clone())
+                    .show_ui(ui, |ui| {
+                        for (index, settlement) in tools.data.settlements.iter().enumerate() {
+                            ui.selectable_value(
+                                &mut tools.draft_route_origin_index,
+                                index,
+                                format!("#{} {}", settlement.id, settlement.name),
+                            );
+                        }
+                    });
+                egui::ComboBox::from_label("Destination")
+                    .selected_text(tools.data.settlements[tools.draft_route_destination_index].name.clone())
+                    .show_ui(ui, |ui| {
+                        for (index, settlement) in tools.data.settlements.iter().enumerate() {
+                            ui.selectable_value(
+                                &mut tools.draft_route_destination_index,
+                                index,
+                                format!("#{} {}", settlement.id, settlement.name),
+                            );
+                        }
+                    });
+                ui.horizontal(|ui| {
+                    ui.label("Travel Hours");
+                    ui.add(egui::DragValue::new(&mut tools.draft_route_travel_hours).range(1..=480));
+                    ui.label("Base Risk");
+                    ui.add(egui::DragValue::new(&mut tools.draft_route_base_risk).range(0..=10_000));
+                });
+                ui.checkbox(&mut tools.draft_route_is_sea, "Sea route");
+                if ui.button("Add Route").clicked() {
+                    if tools.draft_route_origin_index == tools.draft_route_destination_index {
+                        tools.last_status = "Cannot create route to same settlement.".to_string();
+                    } else {
+                        let origin_id = tools.data.settlements[tools.draft_route_origin_index].id;
+                        let destination_id = tools.data.settlements[tools.draft_route_destination_index].id;
+                        let next_id = tools
+                            .data
+                            .routes
+                            .iter()
+                            .map(|row| row.id)
+                            .max()
+                            .unwrap_or(0)
+                            .saturating_add(1);
+                        tools.data.routes.push(AuthoredRoute {
+                            id: next_id,
+                            origin: origin_id,
+                            destination: destination_id,
+                            travel_hours: tools.draft_route_travel_hours.max(1),
+                            base_risk: tools.draft_route_base_risk,
+                            is_sea_route: tools.draft_route_is_sea,
+                        });
+                        normalize_authored_map(&mut tools.data);
+                        tools.last_status = format!("Added route {next_id}");
+                    }
+                }
+                ui.collapsing("Current Routes", |ui| {
+                    for route in tools.data.routes.iter().take(12) {
+                        ui.label(format!(
+                            "#{} S{} -> S{} | {}h | risk {} | sea {}",
+                            route.id,
+                            route.origin,
+                            route.destination,
+                            route.travel_hours,
+                            route.base_risk,
+                            route.is_sea_route
+                        ));
+                    }
+                });
+            }
+
+            ui.separator();
+            ui.heading("Validation and Persistence");
+            ui.horizontal(|ui| {
+                if ui.button("Validate").clicked() {
+                    match validate_and_build_graph(&tools.data) {
+                        Ok(graph) => {
+                            tools.validation_errors.clear();
+                            apply_graph_to_surface(map, graph);
+                            tools.last_status = "Validation passed and map applied.".to_string();
+                        }
+                        Err(errors) => {
+                            tools.validation_errors = errors;
+                            tools.last_status = "Validation failed.".to_string();
+                        }
+                    }
+                }
+                if ui.button("Save").clicked() {
+                    match validate_and_build_graph(&tools.data) {
+                        Ok(graph) => {
+                            tools.validation_errors.clear();
+                            apply_graph_to_surface(map, graph);
+                            tools.save_to_disk();
+                        }
+                        Err(errors) => {
+                            tools.validation_errors = errors;
+                            tools.last_status = "Save blocked by validation errors.".to_string();
+                        }
+                    }
+                }
+                if ui.button("Load").clicked() {
+                    tools.load_from_disk();
+                    match validate_and_build_graph(&tools.data) {
+                        Ok(graph) => {
+                            tools.validation_errors.clear();
+                            apply_graph_to_surface(map, graph);
+                            tools.last_status = "Loaded authored map and applied.".to_string();
+                        }
+                        Err(errors) => {
+                            tools.validation_errors = errors;
+                            tools.last_status = "Loaded authored map but validation failed.".to_string();
+                        }
+                    }
+                }
+            });
+
+            if tools.validation_errors.is_empty() {
+                ui.label("Validation: OK");
+            } else {
+                ui.colored_label(egui::Color32::from_rgb(236, 111, 99), "Validation errors:");
+                for row in tools.validation_errors.iter().take(12) {
+                    ui.label(format!("- {row}"));
+                }
+            }
+        });
+}
+
 fn sync_campaign_scene(mut commands: Commands, mut scene: ResMut<CampaignScene>, shell: Res<ShellState>) {
     let Some(bootstrap) = shell.campaign_bootstrap.as_ref() else {
         if let Some(marker) = scene.marker_entity.take() {
@@ -1610,8 +2108,9 @@ fn trimmed_nonempty(value: String) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        CharacterSummary, DOMAIN_PANELS, LayoutPreset, default_layout_snapshot, extract_error_message,
-        resolve_selected_character_id,
+        AuthoredMapData, AuthoredRoute, AuthoredSettlement, CharacterSummary, DOMAIN_PANELS, LayoutPreset,
+        default_layout_snapshot, extract_error_message, resolve_selected_character_id, sample_authored_map_data,
+        validate_and_build_graph,
     };
 
     #[test]
@@ -1658,5 +2157,36 @@ mod tests {
             assert!(snapshot.open.contains_key(panel.key()));
             assert!(snapshot.rects.contains_key(panel.key()));
         }
+    }
+
+    #[test]
+    fn authored_map_validation_rejects_missing_route_settlement() {
+        let invalid = AuthoredMapData {
+            settlements: vec![AuthoredSettlement {
+                id: 1,
+                name: "A".to_string(),
+                map_x: 0,
+                map_y: 0,
+            }],
+            routes: vec![AuthoredRoute {
+                id: 7,
+                origin: 1,
+                destination: 2,
+                travel_hours: 12,
+                base_risk: 500,
+                is_sea_route: false,
+            }],
+        };
+
+        let errors = validate_and_build_graph(&invalid).expect_err("Expected validation to fail");
+        assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn sample_authored_map_validates_to_graph() {
+        let sample = sample_authored_map_data();
+        let graph = validate_and_build_graph(&sample).expect("Sample authored map should validate");
+        assert!(graph.settlements().count() > 0);
+        assert!(graph.routes().count() > 0);
     }
 }

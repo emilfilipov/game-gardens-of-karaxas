@@ -122,6 +122,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: campaign view renders dedicated `character`, `household`, `logistics`, `trade`, `espionage`, `diplomacy`, and `notifications` panels with standardized hotkeys and saved layout presets.
 - Gameplay impact: core strategic interfaces are now navigable through code-defined UI primitives and can evolve deterministically with gameplay systems.
 
+#### Code-first authoring tools mode (map/system editing)
+- Purpose: allow internal world/system authoring without external editor dependency.
+- Loop: role-gated tools mode edits settlement/route data in-app, validates schema constraints before save, and persists/load authored map JSON for iterative tuning.
+- Gameplay impact: playable map/system content can now be created and adjusted directly in the client code/UI workflow.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.

@@ -112,6 +112,10 @@ Legacy prototype documents that conflict with this direction are archived under 
   - `character`, `household`, `logistics`, `trade`, `espionage`, `diplomacy`, and `notifications`,
   - unified keyboard toggles (`F1`..`F7`) and panel toolbar controls,
   - persisted panel state + layout preset save/load (`strategist`, `operations`) through JSON snapshot file (`AOP_PANEL_LAYOUT_PATH`, default `client-app/runtime/panel_layout.json`).
+- Bootstrap shell now includes role-gated code-first map authoring tools mode:
+  - enable via `AOP_TOOLS_ENABLED=true` or `AOP_TOOLS_ROLE=designer|admin`,
+  - edit settlements and routes in-app, run schema validation before save, and view inline validation errors,
+  - load/save authored map JSON (`AOP_TOOLS_MAP_PATH`, default `client-app/runtime/authored_map.json`) and apply validated graphs to live map rendering.
 - `client-app` now includes a feature-gated manual sandbox UI (`cargo run -p client-app --features sandbox-ui`) with map rendering, route dispatch controls, and simulation clocks for PoC systems validation.
 - Sandbox UI now includes a real-time logistics panel (army stocks/shortage status + convoy queue button) powered by shared `sim-core` logistics rules for manual system validation.
 - Sandbox UI now also includes a real-time trade panel (shipment queue control + market stock/price/pressure readouts) powered by shared `sim-core` trade rules.
