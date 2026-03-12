@@ -1,6 +1,6 @@
-# Children of Ikphelion Backend
+# Ambitions of Peace Backend (Transitional FastAPI Control Plane)
 
-FastAPI backend for Children of Ikphelion online account/lobby systems.
+FastAPI backend for Ambitions of Peace online account/control-plane systems during migration to the Rust world-authority architecture.
 
 ## Features (current scaffold)
 - Auth: register/login/refresh/logout

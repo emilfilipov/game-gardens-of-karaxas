@@ -1,6 +1,6 @@
-# Plompers Arena Inc. - Godot Game Client
+# Ambitions of Peace - Legacy Godot Game Client (Transitional)
 
-This module is the online arena-runtime Godot client shell for Plompers Arena Inc.
+This module is the legacy Godot client shell retained during migration to the Ambitions of Peace Rust-first runtime direction.
 
 ## Current Scope
 - Online auth flow (`login/register`) with backend session tokens.

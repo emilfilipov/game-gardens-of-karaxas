@@ -1,6 +1,4 @@
-- Enabled 3D runtime routing in `game-client/scripts/client_shell.gd` and switched default renderer mode to 3D domain-aware selection.
-- Implemented first playable 3D arena fallback in `world_canvas_3d.gd`: flat ground, grass foliage, top-down PoE-like camera, boundary walls, and movement-ready world spawn.
-- Added interaction-driven color reveal prototype in 3D world: movement paints localized ground/grass color and wall collisions create colored impact markers.
-- Added plomper-ball avatar generation path in `sellsword_3d_factory.gd` and wired runtime appearance fallback to plomper model behavior.
-- Migrated release runtime gate from 2D contract check to `game-client/tests/check_3d_runtime_contract.py` and updated workflow to enforce the 3D contract.
-- Updated runtime/game naming surfaces and configuration metadata to `Plompers Arena Inc.` in the active game-client/backend config paths.
+- Pivoted canonical product and technical documentation to the persistent Crusades-era strategy RPG direction with Rust-first architecture contracts.
+- Renamed documentation references and templates to the new product name `Ambitions of Peace`.
+- Updated release artifact retention policy documentation and workflow behavior to keep only the latest 3 builds in GCS feed/archive paths.
+- Added explicit agent workflow guidance to skip GitHub Actions polling for docs-only pushes that do not match workflow path triggers.

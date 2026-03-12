@@ -1,4 +1,4 @@
-# Gardens of Karaxas - Agent Guide
+# Ambitions of Peace - Agent Guide
 
 ## Canonical Docs (Read First)
 - `docs/GAME.md` - all game/product information and scope.
@@ -81,7 +81,7 @@ Explicitly forbidden for UI concept iteration work:
 - Preserve portability path: Windows first, then Linux/Steam, then Android.
 
 ## UI Quality Rule
-- All UI dialogs, panels, and controls must be themed to Gardens of Karaxas.
+- All UI dialogs, panels, and controls must be themed to Ambitions of Peace.
 - Do not ship placeholder/system-default UI surfaces for in-game launcher flows.
 
 ## System Map
