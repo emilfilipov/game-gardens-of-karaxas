@@ -2,10 +2,15 @@
 
 use serde::{Deserialize, Serialize};
 
+mod espionage;
 mod logistics;
 mod trade;
 mod travel;
 
+pub use espionage::{
+    CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent, EspionageTickResult, EspionageWorld, InformantState,
+    InformantStatus, IntelReportRecord, RecruitInformantOrder, RequestIntelReportOrder, sample_espionage_world,
+};
 pub use logistics::{
     ArmyLogisticsState, LogisticsTickEvent, LogisticsTickResult, LogisticsWorld, SupplyStock, SupplyTransferOrder,
     sample_logistics_world,
@@ -36,6 +41,7 @@ id_type!(SettlementId);
 id_type!(HouseholdId);
 id_type!(ArmyId);
 id_type!(CharacterId);
+id_type!(InformantId);
 
 /// Canonical deterministic tick index used by authority services and replay checks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -87,6 +93,23 @@ pub enum CommandPayload {
         origin_settlement: SettlementId,
         destination_settlement: SettlementId,
         goods: SupplyStock,
+    },
+    RecruitInformant {
+        informant_id: InformantId,
+        handler_faction: FactionId,
+        target_faction: FactionId,
+        location: SettlementId,
+        reliability_bp: u32,
+        deception_bp: u32,
+    },
+    RequestIntelReport {
+        informant_id: InformantId,
+        subject_settlement: SettlementId,
+    },
+    CounterIntelSweep {
+        defender_faction: FactionId,
+        settlement_id: SettlementId,
+        intensity_bp: u32,
     },
 }
 
@@ -153,6 +176,54 @@ pub enum EventPayload {
         tariff_pressure_bp: u32,
         tick: Tick,
     },
+    InformantRecruited {
+        informant_id: InformantId,
+        handler_faction: FactionId,
+        target_faction: FactionId,
+        location: SettlementId,
+        reliability_bp: u32,
+        deception_bp: u32,
+        tick: Tick,
+    },
+    InformantRecruitQueued {
+        informant_id: InformantId,
+        handler_faction: FactionId,
+        target_faction: FactionId,
+        location: SettlementId,
+        reliability_bp: u32,
+        deception_bp: u32,
+        tick: Tick,
+    },
+    IntelReportRequested {
+        informant_id: InformantId,
+        subject_settlement: SettlementId,
+        tick: Tick,
+    },
+    InformantStatusChanged {
+        informant_id: InformantId,
+        status: InformantStatus,
+        reliability_bp: u32,
+        exposure_bp: u32,
+        tick: Tick,
+    },
+    IntelReportGenerated {
+        report: IntelReportRecord,
+        tick: Tick,
+    },
+    CounterIntelSweepResolved {
+        defender_faction: FactionId,
+        settlement_id: SettlementId,
+        intensity_bp: u32,
+        detected_informants: Vec<InformantId>,
+        neutralized_informants: Vec<InformantId>,
+        tick: Tick,
+    },
+    CounterIntelSweepQueued {
+        defender_faction: FactionId,
+        settlement_id: SettlementId,
+        intensity_bp: u32,
+        tick: Tick,
+    },
 }
 
 pub type CommandEnvelope = Envelope<CommandPayload>;
@@ -185,8 +256,9 @@ pub fn evaluate_schema_version(version: u32) -> SchemaCompatibility {
 #[cfg(test)]
 mod tests {
     use super::{
-        ArmyId, CommandEnvelope, CommandPayload, EventPayload, MIN_COMPATIBLE_SCHEMA_VERSION, SIM_SCHEMA_VERSION,
-        SchemaCompatibility, SettlementId, Tick, evaluate_schema_version,
+        ArmyId, CommandEnvelope, CommandPayload, EventPayload, FactionId, InformantId, InformantStatus,
+        IntelReportRecord, MIN_COMPATIBLE_SCHEMA_VERSION, SIM_SCHEMA_VERSION, SchemaCompatibility, SettlementId, Tick,
+        evaluate_schema_version,
     };
 
     #[test]
@@ -242,6 +314,62 @@ mod tests {
             origin: SettlementId(10),
             destination: SettlementId(11),
             tick: Tick(512),
+        };
+
+        let json = serde_json::to_string(&payload).expect("serialize event payload");
+        let decoded: EventPayload = serde_json::from_str(&json).expect("deserialize event payload");
+
+        assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn espionage_command_payload_roundtrip_is_stable() {
+        let envelope = CommandEnvelope::new(
+            "trace-espionage-command",
+            CommandPayload::CounterIntelSweep {
+                defender_faction: FactionId(2),
+                settlement_id: SettlementId(3),
+                intensity_bp: 7_500,
+            },
+        );
+
+        let json = serde_json::to_string(&envelope).expect("serialize command envelope");
+        let decoded: CommandEnvelope = serde_json::from_str(&json).expect("deserialize command envelope");
+
+        assert_eq!(decoded, envelope);
+    }
+
+    #[test]
+    fn espionage_event_payload_roundtrip_is_stable() {
+        let payload = EventPayload::IntelReportGenerated {
+            report: IntelReportRecord {
+                informant_id: InformantId(9001),
+                handler_faction: FactionId(1),
+                target_faction: FactionId(2),
+                subject_settlement: SettlementId(5),
+                confidence_bp: 6_200,
+                reliability_bp: 6_800,
+                false_report: false,
+                exposure_bp: 4_100,
+                tick: Tick(42),
+            },
+            tick: Tick(42),
+        };
+
+        let json = serde_json::to_string(&payload).expect("serialize event payload");
+        let decoded: EventPayload = serde_json::from_str(&json).expect("deserialize event payload");
+
+        assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn espionage_status_event_roundtrip_is_stable() {
+        let payload = EventPayload::InformantStatusChanged {
+            informant_id: InformantId(9002),
+            status: InformantStatus::Dormant,
+            reliability_bp: 5_500,
+            exposure_bp: 7_800,
+            tick: Tick(88),
         };
 
         let json = serde_json::to_string(&payload).expect("serialize event payload");

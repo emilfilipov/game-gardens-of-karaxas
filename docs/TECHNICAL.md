@@ -63,6 +63,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - World service now includes deterministic single-shard tick runner primitives (`world-service/src/tick_runner.rs`) with fixed cadence execution, deterministic command ordering, periodic snapshot hashing/checkpoints, and tick lag/duration metrics.
 - Tick runner now also executes a deterministic real-time logistics subsystem each tick (supply consumption, queued convoy transfers, shortage pressure, and attrition effects) backed by shared `sim-core` contracts.
 - Tick runner now also executes a deterministic real-time trade subsystem each tick (shipment execution with throughput/safety/tariff effects plus periodic market price recompute from shortage/surplus pressure).
+- Tick runner now also executes a deterministic real-time espionage subsystem each tick (informant lifecycle drift, reliability/deception pressure, deterministic report generation, and counter-intelligence sweep resolution).
 - Signed internal endpoint `/internal/control/tick` advances deterministic ticks for PoC orchestration/testing.
 - World service now exposes deterministic travel APIs backed by shared `sim-core` graph contracts:
   - `GET /travel/map`
@@ -72,8 +73,11 @@ Legacy prototype documents that conflict with this direction are archived under 
   - `GET /logistics/state`
 - World service now also exposes deterministic trade state API backed by the same tick authority loop:
   - `GET /trade/state`
+- World service now also exposes deterministic espionage state API backed by the same tick authority loop:
+  - `GET /espionage/state`
 - Internal signed control command contract now includes logistics convoy transfer queueing (`queue_supply_transfer`) through `/internal/control/commands`.
 - Internal signed control command contract now also includes trade shipment queueing (`queue_trade_shipment`) through `/internal/control/commands`.
+- Internal signed control command contract now also includes espionage queueing actions (`recruit_informant`, `request_intel_report`, `counter_intel_sweep`) through `/internal/control/commands`.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 - Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, choke-point detection, and arrival estimates).
@@ -87,6 +91,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - `client-app` now includes a feature-gated manual sandbox UI (`cargo run -p client-app --features sandbox-ui`) with map rendering, route dispatch controls, and simulation clocks for PoC systems validation.
 - Sandbox UI now includes a real-time logistics panel (army stocks/shortage status + convoy queue button) powered by shared `sim-core` logistics rules for manual system validation.
 - Sandbox UI now also includes a real-time trade panel (shipment queue control + market stock/price/pressure readouts) powered by shared `sim-core` trade rules.
+- Sandbox UI now also includes a real-time espionage panel (informant recruit/report/sweep controls + status/report readouts) powered by shared `sim-core` espionage rules.
 - Placeholder player sprite asset is generated in-repo (`tools/generate_player_placeholder_png.py` -> `client-app/assets/player_circle.png`) to keep early UI flow asset-stable.
 - Runtime priority is Windows-first for client delivery and manual validation loops; Linux/Steam client parity is deferred until post-PoC hardening.
 
@@ -130,6 +135,7 @@ Current baseline checks retained during transition:
 - `cargo test --workspace`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox` job in `.github/workflows/rust-checks.yml`).
+- Regression policy: each implemented simulation subsystem must include deterministic unit tests plus payload serialization roundtrip tests to prevent cross-system breakage during rapid iteration.
 
 Migration-era additions (implemented in scaffold phase):
 - Rust CI workflow: `.github/workflows/rust-checks.yml`

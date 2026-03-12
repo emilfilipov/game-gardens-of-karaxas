@@ -70,22 +70,22 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: per tick, armies consume stock, queued convoy transfers execute, shortages accumulate pressure, and attrition is applied when supply fails.
 - Gameplay impact: army effectiveness is sustained by logistics discipline, not only battle engagements.
 
+#### Real-time trade simulation
+- Purpose: make non-combat economic play a power path with strategic leverage.
+- Loop: markets hold inventory and targets, shipments traverse deterministic routes with throughput/safety/tariff effects, and periodic shortage/surplus recompute updates local price pressure.
+- Gameplay impact: route control and convoy flow now materially shift local economies and downstream strategic leverage.
+
+#### Real-time espionage simulation
+- Purpose: make information quality and deception an active strategic layer.
+- Loop: informants progress through lifecycle states (active/dormant/burned), report generation emits reliability/confidence metadata with deterministic false-report pressure, and counter-intelligence sweeps detect/neutralize hostile assets over time.
+- Gameplay impact: intelligence posture is now a controllable competitive axis rather than binary fog-of-war.
+
 #### Real-time manual validation sandbox UI
 - Purpose: allow direct manual validation of simulation systems before full vertical-slice UX exists.
-- Loop: sandbox surfaces live simulation clock, travel controls, logistics controls, and world-state readouts each tick.
+- Loop: sandbox surfaces live simulation clock, travel controls, logistics/trade/espionage controls, and world-state readouts each tick.
 - Gameplay impact: fast development iteration and early balancing feedback without editor-only workflows.
 
 ### Planned Core Gameplay Systems
-#### Real-time trade simulation
-- Purpose: make non-combat economic play a power path with strategic leverage.
-- Loop: markets hold inventory and targets, trade shipments traverse routes with throughput/safety/tariff effects, and prices update from shortage/surplus pressure.
-- Gameplay impact: controlling routes and market flow changes local affordability, leverage, and faction capability.
-
-#### Real-time espionage simulation
-- Purpose: make information quality and deception part of core strategy.
-- Loop: informant assets generate reports with confidence/reliability metadata; misinformation and counter-intelligence interact over time.
-- Gameplay impact: intelligence superiority and disinformation become alternatives to direct force.
-
 #### Real-time politics simulation
 - Purpose: support influence-based progression beyond military strength.
 - Loop: faction standing, legitimacy, offices, and treaty effects evolve continuously with action-driven deltas.

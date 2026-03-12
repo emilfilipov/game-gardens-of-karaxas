@@ -26,7 +26,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs, then bind client movement to route-duration real-time progression. |
 | AOP-PIVOT-012 | ✅ | 4 | AOP-PIVOT-010 | Implement real-time logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
 | AOP-PIVOT-013 | ✅ | 4 | AOP-PIVOT-010 | Implement real-time trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
-| AOP-PIVOT-014 | ⬜ | 4 | AOP-PIVOT-010 | Implement real-time espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
+| AOP-PIVOT-014 | ✅ | 4 | AOP-PIVOT-010 | Implement real-time espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
 | AOP-PIVOT-015 | ⬜ | 3 | AOP-PIVOT-010 | Implement real-time politics model (faction standing, offices, legitimacy metrics, treaty records, influence deltas). |
 | AOP-PIVOT-016 | ⬜ | 4 | AOP-PIVOT-011 | Implement real-time battle instancing contract (campaign encounter -> battle instance record -> battle result writeback) with fixed-step authority loop. |
 | AOP-PIVOT-017 | ⬜ | 3 | AOP-PIVOT-016 | Implement first real-time tactical battle ruleset MVP (formation controls, morale pressure, reserve timing, continuous outcome scoring). |
@@ -45,6 +45,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-030 | ⬜ | 2 | AOP-PIVOT-029 | Define monthly PoC cost report process and enforce budget guardrails for Cloud Run, Cloud SQL, GCS, and optional Redis adoption. |
 | AOP-PIVOT-031 | ⬜ | 3 | AOP-PIVOT-027 | Prepare external playtest hardening checklist (security, abuse controls, rollback drills, release rollback, data backups). |
 | AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Add manual validation Bevy sandbox surface (clock panel + route planning controls + route-time-driven moving player placeholder sprite generated as PNG) for local systems smoke testing. |
+| AOP-PIVOT-034 | ✅ | 3 | AOP-PIVOT-014 | Expand deterministic regression/unit-test matrix across implemented simulation systems to catch cross-system side effects quickly. |
 
 ## Detailed Task Specs
 
@@ -245,6 +246,20 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
   - misinformation and detection outcomes are reproducible.
 - Validation:
   - espionage scenario tests and replay consistency checks.
+
+### AOP-PIVOT-034 - Cross-System Regression Test Matrix
+- Objective: ensure changes in one subsystem do not silently regress other implemented systems.
+- Implementation checklist:
+  - expand `sim-core` coverage for espionage lifecycle transitions, passive report cadence, and deterministic false-report/counter-intel outcomes,
+  - add serialization roundtrip tests for newly introduced espionage command/event payload variants,
+  - add world-service integration tests covering espionage command queue + tick advance + state readback,
+  - run full workspace lint/test gate after test additions.
+- Acceptance criteria:
+  - all implemented real-time subsystems (travel, logistics, trade, espionage) have deterministic unit/integration test coverage for key behavior,
+  - payload compatibility tests cover newly added command/event variants used across service boundaries.
+- Validation:
+  - `cargo test --workspace`
+  - `cargo clippy --workspace --all-targets -- -D warnings`
 
 ### AOP-PIVOT-015 - Political Systems
 - Objective: allow influence-based progression outside military strength.
@@ -467,4 +482,6 @@ When work resumes after a pause:
 | AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Added deterministic travel graph/pathing domain in `sim-core` (adjacency, risk modifiers, fastest/safest planning, choke-point detection, arrival estimates), exposed world-service travel map/adjacency/plan APIs, and aligned client sandbox movement to route-duration real-time progression. |
 | AOP-PIVOT-012 | ✅ | 4 | AOP-PIVOT-010 | Added shared `sim-core` logistics domain (supply stocks, convoy transfers, shortage-driven attrition), integrated logistics processing into `world-service` deterministic ticks with signed `queue_supply_transfer` command support and `GET /logistics/state`, and expanded sandbox UI with real-time logistics status/convoy controls for manual validation. |
 | AOP-PIVOT-013 | ✅ | 4 | AOP-PIVOT-010 | Added shared `sim-core` trade domain (markets, trade routes, shipment throughput/safety/tariff effects, periodic shortage/surplus price recompute), integrated trade processing into `world-service` deterministic ticks with signed `queue_trade_shipment` command support and `GET /trade/state`, and expanded sandbox UI with real-time trade shipment/market validation controls. |
+| AOP-PIVOT-014 | ✅ | 4 | AOP-PIVOT-010 | Added shared `sim-core` espionage domain (informant lifecycle states, deterministic report confidence/reliability metadata, false-report pressure, and counter-intelligence sweep outcomes), integrated espionage processing into `world-service` deterministic ticks with signed `recruit_informant`/`request_intel_report`/`counter_intel_sweep` command support and `GET /espionage/state`, and expanded sandbox UI with real-time espionage controls/state reporting. |
 | AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Added feature-gated Bevy sandbox in `client-app` with live clocks, route-planning controls, and animated player marker loaded from generated placeholder asset `client-app/assets/player_circle.png`. |
+| AOP-PIVOT-034 | ✅ | 3 | AOP-PIVOT-014 | Expanded deterministic regression tests across implemented systems by adding espionage lifecycle/passive-report unit tests, serialization roundtrip tests for new espionage command/event payloads, and world-service espionage command->tick->state integration coverage. |

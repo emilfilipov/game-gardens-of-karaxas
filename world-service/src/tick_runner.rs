@@ -4,9 +4,11 @@ use std::time::Instant;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sim_core::{
-    ArmyId, CommandEnvelope, CommandPayload, EventEnvelope, EventPayload, FactionId, LogisticsTickEvent,
-    LogisticsWorld, MarketState, SettlementId, SupplyStock, SupplyTransferOrder, Tick, TradeRoute, TradeShipmentOrder,
-    TradeTickEvent, TradeWorld, sample_logistics_world, sample_trade_world,
+    ArmyId, CommandEnvelope, CommandPayload, CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent,
+    EspionageWorld, EventEnvelope, EventPayload, FactionId, InformantState, IntelReportRecord, LogisticsTickEvent,
+    LogisticsWorld, MarketState, RequestIntelReportOrder, SettlementId, SupplyStock, SupplyTransferOrder, Tick,
+    TradeRoute, TradeShipmentOrder, TradeTickEvent, TradeWorld, sample_espionage_world, sample_logistics_world,
+    sample_trade_world,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,6 +78,13 @@ pub struct TradeStateSnapshot {
     pub pending_shipments: Vec<TradeShipmentOrder>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct EspionageStateSnapshot {
+    pub informants: Vec<InformantState>,
+    pub pending_orders: Vec<EspionageOrder>,
+    pub recent_reports: Vec<IntelReportRecord>,
+}
+
 pub struct TickRunner {
     config: TickRunnerConfig,
     current_tick: Tick,
@@ -86,6 +95,7 @@ pub struct TickRunner {
     metrics: TickMetrics,
     logistics: LogisticsWorld,
     trade: TradeWorld,
+    espionage: EspionageWorld,
 }
 
 impl TickRunner {
@@ -100,6 +110,7 @@ impl TickRunner {
             metrics: TickMetrics::default(),
             logistics: sample_logistics_world(),
             trade: sample_trade_world(),
+            espionage: sample_espionage_world(),
         }
     }
 
@@ -171,6 +182,14 @@ impl TickRunner {
         }
     }
 
+    pub fn espionage_state(&self) -> EspionageStateSnapshot {
+        EspionageStateSnapshot {
+            informants: self.espionage.informants().copied().collect(),
+            pending_orders: self.espionage.pending_orders().to_vec(),
+            recent_reports: self.espionage.recent_reports().to_vec(),
+        }
+    }
+
     fn run_single_tick(&mut self, now_ms: u64) {
         let work_started = Instant::now();
         let lag_ms = now_ms.saturating_sub(self.next_tick_due_ms);
@@ -202,6 +221,13 @@ impl TickRunner {
             let trace_id = format!("trade-{}-{}", tick_now.0, self.event_log.len());
             self.event_log
                 .push(EventEnvelope::new(trace_id, trade_event_to_payload(event)));
+        }
+
+        let espionage_tick = self.espionage.advance_tick(tick_now);
+        for event in espionage_tick.events {
+            let trace_id = format!("espionage-{}-{}", tick_now.0, self.event_log.len());
+            self.event_log
+                .push(EventEnvelope::new(trace_id, espionage_event_to_payload(event)));
         }
 
         self.metrics.total_ticks = self.metrics.total_ticks.saturating_add(1);
@@ -280,6 +306,66 @@ impl TickRunner {
                     origin_settlement,
                     destination_settlement,
                     goods,
+                    tick,
+                }
+            }
+            CommandPayload::RecruitInformant {
+                informant_id,
+                handler_faction,
+                target_faction,
+                location,
+                reliability_bp,
+                deception_bp,
+            } => {
+                self.espionage
+                    .queue_order(EspionageOrder::RecruitInformant(sim_core::RecruitInformantOrder {
+                        informant_id,
+                        handler_faction,
+                        target_faction,
+                        location,
+                        reliability_bp,
+                        deception_bp,
+                    }));
+                EventPayload::InformantRecruitQueued {
+                    informant_id,
+                    handler_faction,
+                    target_faction,
+                    location,
+                    reliability_bp,
+                    deception_bp,
+                    tick,
+                }
+            }
+            CommandPayload::RequestIntelReport {
+                informant_id,
+                subject_settlement,
+            } => {
+                self.espionage
+                    .queue_order(EspionageOrder::RequestIntelReport(RequestIntelReportOrder {
+                        informant_id,
+                        subject_settlement,
+                    }));
+                EventPayload::IntelReportRequested {
+                    informant_id,
+                    subject_settlement,
+                    tick,
+                }
+            }
+            CommandPayload::CounterIntelSweep {
+                defender_faction,
+                settlement_id,
+                intensity_bp,
+            } => {
+                self.espionage
+                    .queue_order(EspionageOrder::CounterIntelSweep(CounterIntelSweepOrder {
+                        defender_faction,
+                        settlement_id,
+                        intensity_bp,
+                    }));
+                EventPayload::CounterIntelSweepQueued {
+                    defender_faction,
+                    settlement_id,
+                    intensity_bp,
                     tick,
                 }
             }
@@ -368,6 +454,60 @@ fn trade_event_to_payload(event: TradeTickEvent) -> EventPayload {
     }
 }
 
+fn espionage_event_to_payload(event: EspionageTickEvent) -> EventPayload {
+    match event {
+        EspionageTickEvent::InformantRecruited {
+            informant_id,
+            handler_faction,
+            target_faction,
+            location,
+            reliability_bp,
+            deception_bp,
+            tick,
+        } => EventPayload::InformantRecruited {
+            informant_id,
+            handler_faction,
+            target_faction,
+            location,
+            reliability_bp,
+            deception_bp,
+            tick,
+        },
+        EspionageTickEvent::InformantStatusChanged {
+            informant_id,
+            status,
+            reliability_bp,
+            exposure_bp,
+            tick,
+        } => EventPayload::InformantStatusChanged {
+            informant_id,
+            status,
+            reliability_bp,
+            exposure_bp,
+            tick,
+        },
+        EspionageTickEvent::IntelReportGenerated { report } => EventPayload::IntelReportGenerated {
+            report,
+            tick: report.tick,
+        },
+        EspionageTickEvent::CounterIntelSweepResolved {
+            defender_faction,
+            settlement_id,
+            intensity_bp,
+            detected_informants,
+            neutralized_informants,
+            tick,
+        } => EventPayload::CounterIntelSweepResolved {
+            defender_faction,
+            settlement_id,
+            intensity_bp,
+            detected_informants,
+            neutralized_informants,
+            tick,
+        },
+    }
+}
+
 fn hash_events(events: &[EventEnvelope]) -> String {
     let mut hasher = Sha256::new();
     for event in events {
@@ -440,11 +580,65 @@ pub fn build_trade_shipment_command(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn build_recruit_informant_command(
+    trace_id: &str,
+    informant_id: u64,
+    handler_faction: u64,
+    target_faction: u64,
+    location: u64,
+    reliability_bp: u32,
+    deception_bp: u32,
+) -> CommandEnvelope {
+    CommandEnvelope::new(
+        trace_id,
+        CommandPayload::RecruitInformant {
+            informant_id: sim_core::InformantId(informant_id),
+            handler_faction: FactionId(handler_faction),
+            target_faction: FactionId(target_faction),
+            location: SettlementId(location),
+            reliability_bp,
+            deception_bp,
+        },
+    )
+}
+
+pub fn build_request_intel_report_command(
+    trace_id: &str,
+    informant_id: u64,
+    subject_settlement: u64,
+) -> CommandEnvelope {
+    CommandEnvelope::new(
+        trace_id,
+        CommandPayload::RequestIntelReport {
+            informant_id: sim_core::InformantId(informant_id),
+            subject_settlement: SettlementId(subject_settlement),
+        },
+    )
+}
+
+pub fn build_counter_intel_sweep_command(
+    trace_id: &str,
+    defender_faction: u64,
+    settlement_id: u64,
+    intensity_bp: u32,
+) -> CommandEnvelope {
+    CommandEnvelope::new(
+        trace_id,
+        CommandPayload::CounterIntelSweep {
+            defender_faction: FactionId(defender_faction),
+            settlement_id: SettlementId(settlement_id),
+            intensity_bp,
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        TickRunner, TickRunnerConfig, build_move_army_command, build_set_stance_command, build_supply_transfer_command,
-        build_trade_shipment_command,
+        TickRunner, TickRunnerConfig, build_counter_intel_sweep_command, build_move_army_command,
+        build_recruit_informant_command, build_request_intel_report_command, build_set_stance_command,
+        build_supply_transfer_command, build_trade_shipment_command,
     };
 
     #[test]
@@ -516,5 +710,26 @@ mod tests {
 
         assert!(market3.stock.food > 90);
         assert!(market3.price_index_bp >= 10_000);
+    }
+
+    #[test]
+    fn espionage_reports_and_sweeps_progress_over_ticks() {
+        let mut runner = TickRunner::new(TickRunnerConfig::new(100, 10, 16));
+        runner.queue_command(build_recruit_informant_command(
+            "trace-recruit",
+            9001,
+            1,
+            2,
+            3,
+            6_500,
+            2_200,
+        ));
+        runner.queue_command(build_request_intel_report_command("trace-report", 9001, 5));
+        runner.queue_command(build_counter_intel_sweep_command("trace-sweep", 2, 3, 8_000));
+        let _summary = runner.run_due_ticks(0);
+
+        let state = runner.espionage_state();
+        assert!(state.recent_reports.iter().any(|row| row.informant_id.0 == 9001));
+        assert!(state.informants.iter().any(|row| row.informant_id.0 == 9001));
     }
 }

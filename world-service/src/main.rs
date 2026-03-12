@@ -25,9 +25,10 @@ use tracing_subscriber::EnvFilter;
 use crate::auth::{AuthenticatedServiceCall, ServiceAuthConfig, ServiceAuthState};
 use crate::config::AppConfig;
 use crate::tick_runner::{
-    LogisticsStateSnapshot, TickAdvanceResult, TickMetrics, TickRunner, TickRunnerConfig, TickSnapshot,
-    TradeStateSnapshot, build_move_army_command, build_set_stance_command, build_supply_transfer_command,
-    build_trade_shipment_command,
+    EspionageStateSnapshot, LogisticsStateSnapshot, TickAdvanceResult, TickMetrics, TickRunner, TickRunnerConfig,
+    TickSnapshot, TradeStateSnapshot, build_counter_intel_sweep_command, build_move_army_command,
+    build_recruit_informant_command, build_request_intel_report_command, build_set_stance_command,
+    build_supply_transfer_command, build_trade_shipment_command,
 };
 
 #[derive(Clone)]
@@ -93,6 +94,23 @@ enum ControlCommandKind {
         food: u32,
         horses: u32,
         materiel: u32,
+    },
+    RecruitInformant {
+        informant_id: u64,
+        handler_faction: u64,
+        target_faction: u64,
+        location: u64,
+        reliability_bp: u32,
+        deception_bp: u32,
+    },
+    RequestIntelReport {
+        informant_id: u64,
+        subject_settlement: u64,
+    },
+    CounterIntelSweep {
+        defender_faction: u64,
+        settlement_id: u64,
+        intensity_bp: u32,
     },
 }
 
@@ -178,6 +196,13 @@ struct TradeStateResponse {
     state: TradeStateSnapshot,
 }
 
+#[derive(Debug, Serialize)]
+struct EspionageStateResponse {
+    status: &'static str,
+    current_tick: u64,
+    state: EspionageStateSnapshot,
+}
+
 fn default_travel_preference() -> TravelPreference {
     TravelPreference::Fastest
 }
@@ -250,6 +275,7 @@ fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header
         .route("/travel/plan", post(travel_plan))
         .route("/logistics/state", get(logistics_state))
         .route("/trade/state", get(trade_state))
+        .route("/espionage/state", get(espionage_state))
         .merge(internal_control_routes)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
@@ -351,6 +377,40 @@ async fn control_command(
                 horses,
                 materiel,
             ),
+        ),
+        ControlCommandKind::RecruitInformant {
+            informant_id,
+            handler_faction,
+            target_faction,
+            location,
+            reliability_bp,
+            deception_bp,
+        } => (
+            "recruit_informant",
+            build_recruit_informant_command(
+                &payload.trace_id,
+                informant_id,
+                handler_faction,
+                target_faction,
+                location,
+                reliability_bp,
+                deception_bp,
+            ),
+        ),
+        ControlCommandKind::RequestIntelReport {
+            informant_id,
+            subject_settlement,
+        } => (
+            "request_intel_report",
+            build_request_intel_report_command(&payload.trace_id, informant_id, subject_settlement),
+        ),
+        ControlCommandKind::CounterIntelSweep {
+            defender_faction,
+            settlement_id,
+            intensity_bp,
+        } => (
+            "counter_intel_sweep",
+            build_counter_intel_sweep_command(&payload.trace_id, defender_faction, settlement_id, intensity_bp),
         ),
     };
 
@@ -533,6 +593,22 @@ async fn trade_state(State(state): State<AppState>) -> (StatusCode, Json<TradeSt
             status: "ok",
             current_tick: runner.current_tick().0,
             state: runner.trade_state(),
+        }),
+    )
+}
+
+async fn espionage_state(State(state): State<AppState>) -> (StatusCode, Json<EspionageStateResponse>) {
+    let runner = state
+        .tick_runner
+        .lock()
+        .expect("tick runner lock should not be poisoned");
+
+    (
+        StatusCode::OK,
+        Json(EspionageStateResponse {
+            status: "ok",
+            current_tick: runner.current_tick().0,
+            state: runner.espionage_state(),
         }),
     )
 }
@@ -861,5 +937,89 @@ mod tests {
             .expect("market 3 should exist");
 
         assert!(market3["stock"]["food"].as_u64().unwrap_or(0) >= 90);
+    }
+
+    #[tokio::test]
+    async fn espionage_state_reflects_report_after_tick() {
+        let app = test_app();
+
+        let recruit_body = r#"{"trace_id":"trace-recruit","command":{"type":"recruit_informant","informant_id":9001,"handler_faction":1,"target_faction":2,"location":3,"reliability_bp":6400,"deception_bp":2100}}"#;
+        let recruit = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-espionage-recruit",
+                recruit_body,
+            ))
+            .await
+            .expect("recruit response should resolve");
+        assert_eq!(recruit.status(), StatusCode::ACCEPTED);
+
+        let report_body = r#"{"trace_id":"trace-report","command":{"type":"request_intel_report","informant_id":9001,"subject_settlement":5}}"#;
+        let queued_report = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-espionage-report",
+                report_body,
+            ))
+            .await
+            .expect("report queue response should resolve");
+        assert_eq!(queued_report.status(), StatusCode::ACCEPTED);
+
+        let sweep_body = r#"{"trace_id":"trace-sweep","command":{"type":"counter_intel_sweep","defender_faction":2,"settlement_id":3,"intensity_bp":7000}}"#;
+        let queued_sweep = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-espionage-sweep",
+                sweep_body,
+            ))
+            .await
+            .expect("sweep queue response should resolve");
+        assert_eq!(queued_sweep.status(), StatusCode::ACCEPTED);
+
+        let ticked = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/tick",
+                "nonce-espionage-tick",
+                r#"{"now_ms":0}"#,
+            ))
+            .await
+            .expect("tick response should resolve");
+        assert_eq!(ticked.status(), StatusCode::ACCEPTED);
+
+        let state_response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/espionage/state")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("state response should resolve");
+        assert_eq!(state_response.status(), StatusCode::OK);
+
+        let bytes = to_bytes(state_response.into_body(), usize::MAX)
+            .await
+            .expect("response body should decode");
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
+
+        assert!(
+            payload["state"]["informants"]
+                .as_array()
+                .expect("informants should be array")
+                .iter()
+                .any(|row| row["informant_id"] == 9001)
+        );
+        assert!(
+            payload["state"]["recent_reports"]
+                .as_array()
+                .expect("recent_reports should be array")
+                .iter()
+                .any(|row| row["informant_id"] == 9001)
+        );
     }
 }

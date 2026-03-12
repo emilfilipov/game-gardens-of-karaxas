@@ -9,9 +9,10 @@ mod sandbox {
     use bevy::prelude::*;
     use bevy_egui::{EguiContexts, EguiPlugin, egui};
     use sim_core::{
-        ArmyId, LogisticsTickEvent, LogisticsWorld, RiskModifiers, SettlementId, SupplyStock, SupplyTransferOrder,
-        Tick, TradeTickEvent, TradeWorld, TravelGraph, TravelPlan, TravelPreference, sample_levant_travel_graph,
-        sample_logistics_world, sample_trade_world,
+        ArmyId, CounterIntelSweepOrder, EspionageOrder, EspionageTickEvent, EspionageWorld, InformantStatus,
+        LogisticsTickEvent, LogisticsWorld, RequestIntelReportOrder, RiskModifiers, SettlementId, SupplyStock,
+        SupplyTransferOrder, Tick, TradeTickEvent, TradeWorld, TravelGraph, TravelPlan, TravelPreference,
+        sample_espionage_world, sample_levant_travel_graph, sample_logistics_world, sample_trade_world,
     };
 
     const MAP_SCALE: f32 = 2.2;
@@ -61,6 +62,23 @@ mod sandbox {
         world: TradeWorld,
         processed_sim_tick: u64,
         last_status: String,
+    }
+
+    #[derive(Resource)]
+    struct EspionageSandbox {
+        world: EspionageWorld,
+        processed_sim_tick: u64,
+        last_status: String,
+    }
+
+    impl Default for EspionageSandbox {
+        fn default() -> Self {
+            Self {
+                world: sample_espionage_world(),
+                processed_sim_tick: 0,
+                last_status: "Espionage idle".to_string(),
+            }
+        }
     }
 
     impl Default for TradeSandbox {
@@ -200,6 +218,7 @@ mod sandbox {
             .insert_resource(TravelSandbox::new(sample_levant_travel_graph()))
             .insert_resource(LogisticsSandbox::default())
             .insert_resource(TradeSandbox::default())
+            .insert_resource(EspionageSandbox::default())
             .add_plugins(DefaultPlugins.set(AssetPlugin {
                 file_path: "client-app/assets".to_string(),
                 ..default()
@@ -214,6 +233,7 @@ mod sandbox {
                     animate_player,
                     advance_logistics,
                     advance_trade,
+                    advance_espionage,
                     draw_map_gizmos,
                     sync_player_when_idle,
                     ui_panel,
@@ -398,12 +418,38 @@ mod sandbox {
         }
     }
 
+    fn advance_espionage(clocks: Res<ClockState>, mut espionage: ResMut<EspionageSandbox>) {
+        while espionage.processed_sim_tick < clocks.sim_tick {
+            let next_tick = espionage.processed_sim_tick + 1;
+            espionage.processed_sim_tick = next_tick;
+            let result = espionage.world.advance_tick(Tick(next_tick));
+            let report_events = result
+                .events
+                .iter()
+                .filter(|row| matches!(row, EspionageTickEvent::IntelReportGenerated { .. }))
+                .count();
+            let sweep_events = result
+                .events
+                .iter()
+                .filter(|row| matches!(row, EspionageTickEvent::CounterIntelSweepResolved { .. }))
+                .count();
+            espionage.last_status = format!(
+                "Processed espionage tick {} (events: {}, reports: {}, sweeps: {})",
+                espionage.processed_sim_tick,
+                result.events.len(),
+                report_events,
+                sweep_events
+            );
+        }
+    }
+
     fn ui_panel(
         mut egui_contexts: EguiContexts,
         clocks: Res<ClockState>,
         sandbox: Res<TravelSandbox>,
         mut logistics: ResMut<LogisticsSandbox>,
         mut trade: ResMut<TradeSandbox>,
+        mut espionage: ResMut<EspionageSandbox>,
     ) {
         let Ok(ctx) = egui_contexts.ctx_mut() else {
             return;
@@ -503,6 +549,76 @@ mod sandbox {
                         market.price_index_bp as f32 / 10_000.0,
                         market.shortage_pressure_bp,
                         market.tariff_pressure_bp
+                    ));
+                }
+                ui.separator();
+                ui.heading("Real-Time Espionage");
+                ui.label(format!("Espionage Tick Cursor: {}", espionage.processed_sim_tick));
+                if ui.button("Recruit Informant 9001 (F1 -> F2 @ settlement 3)").clicked() {
+                    espionage
+                        .world
+                        .queue_order(EspionageOrder::RecruitInformant(sim_core::RecruitInformantOrder {
+                            informant_id: sim_core::InformantId(9001),
+                            handler_faction: sim_core::FactionId(1),
+                            target_faction: sim_core::FactionId(2),
+                            location: SettlementId(3),
+                            reliability_bp: 6_400,
+                            deception_bp: 2_100,
+                        }));
+                    espionage.last_status = "Queued informant recruitment 9001".to_string();
+                }
+                if ui.button("Request Report 9001 -> settlement 5").clicked() {
+                    espionage
+                        .world
+                        .queue_order(EspionageOrder::RequestIntelReport(RequestIntelReportOrder {
+                            informant_id: sim_core::InformantId(9001),
+                            subject_settlement: SettlementId(5),
+                        }));
+                    espionage.last_status = "Queued intel report request for 9001".to_string();
+                }
+                if ui.button("Counter Sweep F2 @ settlement 3").clicked() {
+                    espionage
+                        .world
+                        .queue_order(EspionageOrder::CounterIntelSweep(CounterIntelSweepOrder {
+                            defender_faction: sim_core::FactionId(2),
+                            settlement_id: SettlementId(3),
+                            intensity_bp: 7_000,
+                        }));
+                    espionage.last_status = "Queued counter-intelligence sweep for faction 2".to_string();
+                }
+                ui.label(format!(
+                    "Pending Espionage Orders: {}",
+                    espionage.world.pending_orders().len()
+                ));
+                ui.label(format!("Espionage Status: {}", espionage.last_status));
+                for informant in espionage.world.informants() {
+                    let status = match informant.status {
+                        InformantStatus::Active => "active",
+                        InformantStatus::Dormant => "dormant",
+                        InformantStatus::Burned => "burned",
+                    };
+                    ui.label(format!(
+                        "Informant {} | {} | handler F{} -> target F{} @ S{} | rel {}bp | dec {}bp | exp {}bp | reports {}",
+                        informant.informant_id.0,
+                        status,
+                        informant.handler_faction.0,
+                        informant.target_faction.0,
+                        informant.location.0,
+                        informant.reliability_bp,
+                        informant.deception_bp,
+                        informant.exposure_bp,
+                        informant.reports_submitted
+                    ));
+                }
+                for report in espionage.world.recent_reports().iter().rev().take(4) {
+                    ui.label(format!(
+                        "Report t{} | informant {} | subject S{} | confidence {}bp | reliability {}bp | false {}",
+                        report.tick.0,
+                        report.informant_id.0,
+                        report.subject_settlement.0,
+                        report.confidence_bp,
+                        report.reliability_bp,
+                        report.false_report
                     ));
                 }
             });
