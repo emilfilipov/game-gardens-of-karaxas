@@ -342,8 +342,9 @@ mod sandbox {
 
     fn advance_logistics(clocks: Res<ClockState>, mut logistics: ResMut<LogisticsSandbox>) {
         while logistics.processed_sim_tick < clocks.sim_tick {
-            logistics.processed_sim_tick += 1;
-            let result = logistics.world.advance_tick(Tick(logistics.processed_sim_tick));
+            let next_tick = logistics.processed_sim_tick + 1;
+            logistics.processed_sim_tick = next_tick;
+            let result = logistics.world.advance_tick(Tick(next_tick));
             let attrition_events = result
                 .events
                 .iter()
