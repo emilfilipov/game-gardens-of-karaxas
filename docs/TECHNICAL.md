@@ -107,6 +107,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 ### Client
 - Bevy client renders campaign and battle surfaces.
 - Client sends intent; authority services resolve final state transitions.
+- Designer tooling direction: move to a dedicated, separately packaged designer client/update channel so authoring workflows are decoupled from player runtime releases.
 - `client-app` now includes a feature-gated Bevy bootstrap shell (`cargo run -p client-app --features bootstrap-shell`) with:
   - credential login to FastAPI `/auth/login`,
   - optional launcher session handoff via environment (`AOP_HANDOFF_ACCESS_TOKEN`, `AOP_HANDOFF_SESSION_ID`, etc.),
@@ -173,6 +174,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Clients are authoritative only for input intent and presentation.
 - Existing auth/session policy remains in place while gameplay authority shifts to Rust services.
 - Inter-service mutation calls from FastAPI are authenticated with scope-limited shared credentials and signed payload verification; invalid signatures, stale timestamps, and replayed nonces are rejected.
+- Release gating requirement: login/register/refresh/logout and force-revocation/session-drain paths must remain covered by regression checks during migration cleanup.
 
 ## Build, Packaging, and Distribution
 - Windows distribution remains launcher-based with Velopack feed in GCS.

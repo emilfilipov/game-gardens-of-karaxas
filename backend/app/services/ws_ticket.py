@@ -27,6 +27,12 @@ def _now_utc() -> datetime:
     return datetime.now(UTC)
 
 
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def issue_ws_ticket(db: Session, *, user_id: int, session_id: str, ttl_seconds: int = WS_TICKET_TTL_SECONDS) -> tuple[str, datetime]:
     secret = create_refresh_token()
     ticket_id = uuid4().hex
@@ -57,7 +63,8 @@ def consume_ws_ticket(db: Session, raw_ticket: str) -> WsTicketResult:
         raise WsTicketError("invalid_ticket")
     if row.consumed_at is not None:
         raise WsTicketError("ticket_consumed")
-    if row.expires_at <= _now_utc():
+    expires_at = _as_utc(row.expires_at)
+    if expires_at <= _now_utc():
         raise WsTicketError("ticket_expired")
     if row.secret_hash != hash_token(secret):
         raise WsTicketError("invalid_ticket")

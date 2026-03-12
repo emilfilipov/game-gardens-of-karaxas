@@ -173,6 +173,16 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: migrate only when measured bottlenecks exceed defined latency/contention/backlog thresholds documented in `docs/REDIS_ADOPTION_GATE.md`, then execute staged dual-write validation before consumer cutover.
 - Gameplay impact: preserves development velocity and budget while retaining a clear scale path.
 
+#### Dedicated designer client and promotion flow
+- Purpose: enable world-design operations (spawn points, camps, towns, villages, route topology) through a standalone toolchain decoupled from player runtime delivery.
+- Loop: designer client authors deterministic world packs, promotion pipeline signs/versions artifacts, and activation controls deploy approved versions to game runtime.
+- Gameplay impact: world iteration speed increases without coupling designer updates to player-facing game build cadence.
+
+#### Auth/session continuity hard gate
+- Purpose: preserve account security and trust while runtime/client modules are migrated.
+- Loop: register/login/refresh/logout/forced-revocation regression suite must pass before release promotion.
+- Gameplay impact: migration work cannot silently break player access/session safety guarantees.
+
 #### Replay determinism and operations hardening
 - Purpose: guarantee stable outcomes and safe external playtests.
 - Loop: replay/golden checks detect divergence; observability and rollback runbooks protect live operations.

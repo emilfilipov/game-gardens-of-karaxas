@@ -40,6 +40,12 @@ def _now_utc() -> datetime:
     return datetime.now(UTC)
 
 
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def list_recent_publish_drains(db: Session, limit: int = 30) -> list[PublishDrainEvent]:
     safe_limit = max(1, min(limit, 200))
     return (
@@ -257,6 +263,7 @@ def enforce_session_drain(db: Session, session: UserSession, user: User) -> Sess
             deadline_at=None,
             seconds_remaining=None,
         )
+    deadline = _as_utc(deadline)
     if now < deadline:
         return SessionDrainDecision(
             force_logout=False,
@@ -276,7 +283,8 @@ def enforce_session_drain(db: Session, session: UserSession, user: User) -> Sess
         if event is not None:
             if newly_revoked:
                 event.sessions_revoked += 1
-            if event.status == DRAIN_STATUS_DRAINING and event.deadline_at <= now:
+            event_deadline = _as_utc(event.deadline_at)
+            if event.status == DRAIN_STATUS_DRAINING and event_deadline <= now:
                 event.status = DRAIN_STATUS_COMPLETED
                 event.cutoff_at = now
             db.add(event)

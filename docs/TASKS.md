@@ -54,6 +54,13 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-040 | ⬜ | 3 | AOP-PIVOT-039 | Wire gameplay UI panels to live backend/world-service data and action endpoints (remove remaining static placeholder panel content). |
 | AOP-PIVOT-041 | ⬜ | 3 | AOP-PIVOT-040 | Add Windows installer acceptance smoke suite that validates install, launcher update, login handoff, campaign entry, and one vertical-slice battle outcome. |
 | AOP-PIVOT-042 | ⬜ | 2 | AOP-PIVOT-041 | Finalize first single-player external PoC release checklist with dated go/no-go evidence bundle and rollback proof artifacts. |
+| AOP-PIVOT-043 | ✅ | 2 | AOP-PIVOT-032 | Remove deprecated non-runtime artifact sets (legacy concept-art bundle) and update deprecation docs; keep launcher/game-client compatibility modules explicitly staged until replacement tasks complete. |
+| AOP-PIVOT-044 | ⏳ | 3 | AOP-PIVOT-043 | Add auth/session continuity gate covering register/login/refresh/logout/session-drain force-logout behavior so migration cleanup cannot regress account security flows (timezone comparison defect in ws-ticket/session-drain flow fixed; full gate/runbook wiring pending). |
+| AOP-PIVOT-045 | ⬜ | 3 | AOP-PIVOT-036 | Scaffold dedicated designer client module with separate runtime profile and code-first map/system editing shell decoupled from game runtime binaries. |
+| AOP-PIVOT-046 | ⬜ | 4 | AOP-PIVOT-045 | Implement designer world-authoring primitives for spawn points, camps, towns, villages, route anchors, and validation constraints with deterministic export output. |
+| AOP-PIVOT-047 | ⬜ | 4 | AOP-PIVOT-046 | Implement designer-to-game content promotion flow (signed pack generation, version metadata, staging/activate controls) so authored map/system changes can be deployed safely. |
+| AOP-PIVOT-048 | ⬜ | 3 | AOP-PIVOT-047 | Add fully separate designer installer/update release channel in GCS (artifact naming, feed URL, retention, rollback) decoupled from game client release flow. |
+| AOP-PIVOT-049 | ⬜ | 3 | AOP-PIVOT-036 | Plan and execute Kotlin launcher retirement gate only after Rust runtime handoff parity + installer/update parity are validated. |
 
 ## Detailed Task Specs
 
@@ -571,6 +578,91 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
   - completed evidence bundle in docs,
   - release gate script/report review sign-off.
 
+### AOP-PIVOT-043 - Deprecated Artifact Cleanup (Safe Scope)
+- Objective: reduce migration noise by deleting clearly deprecated non-runtime assets while preserving required compatibility modules.
+- Implementation checklist:
+  - delete legacy concept-art bundle no longer used by active docs/runtime/release flows,
+  - update deprecation audit doc with explicit cleanup notes and rationale,
+  - retain launcher/game-client/designer compatibility modules with explicit staged-retirement task references.
+- Acceptance criteria:
+  - deprecated concept-art files are removed from repository tracking,
+  - compatibility-critical legacy modules are not removed prematurely.
+- Validation:
+  - `git diff --name-status` confirms removed concept-art paths,
+  - grep audit confirms no active-doc references to removed concept-art paths.
+
+### AOP-PIVOT-044 - Auth/Session Continuity Gate
+- Objective: guarantee account/session security flows survive ongoing migration cleanup.
+- Implementation checklist:
+  - add/expand regression tests for register/login/refresh/logout endpoints,
+  - add explicit force-logout/session-drain regression cases (revocation propagation to API + websocket),
+  - add runbook check entry confirming auth gate passes before release promotion.
+- Acceptance criteria:
+  - auth/session tests fail on regressions in login, refresh rotation/reuse detection, logout, or forced revocation behavior,
+  - release readiness checks include auth/session gate output.
+- Validation:
+  - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_security_edges.py backend/tests/test_publish_drain.py`.
+
+### AOP-PIVOT-045 - Dedicated Designer Client Scaffold
+- Objective: create a standalone designer runtime path decoupled from player game-client runtime packaging.
+- Implementation checklist:
+  - scaffold dedicated designer module/runtime entrypoint with code-first UI shell,
+  - define shared contracts with `tooling-core` for map/system authoring payloads,
+  - add role/auth guardrail expectations for designer operations.
+- Acceptance criteria:
+  - designer client can launch independently from game client build/install,
+  - baseline designer shell can load/write authored world data through defined schema contracts.
+- Validation:
+  - module unit tests + launch smoke command documented in `docs/README.md`.
+
+### AOP-PIVOT-046 - Designer World Authoring Primitives
+- Objective: provide first practical world-design workflow for spawn/camp/town/village placement and route layout.
+- Implementation checklist:
+  - implement primitives for spawn points, camps, towns, villages, and route anchors,
+  - add snapping/validation rules for map bounds, duplicate IDs, and route integrity,
+  - support deterministic export to versionable content pack format.
+- Acceptance criteria:
+  - designer can author and save a valid world slice containing all required primitive types,
+  - invalid layouts fail with explicit validation errors before export.
+- Validation:
+  - deterministic export tests + schema validation tests.
+
+### AOP-PIVOT-047 - Designer-to-Game Content Promotion
+- Objective: make designer-authored changes deployable into game runtime through controlled version promotion.
+- Implementation checklist:
+  - create signed promotion artifact contract from designer export to runtime content pack,
+  - add staged activation endpoint/command path with rollback metadata,
+  - record promotion audit trail in PostgreSQL release/content metadata.
+- Acceptance criteria:
+  - promoted designer content can be activated/deactivated by version key without manual file surgery,
+  - every promotion is auditable with actor/time/version metadata.
+- Validation:
+  - integration tests for promote/activate/rollback flows + signature checks.
+
+### AOP-PIVOT-048 - Separate Designer Release Channel
+- Objective: decouple designer installer/update lifecycle from game client player releases.
+- Implementation checklist:
+  - add dedicated GCS feed/archive prefix + artifact naming for designer channel,
+  - enforce independent retention and rollback controls,
+  - document installer/update process for designer-only distribution.
+- Acceptance criteria:
+  - designer channel can publish/rollback without touching game-client feed artifacts,
+  - update URLs and manifests are distinct per channel.
+- Validation:
+  - CI channel publish smoke + rollback smoke.
+
+### AOP-PIVOT-049 - Kotlin Launcher Retirement Gate
+- Objective: remove Kotlin launcher artifacts only after replacement parity is proven.
+- Implementation checklist:
+  - define parity checklist for runtime handoff/update/auth compatibility in Rust-first launcher path,
+  - execute side-by-side validation runs (legacy Kotlin vs replacement path),
+  - remove Kotlin launcher module/workflow dependencies once parity is signed off.
+- Acceptance criteria:
+  - no required player/designer flow depends on Kotlin launcher at removal time,
+  - repository and release workflow no longer require Kotlin module artifacts.
+- Validation:
+  - parity checklist sign-off + successful release candidate without Kotlin module.
+
 ## Sequencing Guide (Strict Order)
 1. Program setup tasks: `AOP-PIVOT-003`, `AOP-PIVOT-032`, then `AOP-PIVOT-004` to `AOP-PIVOT-007`.
 2. Persistence/simulation foundation: `AOP-PIVOT-008` to `AOP-PIVOT-019`.
@@ -578,6 +670,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 4. Vertical slice assembly: `AOP-PIVOT-025` to `AOP-PIVOT-028`.
 5. Operations and launch readiness: `AOP-PIVOT-029` to `AOP-PIVOT-031`.
 6. Productization and release hardening: `AOP-PIVOT-035` to `AOP-PIVOT-042`.
+7. Cleanup, auth continuity, and designer pipeline: `AOP-PIVOT-043` to `AOP-PIVOT-049`.
 
 ## Resume Protocol
 When work resumes after a pause:
@@ -624,3 +717,4 @@ When work resumes after a pause:
 | AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Added feature-gated Bevy sandbox in `client-app` with live clocks, route-planning controls, and animated player marker loaded from generated placeholder asset `client-app/assets/player_circle.png`. |
 | AOP-PIVOT-034 | ✅ | 3 | AOP-PIVOT-014 | Expanded deterministic regression tests across implemented systems by adding espionage lifecycle/passive-report unit tests, serialization roundtrip tests for new espionage command/event payloads, and world-service espionage command->tick->state integration coverage. |
 | AOP-PIVOT-035 | ✅ | 3 | AOP-PIVOT-027 | Release workflow now builds `client-app` (`bootstrap-shell`) on Windows, packages a versioned Rust runtime artifact (`AmbitionsOfPeace-client-app-win-x64-<version>.zip`) plus deterministic manifest/checksum via `tools/package_client_app_release.py`, uploads artifacts to existing GCS feed/archive paths, and prunes feed versions to latest 3 alongside existing Velopack retention behavior. |
+| AOP-PIVOT-043 | ✅ | 2 | AOP-PIVOT-032 | Removed deprecated tracked `concept_art/` assets and legacy concept-art generation helper scripts under `tools/`, then refreshed cleanup planning so legacy Kotlin/Godot compatibility modules remain intentionally staged until explicit parity/retirement tasks (`AOP-PIVOT-045` to `AOP-PIVOT-049`) are completed. |

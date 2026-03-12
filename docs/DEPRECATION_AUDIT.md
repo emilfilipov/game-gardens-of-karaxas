@@ -35,3 +35,8 @@ Moved to `docs/archive/legacy-prototype/`:
 
 ## Result
 Legacy product-direction docs are removed from active docs root and preserved under archive path for historical traceability.
+
+## Additional Cleanup (AOP-PIVOT-043)
+- Removed deprecated tracked concept-art asset set under `concept_art/` (legacy UI mockups not used by active runtime/docs/release pipelines).
+- Removed legacy concept-art generation helper scripts under `tools/` that only targeted the retired `concept_art/` workflow.
+- Kotlin launcher and Godot client modules are still retained as compatibility-only artifacts until explicit retirement-gate tasks complete (`AOP-PIVOT-045` to `AOP-PIVOT-049` in `docs/TASKS.md`).
