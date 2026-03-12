@@ -108,6 +108,10 @@ Legacy prototype documents that conflict with this direction are archived under 
   - settlement nodes and road/sea route overlays from shared `sim-core` travel graph data,
   - deterministic sample army/caravan marker animation along routes,
   - fog visibility states (`visible` / `shrouded` / `obscured`) and zoom controls for readability checks.
+- Bootstrap shell now also includes code-first gameplay domain panels via `bevy_egui`:
+  - `character`, `household`, `logistics`, `trade`, `espionage`, `diplomacy`, and `notifications`,
+  - unified keyboard toggles (`F1`..`F7`) and panel toolbar controls,
+  - persisted panel state + layout preset save/load (`strategist`, `operations`) through JSON snapshot file (`AOP_PANEL_LAYOUT_PATH`, default `client-app/runtime/panel_layout.json`).
 - `client-app` now includes a feature-gated manual sandbox UI (`cargo run -p client-app --features sandbox-ui`) with map rendering, route dispatch controls, and simulation clocks for PoC systems validation.
 - Sandbox UI now includes a real-time logistics panel (army stocks/shortage status + convoy queue button) powered by shared `sim-core` logistics rules for manual system validation.
 - Sandbox UI now also includes a real-time trade panel (shipment queue control + market stock/price/pressure readouts) powered by shared `sim-core` trade rules.

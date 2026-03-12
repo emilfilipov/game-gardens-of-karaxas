@@ -3,9 +3,13 @@ use bevy_egui::{EguiContexts, EguiPlugin, egui};
 use reqwest::blocking::Client;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::Deserialize;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use sim_core::{SettlementId, TravelGraph, sample_levant_travel_graph};
+use std::collections::BTreeMap;
 use std::env;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread;
@@ -14,6 +18,7 @@ use std::time::Duration;
 const DEFAULT_API_BASE_URL: &str = "http://127.0.0.1:8000";
 const DEFAULT_CLIENT_VERSION: &str = "dev-0.1.0";
 const DEFAULT_CONTENT_VERSION_KEY: &str = "runtime_gameplay_v1";
+const DEFAULT_PANEL_LAYOUT_PATH: &str = "client-app/runtime/panel_layout.json";
 const MAP_SCALE: f32 = 2.3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -287,6 +292,288 @@ impl CampaignMapSurface {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LayoutPreset {
+    Strategist,
+    Operations,
+}
+
+impl LayoutPreset {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Strategist => "strategist",
+            Self::Operations => "operations",
+        }
+    }
+
+    fn from_str(value: &str) -> Self {
+        match value.trim().to_lowercase().as_str() {
+            "operations" => Self::Operations,
+            _ => Self::Strategist,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DomainPanel {
+    Character,
+    Household,
+    Logistics,
+    Trade,
+    Espionage,
+    Diplomacy,
+    Notifications,
+}
+
+impl DomainPanel {
+    fn key(self) -> &'static str {
+        match self {
+            Self::Character => "character",
+            Self::Household => "household",
+            Self::Logistics => "logistics",
+            Self::Trade => "trade",
+            Self::Espionage => "espionage",
+            Self::Diplomacy => "diplomacy",
+            Self::Notifications => "notifications",
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::Character => "Character",
+            Self::Household => "Household",
+            Self::Logistics => "Logistics",
+            Self::Trade => "Trade",
+            Self::Espionage => "Espionage",
+            Self::Diplomacy => "Diplomacy",
+            Self::Notifications => "Notifications",
+        }
+    }
+
+    fn hotkey(self) -> KeyCode {
+        match self {
+            Self::Character => KeyCode::F1,
+            Self::Household => KeyCode::F2,
+            Self::Logistics => KeyCode::F3,
+            Self::Trade => KeyCode::F4,
+            Self::Espionage => KeyCode::F5,
+            Self::Diplomacy => KeyCode::F6,
+            Self::Notifications => KeyCode::F7,
+        }
+    }
+}
+
+const DOMAIN_PANELS: [DomainPanel; 7] = [
+    DomainPanel::Character,
+    DomainPanel::Household,
+    DomainPanel::Logistics,
+    DomainPanel::Trade,
+    DomainPanel::Espionage,
+    DomainPanel::Diplomacy,
+    DomainPanel::Notifications,
+];
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+struct PanelRect {
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+}
+
+impl PanelRect {
+    fn from_points(pos: [f32; 2], size: [f32; 2]) -> Self {
+        Self {
+            x: pos[0],
+            y: pos[1],
+            width: size[0],
+            height: size[1],
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct PanelLayoutSnapshot {
+    preset: String,
+    open: BTreeMap<String, bool>,
+    rects: BTreeMap<String, PanelRect>,
+}
+
+#[derive(Resource)]
+struct PanelUiState {
+    storage_path: PathBuf,
+    snapshot: PanelLayoutSnapshot,
+    last_io_status: String,
+}
+
+impl PanelUiState {
+    fn from_env() -> Self {
+        let storage_path = env::var("AOP_PANEL_LAYOUT_PATH")
+            .ok()
+            .and_then(trimmed_nonempty)
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(DEFAULT_PANEL_LAYOUT_PATH));
+
+        let mut state = Self {
+            storage_path,
+            snapshot: default_layout_snapshot(LayoutPreset::Strategist),
+            last_io_status: "Layout preset loaded: strategist".to_string(),
+        };
+        state.load_from_disk();
+        state
+    }
+
+    fn current_preset(&self) -> LayoutPreset {
+        LayoutPreset::from_str(&self.snapshot.preset)
+    }
+
+    fn apply_preset(&mut self, preset: LayoutPreset) {
+        self.snapshot = default_layout_snapshot(preset);
+        self.last_io_status = format!("Applied layout preset: {}", preset.as_str());
+    }
+
+    fn save_to_disk(&mut self) {
+        if let Some(parent) = self.storage_path.parent()
+            && let Err(error) = fs::create_dir_all(parent)
+        {
+            self.last_io_status = format!("Layout save failed: {error}");
+            return;
+        }
+        match serde_json::to_string_pretty(&self.snapshot) {
+            Ok(payload) => match fs::write(&self.storage_path, payload) {
+                Ok(()) => {
+                    self.last_io_status = format!("Layout saved to {}", self.storage_path.display());
+                }
+                Err(error) => {
+                    self.last_io_status = format!("Layout save failed: {error}");
+                }
+            },
+            Err(error) => {
+                self.last_io_status = format!("Layout save failed: {error}");
+            }
+        }
+    }
+
+    fn load_from_disk(&mut self) {
+        let raw = match fs::read_to_string(&self.storage_path) {
+            Ok(raw) => raw,
+            Err(_) => return,
+        };
+        match serde_json::from_str::<PanelLayoutSnapshot>(&raw) {
+            Ok(snapshot) => {
+                self.snapshot = snapshot;
+                self.last_io_status = format!("Layout loaded from {}", self.storage_path.display());
+            }
+            Err(error) => {
+                self.last_io_status = format!("Layout load failed: {error}");
+            }
+        }
+    }
+
+    fn is_open(&self, panel: DomainPanel) -> bool {
+        self.snapshot.open.get(panel.key()).copied().unwrap_or(true)
+    }
+
+    fn set_open(&mut self, panel: DomainPanel, open: bool) {
+        self.snapshot.open.insert(panel.key().to_string(), open);
+    }
+
+    fn panel_rect(&self, panel: DomainPanel) -> PanelRect {
+        self.snapshot.rects.get(panel.key()).copied().unwrap_or_else(|| {
+            let fallback = default_layout_snapshot(self.current_preset());
+            fallback
+                .rects
+                .get(panel.key())
+                .copied()
+                .unwrap_or_else(|| PanelRect::from_points([24.0, 320.0], [320.0, 220.0]))
+        })
+    }
+
+    fn set_panel_rect_from_egui(&mut self, panel: DomainPanel, rect: egui::Rect) {
+        self.snapshot.rects.insert(
+            panel.key().to_string(),
+            PanelRect::from_points([rect.min.x, rect.min.y], [rect.width(), rect.height()]),
+        );
+    }
+}
+
+fn default_layout_snapshot(preset: LayoutPreset) -> PanelLayoutSnapshot {
+    let mut open = BTreeMap::new();
+    for panel in DOMAIN_PANELS {
+        open.insert(panel.key().to_string(), true);
+    }
+
+    let mut rects = BTreeMap::new();
+    match preset {
+        LayoutPreset::Strategist => {
+            rects.insert(
+                DomainPanel::Character.key().to_string(),
+                PanelRect::from_points([22.0, 320.0], [300.0, 220.0]),
+            );
+            rects.insert(
+                DomainPanel::Household.key().to_string(),
+                PanelRect::from_points([336.0, 320.0], [300.0, 220.0]),
+            );
+            rects.insert(
+                DomainPanel::Logistics.key().to_string(),
+                PanelRect::from_points([650.0, 320.0], [300.0, 220.0]),
+            );
+            rects.insert(
+                DomainPanel::Trade.key().to_string(),
+                PanelRect::from_points([964.0, 320.0], [300.0, 220.0]),
+            );
+            rects.insert(
+                DomainPanel::Espionage.key().to_string(),
+                PanelRect::from_points([22.0, 552.0], [408.0, 220.0]),
+            );
+            rects.insert(
+                DomainPanel::Diplomacy.key().to_string(),
+                PanelRect::from_points([444.0, 552.0], [408.0, 220.0]),
+            );
+            rects.insert(
+                DomainPanel::Notifications.key().to_string(),
+                PanelRect::from_points([866.0, 552.0], [398.0, 220.0]),
+            );
+        }
+        LayoutPreset::Operations => {
+            rects.insert(
+                DomainPanel::Character.key().to_string(),
+                PanelRect::from_points([22.0, 320.0], [420.0, 190.0]),
+            );
+            rects.insert(
+                DomainPanel::Household.key().to_string(),
+                PanelRect::from_points([22.0, 520.0], [420.0, 190.0]),
+            );
+            rects.insert(
+                DomainPanel::Logistics.key().to_string(),
+                PanelRect::from_points([456.0, 320.0], [420.0, 190.0]),
+            );
+            rects.insert(
+                DomainPanel::Trade.key().to_string(),
+                PanelRect::from_points([456.0, 520.0], [420.0, 190.0]),
+            );
+            rects.insert(
+                DomainPanel::Espionage.key().to_string(),
+                PanelRect::from_points([890.0, 320.0], [380.0, 190.0]),
+            );
+            rects.insert(
+                DomainPanel::Diplomacy.key().to_string(),
+                PanelRect::from_points([890.0, 520.0], [380.0, 190.0]),
+            );
+            rects.insert(
+                DomainPanel::Notifications.key().to_string(),
+                PanelRect::from_points([890.0, 120.0], [380.0, 190.0]),
+            );
+        }
+    }
+
+    PanelLayoutSnapshot {
+        preset: preset.as_str().to_string(),
+        open,
+        rects,
+    }
+}
+
 enum BackendRequest {
     Login {
         email: String,
@@ -388,6 +675,7 @@ pub fn run() {
         .insert_resource(ShellState::from_env_handoff())
         .insert_resource(CampaignScene::default())
         .insert_resource(CampaignMapSurface::sample())
+        .insert_resource(PanelUiState::from_env())
         .insert_resource(ClearColor(Color::srgb(0.05, 0.07, 0.08)))
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin::default())
@@ -399,6 +687,7 @@ pub fn run() {
                 animate_campaign_markers,
                 draw_campaign_map_gizmos,
                 sync_campaign_scene,
+                panel_hotkeys,
                 draw_shell_ui,
             ),
         )
@@ -660,6 +949,25 @@ fn poll_backend_responses(mut shell: ResMut<ShellState>, bridge: Res<BackendBrid
     }
 }
 
+fn panel_hotkeys(keys: Res<ButtonInput<KeyCode>>, shell: Res<ShellState>, mut panels: ResMut<PanelUiState>) {
+    if shell.phase != ShellPhase::CampaignReady {
+        return;
+    }
+
+    for panel in DOMAIN_PANELS {
+        if keys.just_pressed(panel.hotkey()) {
+            let currently_open = panels.is_open(panel);
+            panels.set_open(panel, !currently_open);
+            panels.last_io_status = format!(
+                "{} panel {} via {:?}",
+                panel.title(),
+                if currently_open { "hidden" } else { "opened" },
+                panel.hotkey()
+            );
+        }
+    }
+}
+
 fn handle_backend_response(shell: &mut ShellState, request_tx: &Sender<BackendRequest>, message: BackendResponse) {
     match message {
         BackendResponse::Login(Ok(session)) => {
@@ -798,6 +1106,7 @@ fn draw_shell_ui(
     config: Res<BackendConfig>,
     bridge: Res<BackendBridge>,
     mut map: ResMut<CampaignMapSurface>,
+    mut panels: ResMut<PanelUiState>,
 ) {
     let Ok(ctx) = egui_contexts.ctx_mut() else {
         return;
@@ -829,10 +1138,14 @@ fn draw_shell_ui(
                     render_character_controls(ui, &mut shell, &config, &bridge);
                 }
                 ShellPhase::CampaignReady => {
-                    render_campaign_summary(ui, &mut shell, &config, &bridge, &mut map);
+                    render_campaign_summary(ui, &mut shell, &config, &bridge, &mut map, &mut panels);
                 }
             }
         });
+
+    if shell.phase == ShellPhase::CampaignReady {
+        render_domain_panels(ctx, &shell, &map, &mut panels);
+    }
 }
 
 fn render_login_controls(ui: &mut egui::Ui, shell: &mut ShellState, config: &BackendConfig, bridge: &BackendBridge) {
@@ -986,6 +1299,7 @@ fn render_campaign_summary(
     config: &BackendConfig,
     bridge: &BackendBridge,
     map: &mut CampaignMapSurface,
+    panels: &mut PanelUiState,
 ) {
     ui.heading("Campaign Entry Scene");
     if let Some(bootstrap) = shell.campaign_bootstrap.as_ref() {
@@ -1052,6 +1366,26 @@ fn render_campaign_summary(
             .join(", ");
         ui.label(format!("Caravan markers: {labels}"));
     }
+    ui.separator();
+    ui.heading("Panel Controls");
+    ui.label(
+        "Hotkeys: F1 Character, F2 Household, F3 Logistics, F4 Trade, F5 Espionage, F6 Diplomacy, F7 Notifications.",
+    );
+    ui.horizontal(|ui| {
+        if ui.button("Strategist Preset").clicked() {
+            panels.apply_preset(LayoutPreset::Strategist);
+        }
+        if ui.button("Operations Preset").clicked() {
+            panels.apply_preset(LayoutPreset::Operations);
+        }
+        if ui.button("Save Layout").clicked() {
+            panels.save_to_disk();
+        }
+        if ui.button("Load Layout").clicked() {
+            panels.load_from_disk();
+        }
+    });
+    ui.label(format!("Layout state: {}", panels.last_io_status));
 
     ui.separator();
     if ui.button("Back to Character Selection").clicked() {
@@ -1079,6 +1413,134 @@ fn render_campaign_summary(
         } else {
             shell.status_line = "Failed to dispatch character refresh request.".to_string();
         }
+    }
+}
+
+fn render_domain_panels(ctx: &egui::Context, shell: &ShellState, map: &CampaignMapSurface, panels: &mut PanelUiState) {
+    render_panel_window(ctx, panels, DomainPanel::Character, |ui| {
+        if let Some(bootstrap) = shell.campaign_bootstrap.as_ref() {
+            ui.label(format!("Name: {}", bootstrap.character_name));
+            ui.label(format!("Character ID: {}", bootstrap.character_id));
+            ui.label(format!("Level Surface: {}", bootstrap.level_description));
+            ui.label(format!(
+                "Spawn: ({}, {})",
+                bootstrap.spawn_world_x, bootstrap.spawn_world_y
+            ));
+        } else {
+            ui.label("No active character bootstrap payload.");
+        }
+    });
+
+    render_panel_window(ctx, panels, DomainPanel::Household, |ui| {
+        let visible = map
+            .settlements
+            .iter()
+            .filter(|row| row.fog == FogVisibility::Visible)
+            .count();
+        let shrouded = map
+            .settlements
+            .iter()
+            .filter(|row| row.fog == FogVisibility::Shrouded)
+            .count();
+        ui.label("Household dashboard (code-first panel shell).");
+        ui.label(format!("Visible holdings: {visible}"));
+        ui.label(format!("Peripheral holdings: {shrouded}"));
+        if let Some(node) = map.settlements.first() {
+            ui.label(format!("Primary seat candidate: {}", node.name));
+        }
+    });
+
+    render_panel_window(ctx, panels, DomainPanel::Logistics, |ui| {
+        ui.label("Army movement status");
+        for marker in &map.army_markers {
+            ui.label(format!(
+                "{}: S{} -> S{} | progress {:.0}%",
+                marker.label,
+                marker.origin.0,
+                marker.destination.0,
+                marker.progress * 100.0
+            ));
+        }
+    });
+
+    render_panel_window(ctx, panels, DomainPanel::Trade, |ui| {
+        ui.label("Caravan lane status");
+        for marker in &map.caravan_markers {
+            ui.label(format!(
+                "{}: S{} -> S{} | progress {:.0}%",
+                marker.label,
+                marker.origin.0,
+                marker.destination.0,
+                marker.progress * 100.0
+            ));
+        }
+        let sea_routes = map.routes.iter().filter(|row| row.is_sea_route).count();
+        ui.label(format!("Sea routes monitored: {sea_routes}"));
+    });
+
+    render_panel_window(ctx, panels, DomainPanel::Espionage, |ui| {
+        let visible = map
+            .settlements
+            .iter()
+            .filter(|row| row.fog == FogVisibility::Visible)
+            .count();
+        let shrouded = map
+            .settlements
+            .iter()
+            .filter(|row| row.fog == FogVisibility::Shrouded)
+            .count();
+        let obscured = map
+            .settlements
+            .iter()
+            .filter(|row| row.fog == FogVisibility::Obscured)
+            .count();
+        ui.label("Fog intelligence posture");
+        ui.label(format!("Visible: {visible}"));
+        ui.label(format!("Shrouded: {shrouded}"));
+        ui.label(format!("Obscured: {obscured}"));
+    });
+
+    render_panel_window(ctx, panels, DomainPanel::Diplomacy, |ui| {
+        ui.label("Diplomatic route pressure snapshot");
+        let land_routes = map.routes.iter().filter(|row| !row.is_sea_route).count();
+        let sea_routes = map.routes.iter().filter(|row| row.is_sea_route).count();
+        ui.label(format!("Land corridors: {land_routes}"));
+        ui.label(format!("Sea corridors: {sea_routes}"));
+        if let Some(bootstrap) = shell.campaign_bootstrap.as_ref() {
+            ui.label(format!(
+                "Current theater: {} ({})",
+                bootstrap.level_name, bootstrap.instance_kind
+            ));
+        }
+    });
+
+    let layout_status = panels.last_io_status.clone();
+    render_panel_window(ctx, panels, DomainPanel::Notifications, |ui| {
+        ui.label("Latest status");
+        ui.label(shell.status_line.as_str());
+        ui.separator();
+        ui.label("Panel layout");
+        ui.label(layout_status.as_str());
+    });
+}
+
+fn render_panel_window<F>(ctx: &egui::Context, panels: &mut PanelUiState, panel: DomainPanel, add_contents: F)
+where
+    F: FnOnce(&mut egui::Ui),
+{
+    let mut open = panels.is_open(panel);
+    let rect = panels.panel_rect(panel);
+
+    let response = egui::Window::new(panel.title())
+        .open(&mut open)
+        .default_pos([rect.x, rect.y])
+        .default_size([rect.width, rect.height])
+        .resizable(true)
+        .show(ctx, add_contents);
+
+    panels.set_open(panel, open);
+    if let Some(response) = response {
+        panels.set_panel_rect_from_egui(panel, response.response.rect);
     }
 }
 
@@ -1147,7 +1609,10 @@ fn trimmed_nonempty(value: String) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{CharacterSummary, extract_error_message, resolve_selected_character_id};
+    use super::{
+        CharacterSummary, DOMAIN_PANELS, LayoutPreset, default_layout_snapshot, extract_error_message,
+        resolve_selected_character_id,
+    };
 
     #[test]
     fn extracts_error_message_from_backend_shapes() {
@@ -1184,5 +1649,14 @@ mod tests {
 
         let none_rows: Vec<CharacterSummary> = Vec::new();
         assert_eq!(resolve_selected_character_id(&none_rows, Some(10)), None);
+    }
+
+    #[test]
+    fn layout_snapshot_contains_all_domain_panels() {
+        let snapshot = default_layout_snapshot(LayoutPreset::Strategist);
+        for panel in DOMAIN_PANELS {
+            assert!(snapshot.open.contains_key(panel.key()));
+            assert!(snapshot.rects.contains_key(panel.key()));
+        }
     }
 }

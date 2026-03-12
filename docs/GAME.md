@@ -117,6 +117,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: player logs in (or uses launcher handoff session), client fetches authenticated character roster, requests world bootstrap payload for selected character, then enters a campaign-ready scene with bootstrap-derived spawn context.
 - Gameplay impact: establishes the practical account/session-to-world handoff path needed for vertical-slice playability.
 
+#### Code-first gameplay panel suite (`bevy_egui`)
+- Purpose: provide controllable vertical-slice domain surfaces without engine-authored editor UI.
+- Loop: campaign view renders dedicated `character`, `household`, `logistics`, `trade`, `espionage`, `diplomacy`, and `notifications` panels with standardized hotkeys and saved layout presets.
+- Gameplay impact: core strategic interfaces are now navigable through code-defined UI primitives and can evolve deterministically with gameplay systems.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.
