@@ -46,6 +46,14 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-031 | ✅ | 3 | AOP-PIVOT-027 | Prepare external playtest hardening checklist (security, abuse controls, rollback drills, release rollback, data backups). |
 | AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Add manual validation Bevy sandbox surface (clock panel + route planning controls + route-time-driven moving player placeholder sprite generated as PNG) for local systems smoke testing. |
 | AOP-PIVOT-034 | ✅ | 3 | AOP-PIVOT-014 | Expand deterministic regression/unit-test matrix across implemented simulation systems to catch cross-system side effects quickly. |
+| AOP-PIVOT-035 | ⬜ | 3 | AOP-PIVOT-027 | Productize Windows runtime packaging for `client-app` and ship it through existing GCS release channels with deterministic asset manifests. |
+| AOP-PIVOT-036 | ⬜ | 3 | AOP-PIVOT-035 | Integrate launcher handoff directly into Windows `client-app` runtime startup so login/session/character context is passed without manual env setup. |
+| AOP-PIVOT-037 | ⬜ | 2 | AOP-PIVOT-036 | Add one-command local PoC stack bootstrap (backend + world-service + client runtime) with seeded account/character for install-and-launch validation. |
+| AOP-PIVOT-038 | ⬜ | 4 | AOP-PIVOT-037 | Implement authenticated real-time world state sync path from world-service to client map UI (polling/SSE baseline without Redis dependency). |
+| AOP-PIVOT-039 | ⬜ | 4 | AOP-PIVOT-038 | Build first playable real-time battle scene in `client-app` (code-first UI + fixed-step visual loop) wired to existing battle authority endpoints. |
+| AOP-PIVOT-040 | ⬜ | 3 | AOP-PIVOT-039 | Wire gameplay UI panels to live backend/world-service data and action endpoints (remove remaining static placeholder panel content). |
+| AOP-PIVOT-041 | ⬜ | 3 | AOP-PIVOT-040 | Add Windows installer acceptance smoke suite that validates install, launcher update, login handoff, campaign entry, and one vertical-slice battle outcome. |
+| AOP-PIVOT-042 | ⬜ | 2 | AOP-PIVOT-041 | Finalize first single-player external PoC release checklist with dated go/no-go evidence bundle and rollback proof artifacts. |
 
 ## Detailed Task Specs
 
@@ -451,12 +459,125 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - hardening checklist sign-off.
 
+### AOP-PIVOT-035 - Windows Runtime Packaging Productization
+- Objective: make Rust client runtime installable/updatable through the existing Windows release path.
+- Implementation checklist:
+  - produce Windows `client-app` release artifact with required runtime assets and deterministic manifest,
+  - update release workflow to publish `client-app` package and checksum metadata to GCS,
+  - ensure retention/prune flow keeps only latest 3 valid client artifacts per channel,
+  - document install/runtime layout and launcher handoff assumptions in installer/technical docs.
+- Acceptance criteria:
+  - latest release feed exposes launchable Windows `client-app` artifact with checksum,
+  - installer/update flow can fetch and place runtime artifact without manual file copying.
+- Validation:
+  - release workflow artifact inspection + checksum verification,
+  - local Windows install smoke against generated release feed.
+
+### AOP-PIVOT-036 - Launcher-to-Client Runtime Handoff Integration
+- Objective: remove manual bootstrap environment setup by wiring launcher and client runtime handoff directly.
+- Implementation checklist:
+  - extend launcher launch command to pass authenticated handoff contract (token/session/character/runtime URLs),
+  - harden client bootstrap-shell handoff parsing/validation and explicit user-facing errors for stale sessions,
+  - add integration tests for expected handoff combinations and missing-value fallback behavior.
+- Acceptance criteria:
+  - user can complete launcher login and enter campaign scene without shell/env manipulation,
+  - invalid or expired handoff payloads fail gracefully with actionable UI messaging.
+- Validation:
+  - `./gradlew :launcher:test`,
+  - `cargo test -p client-app --features bootstrap-shell`.
+
+### AOP-PIVOT-037 - One-Command Local PoC Stack Bootstrap
+- Objective: ensure a fresh install can run the full PoC loop quickly with minimal manual setup.
+- Implementation checklist:
+  - add script/tool to start backend + world-service + client runtime with aligned env defaults,
+  - provide deterministic seed path for one test account and one playable character,
+  - add health checks/wait gates so client starts only after services are ready,
+  - write operator runbook for first-run and reset flows.
+- Acceptance criteria:
+  - single command brings up a playable local stack from clean checkout (excluding dependency install),
+  - seeded user can reach campaign entry reliably.
+- Validation:
+  - local bootstrap script run + automated readiness checks,
+  - backend/client smoke tests referenced from script output.
+
+### AOP-PIVOT-038 - Real-Time World Sync Channel
+- Objective: move from static/bootstrap-only world data to continuous real-time campaign updates in client UI.
+- Implementation checklist:
+  - add authenticated world-state delta/snapshot feed endpoint (polling or SSE baseline),
+  - implement client-side sync loop with deterministic state application and clock alignment,
+  - include reconnect/backoff behavior and stale-data indicator surfaces,
+  - instrument feed latency/failure metrics in ops endpoints.
+- Acceptance criteria:
+  - map state (positions, supply/trade/espionage indicators, alerts) updates continuously without manual refresh,
+  - reconnect behavior preserves consistency after transient service interruptions.
+- Validation:
+  - integration tests for feed auth/reconnect/state application,
+  - manual sandbox/bootstrap-shell sync smoke with forced disconnect/reconnect.
+
+### AOP-PIVOT-039 - Playable Real-Time Battle Scene
+- Objective: replace contract-only battle controls with a minimal playable visual battle scene.
+- Implementation checklist:
+  - add battle scene rendering layer with unit markers, front lines, morale/pressure HUD, and time controls,
+  - wire formation/reserve/tactical actions to signed backend/world-service battle commands,
+  - display authoritative battle progress/result events and return-to-campaign writeback summary,
+  - add deterministic battle-scene simulation tests for command timing and state projection.
+- Acceptance criteria:
+  - user can enter battle instance, issue tactical actions in real time, and observe authoritative resolve in-client,
+  - battle result writes back to campaign and character progression surfaces.
+- Validation:
+  - `cargo test -p client-app`,
+  - backend/world-service integration tests for battle command/resolve flow,
+  - manual local battle playthrough smoke.
+
+### AOP-PIVOT-040 - Live Data Wiring for Gameplay Panels
+- Objective: ensure gameplay UI panels reflect authoritative runtime data rather than placeholder/static values.
+- Implementation checklist:
+  - bind character/household/logistics/trade/espionage/diplomacy/notifications panels to live API data models,
+  - implement optimistic-action guards + conflict/error handling for panel actions,
+  - add panel refresh cadence contracts to avoid stale indicators,
+  - add regression tests for panel data adapters and action response mapping.
+- Acceptance criteria:
+  - all shipped gameplay panels show live authoritative data during play sessions,
+  - panel actions provide clear success/failure feedback and stay consistent after reconnect.
+- Validation:
+  - client-app panel adapter tests,
+  - backend route contract tests,
+  - manual panel verification during vertical-slice loop.
+
+### AOP-PIVOT-041 - Windows Installer Acceptance Smoke Suite
+- Objective: continuously verify end-to-end install-and-play basics on the Windows-first delivery path.
+- Implementation checklist:
+  - add smoke automation for installer/update/install-dir verification + launcher startup,
+  - validate login handoff to client runtime and campaign entry on latest release artifacts,
+  - automate one campaign action + one battle action + result writeback verification,
+  - publish smoke artifacts/log summary for each release run.
+- Acceptance criteria:
+  - release pipeline fails fast when installer or runtime handoff regresses,
+  - smoke evidence is attached for successful release candidate runs.
+- Validation:
+  - CI smoke workflow on Windows runner,
+  - manual fallback smoke execution docs.
+
+### AOP-PIVOT-042 - First External PoC Release Gate
+- Objective: formalize the first single-player external release decision with auditable operational evidence.
+- Implementation checklist:
+  - compile dated release-readiness checklist results (security, runtime health, cost guardrails, rollback drills),
+  - capture release candidate install/play smoke evidence and known-risk ledger,
+  - produce go/no-go memo with rollback trigger thresholds and on-call/incident contacts.
+- Acceptance criteria:
+  - first external PoC release has explicit dated sign-off package and rollback plan,
+  - unresolved risks are documented with mitigation and owner.
+- Validation:
+  - completed evidence bundle in docs,
+  - release gate script/report review sign-off.
+
 ## Sequencing Guide (Strict Order)
 1. Program setup tasks: `AOP-PIVOT-003`, `AOP-PIVOT-032`, then `AOP-PIVOT-004` to `AOP-PIVOT-007`.
 2. Persistence/simulation foundation: `AOP-PIVOT-008` to `AOP-PIVOT-019`.
 3. Client/tooling buildout: `AOP-PIVOT-020` to `AOP-PIVOT-024`.
 4. Vertical slice assembly: `AOP-PIVOT-025` to `AOP-PIVOT-028`.
 5. Operations and launch readiness: `AOP-PIVOT-029` to `AOP-PIVOT-031`.
+6. Productization and release hardening: `AOP-PIVOT-035` to `AOP-PIVOT-042`.
 
 ## Resume Protocol
 When work resumes after a pause:
