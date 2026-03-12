@@ -293,6 +293,15 @@ struct BattleStateResponse {
     state: BattleStateSnapshot,
 }
 
+#[derive(Debug, Serialize)]
+struct MetricsSummaryResponse {
+    status: &'static str,
+    current_tick: u64,
+    queue_depth: usize,
+    tick_metrics: TickMetrics,
+    latest_snapshot: Option<TickSnapshot>,
+}
+
 fn default_travel_preference() -> TravelPreference {
     TravelPreference::Fastest
 }
@@ -369,6 +378,7 @@ fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header
         .route("/espionage/state", get(espionage_state))
         .route("/politics/state", get(politics_state))
         .route("/battle/state", get(battle_state))
+        .route("/metrics/summary", get(metrics_summary))
         .merge(internal_control_routes)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
@@ -869,6 +879,24 @@ async fn battle_state(State(state): State<AppState>) -> (StatusCode, Json<Battle
     )
 }
 
+async fn metrics_summary(State(state): State<AppState>) -> (StatusCode, Json<MetricsSummaryResponse>) {
+    let runner = state
+        .tick_runner
+        .lock()
+        .expect("tick runner lock should not be poisoned");
+
+    (
+        StatusCode::OK,
+        Json(MetricsSummaryResponse {
+            status: "ok",
+            current_tick: runner.current_tick().0,
+            queue_depth: runner.queue_depth(),
+            tick_metrics: runner.metrics(),
+            latest_snapshot: runner.latest_snapshot(),
+        }),
+    )
+}
+
 fn init_tracing(log_level: &str) {
     let filter = EnvFilter::try_new(log_level)
         .or_else(|_| EnvFilter::try_new("info"))
@@ -1112,6 +1140,42 @@ mod tests {
         assert_eq!(payload["status"], "ok");
         assert_eq!(payload["plan"]["settlements"], serde_json::json!([1, 2, 3, 4, 5]));
         assert_eq!(payload["estimate"]["arrival_tick"], 240);
+    }
+
+    #[tokio::test]
+    async fn metrics_summary_endpoint_exposes_tick_metrics() {
+        let app = test_app();
+
+        let tick_response = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/tick",
+                "nonce-metrics-tick",
+                r#"{"now_ms":0}"#,
+            ))
+            .await
+            .expect("tick response should resolve");
+        assert_eq!(tick_response.status(), StatusCode::ACCEPTED);
+
+        let metrics_response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/metrics/summary")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("response should resolve");
+        assert_eq!(metrics_response.status(), StatusCode::OK);
+
+        let bytes = to_bytes(metrics_response.into_body(), usize::MAX)
+            .await
+            .expect("response body should decode");
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
+        assert_eq!(payload["status"], "ok");
+        assert_eq!(payload["current_tick"], 1);
+        assert_eq!(payload["tick_metrics"]["total_ticks"], 1);
     }
 
     #[tokio::test]

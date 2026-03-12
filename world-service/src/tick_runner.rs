@@ -176,6 +176,14 @@ impl TickRunner {
         self.queue.len()
     }
 
+    pub fn metrics(&self) -> TickMetrics {
+        self.metrics.clone()
+    }
+
+    pub fn latest_snapshot(&self) -> Option<TickSnapshot> {
+        self.snapshots.back().cloned()
+    }
+
     pub fn logistics_state(&self) -> LogisticsStateSnapshot {
         let armies = self
             .logistics

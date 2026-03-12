@@ -147,6 +147,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: world-service replay tests run the same mixed campaign/battle stream twice, compare deterministic snapshot output against committed golden data, and fail CI on divergence.
 - Gameplay impact: authority-state regressions are caught early, reducing hidden balance and persistence bugs.
 
+#### Operational observability baseline
+- Purpose: keep solo-dev live operations safe by making runtime health degradations visible and actionable.
+- Loop: backend/world-service expose runtime health metrics (tick lag, DB latency, outbox lag, release feed health) and operations scripts classify page-worthy vs log-only alerts.
+- Gameplay impact: persistent world reliability issues are surfaced earlier, reducing player-facing outages during PoC iteration.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.

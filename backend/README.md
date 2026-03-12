@@ -9,6 +9,7 @@ FastAPI backend for Ambitions of Peace online account/control-plane systems duri
 - Gameplay action resolve + vertical-slice loop orchestration (`/gameplay/resolve-action`, `/gameplay/vertical-slice-loop`)
 - Chat channels/messages + websocket endpoint
 - Release policy ops endpoint for forced-update gating
+- Ops runtime health metrics (`/ops/release/metrics`) now include DB probe latency, outbox lag, and release-feed health metadata.
 - Internal world-service call signing contract (`app/services/world_service_auth.py`) for authenticated FastAPI -> Rust control-plane requests
 - Character world bootstrap bridge client (`app/services/world_entry_bridge.py`) for signed FastAPI -> Rust world-entry handoff (`/internal/world-entry/bootstrap`) with compatibility fallback
 - PostgreSQL outbox LISTEN/NOTIFY wake worker scaffold (`app/services/outbox_notify_worker.py`) with reconnect loop and startup/shutdown wiring
@@ -19,3 +20,7 @@ FastAPI backend for Ambitions of Peace online account/control-plane systems duri
 
 ## Deploy
 Run `backend/scripts/deploy_cloud_run.sh` after setting env vars (or `backend/.env`).
+
+## Ops Guardrails
+- Configure baseline Cloud Monitoring alert policies: `backend/scripts/configure_monitoring_alerts.sh`
+- Check runtime thresholds (page-worthy + log-only): `backend/scripts/check_world_runtime_alerts.sh`

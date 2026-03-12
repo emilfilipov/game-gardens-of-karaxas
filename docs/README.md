@@ -21,6 +21,7 @@ Current modules include transitional prototype components plus backend/release i
 - `backend/` - FastAPI online services and Cloud SQL integration, including PostgreSQL outbox event-store tables and LISTEN/NOTIFY wake worker scaffolding for PoC fanout.
   - FastAPI world bootstrap now bridges to Rust world-service signed world-entry endpoint and preserves fallback compatibility if bridge calls fail.
   - FastAPI now includes `POST /gameplay/vertical-slice-loop` orchestration flow for campaign action -> battle instance -> persistence writeback.
+  - Ops metrics now expose runtime health probes (DB latency, outbox lag, release feed health) via `GET /ops/release/metrics`.
 - `designer-client/` - legacy external authoring prototype (transitional).
 - `sim-core/` - shared Rust simulation-domain contracts (travel + real-time logistics/trade/espionage/politics/battle-instance contract).
 - `world-service/` - Rust world-authority service with deterministic tick runner, travel APIs, and real-time logistics/trade/espionage/politics/battle-contract authority endpoints.
@@ -74,6 +75,7 @@ Manual sandbox client run (feature-gated):
 - Sandbox includes real-time politics validation controls (standing/office/treaty actions + legitimacy/stability/influence readouts).
 - Sandbox includes real-time battle-contract validation controls (encounter start, formation/reserve actions, resolve + instance/result readouts).
 - Online loop smoke harness (`backend/scripts/smoke_online_loop.py`) now exercises login + character bootstrap + gameplay resolve + vertical-slice battle/writeback endpoint.
+- Runtime alert threshold checker: `backend/scripts/check_world_runtime_alerts.sh` (page-worthy vs log-only severity split).
 
 ## Packaging and Release
 - Windows packaging script: `scripts/pack.ps1`

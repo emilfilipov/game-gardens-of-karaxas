@@ -57,6 +57,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 ### Control plane (transitional)
 - Existing FastAPI auth/session/account/content/release endpoints remain operational during migration.
 - FastAPI now exposes authenticated vertical-slice orchestration endpoint `POST /gameplay/vertical-slice-loop` to run the PoC loop (campaign command dispatch -> battle instance lifecycle -> persistence writeback) while keeping launcher/login/account contracts intact.
+- FastAPI ops metrics endpoint `GET /ops/release/metrics` now includes runtime health probes for DB latency, outbox lag, and release feed health metadata.
 
 ### New world authority plane
 - Rust world service (`world-service`) now provides the initial Axum skeleton with env-driven config and health/readiness/config endpoints; it will expand to own campaign simulation ticks, economic/logistics simulation, espionage state, and instanced battle authority orchestration.
@@ -85,6 +86,8 @@ Legacy prototype documents that conflict with this direction are archived under 
   - `GET /politics/state`
 - World service now also exposes deterministic battle instance state API backed by the same tick authority loop:
   - `GET /battle/state`
+- World service now also exposes runtime summary metrics API for observability dashboards/alert checks:
+  - `GET /metrics/summary`
 - Internal signed control command contract now includes logistics convoy transfer queueing (`queue_supply_transfer`) through `/internal/control/commands`.
 - Internal signed control command contract now also includes trade shipment queueing (`queue_trade_shipment`) through `/internal/control/commands`.
 - Internal signed control command contract now also includes espionage queueing actions (`recruit_informant`, `request_intel_report`, `counter_intel_sweep`) through `/internal/control/commands`.
@@ -195,6 +198,8 @@ Current baseline checks retained during transition:
   - `python3 backend/scripts/smoke_online_loop.py --base-url <backend_base_url>`
 - Deterministic replay/golden smoke:
   - `cargo test -p world-service replay_`
+- Observability threshold smoke:
+  - `OPS_BASE_URL=<backend-url> OPS_TOKEN=<ops-token> WORLD_SERVICE_BASE_URL=<world-service-url> backend/scripts/check_world_runtime_alerts.sh`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox`) and deterministic replay gate (`determinism-replay`) in `.github/workflows/rust-checks.yml`.

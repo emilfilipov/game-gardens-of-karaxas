@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
+from time import perf_counter
 
 from fastapi import APIRouter, Depends
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_ops_token
 from app.core.config import settings
 from app.models.admin_audit import AdminActionAudit
+from app.models.event_pipeline import WorldOutbox
+from app.models.release_record import ReleaseRecord
 from app.schemas.ops import ActivateReleaseRequest, ReleasePolicyResponse
 from app.services.admin_audit import write_admin_audit
 from app.services.content import get_active_snapshot
@@ -27,6 +31,59 @@ from app.services.session_drain import (
 )
 
 router = APIRouter(prefix="/ops/release", tags=["ops"])
+
+
+def _db_probe_latency_ms(db: Session) -> float:
+    started = perf_counter()
+    db.execute(select(func.count(AdminActionAudit.id))).scalar_one()
+    return round((perf_counter() - started) * 1000.0, 3)
+
+
+def _outbox_lag_metrics(db: Session) -> dict[str, float | int]:
+    pending_count = db.execute(
+        select(func.count(WorldOutbox.id)).where(WorldOutbox.processed_at.is_(None))
+    ).scalar_one()
+    oldest_pending = db.execute(
+        select(WorldOutbox.created_at)
+        .where(WorldOutbox.processed_at.is_(None))
+        .order_by(WorldOutbox.created_at.asc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if oldest_pending is None:
+        return {"pending_count": int(pending_count or 0), "oldest_lag_seconds": 0.0}
+    oldest = oldest_pending
+    if oldest.tzinfo is None:
+        oldest = oldest.replace(tzinfo=UTC)
+    lag_seconds = max(0.0, (datetime.now(UTC) - oldest).total_seconds())
+    return {"pending_count": int(pending_count or 0), "oldest_lag_seconds": round(lag_seconds, 3)}
+
+
+def _release_feed_health(db: Session) -> dict[str, object]:
+    latest = (
+        db.execute(select(ReleaseRecord).order_by(ReleaseRecord.activated_at.desc(), ReleaseRecord.id.desc()).limit(1))
+        .scalars()
+        .first()
+    )
+    if latest is None:
+        return {
+            "has_release_record": False,
+            "latest_build_version": None,
+            "latest_activated_at": None,
+            "minutes_since_latest_activation": None,
+            "update_feed_url_present": False,
+        }
+
+    activated_at = latest.activated_at
+    if activated_at.tzinfo is None:
+        activated_at = activated_at.replace(tzinfo=UTC)
+    minutes_since = max(0.0, (datetime.now(UTC) - activated_at).total_seconds() / 60.0)
+    return {
+        "has_release_record": True,
+        "latest_build_version": latest.build_version,
+        "latest_activated_at": activated_at.isoformat(),
+        "minutes_since_latest_activation": round(minutes_since, 3),
+        "update_feed_url_present": bool((latest.update_feed_url or "").strip()),
+    }
 
 
 @router.get("/status", response_model=ReleasePolicyResponse, dependencies=[Depends(require_ops_token)])
@@ -74,6 +131,11 @@ def metrics(db: Session = Depends(get_db)):
         "publish_drain": build_publish_drain_metrics(db),
         "rate_limiter": rate_limiter.stats(),
         "security_events": security_event_stats(db),
+        "runtime_health": {
+            "db_probe_latency_ms": _db_probe_latency_ms(db),
+            "outbox_lag": _outbox_lag_metrics(db),
+            "release_feed": _release_feed_health(db),
+        },
     }
 
 

@@ -41,6 +41,40 @@ Operational runbook for Ambitions of Peace during migration from legacy prototyp
 - updater logs: `<install_root>/logs/velopack.log`
 - updater status: `<install_root>/logs/update_status.json`
 
+## Observability Dashboards
+Primary runtime observability surfaces for the PoC:
+- Backend ops metrics: `GET /ops/release/metrics` (authenticated via `x-ops-token`).
+  - Required dashboard tiles:
+    - `runtime_health.db_probe_latency_ms`
+    - `runtime_health.outbox_lag.oldest_lag_seconds`
+    - `runtime_health.outbox_lag.pending_count`
+    - `runtime_health.release_feed.minutes_since_latest_activation`
+    - `runtime_health.release_feed.update_feed_url_present`
+- World-service metrics summary: `GET /metrics/summary`.
+  - Required dashboard tiles:
+    - `tick_metrics.last_tick_lag_ms`
+    - `tick_metrics.max_tick_lag_ms`
+    - `tick_metrics.last_tick_duration_ms`
+    - `queue_depth`
+    - `current_tick`
+
+## Alert Severity Matrix
+- Page-worthy alerts:
+  - world tick lag above threshold (`last_tick_lag_ms > 2000` for sustained checks),
+  - backend DB probe latency above threshold (`db_probe_latency_ms > 250`),
+  - outbox lag above threshold (`oldest_lag_seconds > 60`).
+- Log-only alerts:
+  - release feed URL missing (`update_feed_url_present=false`),
+  - release feed staleness above policy threshold (`minutes_since_latest_activation > 10080` by default).
+
+## Alert Check Commands
+- Existing Cloud Monitoring policy script:
+  - `backend/scripts/configure_monitoring_alerts.sh`
+- Runtime threshold check script (page-worthy + log-only split):
+  - `OPS_BASE_URL=<backend-url> OPS_TOKEN=<ops-token> WORLD_SERVICE_BASE_URL=<world-service-url> backend/scripts/check_world_runtime_alerts.sh`
+- Existing release guardrails check:
+  - `OPS_BASE_URL=<backend-url> OPS_TOKEN=<ops-token> backend/scripts/check_ops_metrics_guardrails.sh`
+
 ## Redis Adoption Gate Reference
 - Redis adoption is controlled by `docs/REDIS_ADOPTION_GATE.md`.
 - Do not enable Redis-backed fanout paths unless the documented thresholds, preconditions, and rollback drill requirements are satisfied.
