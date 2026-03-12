@@ -50,12 +50,14 @@ Explicitly forbidden for UI concept iteration work:
   - `grep -n "<pattern>" <path>`
 - Backend checks:
   - `python3 -m compileall backend/app`
-- Launcher checks:
-  - `./gradlew :launcher:test`
-- Character art pack generation:
-  - `python3 tools/generate_sellsword_sprite_pack.py`
-- Local environment constraint:
-  - Do not run `dotnet` build/publish commands locally in this repo (this workstation is Linux-first for launcher/backend work and does not have a local `dotnet` toolchain installed).
+- Auth/session continuity gate:
+  - `backend/scripts/validate_auth_session_gate.sh`
+- Rust checks:
+  - `~/.cargo/bin/cargo fmt --all -- --check`
+  - `~/.cargo/bin/cargo clippy --workspace --all-targets -- -D warnings`
+  - `~/.cargo/bin/cargo test --workspace`
+- Designer world-promotion tests:
+  - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_designer_world_promotion.py backend/tests/test_designer_publish_routes.py`
 - Commit/push flow:
   - `git add <paths>`
   - `git commit -m "<message>"`
@@ -76,24 +78,25 @@ Explicitly forbidden for UI concept iteration work:
   - `.github/release-body-template.md`
 
 ## Architecture Guardrails
-- Keep gameplay logic decoupled from launcher/updater code.
-- Runtime must run without launcher/updater dependencies.
+- Keep gameplay logic decoupled from install/update helper scripts.
+- Runtime must run without external launcher dependencies.
 - Preserve portability path: Windows first, then Linux/Steam, then Android.
 
 ## UI Quality Rule
 - All UI dialogs, panels, and controls must be themed to Ambitions of Peace.
-- Do not ship placeholder/system-default UI surfaces for in-game launcher flows.
+- Do not ship placeholder/system-default UI surfaces for in-game shell flows.
 
 ## System Map
 - Current repo structure:
   - `docs/` - repository documentation (canonical + supporting docs).
-  - `launcher/` - Windows launcher/updater module (Gradle).
-  - `game-client/` - Godot 4.x runtime/editor host scaffold and bootstrap contract.
+  - `backend/` - FastAPI control plane and Cloud SQL-backed services.
+  - `world-service/` - Rust world authority service.
+  - `sim-core/` - shared simulation contracts/rules.
+  - `client-app/` - Rust Bevy game runtime shell and tools mode.
+  - `designer-client/` - standalone designer authoring/promotion client.
+  - `tooling-core/` - deterministic content tooling pipelines.
   - `assets/` - shared content/data.
   - `scripts/` and `.github/workflows/` - packaging/release automation.
-  - `tools/` - setup wrapper and update helper tooling.
-  - `build.gradle.kts`, `settings.gradle.kts`, `gradlew`, `gradle/` - Gradle build system scaffold.
+  - `tools/` - packaging/utilities.
 - Planned modules (not scaffolded yet):
-  - `sim/` - pure gameplay/simulation logic.
-  - `game/` - gameplay orchestration and presentation (engine-agnostic domain layer target).
-  - `desktop/` - standalone runtime shell for Windows/Linux/Steam (beyond launcher shell flow).
+  - `battle-client/` - dedicated tactical battle runtime surface (post-vertical-slice hardening).

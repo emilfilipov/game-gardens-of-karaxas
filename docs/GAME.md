@@ -62,7 +62,7 @@ This section is the detailed product-level description of all implemented and pl
 
 #### Campaign travel and route planning
 - Purpose: make geography and route risk first-class strategic constraints.
-- Loop: route graph planning computes fastest/safest paths; travel resolves over elapsed route time with risk-aware path selection.
+- Loop: route graph planning computes fastest/safest paths; travel resolves over elapsed route time with risk-aware path selection and deterministic risk-band classification (`low`, `guarded`, `high`, `severe`) for consistent UI/AI interpretation.
 - Gameplay impact: movement decisions are meaningful because route duration, risk profile, and choke points alter strategic tempo.
 
 #### Campaign map rendering MVP (Bevy client)
@@ -114,7 +114,7 @@ This section is the detailed product-level description of all implemented and pl
 
 #### Bevy bootstrap shell (login -> world bootstrap -> campaign entry)
 - Purpose: provide the first Rust client entry path without external editor/UI tooling.
-- Loop: player logs in (or uses launcher handoff session), client fetches authenticated character roster, requests world bootstrap payload for selected character, and FastAPI bridges that request to signed Rust world-entry bootstrap metadata before campaign scene handoff.
+- Loop: player logs in (or uses external handoff session), client fetches authenticated character roster, requests world bootstrap payload for selected character, and FastAPI bridges that request to signed Rust world-entry bootstrap metadata before campaign scene handoff.
 - Gameplay impact: establishes the practical account/session-to-world handoff path needed for vertical-slice playability.
 
 #### Code-first gameplay panel suite (`bevy_egui`)
@@ -126,6 +126,11 @@ This section is the detailed product-level description of all implemented and pl
 - Purpose: allow internal world/system authoring without external editor dependency.
 - Loop: role-gated tools mode edits settlement/route data in-app, validates schema constraints before save, and persists/load authored map JSON for iterative tuning.
 - Gameplay impact: playable map/system content can now be created and adjusted directly in the client code/UI workflow.
+
+#### Designer world-authoring and promotion baseline
+- Purpose: support decoupled world-design workflows and safe deployment of authored world content.
+- Loop: standalone designer client authors camp/village/town/city/fortress layouts with spawn points/routes, validates locally, stages packs through backend hash-locking, and activates versioned signed province packs through authenticated promotion endpoints.
+- Gameplay impact: world topology and spawn flow can be iterated rapidly without bundling every design change into player-runtime code changes.
 
 #### Deterministic content import/export pipeline
 - Purpose: keep authored province/system content reviewable, reproducible, and safe to promote between local/dev/prod environments.
@@ -163,20 +168,15 @@ This section is the detailed product-level description of all implemented and pl
 - Gameplay impact: reduces risk of corrupted progression, prolonged outages, or unmanaged abuse during first public exposure.
 
 #### Windows Rust runtime release artifacts baseline
-- Purpose: ship install-ready Rust client runtime payloads through the existing release channel before launcher handoff migration is complete.
-- Loop: release automation builds Windows `client-app` runtime, packages deterministic bundle + manifest/checksum, publishes to GCS feed/archive, and retains only the latest three versions.
-- Gameplay impact: narrows the gap between local Rust client validation and downloadable release artifacts needed for install/launch testing.
+- Purpose: ship install-ready game and designer runtime payloads through decoupled release channels.
+- Loop: release automation builds/packages Windows game runtime and standalone designer runtime, publishes deterministic bundles + manifest/checksum to separate GCS feed/archive prefixes, and retains only the latest three versions per channel.
+- Gameplay impact: player and designer update cadence can diverge safely while keeping rollback simplicity and low storage growth.
 
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.
 - Loop: migrate only when measured bottlenecks exceed defined latency/contention/backlog thresholds documented in `docs/REDIS_ADOPTION_GATE.md`, then execute staged dual-write validation before consumer cutover.
 - Gameplay impact: preserves development velocity and budget while retaining a clear scale path.
-
-#### Dedicated designer client and promotion flow
-- Purpose: enable world-design operations (spawn points, camps, towns, villages, route topology) through a standalone toolchain decoupled from player runtime delivery.
-- Loop: designer client authors deterministic world packs, promotion pipeline signs/versions artifacts, and activation controls deploy approved versions to game runtime.
-- Gameplay impact: world iteration speed increases without coupling designer updates to player-facing game build cadence.
 
 #### Auth/session continuity hard gate
 - Purpose: preserve account security and trust while runtime/client modules are migrated.

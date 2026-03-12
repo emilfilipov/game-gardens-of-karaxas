@@ -1,78 +1,64 @@
-# Windows Installer/Updater (Velopack)
+# Windows Install and Update
 
-## One-time setup (Windows)
-1. Install JDK 17 (Temurin recommended).
-2. Install Velopack CLI:
-   `dotnet tool install -g vpk --version 0.0.1298`
+## Scope
+Windows-first install/update flow for Ambitions of Peace game runtime and standalone designer runtime.
 
-## Build and package launcher
-From repo root:
+## Distribution Model
+- Artifacts are published to GCS by `.github/workflows/release.yml`.
+- Two decoupled channels are maintained:
+  - game channel (`win-game` default): `AmbitionsOfPeace-client-app-win-x64-<version>.zip`
+  - designer channel (`win-designer` default): `AmbitionsOfPeace-designer-client-win-x64-<version>.zip`
+- Each artifact publish includes:
+  - `.zip` payload
+  - `.manifest.json` deterministic file manifest
+  - `.sha256` checksum
+  - mutable `latest.json` pointer (cache-busted)
+- Retention policy: keep latest 3 versions in both feed and archive prefixes per channel.
+
+## CI Trigger Rules
+Release workflow triggers on push to `main`/`master` when paths include:
+- `client-app/**`
+- `designer-client/**`
+- `sim-core/**`
+- `tooling-core/**`
+- `assets/content/**`
+- `scripts/**`
+- `tools/package_client_app_release.py`
+- `tools/package_designer_client_release.py`
+- `.github/workflows/release.yml`
+
+Docs-only pushes do not trigger release workflow.
+
+## Local Install Scripts (Windows)
+- Shared installer helper: `scripts/install_channel.ps1`
+- Game channel installer: `scripts/install_game_client.ps1`
+- Designer channel installer: `scripts/install_designer_client.ps1`
+
+Default install roots:
+- game: `%LOCALAPPDATA%\\AmbitionsOfPeace\\game-runtime`
+- designer: `%LOCALAPPDATA%\\AmbitionsOfPeace\\designer-client`
+
+Example:
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 -Version 1.0.0
+powershell -ExecutionPolicy Bypass -File scripts/install_game_client.ps1
+powershell -ExecutionPolicy Bypass -File scripts/install_designer_client.ps1
 ```
 
-Artifacts are written to `releases/windows/`.
+Optional overrides:
+- pass `-FeedUrl` to target an explicit channel URL.
+- pass `-InstallDir` to customize install root.
 
-## Runtime behavior
-- Installed game executable launches Godot online client shell.
-- Installer payload also includes a separate designer executable.
-- Release feed now also includes standalone Windows Rust runtime artifacts (`client-app`) with deterministic manifest/checksum metadata for migration validation.
-- Velopack install/update hooks create desktop shortcuts for:
-  - `Ambitions of Peace` (game launcher entry)
-  - `Ambitions of Peace Designer` (designer entry)
-- Update control is available from main menu (`Update`).
-- Updater uses packaged `UpdateHelper.exe`.
-- Feed URL source order:
-  1. `game_config.update.feed_url`
-  2. `GOK_UPDATE_REPO` environment variable
-  3. `update_repo.txt` in packaged payload (release-time value)
-
-## Local install path
-Default install root target:
-`%LOCALAPPDATA%\AmbitionsOfPeace`
-
-Compatibility note:
-- Legacy installs may still exist under `%LOCALAPPDATA%\PlompersArenaInc` and `%LOCALAPPDATA%\ChildrenOfIkphelion` until naming/path migration is finalized.
-
-Logs:
-- launcher logs: `<install_root>\\logs\\launcher.log`
-- game logs: `<install_root>\\logs\\game.log`
-- updater logs: `<install_root>\\logs\\velopack.log`
-- updater status: `<install_root>\\logs\\update_status.json`
-
-## CI release
-- Workflow: `.github/workflows/release.yml`
-- Trigger: pushes to `main`/`master` only when runtime/package paths change (`launcher/**`, `game-client/**`, `client-app/**`, `sim-core/**`, `designer-client/**`, `assets/**`, `scripts/**`, `tools/package_client_app_release.py`, Cargo/Gradle wrapper/build files). Concept docs/images/tooling-only changes do not auto-trigger releases.
-- Release uploads Velopack artifacts to GCS feed path and versioned archive path.
-- Release also uploads versioned Windows Rust runtime artifacts to the same feed/archive path:
-  - `AmbitionsOfPeace-client-app-win-x64-<version>.zip`
-  - `AmbitionsOfPeace-client-app-win-x64-<version>.manifest.json`
-  - `AmbitionsOfPeace-client-app-win-x64-<version>.sha256`
-- Mutable feed artifacts receive `Cache-Control: no-cache, max-age=0`.
-- Historical `.nupkg` artifacts are prefetched from feed before packing to preserve delta continuity.
-- Post-upload retention keeps the 3 newest feed/archive build versions and prunes older ones (Velopack packages and versioned Rust runtime artifacts).
-
-## Runtime host defaults in payload
-`runtime_host.properties` is emitted at package time:
-- `runtime_host`
-- `godot_executable`
-- `godot_project_path`
-
-Environment overrides (launcher process):
-- `GOK_RUNTIME_HOST`
-- `GOK_GODOT_EXECUTABLE`
-- `GOK_GODOT_PROJECT_PATH`
-
-## Release variables/secrets used by workflow
-Required:
+## Required CI Variables/Secrets
+Required for publish:
 - `KARAXAS_GCS_RELEASE_BUCKET` (variable)
 - `GCP_WORKLOAD_IDENTITY_PROVIDER` (secret)
 - `GCP_SERVICE_ACCOUNT` (secret)
 
 Optional:
-- `KARAXAS_GCS_RELEASE_PREFIX`
-- `KARAXAS_RUNTIME_HOST`
-- `KARAXAS_GODOT_EXECUTABLE`
-- `KARAXAS_GODOT_PROJECT_PATH`
-- `KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL`
-- `KARAXAS_GODOT_WINDOWS_SHA256`
+- `KARAXAS_GCS_GAME_RELEASE_PREFIX` (defaults `win-game`)
+- `KARAXAS_GCS_DESIGNER_RELEASE_PREFIX` (defaults `win-designer`)
+
+## Release Validation Baseline
+- `python tools/package_client_app_release.py --version <x.y.z> --exe <path/to/client-app.exe> --output-dir releases/game`
+- `python tools/package_designer_client_release.py --version <x.y.z> --output-dir releases/designer`
+- `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_security_edges.py backend/tests/test_publish_drain.py`

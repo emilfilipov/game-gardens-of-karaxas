@@ -6,21 +6,15 @@ on:
       - main
       - master
     paths:
-      - "launcher/**"
-      - "game-client/**"
       - "client-app/**"
-      - "sim-core/**"
       - "designer-client/**"
-      - "assets/**"
+      - "sim-core/**"
+      - "tooling-core/**"
+      - "assets/content/**"
       - "scripts/**"
       - "tools/package_client_app_release.py"
-      - "gradle/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradlew"
-      - "gradlew.bat"
+      - "tools/package_designer_client_release.py"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 permissions:
@@ -32,7 +26,6 @@ jobs:
     runs-on: windows-latest
     env:
       GCS_RELEASE_BUCKET: ${{ vars.KARAXAS_GCS_RELEASE_BUCKET }}
-      GCS_RELEASE_PREFIX: ${{ vars.KARAXAS_GCS_RELEASE_PREFIX }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,20 +34,28 @@ jobs:
         id: preflight
         shell: pwsh
         run: |
-          $prefix = "${{ env.GCS_RELEASE_PREFIX }}"
-          if ([string]::IsNullOrWhiteSpace($prefix)) {
-            $prefix = "win"
+          $gamePrefix = "${{ vars.KARAXAS_GCS_GAME_RELEASE_PREFIX }}"
+          if ([string]::IsNullOrWhiteSpace($gamePrefix)) {
+            $gamePrefix = "win-game"
+          }
+          $designerPrefix = "${{ vars.KARAXAS_GCS_DESIGNER_RELEASE_PREFIX }}"
+          if ([string]::IsNullOrWhiteSpace($designerPrefix)) {
+            $designerPrefix = "win-designer"
           }
           $hasBucket = -not [string]::IsNullOrWhiteSpace("${{ env.GCS_RELEASE_BUCKET }}")
           if ($hasBucket) {
             "enabled=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "prefix=$prefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "feed_url=https://storage.googleapis.com/${{ env.GCS_RELEASE_BUCKET }}/$prefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "game_prefix=$gamePrefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "designer_prefix=$designerPrefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "game_feed_url=https://storage.googleapis.com/${{ env.GCS_RELEASE_BUCKET }}/$gamePrefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "designer_feed_url=https://storage.googleapis.com/${{ env.GCS_RELEASE_BUCKET }}/$designerPrefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           } else {
             Write-Host "Missing KARAXAS_GCS_RELEASE_BUCKET variable. Release workflow will skip publishing."
             "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "prefix=$prefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "feed_url=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "game_prefix=$gamePrefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "designer_prefix=$designerPrefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "game_feed_url=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "designer_feed_url=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
 
       - name: Resolve Auth Mode
@@ -87,223 +88,104 @@ jobs:
           $version = "1.0.$env:GITHUB_RUN_NUMBER"
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Setup JDK
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Validate Asset Ingest Manifest
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        shell: pwsh
-        run: |
-          python tools/validate_asset_ingest.py --manifest assets/iso_asset_manifest.json
-
-      - name: UI Regression Harness
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        shell: pwsh
-        run: |
-          python game-client/tests/check_ui_regression.py
-
-      - name: 3D Runtime Contract
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        shell: pwsh
-        run: |
-          python game-client/tests/check_3d_runtime_contract.py
-
-      - name: Setup .NET
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
       - name: Setup Rust
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
 
-      - name: Bundle Godot Runtime (Windows)
-        id: bundle-godot
+      - name: Setup Python
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Auth/session continuity gate
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         env:
-          RUNTIME_HOST_DEFAULT: ${{ secrets.KARAXAS_RUNTIME_HOST || vars.KARAXAS_RUNTIME_HOST }}
-          CONFIGURED_GODOT_EXECUTABLE: ${{ secrets.KARAXAS_GODOT_EXECUTABLE || vars.KARAXAS_GODOT_EXECUTABLE }}
-          GODOT_WINDOWS_DOWNLOAD_URL: ${{ secrets.KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL || vars.KARAXAS_GODOT_WINDOWS_DOWNLOAD_URL }}
-          GODOT_WINDOWS_SHA256: ${{ secrets.KARAXAS_GODOT_WINDOWS_SHA256 || vars.KARAXAS_GODOT_WINDOWS_SHA256 }}
+          PYTHONPATH: backend
         run: |
-          $runtimeHost = if ([string]::IsNullOrWhiteSpace($env:RUNTIME_HOST_DEFAULT)) { "godot" } else { $env:RUNTIME_HOST_DEFAULT.Trim().ToLowerInvariant() }
-          $configuredExecutable = if ([string]::IsNullOrWhiteSpace($env:CONFIGURED_GODOT_EXECUTABLE)) { "godot4" } else { $env:CONFIGURED_GODOT_EXECUTABLE.Trim() }
-          $bundleSource = ""
-          $effectiveExecutable = $configuredExecutable
+          pip install -r backend/requirements.txt
+          pip install pytest
+          python -m pytest -q backend/tests/test_security_edges.py backend/tests/test_publish_drain.py
 
-          if ($runtimeHost -eq "godot") {
-            $downloadUrl = if ([string]::IsNullOrWhiteSpace($env:GODOT_WINDOWS_DOWNLOAD_URL)) {
-              "https://github.com/godotengine/godot-builds/releases/download/4.3-stable/Godot_v4.3-stable_win64.exe.zip"
-            } else {
-              $env:GODOT_WINDOWS_DOWNLOAD_URL.Trim()
-            }
-            Write-Host "Bundling Godot runtime from $downloadUrl"
-
-            $bundleRoot = Join-Path $PWD "build\godot-runtime"
-            $downloadZip = Join-Path $bundleRoot "godot.zip"
-            $extractDir = Join-Path $bundleRoot "extract"
-            $stagingDir = Join-Path $bundleRoot "windows"
-            $bundledExe = Join-Path $stagingDir "godot4.exe"
-            if (Test-Path $bundleRoot) {
-              Remove-Item -Path $bundleRoot -Recurse -Force
-            }
-            New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
-            New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
-
-            Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadZip
-            $expectedSha = $env:GODOT_WINDOWS_SHA256
-            if (-not [string]::IsNullOrWhiteSpace($expectedSha)) {
-              $actualSha = (Get-FileHash -Path $downloadZip -Algorithm SHA256).Hash.ToLowerInvariant()
-              $targetSha = $expectedSha.Trim().ToLowerInvariant()
-              if ($actualSha -ne $targetSha) {
-                throw "Godot runtime SHA256 mismatch. Expected=$targetSha Actual=$actualSha"
-              }
-              Write-Host "Godot runtime SHA256 verification passed."
-            } else {
-              Write-Host "GODOT_WINDOWS_SHA256 not configured; SHA verification skipped."
-            }
-
-            Expand-Archive -Path $downloadZip -DestinationPath $extractDir -Force
-            $exe = Get-ChildItem -Path $extractDir -Recurse -Filter "*.exe" |
-              Where-Object { $_.Name -notmatch "console" } |
-              Select-Object -First 1
-            if (-not $exe) {
-              throw "Unable to locate Godot executable in downloaded archive."
-            }
-            Copy-Item -Path $exe.FullName -Destination $bundledExe -Force
-            $bundleSource = $bundledExe
-            $effectiveExecutable = "game-client/runtime/windows/godot4.exe"
-            Write-Host "Bundled Godot runtime executable: $bundleSource"
-          } else {
-            Write-Host "Runtime host is '$runtimeHost'; skipping Godot runtime bundle."
-          }
-
-          "bundle_source=$bundleSource" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "effective_exec_default=$effectiveExecutable" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-      - name: Determine Release Mode
-        id: release-mode
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        shell: pwsh
-        run: |
-          $runtimeReady = Test-Path "desktop/build.gradle.kts"
-          "runtime_ready=$($runtimeReady.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-      - name: Build Launcher (Scaffold Mode)
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && steps.release-mode.outputs.runtime_ready != 'true'
-        run: ./gradlew :launcher:build
-
-      - name: Install Velopack CLI
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        run: dotnet tool install -g vpk --version 0.0.1298
-
-      - name: Prefetch Previous Velopack Packages From GCS
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        shell: pwsh
-        run: |
-          $PSNativeCommandUseErrorActionPreference = $false
-          New-Item -ItemType Directory -Force -Path "releases/windows" | Out-Null
-          $prefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.prefix }}"
-          Write-Host "Prefetching historical packages from $prefix"
-          $foundAny = $false
-          & gsutil ls "$prefix/*.nupkg" 1>$null 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            & gsutil -m cp "$prefix/*.nupkg" "releases/windows/"
-            if ($LASTEXITCODE -eq 0) {
-              $foundAny = $true
-            }
-          }
-          & gsutil ls "$prefix/RELEASES" 1>$null 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            & gsutil cp "$prefix/RELEASES" "releases/windows/RELEASES"
-            if ($LASTEXITCODE -eq 0) {
-              $foundAny = $true
-            }
-          }
-          if (-not $foundAny) {
-            Write-Host "No previous feed objects found. Continuing."
-          }
-          exit 0
-
-      - name: Build and Pack
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        shell: pwsh
-        env:
-          GOK_GCS_RELEASE_FEED_URL: ${{ steps.preflight.outputs.feed_url }}
-          GOK_UPDATE_REPO: ${{ steps.preflight.outputs.feed_url }}
-          GOK_RUNTIME_HOST_DEFAULT: ${{ secrets.KARAXAS_RUNTIME_HOST || vars.KARAXAS_RUNTIME_HOST }}
-          GOK_GODOT_EXECUTABLE_DEFAULT: ${{ steps.bundle-godot.outputs.effective_exec_default }}
-          GOK_GODOT_PROJECT_PATH_DEFAULT: ${{ secrets.KARAXAS_GODOT_PROJECT_PATH || vars.KARAXAS_GODOT_PROJECT_PATH }}
-          GOK_GODOT_BUNDLED_EXE_SOURCE: ${{ steps.bundle-godot.outputs.bundle_source }}
-        run: |
-          $args = @("-Version", "${{ steps.get-version.outputs.version }}")
-          if ("${{ steps.release-mode.outputs.runtime_ready }}" -ne "true") {
-            $args += "-LauncherOnly"
-          }
-          powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 @args
-
-      - name: Build Rust Client Runtime (Windows)
+      - name: Build Rust Game Client Runtime (Windows)
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         run: |
           cargo build -p client-app --release --features bootstrap-shell --target x86_64-pc-windows-msvc
 
-      - name: Package Rust Client Runtime Artifact
+      - name: Package Rust Game Client Artifact
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         run: |
           python tools/package_client_app_release.py `
             --version "${{ steps.get-version.outputs.version }}" `
             --exe "target/x86_64-pc-windows-msvc/release/client-app.exe" `
-            --output-dir "releases/windows"
+            --output-dir "releases/game"
+
+      - name: Package Designer Client Artifact
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          python tools/package_designer_client_release.py `
+            --version "${{ steps.get-version.outputs.version }}" `
+            --output-dir "releases/designer"
 
       - name: Verify Release Artifacts
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         run: |
-          $releases = "releases/windows/RELEASES"
-          $setup = Get-ChildItem "releases/windows" -Filter "*Setup*.exe" -ErrorAction SilentlyContinue
-          if (-not $setup -or $setup.Count -eq 0) { throw "Missing setup exe in releases/windows (expected *Setup*.exe)" }
-          if (-not (Test-Path $releases)) { throw "Missing $releases" }
-          $nupkg = Get-ChildItem "releases/windows" -Filter "*.nupkg" -ErrorAction SilentlyContinue
-          if (-not $nupkg -or $nupkg.Count -eq 0) { throw "Missing .nupkg in releases/windows" }
-          $clientZip = Get-ChildItem "releases/windows" -Filter "AmbitionsOfPeace-client-app-win-x64-*.zip" -ErrorAction SilentlyContinue
-          if (-not $clientZip -or $clientZip.Count -eq 0) { throw "Missing client-app zip artifact in releases/windows" }
-          $clientManifest = Get-ChildItem "releases/windows" -Filter "AmbitionsOfPeace-client-app-win-x64-*.manifest.json" -ErrorAction SilentlyContinue
-          if (-not $clientManifest -or $clientManifest.Count -eq 0) { throw "Missing client-app manifest artifact in releases/windows" }
-          $clientChecksum = Get-ChildItem "releases/windows" -Filter "AmbitionsOfPeace-client-app-win-x64-*.sha256" -ErrorAction SilentlyContinue
-          if (-not $clientChecksum -or $clientChecksum.Count -eq 0) { throw "Missing client-app checksum artifact in releases/windows" }
+          $gameZip = Get-ChildItem "releases/game" -Filter "AmbitionsOfPeace-client-app-win-x64-*.zip" -ErrorAction SilentlyContinue
+          if (-not $gameZip -or $gameZip.Count -eq 0) { throw "Missing game client zip artifact" }
+          $gameManifest = Get-ChildItem "releases/game" -Filter "AmbitionsOfPeace-client-app-win-x64-*.manifest.json" -ErrorAction SilentlyContinue
+          if (-not $gameManifest -or $gameManifest.Count -eq 0) { throw "Missing game client manifest artifact" }
+          $gameChecksum = Get-ChildItem "releases/game" -Filter "AmbitionsOfPeace-client-app-win-x64-*.sha256" -ErrorAction SilentlyContinue
+          if (-not $gameChecksum -or $gameChecksum.Count -eq 0) { throw "Missing game client checksum artifact" }
 
-      - name: Upload Velopack Feed To GCS
+          $designerZip = Get-ChildItem "releases/designer" -Filter "AmbitionsOfPeace-designer-client-win-x64-*.zip" -ErrorAction SilentlyContinue
+          if (-not $designerZip -or $designerZip.Count -eq 0) { throw "Missing designer client zip artifact" }
+          $designerManifest = Get-ChildItem "releases/designer" -Filter "AmbitionsOfPeace-designer-client-win-x64-*.manifest.json" -ErrorAction SilentlyContinue
+          if (-not $designerManifest -or $designerManifest.Count -eq 0) { throw "Missing designer client manifest artifact" }
+          $designerChecksum = Get-ChildItem "releases/designer" -Filter "AmbitionsOfPeace-designer-client-win-x64-*.sha256" -ErrorAction SilentlyContinue
+          if (-not $designerChecksum -or $designerChecksum.Count -eq 0) { throw "Missing designer client checksum artifact" }
+
+      - name: Upload Game Channel Artifacts To GCS
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
         run: |
-          $feedPrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.prefix }}"
-          $archivePrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/${{ steps.get-version.outputs.version }}"
-          gsutil -m cp "releases/windows/*" "$feedPrefix/"
-          gsutil -m cp "releases/windows/*" "$archivePrefix/"
-          $mutableFeedObjects = @(
-            "RELEASES",
-            "assets.win.json",
-            "releases.win.json",
-            "ChildrenOfIkphelion-win-Setup.exe",
-            "ChildrenOfIkphelion-win-Portable.zip"
-          )
-          foreach ($name in $mutableFeedObjects) {
-            $target = "$feedPrefix/$name"
-            & gsutil -q stat $target
-            if ($LASTEXITCODE -eq 0) {
-              gsutil setmeta -h "Cache-Control:no-cache, max-age=0" $target
-            }
-          }
+          $feedPrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.game_prefix }}"
+          $archivePrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/game/${{ steps.get-version.outputs.version }}"
+          gsutil -m cp "releases/game/*" "$feedPrefix/"
+          gsutil -m cp "releases/game/*" "$archivePrefix/"
+          $latestPath = "releases/game/latest.json"
+          $latestPayload = @{
+            version = "${{ steps.get-version.outputs.version }}"
+            channel = "game"
+            artifact_prefix = "AmbitionsOfPeace-client-app-win-x64"
+          } | ConvertTo-Json
+          Set-Content -Path $latestPath -Value $latestPayload -Encoding utf8
+          gsutil cp $latestPath "$feedPrefix/latest.json"
+          gsutil setmeta -h "Cache-Control:no-cache, max-age=0" "$feedPrefix/latest.json"
+
+      - name: Upload Designer Channel Artifacts To GCS
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          $feedPrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.designer_prefix }}"
+          $archivePrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/designer/${{ steps.get-version.outputs.version }}"
+          gsutil -m cp "releases/designer/*" "$feedPrefix/"
+          gsutil -m cp "releases/designer/*" "$archivePrefix/"
+          $latestPath = "releases/designer/latest.json"
+          $latestPayload = @{
+            version = "${{ steps.get-version.outputs.version }}"
+            channel = "designer"
+            artifact_prefix = "AmbitionsOfPeace-designer-client-win-x64"
+          } | ConvertTo-Json
+          Set-Content -Path $latestPath -Value $latestPayload -Encoding utf8
+          gsutil cp $latestPath "$feedPrefix/latest.json"
+          gsutil setmeta -h "Cache-Control:no-cache, max-age=0" "$feedPrefix/latest.json"
 
       - name: Prune Older Release Artifacts From GCS
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
@@ -311,201 +193,120 @@ jobs:
         run: |
           $PSNativeCommandUseErrorActionPreference = $false
           $keepVersionCount = 3
-
           if ($keepVersionCount -lt 1) {
             Write-Host "Invalid keep count configured ($keepVersionCount); skipping prune step."
             exit 0
           }
 
-          $feedPrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.prefix }}"
-          $archiveRoot = "gs://${{ env.GCS_RELEASE_BUCKET }}/archive"
           $versionRegex = [regex]'\d+\.\d+\.\d+'
 
-          Write-Host "Pruning feed packages to keep newest $keepVersionCount versions from $feedPrefix"
-          $feedPackages = & gsutil ls "$feedPrefix/*.nupkg" 2>$null
-          if ($LASTEXITCODE -ne 0 -or -not $feedPackages) {
-            Write-Host "No feed packages found to prune."
-          } else {
+          function Prune-FeedArtifacts {
+            param(
+              [string]$feedPrefix,
+              [string]$artifactPrefix
+            )
+
+            $patterns = @(
+              "$feedPrefix/$artifactPrefix-*.zip",
+              "$feedPrefix/$artifactPrefix-*.manifest.json",
+              "$feedPrefix/$artifactPrefix-*.sha256"
+            )
             $versionBuckets = @{}
-            foreach ($pkg in $feedPackages) {
-              $pkgPath = $pkg.Trim()
-              if ([string]::IsNullOrWhiteSpace($pkgPath)) {
+            foreach ($pattern in $patterns) {
+              $artifactPaths = & gsutil ls $pattern 2>$null
+              if ($LASTEXITCODE -ne 0 -or -not $artifactPaths) {
                 continue
               }
-              $match = $versionRegex.Match($pkgPath)
-              if (-not $match.Success) {
-                continue
-              }
-              $versionText = $match.Value
-              try {
-                $versionObj = [version]$versionText
-              } catch {
-                continue
-              }
-              if (-not $versionBuckets.ContainsKey($versionText)) {
-                $versionBuckets[$versionText] = @{
-                  Version = $versionObj
-                  Paths = @()
+              foreach ($artifact in $artifactPaths) {
+                $artifactPath = $artifact.Trim()
+                if ([string]::IsNullOrWhiteSpace($artifactPath)) {
+                  continue
                 }
-              }
-              $versionBuckets[$versionText].Paths += $pkgPath
-            }
-
-            $orderedFeedVersions = $versionBuckets.GetEnumerator() |
-              Sort-Object { $_.Value.Version } -Descending
-            $keepFeedVersions = $orderedFeedVersions |
-              Select-Object -First $keepVersionCount |
-              ForEach-Object { $_.Key }
-            $keepFeedSet = @{}
-            foreach ($keepVersion in $keepFeedVersions) {
-              $keepFeedSet[$keepVersion] = $true
-            }
-
-            foreach ($entry in $orderedFeedVersions) {
-              if ($keepFeedSet.ContainsKey($entry.Key)) {
-                continue
-              }
-              foreach ($stalePkgPath in $entry.Value.Paths) {
-                Write-Host "Removing stale feed package: $stalePkgPath"
-                & gsutil rm $stalePkgPath
-              }
-            }
-          }
-
-          Write-Host "Pruning feed Rust client artifacts to keep newest $keepVersionCount versions from $feedPrefix"
-          $clientArtifactPatterns = @(
-            "$feedPrefix/AmbitionsOfPeace-client-app-win-x64-*.zip",
-            "$feedPrefix/AmbitionsOfPeace-client-app-win-x64-*.manifest.json",
-            "$feedPrefix/AmbitionsOfPeace-client-app-win-x64-*.sha256"
-          )
-          $clientVersionBuckets = @{}
-          foreach ($pattern in $clientArtifactPatterns) {
-            $artifactPaths = & gsutil ls $pattern 2>$null
-            if ($LASTEXITCODE -ne 0 -or -not $artifactPaths) {
-              continue
-            }
-            foreach ($artifact in $artifactPaths) {
-              $artifactPath = $artifact.Trim()
-              if ([string]::IsNullOrWhiteSpace($artifactPath)) {
-                continue
-              }
-              $match = $versionRegex.Match($artifactPath)
-              if (-not $match.Success) {
-                continue
-              }
-              $versionText = $match.Value
-              try {
-                $versionObj = [version]$versionText
-              } catch {
-                continue
-              }
-              if (-not $clientVersionBuckets.ContainsKey($versionText)) {
-                $clientVersionBuckets[$versionText] = @{
-                  Version = $versionObj
-                  Paths = @()
+                $match = $versionRegex.Match($artifactPath)
+                if (-not $match.Success) {
+                  continue
                 }
+                $versionText = $match.Value
+                try {
+                  $versionObj = [version]$versionText
+                } catch {
+                  continue
+                }
+                if (-not $versionBuckets.ContainsKey($versionText)) {
+                  $versionBuckets[$versionText] = @{ Version = $versionObj; Paths = @() }
+                }
+                $versionBuckets[$versionText].Paths += $artifactPath
               }
-              $clientVersionBuckets[$versionText].Paths += $artifactPath
+            }
+
+            if ($versionBuckets.Count -eq 0) {
+              Write-Host "No artifacts found to prune for $feedPrefix"
+              return
+            }
+
+            $orderedVersions = $versionBuckets.GetEnumerator() | Sort-Object { $_.Value.Version } -Descending
+            $keepVersions = $orderedVersions | Select-Object -First $keepVersionCount | ForEach-Object { $_.Key }
+            $keepSet = @{}
+            foreach ($keepVersion in $keepVersions) {
+              $keepSet[$keepVersion] = $true
+            }
+
+            foreach ($entry in $orderedVersions) {
+              if ($keepSet.ContainsKey($entry.Key)) {
+                continue
+              }
+              foreach ($path in $entry.Value.Paths | Sort-Object -Unique) {
+                Write-Host "Removing stale artifact: $path"
+                & gsutil rm $path
+              }
             }
           }
 
-          if ($clientVersionBuckets.Count -eq 0) {
-            Write-Host "No Rust client artifacts found to prune."
-          } else {
-            $orderedClientVersions = $clientVersionBuckets.GetEnumerator() |
-              Sort-Object { $_.Value.Version } -Descending
-            $keepClientVersions = $orderedClientVersions |
-              Select-Object -First $keepVersionCount |
-              ForEach-Object { $_.Key }
-            $keepClientSet = @{}
-            foreach ($keepVersion in $keepClientVersions) {
-              $keepClientSet[$keepVersion] = $true
+          function Prune-ArchiveVersions {
+            param([string]$archiveRoot)
+            $prefixes = & gsutil ls "$archiveRoot/" 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $prefixes) {
+              Write-Host "No archive prefixes found to prune in $archiveRoot"
+              return
             }
 
-            foreach ($entry in $orderedClientVersions) {
-              if ($keepClientSet.ContainsKey($entry.Key)) {
+            $entries = @()
+            foreach ($prefix in $prefixes) {
+              $trimmed = $prefix.Trim()
+              if ([string]::IsNullOrWhiteSpace($trimmed) -or -not $trimmed.EndsWith('/')) {
                 continue
               }
-              foreach ($staleArtifactPath in $entry.Value.Paths | Sort-Object -Unique) {
-                Write-Host "Removing stale Rust client artifact: $staleArtifactPath"
-                & gsutil rm $staleArtifactPath
-              }
-            }
-          }
-
-          Write-Host "Pruning archive versions to keep newest $keepVersionCount from $archiveRoot"
-          $archivePrefixes = & gsutil ls "$archiveRoot/" 2>$null
-          if ($LASTEXITCODE -ne 0 -or -not $archivePrefixes) {
-            Write-Host "No archive prefixes found to prune."
-          } else {
-            $archiveVersionEntries = @()
-            foreach ($prefix in $archivePrefixes) {
-              $trimmedPrefix = $prefix.Trim()
-              if ([string]::IsNullOrWhiteSpace($trimmedPrefix) -or -not $trimmedPrefix.EndsWith("/")) {
-                continue
-              }
-              $versionName = $trimmedPrefix.TrimEnd('/').Split('/')[-1]
+              $versionName = $trimmed.TrimEnd('/').Split('/')[-1]
               try {
                 $versionObj = [version]$versionName
               } catch {
                 continue
               }
-              $archiveVersionEntries += [PSCustomObject]@{
-                Prefix = $trimmedPrefix
-                VersionName = $versionName
-                Version = $versionObj
-              }
+              $entries += [PSCustomObject]@{ Prefix = $trimmed; VersionName = $versionName; Version = $versionObj }
             }
 
-            $orderedArchiveVersions = $archiveVersionEntries | Sort-Object Version -Descending
-            $keepArchive = $orderedArchiveVersions | Select-Object -First $keepVersionCount
-            $keepArchiveSet = @{}
-            foreach ($item in $keepArchive) {
-              $keepArchiveSet[$item.VersionName] = $true
+            $ordered = $entries | Sort-Object Version -Descending
+            $keep = $ordered | Select-Object -First $keepVersionCount
+            $keepSet = @{}
+            foreach ($entry in $keep) {
+              $keepSet[$entry.VersionName] = $true
             }
-
-            foreach ($entry in $orderedArchiveVersions) {
-              if ($keepArchiveSet.ContainsKey($entry.VersionName)) {
+            foreach ($entry in $ordered) {
+              if ($keepSet.ContainsKey($entry.VersionName)) {
                 continue
               }
               Write-Host "Removing stale archive prefix: $($entry.Prefix)"
               & gsutil -m rm -r $entry.Prefix
             }
           }
-          exit 0
 
-      - name: Sync Backend Release Policy
-        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none' && vars.KARAXAS_OPS_BASE_URL != ''
-        shell: pwsh
-        env:
-          OPS_BASE_URL: ${{ vars.KARAXAS_OPS_BASE_URL }}
-          OPS_TOKEN: ${{ secrets.KARAXAS_OPS_API_TOKEN }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:OPS_TOKEN)) {
-            Write-Host "KARAXAS_OPS_API_TOKEN is not configured; skipping backend release-policy sync."
-            exit 0
-          }
-          $notesPath = "build/pack/patch_notes.md"
-          $notesText = if (Test-Path $notesPath) {
-            Get-Content $notesPath -Raw
-          } else {
-            "- Release publish completed."
-          }
-          $payload = @{
-            latest_version = "${{ steps.get-version.outputs.version }}"
-            min_supported_version = "${{ steps.get-version.outputs.version }}"
-            latest_content_version_key = ""
-            min_supported_content_version_key = ""
-            update_feed_url = "${{ steps.preflight.outputs.feed_url }}"
-            build_release_notes = $notesText
-            user_facing_notes = $notesText
-            grace_minutes = 5
-            allow_version_regression = $false
-          }
-          $uri = "$($env:OPS_BASE_URL.TrimEnd('/'))/ops/release/activate"
-          $headers = @{ "x-ops-token" = $env:OPS_TOKEN }
-          Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body ($payload | ConvertTo-Json -Depth 8) -ContentType "application/json" | Out-Null
-          Write-Host "Backend release policy sync completed for build ${{ steps.get-version.outputs.version }}."
+          $gameFeed = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.game_prefix }}"
+          $designerFeed = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.designer_prefix }}"
+          Prune-FeedArtifacts -feedPrefix $gameFeed -artifactPrefix "AmbitionsOfPeace-client-app-win-x64"
+          Prune-FeedArtifacts -feedPrefix $designerFeed -artifactPrefix "AmbitionsOfPeace-designer-client-win-x64"
+
+          Prune-ArchiveVersions -archiveRoot "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/game"
+          Prune-ArchiveVersions -archiveRoot "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/designer"
 
       - name: Skip Release (Missing Inputs/Auth)
         if: steps.preflight.outputs.enabled != 'true' || steps.auth-mode.outputs.mode == 'none'

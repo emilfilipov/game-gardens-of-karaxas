@@ -2,7 +2,7 @@
 
 ## Goal
 Run two supported distribution channels in parallel:
-- `standalone` (Velopack + GCS feed, current default)
+- `standalone` (GCS feed/script install, current default)
 - `steam` (Steam depot/channel delivery)
 
 ## Channel Contract
@@ -16,7 +16,7 @@ Run two supported distribution channels in parallel:
 ## Channel Routing
 - Standalone:
   - login/update checks use `update_feed_url` from release policy.
-  - updater executes via UpdateHelper/Velopack.
+  - update execution uses game/designer channel installers (`scripts/install_*_client.ps1`) or future in-client updater.
 - Steam:
   - login/update checks still enforce backend min-supported versions.
   - update execution is delegated to Steam client/depot flow.
@@ -31,7 +31,7 @@ Run two supported distribution channels in parallel:
 ## Client Changes Required
 - Add immutable runtime channel identifier in bootstrap headers.
 - Update UX messaging:
-  - `standalone`: "Update via launcher"
+  - `standalone`: "Update via standalone channel"
   - `steam`: "Update via Steam client"
 
 ## CI/CD Mapping

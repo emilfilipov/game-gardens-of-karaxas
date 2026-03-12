@@ -52,6 +52,12 @@ jobs:
       - name: Backend syntax sanity
         run: python3 -m compileall backend/app
 
+      - name: Auth/session continuity gate
+        run: |
+          pip install pytest
+          chmod +x backend/scripts/validate_auth_session_gate.sh
+          backend/scripts/validate_auth_session_gate.sh
+
   deploy:
     runs-on: ubuntu-latest
     needs: [changes, backend-checks]

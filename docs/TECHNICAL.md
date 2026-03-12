@@ -11,15 +11,15 @@ Accepted ADRs for the current migration program:
 - `docs/adr/0004-redis-deferral-and-adoption-gate.md`
 
 ## Current State Summary (As Of 2026-03-12)
-The repository currently contains a prior prototype stack:
-- Kotlin launcher (`launcher/`)
-- Godot runtime client (`game-client/`)
+Active repository stack is now Rust-first plus a retained FastAPI control plane:
 - FastAPI + PostgreSQL backend (`backend/`)
-- Velopack + GCS release pipeline
-- Rust workspace scaffold (`sim-core/`, `world-service/`, `tooling-core/`, `client-app/`)
+- Rust world authority service (`world-service/`)
+- Rust simulation contracts/tooling (`sim-core/`, `tooling-core/`)
+- Rust Bevy runtime (`client-app/`)
+- Standalone designer client (`designer-client/`)
+- GCS dual-channel release pipeline (game/designer) with 3-version retention
 
-This state is treated as transitional. The active implementation target is the Crusades-era persistent strategy RPG model documented in `docs/GAME.md`.
-Legacy prototype documents that conflict with this direction are archived under `docs/archive/legacy-prototype/` with inventory notes in `docs/DEPRECATION_AUDIT.md`.
+Legacy Kotlin/Godot/Gradle/Blender prototype modules are removed from active tracking; historical product-direction docs remain archived under `docs/archive/legacy-prototype/`.
 
 ## Architecture Direction
 ### Primary language and framework choice
@@ -57,7 +57,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 ## Runtime and Service Topology (Target)
 ### Control plane (transitional)
 - Existing FastAPI auth/session/account/content/release endpoints remain operational during migration.
-- FastAPI now exposes authenticated vertical-slice orchestration endpoint `POST /gameplay/vertical-slice-loop` to run the PoC loop (campaign command dispatch -> battle instance lifecycle -> persistence writeback) while keeping launcher/login/account contracts intact.
+- FastAPI now exposes authenticated vertical-slice orchestration endpoint `POST /gameplay/vertical-slice-loop` to run the PoC loop (campaign command dispatch -> battle instance lifecycle -> persistence writeback) while keeping login/account/session contracts intact.
 - FastAPI ops metrics endpoint `GET /ops/release/metrics` now includes runtime health probes for DB latency, outbox lag, and release feed health metadata.
 
 ### New world authority plane
@@ -65,7 +65,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - FastAPI -> world-service privileged control calls now use an HMAC-SHA256 signed request contract (`x-aop-service-id`, `x-aop-scope`, `x-aop-timestamp`, `x-aop-nonce`, `x-aop-body-sha256`, `x-aop-signature`) with strict scope checks.
 - Privileged mutation routes in world-service (`/internal/control/commands`) enforce timestamp skew limits and nonce replay detection via in-memory replay window cache (PoC baseline).
 - World-service now also exposes signed internal world-entry bootstrap endpoint (`POST /internal/world-entry/bootstrap`) that returns campaign tick, nearest settlement anchor, and travel-map snapshot metadata for FastAPI handoff.
-- FastAPI `/characters/{character_id}/world-bootstrap` now bridges through `backend/app/services/world_entry_bridge.py` to call the Rust world-entry endpoint and stores result under `player_runtime.world_entry_bridge` while preserving existing launcher/client payload compatibility with fallback behavior.
+- FastAPI `/characters/{character_id}/world-bootstrap` now bridges through `backend/app/services/world_entry_bridge.py` to call the Rust world-entry endpoint and stores result under `player_runtime.world_entry_bridge` with compatibility-preserving fallback behavior.
 - World service now includes deterministic single-shard tick runner primitives (`world-service/src/tick_runner.rs`) with fixed cadence execution, deterministic command ordering, periodic snapshot hashing/checkpoints, and tick lag/duration metrics.
 - Tick runner now also executes a deterministic real-time logistics subsystem each tick (supply consumption, queued convoy transfers, shortage pressure, and attrition effects) backed by shared `sim-core` contracts.
 - Tick runner now also executes a deterministic real-time trade subsystem each tick (shipment execution with throughput/safety/tariff effects plus periodic market price recompute from shortage/surplus pressure).
@@ -99,7 +99,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - FastAPI world-service control client (`backend/app/services/world_service_control.py`) now orchestrates signed command dispatch and tick advancement (`/internal/control/commands`, `/internal/control/tick`) plus battle-state reads (`/battle/state`) for vertical-slice loop execution.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
-- Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, choke-point detection, and arrival estimates).
+- Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, deterministic route risk bands, choke-point detection, and arrival estimates).
 - Campaign traversal is now rendered in client sandbox using route-duration-driven real-time interpolation tied to campaign clock scale (not distance-speed heuristics).
 - Battle architecture contract is real-time instanced simulation authority (fixed-step runtime), not turn-based resolution.
 - Real-time is the global gameplay contract: logistics, trade, espionage, and politics systems are also continuous-time simulations executed on fixed deterministic ticks.
@@ -107,10 +107,10 @@ Legacy prototype documents that conflict with this direction are archived under 
 ### Client
 - Bevy client renders campaign and battle surfaces.
 - Client sends intent; authority services resolve final state transitions.
-- Designer tooling direction: move to a dedicated, separately packaged designer client/update channel so authoring workflows are decoupled from player runtime releases.
+- Designer tooling is delivered as a dedicated, separately packaged client/update channel so authoring workflows are decoupled from player runtime releases.
 - `client-app` now includes a feature-gated Bevy bootstrap shell (`cargo run -p client-app --features bootstrap-shell`) with:
   - credential login to FastAPI `/auth/login`,
-  - optional launcher session handoff via environment (`AOP_HANDOFF_ACCESS_TOKEN`, `AOP_HANDOFF_SESSION_ID`, etc.),
+  - optional external session handoff via environment (`AOP_HANDOFF_ACCESS_TOKEN`, `AOP_HANDOFF_SESSION_ID`, etc.),
   - authenticated character roster fetch from `/characters`,
   - session bootstrap fetch from `/characters/{character_id}/world-bootstrap`,
   - campaign entry scene handoff with spawned player marker at bootstrap world coordinates.
@@ -124,8 +124,12 @@ Legacy prototype documents that conflict with this direction are archived under 
   - persisted panel state + layout preset save/load (`strategist`, `operations`) through JSON snapshot file (`AOP_PANEL_LAYOUT_PATH`, default `client-app/runtime/panel_layout.json`).
 - Bootstrap shell now includes role-gated code-first map authoring tools mode:
   - enable via `AOP_TOOLS_ENABLED=true` or `AOP_TOOLS_ROLE=designer|admin`,
-  - edit settlements and routes in-app, run schema validation before save, and view inline validation errors,
+  - edit settlements (camp/village/town/city/fortress) and routes in-app, run schema validation before save, and view inline validation errors,
   - load/save authored map JSON (`AOP_TOOLS_MAP_PATH`, default `client-app/runtime/authored_map.json`) and apply validated graphs to live map rendering.
+- `designer-client` now includes world-design primitives and promotion controls:
+  - local deterministic validation/hash generation (`designer-client/world_design.py`),
+  - backend stage endpoint `POST /designer/world-pack/stage`,
+  - backend activate/publish endpoint `POST /designer/world-pack/activate` producing versioned pack/signature/latest pointers under `assets/content/provinces/<province_id>/`.
 - First province content pack baseline is now checked in at `assets/content/provinces/acre/`:
   - one city (`Acre Port`) and one fortress (`Montmusard Fortress`),
   - connected land + sea routes, faction setup, market seeds, and intelligence seeds,
@@ -177,15 +181,18 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Release gating requirement: login/register/refresh/logout and force-revocation/session-drain paths must remain covered by regression checks during migration cleanup.
 
 ## Build, Packaging, and Distribution
-- Windows distribution remains launcher-based with Velopack feed in GCS.
-- Release workflow continues to package launcher/runtime payloads and upload to GCS feed/archive.
-- Release workflow now also builds `client-app` with `bootstrap-shell` on Windows and publishes standalone runtime artifacts for upcoming launcher handoff integration.
-- Installer/updater logging contract remains under `<install_root>/logs`.
+- Windows distribution is channel-based using standalone zip artifacts in GCS.
+- Release workflow builds/packages:
+  - game runtime: `AmbitionsOfPeace-client-app-win-x64-<version>.zip`
+  - designer runtime: `AmbitionsOfPeace-designer-client-win-x64-<version>.zip`
+- Both channels publish deterministic manifest/checksum metadata and `latest.json`.
+- Feed and archive retention are pruned to latest 3 versions per channel.
+- Install/update helpers are script-based (`scripts/install_game_client.ps1`, `scripts/install_designer_client.ps1`).
 
 ## Validation and Quality Gates
 Current baseline checks retained during transition:
 - `python3 -m compileall backend/app`
-- `./gradlew :launcher:test`
+- `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_security_edges.py backend/tests/test_publish_drain.py`
 - `cargo fmt --all -- --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
@@ -197,6 +204,8 @@ Current baseline checks retained during transition:
   - `AOP_PROVINCE_PACK_PATH=assets/content/provinces/acre/acre_poc_v1.json cargo test -p client-app --features bootstrap-shell`
 - FastAPI world-entry bridge regression smoke:
   - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_world_entry_bridge.py backend/tests/test_world_bootstrap_3d_contract.py`
+- Designer world-pack promotion smoke:
+  - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_designer_world_promotion.py backend/tests/test_designer_publish_routes.py`
 - Vertical-slice loop regression smoke:
   - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_vertical_slice_loop.py`
   - `python3 backend/scripts/smoke_online_loop.py --base-url <backend_base_url>`
@@ -209,7 +218,8 @@ Current baseline checks retained during transition:
 - Playtest hardening baseline smoke:
   - `backend/scripts/validate_playtest_hardening.sh`
 - Windows Rust runtime packaging smoke:
-  - `python tools/package_client_app_release.py --version <x.y.z> --exe <path/to/client-app.exe> --output-dir releases/windows`
+  - `python tools/package_client_app_release.py --version <x.y.z> --exe <path/to/client-app.exe> --output-dir releases/game`
+  - `python tools/package_designer_client_release.py --version <x.y.z> --output-dir releases/designer`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox`) and deterministic replay gate (`determinism-replay`) in `.github/workflows/rust-checks.yml`.

@@ -33,9 +33,11 @@ pub struct SettlementRecord {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum SettlementKind {
+    Camp,
+    Village,
+    Town,
     City,
     Fortress,
-    Town,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

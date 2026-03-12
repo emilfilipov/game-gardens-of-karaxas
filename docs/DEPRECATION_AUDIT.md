@@ -3,12 +3,12 @@
 Date: 2026-03-12
 
 ## Objective
-Inventory and reduce legacy prototype documentation/runtime artifacts that can cause direction drift during the Ambitions of Peace migration.
+Remove legacy prototype assets/modules that create migration drift and keep only components aligned with the Rust-first Ambitions of Peace architecture.
 
 ## Classification Rules
-- `archived`: superseded and moved to archive path.
-- `compatibility-only`: retained for transitional implementation support.
-- `active`: aligned with current canonical direction.
+- `archived`: moved under `docs/archive/legacy-prototype/`.
+- `removed`: deleted from active repository tracking.
+- `active`: retained and aligned with canonical docs.
 
 ## Archived Documents
 Moved to `docs/archive/legacy-prototype/`:
@@ -23,20 +23,35 @@ Moved to `docs/archive/legacy-prototype/`:
 - `TOWER_ADMIN_CHECKLIST.md`
 - `CONFIG_FIELDS.md`
 
-## Retained Compatibility-Only Documents
-- `docs/INSTALLER.md` (legacy path naming notes required for updater compatibility)
-- `docs/STEAM_DUAL_DISTRIBUTION.md` (future channel model reference)
-- `docs/ART_PIPELINE_CONTRACT.md` (asset ingest guidance used by release validation tooling)
+## Removed Legacy Modules/Artifacts
+Removed from active repository tracking:
+- Kotlin/Gradle launcher stack:
+  - `launcher/`
+  - `build.gradle.kts`, `settings.gradle.kts`, `gradlew`, `gradlew.bat`, `gradle/`, `gradle.properties`
+- Godot runtime stack:
+  - `game-client/`
+- Legacy .NET wrapper helpers:
+  - `tools/setup-wrapper/`
+  - `tools/update-helper/`
+- Blender generation/tooling artifacts:
+  - `tools/blender/`
+  - `assets/3d/`
+- Deprecated packaging/tooling leftovers:
+  - `scripts/pack.ps1`
+  - `tools/generate_config_docs.py`
+  - `icon_2.png`
+  - `issues_png/`
+- Previously removed in earlier cleanup:
+  - legacy `concept_art/` bundle and concept-art helper scripts.
 
-## Active Documents Updated In This Task
-- `docs/OPERATIONS.md`
-- `docs/SECURITY.md`
+## Active Documents Updated In This Cleanup
 - `docs/README.md`
+- `docs/INSTALLER.md`
+- `docs/OPERATIONS.md`
+- `docs/GAME.md`
+- `docs/TECHNICAL.md`
+- `docs/TASKS.md`
+- `AGENTS.md`
 
 ## Result
-Legacy product-direction docs are removed from active docs root and preserved under archive path for historical traceability.
-
-## Additional Cleanup (AOP-PIVOT-043)
-- Removed deprecated tracked concept-art asset set under `concept_art/` (legacy UI mockups not used by active runtime/docs/release pipelines).
-- Removed legacy concept-art generation helper scripts under `tools/` that only targeted the retired `concept_art/` workflow.
-- Kotlin launcher and Godot client modules are still retained as compatibility-only artifacts until explicit retirement-gate tasks complete (`AOP-PIVOT-045` to `AOP-PIVOT-049` in `docs/TASKS.md`).
+The active repository is now aligned to the Rust-first stack (`backend`, `world-service`, `sim-core`, `client-app`, `designer-client`, `tooling-core`) with no retained Kotlin/Godot/Gradle/Blender compatibility modules.

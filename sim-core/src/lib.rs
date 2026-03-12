@@ -31,8 +31,8 @@ pub use trade::{
     MarketState, TradeRoute, TradeShipmentOrder, TradeTickEvent, TradeTickResult, TradeWorld, sample_trade_world,
 };
 pub use travel::{
-    RiskModifiers, RouteEdge, RouteId, SettlementNode, TravelEstimate, TravelGraph, TravelPlan, TravelPreference,
-    adjusted_route_risk, sample_levant_travel_graph,
+    RiskModifiers, RouteEdge, RouteId, RouteRiskBand, SettlementHooks, SettlementNode, SettlementTier, TravelEstimate,
+    TravelGraph, TravelPlan, TravelPreference, adjusted_route_risk, classify_route_risk, sample_levant_travel_graph,
 };
 
 /// Latest schema version for shared simulation payloads.

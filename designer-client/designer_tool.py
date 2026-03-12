@@ -9,6 +9,8 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 from urllib import error, request
 
+from world_design import default_world_pack, signature_payload, validate_world_pack
+
 
 def _load_local_version() -> str:
     root = Path(__file__).resolve().parents[1]
@@ -38,6 +40,8 @@ class DesignerTool(tk.Tk):
         self.repo_path = tk.StringVar(value="assets/runtime/runtime_gameplay_config.json")
         self.trigger_release = tk.BooleanVar(value=True)
         self.trigger_backend = tk.BooleanVar(value=False)
+        self.world_stage_hash = tk.StringVar(value="")
+        self.world_commit_message = tk.StringVar(value="Designer world map update")
         self.level_rows: list[dict] = []
         self.access_token = ""
         self.refresh_token = ""
@@ -70,11 +74,14 @@ class DesignerTool(tk.Tk):
 
         level_tab = ttk.Frame(tabs, padding=10)
         runtime_tab = ttk.Frame(tabs, padding=10)
+        world_tab = ttk.Frame(tabs, padding=10)
         tabs.add(level_tab, text="Levels")
         tabs.add(runtime_tab, text="Runtime Content")
+        tabs.add(world_tab, text="World Design")
 
         self._build_levels_tab(level_tab)
         self._build_runtime_tab(runtime_tab)
+        self._build_world_tab(world_tab)
 
         status_row = ttk.Frame(root)
         status_row.pack(fill=tk.X, pady=(8, 0))
@@ -128,6 +135,32 @@ class DesignerTool(tk.Tk):
 
         self.runtime_payload = tk.Text(parent, wrap="none", undo=True)
         self.runtime_payload.pack(fill=tk.BOTH, expand=True)
+
+    def _build_world_tab(self, parent: ttk.Frame) -> None:
+        controls = ttk.Frame(parent)
+        controls.pack(fill=tk.X, pady=(0, 8))
+        ttk.Button(controls, text="Load Template", command=self._load_world_template).pack(side=tk.LEFT)
+        ttk.Button(controls, text="Validate Local", command=self._validate_world_pack_local).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(controls, text="Stage World Pack", command=self._stage_world_pack_remote).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(controls, text="Activate + Publish", command=self._activate_world_pack_remote).pack(side=tk.LEFT, padx=(8, 0))
+
+        commit_row = ttk.Frame(parent)
+        commit_row.pack(fill=tk.X, pady=(0, 8))
+        ttk.Label(commit_row, text="Commit").pack(side=tk.LEFT)
+        ttk.Entry(commit_row, width=68, textvariable=self.world_commit_message).pack(side=tk.LEFT, padx=(8, 12))
+        ttk.Label(commit_row, text="Staged Hash").pack(side=tk.LEFT)
+        ttk.Entry(commit_row, width=32, textvariable=self.world_stage_hash).pack(side=tk.LEFT, padx=(8, 0))
+
+        ttk.Label(
+            parent,
+            text=(
+                "World design schema includes settlements (camp/village/town/city/fortress), routes, and spawn points. "
+                "Stage validates and locks a hash; Activate publishes a versioned pack and signature to repo/release."
+            ),
+        ).pack(anchor="w", pady=(0, 6))
+
+        self.world_payload = tk.Text(parent, wrap="none", undo=True)
+        self.world_payload.pack(fill=tk.BOTH, expand=True)
 
     def _set_status(self, text: str) -> None:
         self.status_text.set(text)
@@ -329,6 +362,95 @@ class DesignerTool(tk.Tk):
         except Exception as exc:
             messagebox.showerror("Publish Runtime Failed", str(exc))
             self._set_status("Publish runtime config failed.")
+
+    def _load_world_template(self) -> None:
+        self.world_payload.delete("1.0", tk.END)
+        self.world_payload.insert("1.0", json.dumps(default_world_pack(), indent=2))
+        self._set_status("Loaded world-design template.")
+
+    def _read_world_payload(self) -> dict:
+        raw = self.world_payload.get("1.0", tk.END).strip()
+        if not raw:
+            raise RuntimeError("World payload is empty.")
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            raise RuntimeError("World payload must be a JSON object.")
+        return payload
+
+    def _validate_world_pack_local(self) -> None:
+        try:
+            pack = self._read_world_payload()
+            issues = validate_world_pack(pack)
+            if issues:
+                messagebox.showwarning("World Validation", "\n".join(f"- {row}" for row in issues))
+                self._set_status(f"World validation failed with {len(issues)} issue(s).")
+                return
+            digest = signature_payload(pack)["sha256"]
+            self._set_status(f"World validation passed. sha256={digest[:16]}...")
+        except Exception as exc:
+            messagebox.showerror("World Validation Failed", str(exc))
+            self._set_status("World validation failed.")
+
+    def _stage_world_pack_remote(self) -> None:
+        if not self._require_login():
+            return
+        try:
+            pack = self._read_world_payload()
+            issues = validate_world_pack(pack)
+            if issues:
+                messagebox.showerror("Stage Blocked", "\n".join(f"- {row}" for row in issues))
+                self._set_status("Local validation failed; world pack not staged.")
+                return
+            response = self._request("POST", "/designer/world-pack/stage", {"pack": pack})
+            if not isinstance(response, dict):
+                raise RuntimeError("Unexpected stage response.")
+            staged_hash = str(response.get("pack_hash", "")).strip()
+            self.world_stage_hash.set(staged_hash)
+            self._set_status(
+                "World pack staged: hash=%s settlements=%s routes=%s spawns=%s"
+                % (
+                    staged_hash[:12],
+                    response.get("settlement_count", "?"),
+                    response.get("route_count", "?"),
+                    response.get("spawn_count", "?"),
+                )
+            )
+        except Exception as exc:
+            messagebox.showerror("Stage World Pack Failed", str(exc))
+            self._set_status("World stage failed.")
+
+    def _activate_world_pack_remote(self) -> None:
+        if not self._require_login():
+            return
+        try:
+            expected_hash = self.world_stage_hash.get().strip()
+            if not expected_hash:
+                raise RuntimeError("Stage world pack first; staged hash is required.")
+            commit_message = self.world_commit_message.get().strip()
+            if len(commit_message) < 3:
+                raise RuntimeError("World commit message must be at least 3 characters.")
+            payload = {
+                "expected_pack_hash": expected_hash,
+                "commit_message": commit_message,
+                "trigger_release_workflow": bool(self.trigger_release.get()),
+                "trigger_backend_workflow": bool(self.trigger_backend.get()),
+            }
+            response = self._request("POST", "/designer/world-pack/activate", payload)
+            if not isinstance(response, dict):
+                raise RuntimeError("Unexpected activation response.")
+            self._set_status(
+                "Activated world pack %s (%s) commit=%s release=%s backend=%s"
+                % (
+                    response.get("version_key", "unknown"),
+                    str(response.get("pack_hash", ""))[:12],
+                    str(response.get("commit_sha", "unknown"))[:12],
+                    response.get("release_workflow_triggered", False),
+                    response.get("backend_workflow_triggered", False),
+                )
+            )
+        except Exception as exc:
+            messagebox.showerror("Activate World Pack Failed", str(exc))
+            self._set_status("World activation failed.")
 
     def _publish_to_github_ci(self) -> None:
         if not self._require_login():

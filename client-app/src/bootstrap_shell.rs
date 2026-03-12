@@ -5,7 +5,7 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use sim_core::{SettlementId, TravelGraph, sample_levant_travel_graph};
+use sim_core::{SettlementId, SettlementTier, TravelGraph, classify_route_risk, sample_levant_travel_graph};
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
@@ -22,6 +22,30 @@ const DEFAULT_PANEL_LAYOUT_PATH: &str = "client-app/runtime/panel_layout.json";
 const DEFAULT_AUTHORED_MAP_PATH: &str = "client-app/runtime/authored_map.json";
 const DEFAULT_PROVINCE_PACK_PATH: &str = "assets/content/provinces/acre/acre_poc_v1.json";
 const MAP_SCALE: f32 = 2.3;
+const SETTLEMENT_KIND_OPTIONS: [&str; 5] = ["camp", "village", "town", "city", "fortress"];
+
+fn default_settlement_kind() -> String {
+    "town".to_string()
+}
+
+fn settlement_tier_from_kind(raw: &str) -> SettlementTier {
+    match raw.trim().to_lowercase().as_str() {
+        "camp" => SettlementTier::Camp,
+        "village" => SettlementTier::Village,
+        "city" => SettlementTier::City,
+        "fortress" => SettlementTier::Fortress,
+        _ => SettlementTier::Town,
+    }
+}
+
+fn risk_band_label(total_risk: u32) -> &'static str {
+    match classify_route_risk(total_risk) {
+        sim_core::RouteRiskBand::Low => "low",
+        sim_core::RouteRiskBand::Guarded => "guarded",
+        sim_core::RouteRiskBand::High => "high",
+        sim_core::RouteRiskBand::Severe => "severe",
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 enum ShellPhase {
@@ -189,6 +213,7 @@ struct SettlementRenderNode {
     name: String,
     map_x: f32,
     map_y: f32,
+    tier: SettlementTier,
     fog: FogVisibility,
 }
 
@@ -205,6 +230,8 @@ struct ProvincePackSettlement {
     name: String,
     map_x: i32,
     map_y: i32,
+    #[serde(default)]
+    kind: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -261,6 +288,7 @@ impl CampaignMapSurface {
                     name: row.name.clone(),
                     map_x: row.map_x as f32,
                     map_y: row.map_y as f32,
+                    tier: row.tier,
                     fog,
                 }
             })
@@ -343,6 +371,11 @@ fn build_graph_from_pack(pack: &ProvincePackData) -> Result<TravelGraph, String>
             name: settlement.name.trim().to_string(),
             map_x: settlement.map_x,
             map_y: settlement.map_y,
+            tier: settlement
+                .kind
+                .as_deref()
+                .map(settlement_tier_from_kind)
+                .unwrap_or_default(),
         });
     }
 
@@ -656,6 +689,8 @@ struct AuthoredSettlement {
     name: String,
     map_x: i32,
     map_y: i32,
+    #[serde(default = "default_settlement_kind")]
+    kind: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -781,6 +816,7 @@ fn sample_authored_map_data() -> AuthoredMapData {
             name: row.name.clone(),
             map_x: row.map_x,
             map_y: row.map_y,
+            kind: format!("{:?}", row.tier).to_lowercase(),
         })
         .collect::<Vec<_>>();
     let routes = graph
@@ -813,6 +849,13 @@ fn validate_and_build_graph(data: &AuthoredMapData) -> Result<TravelGraph, Vec<S
             errors.push(format!("Settlement {} has empty name", settlement.id));
             continue;
         }
+        if !SETTLEMENT_KIND_OPTIONS.contains(&settlement.kind.as_str()) {
+            errors.push(format!(
+                "Settlement {} has invalid kind '{}'",
+                settlement.id, settlement.kind
+            ));
+            continue;
+        }
         if settlement_ids.insert(settlement.id, true).is_some() {
             errors.push(format!("Duplicate settlement id {}", settlement.id));
             continue;
@@ -822,6 +865,7 @@ fn validate_and_build_graph(data: &AuthoredMapData) -> Result<TravelGraph, Vec<S
             name: name.to_string(),
             map_x: settlement.map_x,
             map_y: settlement.map_y,
+            tier: settlement_tier_from_kind(&settlement.kind),
         });
     }
 
@@ -1205,7 +1249,7 @@ fn startup_handoff_fetch(mut shell: ResMut<ShellState>, bridge: Res<BackendBridg
         .is_ok()
     {
         shell.request_in_flight = true;
-        shell.status_line = "Loaded launcher handoff. Fetching character roster...".to_string();
+        shell.status_line = "Loaded external handoff session. Fetching character roster...".to_string();
     } else {
         shell.phase = ShellPhase::Login;
         shell.session = None;
@@ -1378,7 +1422,14 @@ fn draw_campaign_map_gizmos(mut gizmos: Gizmos, shell: Res<ShellState>, map: Res
             FogVisibility::Shrouded => Color::srgb(0.46, 0.5, 0.55),
             FogVisibility::Obscured => Color::srgb(0.2, 0.24, 0.28),
         };
-        gizmos.circle_2d(pos, 5.0 * map.zoom.clamp(0.6, 2.2), color);
+        let size_factor = match settlement.tier {
+            SettlementTier::Camp => 0.65,
+            SettlementTier::Village => 0.85,
+            SettlementTier::Town => 1.0,
+            SettlementTier::City => 1.3,
+            SettlementTier::Fortress => 1.4,
+        };
+        gizmos.circle_2d(pos, 5.0 * size_factor * map.zoom.clamp(0.6, 2.2), color);
     }
 
     for marker in &map.army_markers {
@@ -1422,6 +1473,7 @@ fn apply_graph_to_surface(map: &mut CampaignMapSurface, graph: TravelGraph) {
                 name: row.name.clone(),
                 map_x: row.map_x as f32,
                 map_y: row.map_y as f32,
+                tier: row.tier,
                 fog,
             }
         })
@@ -1538,7 +1590,7 @@ fn render_login_controls(ui: &mut egui::Ui, shell: &mut ShellState, config: &Bac
     }
 
     ui.separator();
-    ui.label("Optional launcher handoff env vars:");
+    ui.label("Optional external handoff env vars:");
     ui.label("AOP_HANDOFF_ACCESS_TOKEN, AOP_HANDOFF_SESSION_ID, AOP_HANDOFF_USER_ID, AOP_HANDOFF_DISPLAY_NAME");
 }
 
@@ -1933,6 +1985,16 @@ fn render_tools_window(ctx: &egui::Context, map: &mut CampaignMapSurface, tools:
                         ui.text_edit_singleline(&mut selected.name);
                     });
                     ui.horizontal(|ui| {
+                        ui.label("Kind");
+                        egui::ComboBox::from_id_salt("tools-settlement-kind")
+                            .selected_text(selected.kind.clone())
+                            .show_ui(ui, |ui| {
+                                for kind in SETTLEMENT_KIND_OPTIONS {
+                                    ui.selectable_value(&mut selected.kind, kind.to_string(), kind);
+                                }
+                            });
+                    });
+                    ui.horizontal(|ui| {
                         ui.label("Map X");
                         ui.add(egui::DragValue::new(&mut selected.map_x).range(-200..=200));
                         ui.label("Map Y");
@@ -1955,6 +2017,7 @@ fn render_tools_window(ctx: &egui::Context, map: &mut CampaignMapSurface, tools:
                             name: format!("New Settlement {next_id}"),
                             map_x: 0,
                             map_y: 0,
+                            kind: default_settlement_kind(),
                         });
                         normalize_authored_map(&mut tools.data);
                         tools.selected_settlement_index = tools
@@ -2049,12 +2112,13 @@ fn render_tools_window(ctx: &egui::Context, map: &mut CampaignMapSurface, tools:
                 ui.collapsing("Current Routes", |ui| {
                     for route in tools.data.routes.iter().take(12) {
                         ui.label(format!(
-                            "#{} S{} -> S{} | {}h | risk {} | sea {}",
+                            "#{} S{} -> S{} | {}h | risk {} ({}) | sea {}",
                             route.id,
                             route.origin,
                             route.destination,
                             route.travel_hours,
                             route.base_risk,
+                            risk_band_label(route.base_risk),
                             route.is_sea_route
                         ));
                     }
@@ -2245,6 +2309,7 @@ mod tests {
                 name: "A".to_string(),
                 map_x: 0,
                 map_y: 0,
+                kind: "village".to_string(),
             }],
             routes: vec![AuthoredRoute {
                 id: 7,
@@ -2258,6 +2323,29 @@ mod tests {
 
         let errors = validate_and_build_graph(&invalid).expect_err("Expected validation to fail");
         assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn authored_map_validation_rejects_invalid_settlement_kind() {
+        let invalid = AuthoredMapData {
+            settlements: vec![AuthoredSettlement {
+                id: 1,
+                name: "A".to_string(),
+                map_x: 0,
+                map_y: 0,
+                kind: "metropolis".to_string(),
+            }],
+            routes: vec![AuthoredRoute {
+                id: 7,
+                origin: 1,
+                destination: 1,
+                travel_hours: 12,
+                base_risk: 500,
+                is_sea_route: false,
+            }],
+        };
+        let errors = validate_and_build_graph(&invalid).expect_err("Expected validation to fail");
+        assert!(errors.iter().any(|row| row.contains("invalid kind")));
     }
 
     #[test]

@@ -14,6 +14,64 @@ pub struct SettlementNode {
     pub name: String,
     pub map_x: i32,
     pub map_y: i32,
+    #[serde(default)]
+    pub tier: SettlementTier,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SettlementTier {
+    Camp,
+    Village,
+    #[default]
+    Town,
+    City,
+    Fortress,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SettlementHooks {
+    pub logistics_throughput_bp: u32,
+    pub trade_liquidity_bp: u32,
+    pub intelligence_surface_bp: u32,
+    pub levy_capacity_bp: u32,
+}
+
+impl SettlementTier {
+    pub fn hooks(self) -> SettlementHooks {
+        match self {
+            Self::Camp => SettlementHooks {
+                logistics_throughput_bp: 550,
+                trade_liquidity_bp: 250,
+                intelligence_surface_bp: 450,
+                levy_capacity_bp: 350,
+            },
+            Self::Village => SettlementHooks {
+                logistics_throughput_bp: 800,
+                trade_liquidity_bp: 550,
+                intelligence_surface_bp: 700,
+                levy_capacity_bp: 650,
+            },
+            Self::Town => SettlementHooks {
+                logistics_throughput_bp: 1_100,
+                trade_liquidity_bp: 950,
+                intelligence_surface_bp: 950,
+                levy_capacity_bp: 1_000,
+            },
+            Self::City => SettlementHooks {
+                logistics_throughput_bp: 1_500,
+                trade_liquidity_bp: 1_600,
+                intelligence_surface_bp: 1_250,
+                levy_capacity_bp: 1_450,
+            },
+            Self::Fortress => SettlementHooks {
+                logistics_throughput_bp: 950,
+                trade_liquidity_bp: 500,
+                intelligence_surface_bp: 1_100,
+                levy_capacity_bp: 1_800,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,6 +114,21 @@ pub struct TravelPlan {
     pub route_ids: Vec<RouteId>,
     pub total_travel_hours: u32,
     pub total_risk: u32,
+}
+
+impl TravelPlan {
+    pub fn risk_band(&self) -> RouteRiskBand {
+        classify_route_risk(self.total_risk)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteRiskBand {
+    Low,
+    Guarded,
+    High,
+    Severe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -118,6 +191,10 @@ impl TravelGraph {
 
     pub fn settlement(&self, settlement_id: SettlementId) -> Option<&SettlementNode> {
         self.settlements.get(&settlement_id)
+    }
+
+    pub fn settlement_hooks(&self, settlement_id: SettlementId) -> Option<SettlementHooks> {
+        self.settlements.get(&settlement_id).map(|row| row.tier.hooks())
     }
 
     pub fn route(&self, route_id: RouteId) -> Option<&RouteEdge> {
@@ -435,6 +512,15 @@ pub fn adjusted_route_risk(base_risk: u32, modifiers: RiskModifiers) -> u32 {
     u32::try_from(weighted / 10_000).unwrap_or(u32::MAX)
 }
 
+pub fn classify_route_risk(total_risk: u32) -> RouteRiskBand {
+    match total_risk {
+        0..=14 => RouteRiskBand::Low,
+        15..=29 => RouteRiskBand::Guarded,
+        30..=54 => RouteRiskBand::High,
+        _ => RouteRiskBand::Severe,
+    }
+}
+
 pub fn sample_levant_travel_graph() -> TravelGraph {
     let mut graph = TravelGraph::default();
 
@@ -443,30 +529,35 @@ pub fn sample_levant_travel_graph() -> TravelGraph {
         name: "Acre".to_string(),
         map_x: -280,
         map_y: 60,
+        tier: SettlementTier::City,
     });
     graph.insert_settlement(SettlementNode {
         id: SettlementId(2),
         name: "Tyre".to_string(),
         map_x: -140,
         map_y: 40,
+        tier: SettlementTier::Town,
     });
     graph.insert_settlement(SettlementNode {
         id: SettlementId(3),
         name: "Sidon".to_string(),
         map_x: -20,
         map_y: 20,
+        tier: SettlementTier::Town,
     });
     graph.insert_settlement(SettlementNode {
         id: SettlementId(4),
         name: "Jerusalem".to_string(),
         map_x: 80,
         map_y: -90,
+        tier: SettlementTier::City,
     });
     graph.insert_settlement(SettlementNode {
         id: SettlementId(5),
         name: "Kerak".to_string(),
         map_x: 280,
         map_y: -140,
+        tier: SettlementTier::Fortress,
     });
 
     let routes = [
@@ -564,7 +655,8 @@ pub fn sample_levant_travel_graph() -> TravelGraph {
 #[cfg(test)]
 mod tests {
     use super::{
-        RiskModifiers, SettlementNode, TravelGraph, TravelPreference, adjusted_route_risk, sample_levant_travel_graph,
+        RiskModifiers, RouteRiskBand, SettlementNode, SettlementTier, TravelGraph, TravelPreference,
+        adjusted_route_risk, classify_route_risk, sample_levant_travel_graph,
     };
     use crate::{RouteEdge, RouteId, SettlementId, Tick};
 
@@ -575,24 +667,28 @@ mod tests {
             name: "A".to_string(),
             map_x: 0,
             map_y: 0,
+            tier: SettlementTier::Village,
         });
         graph.insert_settlement(SettlementNode {
             id: SettlementId(2),
             name: "B".to_string(),
             map_x: 1,
             map_y: 0,
+            tier: SettlementTier::Town,
         });
         graph.insert_settlement(SettlementNode {
             id: SettlementId(3),
             name: "C".to_string(),
             map_x: 2,
             map_y: 0,
+            tier: SettlementTier::Town,
         });
         graph.insert_settlement(SettlementNode {
             id: SettlementId(4),
             name: "D".to_string(),
             map_x: 3,
             map_y: 0,
+            tier: SettlementTier::Camp,
         });
 
         for route in [
@@ -712,5 +808,37 @@ mod tests {
         let graph = sample_levant_travel_graph();
         let adjacent = graph.adjacent_settlements(SettlementId(1));
         assert_eq!(adjacent, vec![SettlementId(2), SettlementId(4)]);
+    }
+
+    #[test]
+    fn settlement_tier_hooks_are_available() {
+        let graph = sample_levant_travel_graph();
+        let hooks = graph
+            .settlement_hooks(SettlementId(5))
+            .expect("kerak hooks should exist");
+        assert_eq!(hooks.levy_capacity_bp, 1_800);
+        assert!(hooks.trade_liquidity_bp < hooks.levy_capacity_bp);
+    }
+
+    #[test]
+    fn route_risk_band_classification_is_stable() {
+        assert_eq!(classify_route_risk(0), RouteRiskBand::Low);
+        assert_eq!(classify_route_risk(14), RouteRiskBand::Low);
+        assert_eq!(classify_route_risk(15), RouteRiskBand::Guarded);
+        assert_eq!(classify_route_risk(29), RouteRiskBand::Guarded);
+        assert_eq!(classify_route_risk(30), RouteRiskBand::High);
+        assert_eq!(classify_route_risk(54), RouteRiskBand::High);
+        assert_eq!(classify_route_risk(55), RouteRiskBand::Severe);
+
+        let graph = tiny_graph();
+        let route = graph
+            .plan_route(
+                SettlementId(1),
+                SettlementId(4),
+                TravelPreference::Safest,
+                RiskModifiers::neutral(),
+            )
+            .expect("path should exist");
+        assert_eq!(route.risk_band(), RouteRiskBand::High);
     }
 }
