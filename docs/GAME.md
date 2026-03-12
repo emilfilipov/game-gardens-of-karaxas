@@ -110,7 +110,7 @@ This section is the detailed product-level description of all implemented and pl
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.
-- Loop: migrate only when measured bottlenecks exceed defined latency/contention/backlog thresholds.
+- Loop: migrate only when measured bottlenecks exceed defined latency/contention/backlog thresholds documented in `docs/REDIS_ADOPTION_GATE.md`, then execute staged dual-write validation before consumer cutover.
 - Gameplay impact: preserves development velocity and budget while retaining a clear scale path.
 
 #### Replay determinism and operations hardening

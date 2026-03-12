@@ -40,3 +40,7 @@ Operational runbook for Ambitions of Peace during migration from legacy prototyp
 - runtime logs: `<install_root>/logs/game.log`
 - updater logs: `<install_root>/logs/velopack.log`
 - updater status: `<install_root>/logs/update_status.json`
+
+## Redis Adoption Gate Reference
+- Redis adoption is controlled by `docs/REDIS_ADOPTION_GATE.md`.
+- Do not enable Redis-backed fanout paths unless the documented thresholds, preconditions, and rollback drill requirements are satisfied.

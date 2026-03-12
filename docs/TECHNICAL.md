@@ -51,6 +51,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Redis is deferred for PoC cost control.
 - PoC eventing uses PostgreSQL outbox + LISTEN/NOTIFY where practical.
 - Redis (Memorystore) adoption trigger is defined by measured latency/contention/throughput pressure, not by assumption.
+- Canonical adoption gate and migration/rollback contract: `docs/REDIS_ADOPTION_GATE.md`.
 
 ## Runtime and Service Topology (Target)
 ### Control plane (transitional)
@@ -128,7 +129,7 @@ Legacy prototype documents that conflict with this direction are archived under 
   - wake semantics are payload-aware (`outbox_id`, `topic`) while durable replay/idempotency remains grounded in outbox row claiming.
 
 ### Eventing (scale phase)
-- Introduce Redis and/or Pub/Sub for high-frequency hot-path fanout once PoC metrics justify it.
+- Introduce Redis and/or Pub/Sub for high-frequency hot-path fanout only after `docs/REDIS_ADOPTION_GATE.md` thresholds and preconditions are met.
 
 ## Security and Authority Model
 - Server authoritative for gameplay outcomes, progression values, and persistent state transitions.
