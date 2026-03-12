@@ -137,6 +137,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: checked-in Acre pack defines one city, one fortress, connected land/sea routes, two faction baselines, market seeds, and intelligence seeds; client bootstrap map can load this pack by default.
 - Gameplay impact: systems are now exercised against a real content slice instead of only synthetic in-code sample data.
 
+#### End-to-end playable vertical-slice loop
+- Purpose: validate that account/login/bootstrap flows now reach a full strategic consequence path with persistence.
+- Loop: authenticated backend orchestration triggers campaign movement command, starts/resolves a real-time battle instance in world-service, then writes battle-derived progression/location updates back to persistent character state.
+- Gameplay impact: one-player PoC loop is now executable without manual debug stitching between independent subsystems.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.

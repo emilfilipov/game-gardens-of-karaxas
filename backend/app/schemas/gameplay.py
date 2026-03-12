@@ -24,3 +24,31 @@ class ResolveActionResponse(BaseModel):
     server_position_y: int
     character_level: int
     character_experience: int
+
+
+class VerticalSliceLoopRequest(BaseModel):
+    character_id: int = Field(ge=1)
+    campaign_origin_settlement_id: int = Field(default=101, ge=1)
+    campaign_destination_settlement_id: int = Field(default=102, ge=1)
+    attacker_army_id: int = Field(default=7001, ge=1)
+    defender_army_id: int = Field(default=7002, ge=1)
+    attacker_strength: int = Field(default=1200, ge=100, le=50_000)
+    defender_strength: int = Field(default=1100, ge=100, le=50_000)
+    reward_xp: int = Field(default=60, ge=0, le=5_000)
+    tick_now_ms: int = Field(default=2_000, ge=0, le=86_400_000)
+
+
+class VerticalSliceLoopResponse(BaseModel):
+    accepted: bool
+    reason_code: str
+    battle_instance_id: int
+    battle_status: str
+    winner_side: str | None = None
+    world_commands_queued: int
+    campaign_tick: int = 0
+    xp_granted: int
+    levels_gained: int
+    character_level: int
+    character_experience: int
+    persisted_location_x: int
+    persisted_location_y: int

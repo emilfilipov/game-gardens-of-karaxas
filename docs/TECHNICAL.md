@@ -56,6 +56,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 ## Runtime and Service Topology (Target)
 ### Control plane (transitional)
 - Existing FastAPI auth/session/account/content/release endpoints remain operational during migration.
+- FastAPI now exposes authenticated vertical-slice orchestration endpoint `POST /gameplay/vertical-slice-loop` to run the PoC loop (campaign command dispatch -> battle instance lifecycle -> persistence writeback) while keeping launcher/login/account contracts intact.
 
 ### New world authority plane
 - Rust world service (`world-service`) now provides the initial Axum skeleton with env-driven config and health/readiness/config endpoints; it will expand to own campaign simulation ticks, economic/logistics simulation, espionage state, and instanced battle authority orchestration.
@@ -91,6 +92,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Internal signed control command contract now also includes battle contract actions (`start_battle_encounter`, `force_resolve_battle_instance`) for campaign encounter -> instance lifecycle control.
 - Internal signed control command contract now also includes tactical battle controls (`set_battle_formation`, `deploy_battle_reserve`) for instance-level formation/reserve decisions.
 - Internal signed bridge contract now also includes world-entry handoff (`/internal/world-entry/bootstrap`) consumed by FastAPI auth/session/character bootstrap flow.
+- FastAPI world-service control client (`backend/app/services/world_service_control.py`) now orchestrates signed command dispatch and tick advancement (`/internal/control/commands`, `/internal/control/tick`) plus battle-state reads (`/battle/state`) for vertical-slice loop execution.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 - Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, choke-point detection, and arrival estimates).
@@ -188,6 +190,9 @@ Current baseline checks retained during transition:
   - `AOP_PROVINCE_PACK_PATH=assets/content/provinces/acre/acre_poc_v1.json cargo test -p client-app --features bootstrap-shell`
 - FastAPI world-entry bridge regression smoke:
   - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_world_entry_bridge.py backend/tests/test_world_bootstrap_3d_contract.py`
+- Vertical-slice loop regression smoke:
+  - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_vertical_slice_loop.py`
+  - `python3 backend/scripts/smoke_online_loop.py --base-url <backend_base_url>`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox` job in `.github/workflows/rust-checks.yml`).

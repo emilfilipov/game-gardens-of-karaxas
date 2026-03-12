@@ -6,6 +6,7 @@ FastAPI backend for Ambitions of Peace online account/control-plane systems duri
 - Auth: register/login/refresh/logout
 - Account lobby overview
 - Character create/list/select
+- Gameplay action resolve + vertical-slice loop orchestration (`/gameplay/resolve-action`, `/gameplay/vertical-slice-loop`)
 - Chat channels/messages + websocket endpoint
 - Release policy ops endpoint for forced-update gating
 - Internal world-service call signing contract (`app/services/world_service_auth.py`) for authenticated FastAPI -> Rust control-plane requests

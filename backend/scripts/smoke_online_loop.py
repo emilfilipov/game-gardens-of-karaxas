@@ -175,11 +175,32 @@ def run(base_url: str) -> None:
     )
     _assert(code == 200 and gameplay.get("accepted") is True, f"gameplay resolve failed: {code} {gameplay}")
 
+    code, vertical_slice = _request(
+        "POST",
+        f"{base}/gameplay/vertical-slice-loop",
+        {
+            "character_id": character_id,
+            "campaign_origin_settlement_id": 101,
+            "campaign_destination_settlement_id": 222,
+            "attacker_army_id": 7001,
+            "defender_army_id": 7002,
+            "attacker_strength": 1200,
+            "defender_strength": 1100,
+            "reward_xp": 60,
+            "tick_now_ms": 2500,
+        },
+        headers=auth_headers,
+    )
+    _assert(
+        code == 200 and vertical_slice.get("accepted") is True,
+        f"vertical slice loop failed: {code} {vertical_slice}",
+    )
+
     code, chars = _request("GET", f"{base}/characters", headers=auth_headers)
     _assert(code == 200 and isinstance(chars, list), f"character list failed: {code} {chars}")
     row = next((c for c in chars if int(c.get("id", -1)) == character_id), None)
     _assert(row is not None, "character missing from list")
-    _assert(int(row.get("location_x", -1)) == 124 and int(row.get("location_y", -1)) == 457, "location not persisted")
+    _assert(int(row.get("location_x", -1)) == 222 and int(row.get("location_y", -1)) == 222, "location not persisted")
     _assert(isinstance(row.get("inventory", []), list), "inventory missing in character response")
 
     print("Smoke online loop passed.")
