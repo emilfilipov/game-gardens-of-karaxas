@@ -78,6 +78,11 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Transactional outbox table for service events.
 - LISTEN/NOTIFY for low-volume wakeup/fanout signaling.
 - Replay-safe processors for idempotent side effects.
+- Baseline schema is now present via `backend/alembic/versions/0022_event_store_outbox.py`:
+  - `world_events` (append-only event journal),
+  - `world_outbox` (durable dispatch queue with retry lock fields),
+  - `world_command_idempotency` (scope/key/request-hash dedupe records),
+  - `world_processor_cursors` (restart-safe processor checkpoints).
 
 ### Eventing (scale phase)
 - Introduce Redis and/or Pub/Sub for high-frequency hot-path fanout once PoC metrics justify it.

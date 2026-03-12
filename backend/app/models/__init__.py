@@ -12,6 +12,12 @@ from app.models.campaign_world import (
     CampaignSettlement,
 )
 from app.models.content import ContentBundle, ContentVersion
+from app.models.event_pipeline import (
+    WorldCommandIdempotency,
+    WorldEvent,
+    WorldOutbox,
+    WorldProcessorCursor,
+)
 from app.models.guild import Guild, GuildMember
 from app.models.gameplay import GameplayActionAudit
 from app.models.instance import WorldInstance, WorldInstanceMember
@@ -59,4 +65,8 @@ __all__ = [
     "User",
     "UserSession",
     "WsConnectionTicket",
+    "WorldCommandIdempotency",
+    "WorldEvent",
+    "WorldOutbox",
+    "WorldProcessorCursor",
 ]
