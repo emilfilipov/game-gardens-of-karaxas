@@ -75,6 +75,13 @@ Primary runtime observability surfaces for the PoC:
 - Existing release guardrails check:
   - `OPS_BASE_URL=<backend-url> OPS_TOKEN=<ops-token> backend/scripts/check_ops_metrics_guardrails.sh`
 
+## Monthly Cost Guardrails
+- Canonical policy: `docs/COST_GUARDRAILS.md`
+- Monthly report generator:
+  - `backend/scripts/generate_monthly_cost_report.py --month YYYY-MM --output docs/cost-reports/YYYY-MM-estimate.md --budget-total 80`
+- Billing export mode:
+  - `backend/scripts/generate_monthly_cost_report.py --month YYYY-MM --billing-csv <billing_export.csv> --output docs/cost-reports/YYYY-MM-report.md --budget-total 80`
+
 ## Redis Adoption Gate Reference
 - Redis adoption is controlled by `docs/REDIS_ADOPTION_GATE.md`.
 - Do not enable Redis-backed fanout paths unless the documented thresholds, preconditions, and rollback drill requirements are satisfied.

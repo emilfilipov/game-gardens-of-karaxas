@@ -9,6 +9,8 @@ Core simulation contract: all core gameplay systems run in real-time (travel, lo
 - `docs/TASKS.md` - granular execution backlog and strict sequencing for migration work.
 - `docs/adr/` - accepted architecture decision records for migration-critical decisions.
 - `docs/REDIS_ADOPTION_GATE.md` - explicit Redis cutover thresholds, dual-write migration, and rollback contract.
+- `docs/COST_GUARDRAILS.md` - monthly PoC budget policy and reporting process.
+- `docs/cost-reports/` - generated monthly estimate/actual cost reports.
 
 ## Archived Documentation
 - `docs/archive/legacy-prototype/` - superseded prototype-era documents retained for historical traceability only.

@@ -24,3 +24,4 @@ Run `backend/scripts/deploy_cloud_run.sh` after setting env vars (or `backend/.e
 ## Ops Guardrails
 - Configure baseline Cloud Monitoring alert policies: `backend/scripts/configure_monitoring_alerts.sh`
 - Check runtime thresholds (page-worthy + log-only): `backend/scripts/check_world_runtime_alerts.sh`
+- Generate monthly cost report (estimate or billing CSV mode): `backend/scripts/generate_monthly_cost_report.py`

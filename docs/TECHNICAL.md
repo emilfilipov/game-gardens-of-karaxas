@@ -200,6 +200,8 @@ Current baseline checks retained during transition:
   - `cargo test -p world-service replay_`
 - Observability threshold smoke:
   - `OPS_BASE_URL=<backend-url> OPS_TOKEN=<ops-token> WORLD_SERVICE_BASE_URL=<world-service-url> backend/scripts/check_world_runtime_alerts.sh`
+- Cost guardrail report smoke:
+  - `backend/scripts/generate_monthly_cost_report.py --month YYYY-MM --output docs/cost-reports/YYYY-MM-estimate.md --budget-total 80`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox`) and deterministic replay gate (`determinism-replay`) in `.github/workflows/rust-checks.yml`.
@@ -216,7 +218,8 @@ Migration-era additions still pending:
 - Keep Cloud Run minimum instances at zero unless a warm instance is operationally required.
 - Keep GCS artifact retention at 3 builds.
 - Defer Redis/Memorystore until objective performance triggers occur.
-- Reassess monthly cost envelope after first fully playable province vertical slice.
+- Monthly guardrail and reporting policy is defined in `docs/COST_GUARDRAILS.md`.
+- Monthly report generation command: `backend/scripts/generate_monthly_cost_report.py --month YYYY-MM --output docs/cost-reports/YYYY-MM-estimate.md --budget-total 80`.
 
 ## Documentation Rule
 `docs/TECHNICAL.md` is canonical for technical decisions.
