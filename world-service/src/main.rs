@@ -1,8 +1,9 @@
 mod auth;
 mod config;
+mod tick_runner;
 
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::State;
@@ -19,11 +20,16 @@ use tracing_subscriber::EnvFilter;
 
 use crate::auth::{AuthenticatedServiceCall, ServiceAuthConfig, ServiceAuthState};
 use crate::config::AppConfig;
+use crate::tick_runner::{
+    TickAdvanceResult, TickMetrics, TickRunner, TickRunnerConfig, TickSnapshot, build_move_army_command,
+    build_set_stance_command,
+};
 
 #[derive(Clone)]
 struct AppState {
     config: Arc<AppConfig>,
     started_at_unix: u64,
+    tick_runner: Arc<Mutex<TickRunner>>,
 }
 
 #[derive(Serialize)]
@@ -50,18 +56,57 @@ struct ConfigResponse {
     required_scope: String,
     max_clock_skew_seconds: u64,
     replay_window_seconds: u64,
+    tick_interval_ms: u64,
+    snapshot_interval_ticks: u64,
+    max_snapshots_kept: usize,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ControlCommandKind {
+    IssueMoveArmy {
+        army_id: u64,
+        origin: u64,
+        destination: u64,
+    },
+    SetFactionStance {
+        actor_faction: u64,
+        target_faction: u64,
+        relation_delta: i32,
+    },
 }
 
 #[derive(Debug, Deserialize)]
 struct ControlCommandRequest {
-    command: String,
+    trace_id: String,
+    command: ControlCommandKind,
 }
 
 #[derive(Debug, Serialize)]
 struct ControlCommandResponse {
     status: &'static str,
     accepted: bool,
-    command: String,
+    trace_id: String,
+    queued_command_type: &'static str,
+    queue_depth: usize,
+    current_tick: u64,
+    caller_service_id: String,
+    caller_scope: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TickAdvanceRequest {
+    now_ms: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct TickAdvanceResponse {
+    status: &'static str,
+    ticks_executed: usize,
+    current_tick: u64,
+    queue_depth: usize,
+    metrics: TickMetrics,
+    latest_snapshot: Option<TickSnapshot>,
     caller_service_id: String,
     caller_scope: String,
 }
@@ -73,9 +118,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let addr = config.socket_addr()?;
     let auth_state = build_auth_state(&config)?;
+    let tick_runner = TickRunner::new(TickRunnerConfig::new(
+        config.tick_interval_ms,
+        config.snapshot_interval_ticks,
+        config.max_snapshots_kept,
+    ));
     let state = AppState {
         config: Arc::new(config),
         started_at_unix: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+        tick_runner: Arc::new(Mutex::new(tick_runner)),
     };
 
     let request_id_header = HeaderName::from_static("x-request-id");
@@ -106,16 +157,19 @@ fn build_auth_state(config: &AppConfig) -> Result<ServiceAuthState, io::Error> {
 }
 
 fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header: HeaderName) -> Router {
-    let internal_control_route = post(control_command).route_layer(middleware::from_fn_with_state(
-        auth_state,
-        auth::require_internal_service_auth,
-    ));
+    let internal_control_routes = Router::new()
+        .route("/internal/control/commands", post(control_command))
+        .route("/internal/control/tick", post(advance_ticks))
+        .route_layer(middleware::from_fn_with_state(
+            auth_state,
+            auth::require_internal_service_auth,
+        ));
 
     Router::new()
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
         .route("/config", get(config_endpoint))
-        .route("/internal/control/commands", internal_control_route)
+        .merge(internal_control_routes)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
         .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid))
@@ -156,19 +210,54 @@ async fn config_endpoint(State(state): State<AppState>) -> (StatusCode, Json<Con
             required_scope: state.config.required_scope.clone(),
             max_clock_skew_seconds: state.config.max_clock_skew_seconds,
             replay_window_seconds: state.config.replay_window_seconds,
+            tick_interval_ms: state.config.tick_interval_ms,
+            snapshot_interval_ticks: state.config.snapshot_interval_ticks,
+            max_snapshots_kept: state.config.max_snapshots_kept,
         }),
     )
 }
 
 async fn control_command(
+    State(state): State<AppState>,
     Extension(caller): Extension<AuthenticatedServiceCall>,
     Json(payload): Json<ControlCommandRequest>,
 ) -> (StatusCode, Json<ControlCommandResponse>) {
+    let mut runner = state
+        .tick_runner
+        .lock()
+        .expect("tick runner lock should not be poisoned");
+
+    let (queued_command_type, envelope) = match payload.command {
+        ControlCommandKind::IssueMoveArmy {
+            army_id,
+            origin,
+            destination,
+        } => (
+            "issue_move_army",
+            build_move_army_command(&payload.trace_id, army_id, origin, destination),
+        ),
+        ControlCommandKind::SetFactionStance {
+            actor_faction,
+            target_faction,
+            relation_delta,
+        } => (
+            "set_faction_stance",
+            build_set_stance_command(&payload.trace_id, actor_faction, target_faction, relation_delta),
+        ),
+    };
+
+    runner.queue_command(envelope);
+    let queue_depth = runner.queue_depth();
+    let current_tick = runner.current_tick().0;
+
     info!(
         caller_service_id = %caller.service_id,
         caller_scope = %caller.scope,
-        command = %payload.command,
-        "internal control command accepted"
+        trace_id = %payload.trace_id,
+        queued_command_type,
+        queue_depth,
+        current_tick,
+        "internal control command queued"
     );
 
     (
@@ -176,7 +265,51 @@ async fn control_command(
         Json(ControlCommandResponse {
             status: "accepted",
             accepted: true,
-            command: payload.command,
+            trace_id: payload.trace_id,
+            queued_command_type,
+            queue_depth,
+            current_tick,
+            caller_service_id: caller.service_id,
+            caller_scope: caller.scope,
+        }),
+    )
+}
+
+async fn advance_ticks(
+    State(state): State<AppState>,
+    Extension(caller): Extension<AuthenticatedServiceCall>,
+    Json(payload): Json<TickAdvanceRequest>,
+) -> (StatusCode, Json<TickAdvanceResponse>) {
+    let mut runner = state
+        .tick_runner
+        .lock()
+        .expect("tick runner lock should not be poisoned");
+    let TickAdvanceResult {
+        ticks_executed,
+        current_tick,
+        queue_depth,
+        metrics,
+        latest_snapshot,
+    } = runner.run_due_ticks(payload.now_ms);
+
+    info!(
+        caller_service_id = %caller.service_id,
+        caller_scope = %caller.scope,
+        ticks_executed,
+        current_tick = current_tick.0,
+        queue_depth,
+        "internal tick advance executed"
+    );
+
+    (
+        StatusCode::ACCEPTED,
+        Json(TickAdvanceResponse {
+            status: "accepted",
+            ticks_executed,
+            current_tick: current_tick.0,
+            queue_depth,
+            metrics,
+            latest_snapshot,
             caller_service_id: caller.service_id,
             caller_scope: caller.scope,
         }),
@@ -201,7 +334,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use axum::body::Body;
+    use axum::body::{Body, to_bytes};
     use axum::http::{HeaderName, Request, StatusCode};
     use tower::ServiceExt;
 
@@ -210,6 +343,7 @@ mod tests {
         SigningContract, sign_request,
     };
     use crate::config::AppConfig;
+    use crate::tick_runner::{TickRunner, TickRunnerConfig};
     use crate::{AppState, build_auth_state, build_router};
 
     fn test_config() -> AppConfig {
@@ -225,27 +359,34 @@ mod tests {
             max_clock_skew_seconds: 120,
             replay_window_seconds: 600,
             internal_max_body_bytes: 64 * 1024,
+            tick_interval_ms: 100,
+            snapshot_interval_ticks: 2,
+            max_snapshots_kept: 16,
         }
     }
 
     fn test_app() -> axum::Router {
         let config = test_config();
         let auth_state = build_auth_state(&config).expect("auth state should build");
+        let tick_runner = TickRunner::new(TickRunnerConfig::new(
+            config.tick_interval_ms,
+            config.snapshot_interval_ticks,
+            config.max_snapshots_kept,
+        ));
         let state = AppState {
             config: Arc::new(config),
             started_at_unix: 1_700_000_000,
+            tick_runner: Arc::new(std::sync::Mutex::new(tick_runner)),
         };
         build_router(state, auth_state, HeaderName::from_static("x-request-id"))
     }
 
-    fn signed_command_request(nonce: &str, command: &str) -> Request<Body> {
+    fn signed_json_request(path: &str, nonce: &str, body: &str) -> Request<Body> {
         let method = "POST";
-        let path = "/internal/control/commands";
         let now_unix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time should be valid")
             .as_secs();
-        let body = format!(r#"{{"command":"{command}"}}"#);
 
         let (body_hash, signature) = sign_request(
             &SigningContract {
@@ -270,7 +411,7 @@ mod tests {
             .header(HEADER_NONCE, nonce)
             .header(HEADER_BODY_SHA256, body_hash)
             .header(HEADER_SIGNATURE, signature)
-            .body(Body::from(body))
+            .body(Body::from(body.to_string()))
             .expect("request should build")
     }
 
@@ -284,7 +425,9 @@ mod tests {
                     .method("POST")
                     .uri("/internal/control/commands")
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"command":"tick"}"#))
+                    .body(Body::from(
+                        r#"{"trace_id":"trace-a","command":{"type":"set_faction_stance","actor_faction":1,"target_faction":2,"relation_delta":3}}"#,
+                    ))
                     .expect("request should build"),
             )
             .await
@@ -296,8 +439,9 @@ mod tests {
     #[tokio::test]
     async fn internal_control_endpoint_accepts_signed_requests() {
         let app = test_app();
+        let body = r#"{"trace_id":"trace-a","command":{"type":"set_faction_stance","actor_faction":1,"target_faction":2,"relation_delta":3}}"#;
         let response = app
-            .oneshot(signed_command_request("nonce-accept", "tick"))
+            .oneshot(signed_json_request("/internal/control/commands", "nonce-accept", body))
             .await
             .expect("response should resolve");
 
@@ -307,18 +451,55 @@ mod tests {
     #[tokio::test]
     async fn internal_control_endpoint_blocks_replay_nonce() {
         let app = test_app();
+        let body = r#"{"trace_id":"trace-a","command":{"type":"set_faction_stance","actor_faction":1,"target_faction":2,"relation_delta":3}}"#;
 
         let first = app
             .clone()
-            .oneshot(signed_command_request("nonce-replay", "tick"))
+            .oneshot(signed_json_request("/internal/control/commands", "nonce-replay", body))
             .await
             .expect("first response should resolve");
         assert_eq!(first.status(), StatusCode::ACCEPTED);
 
         let replay = app
-            .oneshot(signed_command_request("nonce-replay", "tick"))
+            .oneshot(signed_json_request("/internal/control/commands", "nonce-replay", body))
             .await
             .expect("replay response should resolve");
         assert_eq!(replay.status(), StatusCode::CONFLICT);
+    }
+
+    #[tokio::test]
+    async fn internal_tick_endpoint_advances_runner() {
+        let app = test_app();
+
+        let command_body =
+            r#"{"trace_id":"trace-b","command":{"type":"issue_move_army","army_id":7,"origin":1,"destination":2}}"#;
+        let queued = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-queue",
+                command_body,
+            ))
+            .await
+            .expect("queue response should resolve");
+        assert_eq!(queued.status(), StatusCode::ACCEPTED);
+
+        let tick_response = app
+            .oneshot(signed_json_request(
+                "/internal/control/tick",
+                "nonce-tick",
+                r#"{"now_ms":0}"#,
+            ))
+            .await
+            .expect("tick response should resolve");
+        assert_eq!(tick_response.status(), StatusCode::ACCEPTED);
+
+        let bytes = to_bytes(tick_response.into_body(), usize::MAX)
+            .await
+            .expect("response body should decode");
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
+
+        assert_eq!(payload["ticks_executed"], 1);
+        assert_eq!(payload["current_tick"], 1);
     }
 }

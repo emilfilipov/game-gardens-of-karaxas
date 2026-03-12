@@ -1090,6 +1090,7 @@ dependencies = [
  "hmac",
  "http",
  "serde",
+ "serde_json",
  "sha2",
  "sim-core",
  "tokio",

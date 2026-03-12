@@ -60,6 +60,8 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Rust world service (`world-service`) now provides the initial Axum skeleton with env-driven config and health/readiness/config endpoints; it will expand to own campaign simulation ticks, economic/logistics simulation, espionage state, and instanced battle authority orchestration.
 - FastAPI -> world-service privileged control calls now use an HMAC-SHA256 signed request contract (`x-aop-service-id`, `x-aop-scope`, `x-aop-timestamp`, `x-aop-nonce`, `x-aop-body-sha256`, `x-aop-signature`) with strict scope checks.
 - Privileged mutation routes in world-service (`/internal/control/commands`) enforce timestamp skew limits and nonce replay detection via in-memory replay window cache (PoC baseline).
+- World service now includes deterministic single-shard tick runner primitives (`world-service/src/tick_runner.rs`) with fixed cadence execution, deterministic command ordering, periodic snapshot hashing/checkpoints, and tick lag/duration metrics.
+- Signed internal endpoint `/internal/control/tick` advances deterministic ticks for PoC orchestration/testing.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 
@@ -110,7 +112,7 @@ Migration-era additions (implemented in scaffold phase):
 - Rust CI workflow: `.github/workflows/rust-checks.yml`
 
 Migration-era additions still pending:
-- simulation determinism replay checks
+- long-horizon simulation determinism replay/golden snapshot suites
 - broader API contract compatibility tests (FastAPI <-> Rust world service gameplay endpoints beyond inter-service auth boundary)
 
 ## Cost-Control Baseline (PoC)

@@ -13,6 +13,9 @@ pub struct AppConfig {
     pub max_clock_skew_seconds: u64,
     pub replay_window_seconds: u64,
     pub internal_max_body_bytes: usize,
+    pub tick_interval_ms: u64,
+    pub snapshot_interval_ticks: u64,
+    pub max_snapshots_kept: usize,
 }
 
 impl AppConfig {
@@ -44,6 +47,18 @@ impl AppConfig {
                 .ok()
                 .and_then(|value| value.parse::<usize>().ok())
                 .unwrap_or(1_048_576),
+            tick_interval_ms: std::env::var("WORLD_SERVICE_TICK_INTERVAL_MS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(200),
+            snapshot_interval_ticks: std::env::var("WORLD_SERVICE_SNAPSHOT_INTERVAL_TICKS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(10),
+            max_snapshots_kept: std::env::var("WORLD_SERVICE_MAX_SNAPSHOTS_KEPT")
+                .ok()
+                .and_then(|value| value.parse::<usize>().ok())
+                .unwrap_or(64),
         }
     }
 
@@ -75,5 +90,13 @@ mod tests {
     fn default_auth_scope_list_is_non_empty() {
         let cfg = AppConfig::from_env();
         assert!(!cfg.allowed_scope_list().is_empty());
+    }
+
+    #[test]
+    fn default_tick_settings_are_positive() {
+        let cfg = AppConfig::from_env();
+        assert!(cfg.tick_interval_ms > 0);
+        assert!(cfg.snapshot_interval_ticks > 0);
+        assert!(cfg.max_snapshots_kept > 0);
     }
 }

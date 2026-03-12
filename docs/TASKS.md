@@ -22,7 +22,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-007 | ✅ | 3 | AOP-PIVOT-006 | Introduce service-to-service auth/signing model between legacy FastAPI control plane and Rust world service. |
 | AOP-PIVOT-008 | ✅ | 3 | AOP-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
 | AOP-PIVOT-009 | ✅ | 4 | AOP-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
-| AOP-PIVOT-010 | ⬜ | 4 | AOP-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
+| AOP-PIVOT-010 | ✅ | 4 | AOP-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
 | AOP-PIVOT-011 | ⬜ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs. |
 | AOP-PIVOT-012 | ⬜ | 4 | AOP-PIVOT-010 | Implement logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
 | AOP-PIVOT-013 | ⬜ | 4 | AOP-PIVOT-010 | Implement trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
@@ -447,3 +447,4 @@ When work resumes after a pause:
 | AOP-PIVOT-007 | ✅ | 3 | AOP-PIVOT-006 | Added HMAC-signed FastAPI -> Rust internal call contract with scope enforcement, nonce replay protection, and allow/deny integration tests for privileged `/internal/control/commands` calls. |
 | AOP-PIVOT-008 | ✅ | 3 | AOP-PIVOT-005 | Added Alembic migration `0021_campaign_world_foundation` and ORM models for campaign regions, settlements, routes, factions, households, armies, caravans, and espionage assets with FK/index and downgrade order safety coverage. |
 | AOP-PIVOT-009 | ✅ | 4 | AOP-PIVOT-008 | Added migration `0022_event_store_outbox`, event-pipeline ORM models/services, and replay/idempotency/outbox-resume tests for duplicate-safe command handling and restart-safe processor progress. |
+| AOP-PIVOT-010 | ✅ | 4 | AOP-PIVOT-009 | Implemented deterministic `TickRunner` (fixed cadence, deterministic command ordering, periodic snapshot checkpoints, lag/duration metrics) and wired signed internal control endpoints for queueing commands and advancing ticks. |
