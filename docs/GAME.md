@@ -65,6 +65,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: route graph planning computes fastest/safest paths; travel resolves over elapsed route time with risk-aware path selection.
 - Gameplay impact: movement decisions are meaningful because route duration, risk profile, and choke points alter strategic tempo.
 
+#### Campaign map rendering MVP (Bevy client)
+- Purpose: make strategic world state readable in the Rust client shell.
+- Loop: campaign surface renders route overlays, settlement nodes, army/caravan markers, and fog visibility states with zoom-driven readability controls.
+- Gameplay impact: players can visually parse movement lanes, visibility, and active actors before full UI panel suite is complete.
+
 #### Real-time logistics simulation
 - Purpose: enforce supply constraints and make operational planning decisive.
 - Loop: per tick, armies consume stock, queued convoy transfers execute, shortages accumulate pressure, and attrition is applied when supply fails.

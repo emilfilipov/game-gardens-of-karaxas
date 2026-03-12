@@ -55,6 +55,7 @@ Manual sandbox client run (feature-gated):
 - `cargo run -p client-app --features sandbox-ui`
 - Placeholder player sprite generation: `python3 tools/generate_player_placeholder_png.py`
 - Bootstrap shell supports launcher/session handoff via env vars (`AOP_HANDOFF_ACCESS_TOKEN`, `AOP_HANDOFF_SESSION_ID`, optional user metadata) and performs authenticated `/characters` + `/characters/{id}/world-bootstrap` fetches before campaign entry.
+- Bootstrap shell campaign entry now includes a map rendering MVP (settlement nodes, roads/sea routes, army/caravan markers, fog-state coloring, zoom slider).
 - Sandbox includes real-time logistics validation controls (army supply status + convoy queue action).
 - Sandbox includes real-time trade validation controls (shipment queue + market stock/price readouts).
 - Sandbox includes real-time espionage validation controls (informant recruit/report/sweep + reliability/confidence readouts).

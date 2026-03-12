@@ -4,6 +4,7 @@ use reqwest::blocking::Client;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use sim_core::{SettlementId, TravelGraph, sample_levant_travel_graph};
 use std::env;
 use std::sync::Mutex;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
@@ -13,6 +14,7 @@ use std::time::Duration;
 const DEFAULT_API_BASE_URL: &str = "http://127.0.0.1:8000";
 const DEFAULT_CLIENT_VERSION: &str = "dev-0.1.0";
 const DEFAULT_CONTENT_VERSION_KEY: &str = "runtime_gameplay_v1";
+const MAP_SCALE: f32 = 2.3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 enum ShellPhase {
@@ -167,6 +169,124 @@ struct CampaignScene {
     active_character_id: Option<u64>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FogVisibility {
+    Visible,
+    Shrouded,
+    Obscured,
+}
+
+#[derive(Clone, Debug)]
+struct SettlementRenderNode {
+    id: SettlementId,
+    name: String,
+    map_x: f32,
+    map_y: f32,
+    fog: FogVisibility,
+}
+
+#[derive(Clone, Debug)]
+struct RouteRenderEdge {
+    origin: SettlementId,
+    destination: SettlementId,
+    is_sea_route: bool,
+}
+
+#[derive(Clone, Debug)]
+struct MovingMapMarker {
+    label: String,
+    origin: SettlementId,
+    destination: SettlementId,
+    progress: f32,
+    speed: f32,
+}
+
+#[derive(Resource)]
+struct CampaignMapSurface {
+    graph: TravelGraph,
+    settlements: Vec<SettlementRenderNode>,
+    routes: Vec<RouteRenderEdge>,
+    army_markers: Vec<MovingMapMarker>,
+    caravan_markers: Vec<MovingMapMarker>,
+    zoom: f32,
+}
+
+impl CampaignMapSurface {
+    fn sample() -> Self {
+        let graph = sample_levant_travel_graph();
+        let settlements = graph
+            .settlements()
+            .map(|row| {
+                let fog = match row.id.0 {
+                    1..=3 => FogVisibility::Visible,
+                    4..=5 => FogVisibility::Shrouded,
+                    _ => FogVisibility::Obscured,
+                };
+                SettlementRenderNode {
+                    id: row.id,
+                    name: row.name.clone(),
+                    map_x: row.map_x as f32,
+                    map_y: row.map_y as f32,
+                    fog,
+                }
+            })
+            .collect::<Vec<_>>();
+        let routes = graph
+            .routes()
+            .map(|row| RouteRenderEdge {
+                origin: row.origin,
+                destination: row.destination,
+                is_sea_route: row.is_sea_route,
+            })
+            .collect::<Vec<_>>();
+
+        Self {
+            graph,
+            settlements,
+            routes,
+            army_markers: vec![
+                MovingMapMarker {
+                    label: "Army A7".to_string(),
+                    origin: SettlementId(1),
+                    destination: SettlementId(3),
+                    progress: 0.22,
+                    speed: 0.08,
+                },
+                MovingMapMarker {
+                    label: "Army A8".to_string(),
+                    origin: SettlementId(2),
+                    destination: SettlementId(4),
+                    progress: 0.61,
+                    speed: 0.05,
+                },
+            ],
+            caravan_markers: vec![
+                MovingMapMarker {
+                    label: "Caravan C12".to_string(),
+                    origin: SettlementId(3),
+                    destination: SettlementId(5),
+                    progress: 0.4,
+                    speed: 0.04,
+                },
+                MovingMapMarker {
+                    label: "Caravan C19".to_string(),
+                    origin: SettlementId(1),
+                    destination: SettlementId(6),
+                    progress: 0.75,
+                    speed: 0.03,
+                },
+            ],
+            zoom: 1.0,
+        }
+    }
+
+    fn settlement_position(&self, settlement_id: SettlementId) -> Option<Vec2> {
+        self.graph
+            .settlement(settlement_id)
+            .map(|row| Vec2::new(row.map_x as f32 * MAP_SCALE, row.map_y as f32 * MAP_SCALE))
+    }
+}
+
 enum BackendRequest {
     Login {
         email: String,
@@ -267,11 +387,21 @@ pub fn run() {
         .insert_resource(bridge)
         .insert_resource(ShellState::from_env_handoff())
         .insert_resource(CampaignScene::default())
+        .insert_resource(CampaignMapSurface::sample())
         .insert_resource(ClearColor(Color::srgb(0.05, 0.07, 0.08)))
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin::default())
         .add_systems(Startup, (setup_scene, startup_handoff_fetch))
-        .add_systems(Update, (poll_backend_responses, sync_campaign_scene, draw_shell_ui))
+        .add_systems(
+            Update,
+            (
+                poll_backend_responses,
+                animate_campaign_markers,
+                draw_campaign_map_gizmos,
+                sync_campaign_scene,
+                draw_shell_ui,
+            ),
+        )
         .run();
 }
 
@@ -583,11 +713,91 @@ fn handle_backend_response(shell: &mut ShellState, request_tx: &Sender<BackendRe
     }
 }
 
+fn animate_campaign_markers(time: Res<Time>, shell: Res<ShellState>, mut map: ResMut<CampaignMapSurface>) {
+    if shell.phase != ShellPhase::CampaignReady {
+        return;
+    }
+
+    let delta = time.delta_secs().clamp(0.0, 0.2);
+    for marker in &mut map.army_markers {
+        advance_marker(marker, delta);
+    }
+    for marker in &mut map.caravan_markers {
+        advance_marker(marker, delta);
+    }
+}
+
+fn advance_marker(marker: &mut MovingMapMarker, delta_seconds: f32) {
+    marker.progress += marker.speed * delta_seconds;
+    if marker.progress >= 1.0 {
+        marker.progress = 0.0;
+        std::mem::swap(&mut marker.origin, &mut marker.destination);
+    }
+}
+
+fn draw_campaign_map_gizmos(mut gizmos: Gizmos, shell: Res<ShellState>, map: Res<CampaignMapSurface>) {
+    if shell.phase != ShellPhase::CampaignReady {
+        return;
+    }
+
+    for route in &map.routes {
+        let Some(origin) = map.settlement_position(route.origin) else {
+            continue;
+        };
+        let Some(destination) = map.settlement_position(route.destination) else {
+            continue;
+        };
+        let color = if route.is_sea_route {
+            Color::srgb(0.21, 0.49, 0.66)
+        } else {
+            Color::srgb(0.46, 0.37, 0.28)
+        };
+        gizmos.line_2d(origin * map.zoom, destination * map.zoom, color);
+    }
+
+    for settlement in &map.settlements {
+        let pos = Vec2::new(settlement.map_x * MAP_SCALE, settlement.map_y * MAP_SCALE) * map.zoom;
+        let color = match settlement.fog {
+            FogVisibility::Visible => Color::srgb(0.82, 0.76, 0.43),
+            FogVisibility::Shrouded => Color::srgb(0.46, 0.5, 0.55),
+            FogVisibility::Obscured => Color::srgb(0.2, 0.24, 0.28),
+        };
+        gizmos.circle_2d(pos, 5.0 * map.zoom.clamp(0.6, 2.2), color);
+    }
+
+    for marker in &map.army_markers {
+        if let Some(pos) = marker_world_position(&map, marker) {
+            gizmos.circle_2d(
+                pos * map.zoom,
+                4.0 * map.zoom.clamp(0.6, 2.2),
+                Color::srgb(0.87, 0.33, 0.24),
+            );
+        }
+    }
+
+    for marker in &map.caravan_markers {
+        if let Some(pos) = marker_world_position(&map, marker) {
+            gizmos.circle_2d(
+                pos * map.zoom,
+                3.5 * map.zoom.clamp(0.6, 2.2),
+                Color::srgb(0.25, 0.72, 0.64),
+            );
+        }
+    }
+}
+
+fn marker_world_position(map: &CampaignMapSurface, marker: &MovingMapMarker) -> Option<Vec2> {
+    let origin = map.settlement_position(marker.origin)?;
+    let destination = map.settlement_position(marker.destination)?;
+    Some(origin.lerp(destination, marker.progress.clamp(0.0, 1.0)))
+}
+
 fn draw_shell_ui(
     mut egui_contexts: EguiContexts,
     mut shell: ResMut<ShellState>,
     config: Res<BackendConfig>,
     bridge: Res<BackendBridge>,
+    mut map: ResMut<CampaignMapSurface>,
 ) {
     let Ok(ctx) = egui_contexts.ctx_mut() else {
         return;
@@ -619,7 +829,7 @@ fn draw_shell_ui(
                     render_character_controls(ui, &mut shell, &config, &bridge);
                 }
                 ShellPhase::CampaignReady => {
-                    render_campaign_summary(ui, &mut shell, &config, &bridge);
+                    render_campaign_summary(ui, &mut shell, &config, &bridge, &mut map);
                 }
             }
         });
@@ -770,7 +980,13 @@ fn render_character_controls(
     }
 }
 
-fn render_campaign_summary(ui: &mut egui::Ui, shell: &mut ShellState, config: &BackendConfig, bridge: &BackendBridge) {
+fn render_campaign_summary(
+    ui: &mut egui::Ui,
+    shell: &mut ShellState,
+    config: &BackendConfig,
+    bridge: &BackendBridge,
+    map: &mut CampaignMapSurface,
+) {
     ui.heading("Campaign Entry Scene");
     if let Some(bootstrap) = shell.campaign_bootstrap.as_ref() {
         ui.label(format!(
@@ -792,6 +1008,49 @@ fn render_campaign_summary(ui: &mut egui::Ui, shell: &mut ShellState, config: &B
         ui.label(format!("Camera profile: {}", bootstrap.camera_profile_key));
     } else {
         ui.label("No campaign bootstrap payload loaded yet.");
+    }
+
+    ui.separator();
+    ui.heading("Campaign Map Rendering MVP");
+    ui.label("Rendered in-scene: settlement nodes, route lines, army markers, caravan markers, fog visibility.");
+    ui.add(egui::Slider::new(&mut map.zoom, 0.6..=2.2).text("Map zoom"));
+    ui.horizontal(|ui| {
+        ui.colored_label(egui::Color32::from_rgb(209, 195, 110), "Visible");
+        ui.colored_label(egui::Color32::from_rgb(120, 130, 140), "Shrouded");
+        ui.colored_label(egui::Color32::from_rgb(52, 62, 72), "Obscured");
+    });
+    ui.label(format!(
+        "Settlements: {} | Routes: {} | Armies: {} | Caravans: {}",
+        map.settlements.len(),
+        map.routes.len(),
+        map.army_markers.len(),
+        map.caravan_markers.len()
+    ));
+    if let Some(settlement) = map
+        .settlements
+        .iter()
+        .find(|row| Some(row.id) == shell.selected_character_id.map(SettlementId))
+        .or_else(|| map.settlements.first())
+    {
+        ui.label(format!("Map focus sample: {} (#{})", settlement.name, settlement.id.0));
+    }
+    if !map.army_markers.is_empty() {
+        let labels = map
+            .army_markers
+            .iter()
+            .map(|row| row.label.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        ui.label(format!("Army markers: {labels}"));
+    }
+    if !map.caravan_markers.is_empty() {
+        let labels = map
+            .caravan_markers
+            .iter()
+            .map(|row| row.label.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        ui.label(format!("Caravan markers: {labels}"));
     }
 
     ui.separator();
