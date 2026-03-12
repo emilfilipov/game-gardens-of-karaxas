@@ -25,6 +25,8 @@ Players operate on a shared top-down region map where they:
 - build spy networks,
 - contest territorial influence.
 
+Campaign simulation is real-time and continuously advancing (no turn phases).
+
 ### 2. Battle Layer (Instanced)
 When armies engage, they enter isolated tactical battles focused on:
 - troop control,
@@ -32,7 +34,13 @@ When armies engage, they enter isolated tactical battles focused on:
 - morale and reinforcement timing,
 - terrain and supply-aware outcomes.
 
+Battles are real-time instances, not turn-based encounters.
+
 Battle outcomes write back to the campaign layer.
+
+## Temporal Model
+- One continuous real-time simulation model across campaign and battle contexts.
+- Strategic travel and tactical combat resolve over elapsed time, not by discrete player turns.
 
 ## Design Pillars
 - Politics: titles, legitimacy, alliances, offices, influence.

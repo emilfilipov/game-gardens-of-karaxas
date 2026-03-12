@@ -13,7 +13,6 @@ mod sandbox {
     };
 
     const MAP_SCALE: f32 = 2.2;
-    const PLAYER_SPEED_UNITS_PER_SECOND: f32 = 95.0;
     const CAMPAIGN_MINUTES_PER_REAL_SECOND: f64 = 5.0;
 
     #[derive(Component)]
@@ -87,7 +86,7 @@ mod sandbox {
         destinations: Vec<SettlementId>,
         active_plan: Option<TravelPlan>,
         active_segment_index: usize,
-        active_segment_progress: f32,
+        active_segment_elapsed_hours: f32,
         preference: TravelPreference,
         risk_preset: RiskPreset,
         last_plan_summary: String,
@@ -104,7 +103,7 @@ mod sandbox {
                 destinations,
                 active_plan: None,
                 active_segment_index: 0,
-                active_segment_progress: 0.0,
+                active_segment_elapsed_hours: 0.0,
                 preference: TravelPreference::Fastest,
                 risk_preset: RiskPreset::Neutral,
                 last_plan_summary: "Press Enter to plan route".to_string(),
@@ -135,7 +134,7 @@ mod sandbox {
             else {
                 self.active_plan = None;
                 self.active_segment_index = 0;
-                self.active_segment_progress = 0.0;
+                self.active_segment_elapsed_hours = 0.0;
                 self.last_plan_summary = format!("No route from {} to {}", self.current_settlement.0, destination.0);
                 return;
             };
@@ -143,7 +142,7 @@ mod sandbox {
             if plan.settlements.len() <= 1 {
                 self.active_plan = None;
                 self.active_segment_index = 0;
-                self.active_segment_progress = 0.0;
+                self.active_segment_elapsed_hours = 0.0;
                 self.last_plan_summary = "Already at destination".to_string();
                 return;
             }
@@ -154,7 +153,7 @@ mod sandbox {
             );
             self.active_plan = Some(plan);
             self.active_segment_index = 0;
-            self.active_segment_progress = 0.0;
+            self.active_segment_elapsed_hours = 0.0;
         }
     }
 
@@ -234,7 +233,7 @@ mod sandbox {
         mut sandbox: ResMut<TravelSandbox>,
         mut player_query: Single<&mut Transform, With<PlayerMarker>>,
     ) {
-        let (from_id, to_id, plan_len) = {
+        let (from_id, to_id, plan_len, segment_hours) = {
             let Some(plan) = sandbox.active_plan.as_ref() else {
                 return;
             };
@@ -244,27 +243,35 @@ mod sandbox {
                 return;
             }
 
+            let segment_hours = plan
+                .route_ids
+                .get(sandbox.active_segment_index)
+                .and_then(|route_id| sandbox.graph.route(*route_id))
+                .map(|route| route.travel_hours as f32)
+                .unwrap_or(1.0)
+                .max(1.0);
+
             (
                 plan.settlements[sandbox.active_segment_index],
                 plan.settlements[sandbox.active_segment_index + 1],
                 plan.settlements.len(),
+                segment_hours,
             )
         };
 
         let from = settlement_position(&sandbox.graph, from_id);
         let to = settlement_position(&sandbox.graph, to_id);
-        let distance = from.distance(to).max(1.0);
-
-        sandbox.active_segment_progress += (PLAYER_SPEED_UNITS_PER_SECOND * time.delta_secs()) / distance;
-        let t = sandbox.active_segment_progress.clamp(0.0, 1.0);
+        let campaign_hours_per_real_second = (CAMPAIGN_MINUTES_PER_REAL_SECOND as f32) / 60.0;
+        sandbox.active_segment_elapsed_hours += time.delta_secs() * campaign_hours_per_real_second;
+        let t = (sandbox.active_segment_elapsed_hours / segment_hours).clamp(0.0, 1.0);
         let position = from.lerp(to, t);
         player_query.translation.x = position.x;
         player_query.translation.y = position.y;
 
-        if sandbox.active_segment_progress >= 1.0 {
+        if sandbox.active_segment_elapsed_hours >= segment_hours {
             sandbox.current_settlement = to_id;
             sandbox.active_segment_index += 1;
-            sandbox.active_segment_progress = 0.0;
+            sandbox.active_segment_elapsed_hours = 0.0;
 
             if sandbox.active_segment_index + 1 >= plan_len {
                 sandbox.active_plan = None;

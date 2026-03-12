@@ -23,13 +23,13 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-008 | ✅ | 3 | AOP-PIVOT-005 | Define PostgreSQL schema set for campaign world entities (region, settlement, route, faction, household, army, caravan, espionage asset). |
 | AOP-PIVOT-009 | ✅ | 4 | AOP-PIVOT-008 | Implement migration-managed event store + outbox + idempotency keys + event replay cursors. |
 | AOP-PIVOT-010 | ✅ | 4 | AOP-PIVOT-009 | Implement simulation tick runner (single region shard) with deterministic step ordering and snapshot checkpoint persistence. |
-| AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs. |
+| AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Implement campaign map graph model with travel times, route risk, and settlement adjacency APIs, then bind client movement to route-duration real-time progression. |
 | AOP-PIVOT-012 | ⬜ | 4 | AOP-PIVOT-010 | Implement logistics model (food, horses, materiel, supply decay, convoy movement) with server-authoritative outcomes. |
 | AOP-PIVOT-013 | ⬜ | 4 | AOP-PIVOT-010 | Implement trade model (market inventory, price pressure, tariffs, shortages/surpluses) with periodic economy recompute jobs. |
 | AOP-PIVOT-014 | ⬜ | 4 | AOP-PIVOT-010 | Implement espionage model (informant recruitment, reliability score, false reports, counter-intelligence actions). |
 | AOP-PIVOT-015 | ⬜ | 3 | AOP-PIVOT-010 | Implement politics model (faction standing, offices, legitimacy metrics, treaty records, influence deltas). |
-| AOP-PIVOT-016 | ⬜ | 4 | AOP-PIVOT-011 | Implement battle instancing contract (campaign encounter -> battle instance record -> battle result writeback). |
-| AOP-PIVOT-017 | ⬜ | 3 | AOP-PIVOT-016 | Implement first tactical battle ruleset MVP (formation slots, morale pressure, reserve timing, outcome scoring). |
+| AOP-PIVOT-016 | ⬜ | 4 | AOP-PIVOT-011 | Implement real-time battle instancing contract (campaign encounter -> battle instance record -> battle result writeback) with fixed-step authority loop. |
+| AOP-PIVOT-017 | ⬜ | 3 | AOP-PIVOT-016 | Implement first real-time tactical battle ruleset MVP (formation controls, morale pressure, reserve timing, continuous outcome scoring). |
 | AOP-PIVOT-018 | ⬜ | 3 | AOP-PIVOT-006 | Add PostgreSQL LISTEN/NOTIFY worker for PoC fanout and wake-up semantics tied to outbox rows. |
 | AOP-PIVOT-019 | ⬜ | 2 | AOP-PIVOT-018 | Add explicit Redis adoption gate document and metrics thresholds (p95 write latency, fanout lag, queue backlog, lock contention). |
 | AOP-PIVOT-020 | ⬜ | 3 | AOP-PIVOT-004 | Build Bevy client bootstrap shell with login handoff, session bootstrap fetch, and campaign map entry scene. |
@@ -44,7 +44,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-029 | ⬜ | 3 | AOP-PIVOT-027 | Add operational dashboards/alerts for world tick lag, DB latency, outbox lag, release feed publish health. |
 | AOP-PIVOT-030 | ⬜ | 2 | AOP-PIVOT-029 | Define monthly PoC cost report process and enforce budget guardrails for Cloud Run, Cloud SQL, GCS, and optional Redis adoption. |
 | AOP-PIVOT-031 | ⬜ | 3 | AOP-PIVOT-027 | Prepare external playtest hardening checklist (security, abuse controls, rollback drills, release rollback, data backups). |
-| AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Add manual validation Bevy sandbox surface (clock panel + route planning controls + moving player placeholder sprite generated as PNG) for local systems smoke testing. |
+| AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Add manual validation Bevy sandbox surface (clock panel + route planning controls + route-time-driven moving player placeholder sprite generated as PNG) for local systems smoke testing. |
 
 ## Detailed Task Specs
 
@@ -190,9 +190,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Implementation checklist:
   - region graph and route definitions,
   - travel-time and risk calculation APIs,
+  - client interpolation tied to route segment `travel_hours` and campaign clock rate,
   - settlement adjacency and choke-point contracts.
 - Acceptance criteria:
-  - travel and interception queries are deterministic and validated.
+  - travel and interception queries are deterministic and validated,
+  - visual movement timing matches route duration at configured campaign time scale.
 - Validation:
   - route/path integration tests.
 
@@ -256,11 +258,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
   - integration tests for rank/office/treaty transitions.
 
 ### AOP-PIVOT-016 - Battle Instance Contract
-- Objective: formalize campaign-to-battle and battle-to-campaign state handoff.
+- Objective: formalize campaign-to-battle and battle-to-campaign state handoff for real-time instanced combat.
 - Implementation checklist:
   - encounter trigger rules,
   - battle instance record schema,
-  - deterministic resolution payload contract.
+  - fixed-step real-time battle loop contract and deterministic resolution payload contract.
 - Acceptance criteria:
   - each encounter has auditable pre/post state,
   - writeback can be replayed safely.
@@ -268,11 +270,11 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
   - end-to-end contract tests.
 
 ### AOP-PIVOT-017 - Tactical Battle MVP
-- Objective: provide first command-focused battle implementation.
+- Objective: provide first command-focused real-time battle implementation.
 - Implementation checklist:
-  - formation and reserve controls,
+  - formation and reserve controls in continuous time,
   - morale pressure system,
-  - outcome score and casualty model.
+  - outcome score and casualty model sampled from fixed-step simulation.
 - Acceptance criteria:
   - battle results produce strategic consequences in campaign layer.
 - Validation:
@@ -462,5 +464,5 @@ When work resumes after a pause:
 | AOP-PIVOT-008 | ✅ | 3 | AOP-PIVOT-005 | Added Alembic migration `0021_campaign_world_foundation` and ORM models for campaign regions, settlements, routes, factions, households, armies, caravans, and espionage assets with FK/index and downgrade order safety coverage. |
 | AOP-PIVOT-009 | ✅ | 4 | AOP-PIVOT-008 | Added migration `0022_event_store_outbox`, event-pipeline ORM models/services, and replay/idempotency/outbox-resume tests for duplicate-safe command handling and restart-safe processor progress. |
 | AOP-PIVOT-010 | ✅ | 4 | AOP-PIVOT-009 | Implemented deterministic `TickRunner` (fixed cadence, deterministic command ordering, periodic snapshot checkpoints, lag/duration metrics) and wired signed internal control endpoints for queueing commands and advancing ticks. |
-| AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Added deterministic travel graph/pathing domain in `sim-core` (adjacency, risk modifiers, fastest/safest planning, choke-point detection, arrival estimates) and exposed world-service travel map/adjacency/plan APIs with route integration tests. |
+| AOP-PIVOT-011 | ✅ | 3 | AOP-PIVOT-010 | Added deterministic travel graph/pathing domain in `sim-core` (adjacency, risk modifiers, fastest/safest planning, choke-point detection, arrival estimates), exposed world-service travel map/adjacency/plan APIs, and aligned client sandbox movement to route-duration real-time progression. |
 | AOP-PIVOT-033 | ✅ | 2 | AOP-PIVOT-010 | Added feature-gated Bevy sandbox in `client-app` with live clocks, route-planning controls, and animated player marker loaded from generated placeholder asset `client-app/assets/player_circle.png`. |

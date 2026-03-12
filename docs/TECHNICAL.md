@@ -69,6 +69,8 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 - Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, choke-point detection, and arrival estimates).
+- Campaign traversal is now rendered in client sandbox using route-duration-driven real-time interpolation tied to campaign clock scale (not distance-speed heuristics).
+- Battle architecture contract is real-time instanced simulation authority (fixed-step runtime), not turn-based resolution.
 
 ### Client
 - Bevy client renders campaign and battle surfaces.
