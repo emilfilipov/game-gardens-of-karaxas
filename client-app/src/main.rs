@@ -10,7 +10,8 @@ mod sandbox {
     use bevy_egui::{EguiContexts, EguiPlugin, egui};
     use sim_core::{
         ArmyId, LogisticsTickEvent, LogisticsWorld, RiskModifiers, SettlementId, SupplyStock, SupplyTransferOrder,
-        Tick, TravelGraph, TravelPlan, TravelPreference, sample_levant_travel_graph, sample_logistics_world,
+        Tick, TradeTickEvent, TradeWorld, TravelGraph, TravelPlan, TravelPreference, sample_levant_travel_graph,
+        sample_logistics_world, sample_trade_world,
     };
 
     const MAP_SCALE: f32 = 2.2;
@@ -51,6 +52,23 @@ mod sandbox {
                 world: sample_logistics_world(),
                 processed_sim_tick: 0,
                 last_status: "Logistics idle".to_string(),
+            }
+        }
+    }
+
+    #[derive(Resource)]
+    struct TradeSandbox {
+        world: TradeWorld,
+        processed_sim_tick: u64,
+        last_status: String,
+    }
+
+    impl Default for TradeSandbox {
+        fn default() -> Self {
+            Self {
+                world: sample_trade_world(),
+                processed_sim_tick: 0,
+                last_status: "Trade idle".to_string(),
             }
         }
     }
@@ -181,6 +199,7 @@ mod sandbox {
             .insert_resource(ClockState::default())
             .insert_resource(TravelSandbox::new(sample_levant_travel_graph()))
             .insert_resource(LogisticsSandbox::default())
+            .insert_resource(TradeSandbox::default())
             .add_plugins(DefaultPlugins.set(AssetPlugin {
                 file_path: "client-app/assets".to_string(),
                 ..default()
@@ -194,6 +213,7 @@ mod sandbox {
                     handle_input,
                     animate_player,
                     advance_logistics,
+                    advance_trade,
                     draw_map_gizmos,
                     sync_player_when_idle,
                     ui_panel,
@@ -359,11 +379,31 @@ mod sandbox {
         }
     }
 
+    fn advance_trade(clocks: Res<ClockState>, mut trade: ResMut<TradeSandbox>) {
+        while trade.processed_sim_tick < clocks.sim_tick {
+            let next_tick = trade.processed_sim_tick + 1;
+            trade.processed_sim_tick = next_tick;
+            let result = trade.world.advance_tick(Tick(next_tick));
+            let price_events = result
+                .events
+                .iter()
+                .filter(|row| matches!(row, TradeTickEvent::MarketPriceUpdated { .. }))
+                .count();
+            trade.last_status = format!(
+                "Processed trade tick {} (events: {}, price updates: {})",
+                trade.processed_sim_tick,
+                result.events.len(),
+                price_events
+            );
+        }
+    }
+
     fn ui_panel(
         mut egui_contexts: EguiContexts,
         clocks: Res<ClockState>,
         sandbox: Res<TravelSandbox>,
         mut logistics: ResMut<LogisticsSandbox>,
+        mut trade: ResMut<TradeSandbox>,
     ) {
         let Ok(ctx) = egui_contexts.ctx_mut() else {
             return;
@@ -438,6 +478,31 @@ mod sandbox {
                         army.stock.horses,
                         army.stock.materiel,
                         army.shortage_ticks
+                    ));
+                }
+                ui.separator();
+                ui.heading("Real-Time Trade");
+                ui.label(format!("Trade Tick Cursor: {}", trade.processed_sim_tick));
+                if ui.button("Queue Shipment 1 -> 3 (food 20, horses 6)").clicked() {
+                    trade.world.queue_shipment(sim_core::TradeShipmentOrder {
+                        origin: SettlementId(1),
+                        destination: SettlementId(3),
+                        goods: SupplyStock::new(20, 6, 0),
+                    });
+                    trade.last_status = "Queued shipment from settlement 1 to 3".to_string();
+                }
+                ui.label(format!("Pending Shipments: {}", trade.world.pending_shipments().len()));
+                ui.label(format!("Trade Status: {}", trade.last_status));
+                for market in trade.world.markets() {
+                    ui.label(format!(
+                        "Market {} | stock F{} H{} M{} | price {:.2}x | shortage {}bp | tariff {}bp",
+                        market.settlement_id.0,
+                        market.stock.food,
+                        market.stock.horses,
+                        market.stock.materiel,
+                        market.price_index_bp as f32 / 10_000.0,
+                        market.shortage_pressure_bp,
+                        market.tariff_pressure_bp
                     ));
                 }
             });

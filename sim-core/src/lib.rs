@@ -3,11 +3,15 @@
 use serde::{Deserialize, Serialize};
 
 mod logistics;
+mod trade;
 mod travel;
 
 pub use logistics::{
     ArmyLogisticsState, LogisticsTickEvent, LogisticsTickResult, LogisticsWorld, SupplyStock, SupplyTransferOrder,
     sample_logistics_world,
+};
+pub use trade::{
+    MarketState, TradeRoute, TradeShipmentOrder, TradeTickEvent, TradeTickResult, TradeWorld, sample_trade_world,
 };
 pub use travel::{
     RiskModifiers, RouteEdge, RouteId, SettlementNode, TravelEstimate, TravelGraph, TravelPlan, TravelPreference,
@@ -79,6 +83,11 @@ pub enum CommandPayload {
         to_army: ArmyId,
         stock: SupplyStock,
     },
+    QueueTradeShipment {
+        origin_settlement: SettlementId,
+        destination_settlement: SettlementId,
+        goods: SupplyStock,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,6 +129,28 @@ pub enum EventPayload {
         attrition: u32,
         troop_strength: u32,
         shortage_ticks: u32,
+        tick: Tick,
+    },
+    TradeShipmentQueued {
+        origin_settlement: SettlementId,
+        destination_settlement: SettlementId,
+        goods: SupplyStock,
+        tick: Tick,
+    },
+    TradeShipmentExecuted {
+        origin_settlement: SettlementId,
+        destination_settlement: SettlementId,
+        delivered: SupplyStock,
+        lost: SupplyStock,
+        tariff_bp: u32,
+        safety_bp: u32,
+        tick: Tick,
+    },
+    MarketPriceUpdated {
+        settlement_id: SettlementId,
+        price_index_bp: u32,
+        shortage_pressure_bp: u32,
+        tariff_pressure_bp: u32,
         tick: Tick,
     },
 }

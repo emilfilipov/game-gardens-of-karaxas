@@ -26,7 +26,8 @@ use crate::auth::{AuthenticatedServiceCall, ServiceAuthConfig, ServiceAuthState}
 use crate::config::AppConfig;
 use crate::tick_runner::{
     LogisticsStateSnapshot, TickAdvanceResult, TickMetrics, TickRunner, TickRunnerConfig, TickSnapshot,
-    build_move_army_command, build_set_stance_command, build_supply_transfer_command,
+    TradeStateSnapshot, build_move_army_command, build_set_stance_command, build_supply_transfer_command,
+    build_trade_shipment_command,
 };
 
 #[derive(Clone)]
@@ -82,6 +83,13 @@ enum ControlCommandKind {
     QueueSupplyTransfer {
         from_army: u64,
         to_army: u64,
+        food: u32,
+        horses: u32,
+        materiel: u32,
+    },
+    QueueTradeShipment {
+        origin_settlement: u64,
+        destination_settlement: u64,
         food: u32,
         horses: u32,
         materiel: u32,
@@ -163,6 +171,13 @@ struct LogisticsStateResponse {
     state: LogisticsStateSnapshot,
 }
 
+#[derive(Debug, Serialize)]
+struct TradeStateResponse {
+    status: &'static str,
+    current_tick: u64,
+    state: TradeStateSnapshot,
+}
+
 fn default_travel_preference() -> TravelPreference {
     TravelPreference::Fastest
 }
@@ -234,6 +249,7 @@ fn build_router(state: AppState, auth_state: ServiceAuthState, request_id_header
         .route("/travel/adjacency/{settlement_id}", get(travel_adjacency))
         .route("/travel/plan", post(travel_plan))
         .route("/logistics/state", get(logistics_state))
+        .route("/trade/state", get(trade_state))
         .merge(internal_control_routes)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
@@ -318,6 +334,23 @@ async fn control_command(
         } => (
             "queue_supply_transfer",
             build_supply_transfer_command(&payload.trace_id, from_army, to_army, food, horses, materiel),
+        ),
+        ControlCommandKind::QueueTradeShipment {
+            origin_settlement,
+            destination_settlement,
+            food,
+            horses,
+            materiel,
+        } => (
+            "queue_trade_shipment",
+            build_trade_shipment_command(
+                &payload.trace_id,
+                origin_settlement,
+                destination_settlement,
+                food,
+                horses,
+                materiel,
+            ),
         ),
     };
 
@@ -484,6 +517,22 @@ async fn logistics_state(State(state): State<AppState>) -> (StatusCode, Json<Log
             status: "ok",
             current_tick: runner.current_tick().0,
             state: runner.logistics_state(),
+        }),
+    )
+}
+
+async fn trade_state(State(state): State<AppState>) -> (StatusCode, Json<TradeStateResponse>) {
+    let runner = state
+        .tick_runner
+        .lock()
+        .expect("tick runner lock should not be poisoned");
+
+    (
+        StatusCode::OK,
+        Json(TradeStateResponse {
+            status: "ok",
+            current_tick: runner.current_tick().0,
+            state: runner.trade_state(),
         }),
     )
 }
@@ -758,5 +807,59 @@ mod tests {
             .expect("army 8 should exist");
 
         assert!(army8["stock"]["food"].as_u64().unwrap_or(0) >= 15);
+    }
+
+    #[tokio::test]
+    async fn trade_state_reflects_shipment_after_tick() {
+        let app = test_app();
+
+        let queue_trade_body = r#"{"trace_id":"trace-trade","command":{"type":"queue_trade_shipment","origin_settlement":1,"destination_settlement":3,"food":20,"horses":6,"materiel":4}}"#;
+        let queued = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/commands",
+                "nonce-trade-queue",
+                queue_trade_body,
+            ))
+            .await
+            .expect("queue response should resolve");
+        assert_eq!(queued.status(), StatusCode::ACCEPTED);
+
+        let ticked = app
+            .clone()
+            .oneshot(signed_json_request(
+                "/internal/control/tick",
+                "nonce-trade-tick",
+                r#"{"now_ms":300}"#,
+            ))
+            .await
+            .expect("tick response should resolve");
+        assert_eq!(ticked.status(), StatusCode::ACCEPTED);
+
+        let state_response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/trade/state")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("state response should resolve");
+        assert_eq!(state_response.status(), StatusCode::OK);
+
+        let bytes = to_bytes(state_response.into_body(), usize::MAX)
+            .await
+            .expect("response body should decode");
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
+
+        let market3 = payload["state"]["markets"]
+            .as_array()
+            .expect("markets should be array")
+            .iter()
+            .find(|row| row["settlement_id"] == 3)
+            .expect("market 3 should exist");
+
+        assert!(market3["stock"]["food"].as_u64().unwrap_or(0) >= 90);
     }
 }

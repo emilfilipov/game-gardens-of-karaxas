@@ -51,6 +51,72 @@ Battle outcomes write back to the campaign layer.
 - Social hierarchy: vassalage, guild/house ties, patronage, reputation.
 - Personal progression: character skills, education, renown, identity.
 
+## System Catalogue
+This section is the detailed product-level description of all implemented and planned gameplay systems.
+
+### Implemented Foundation Systems
+#### Deterministic world tick authority
+- Purpose: maintain one canonical progression timeline for all real-time systems.
+- Loop: fixed-interval server ticks execute ordered command processing, emit events, and produce replay-safe state snapshots.
+- Gameplay impact: all outcomes resolve from authoritative world time, avoiding client divergence and hidden turn-like behavior.
+
+#### Campaign travel and route planning
+- Purpose: make geography and route risk first-class strategic constraints.
+- Loop: route graph planning computes fastest/safest paths; travel resolves over elapsed route time with risk-aware path selection.
+- Gameplay impact: movement decisions are meaningful because route duration, risk profile, and choke points alter strategic tempo.
+
+#### Real-time logistics simulation
+- Purpose: enforce supply constraints and make operational planning decisive.
+- Loop: per tick, armies consume stock, queued convoy transfers execute, shortages accumulate pressure, and attrition is applied when supply fails.
+- Gameplay impact: army effectiveness is sustained by logistics discipline, not only battle engagements.
+
+#### Real-time manual validation sandbox UI
+- Purpose: allow direct manual validation of simulation systems before full vertical-slice UX exists.
+- Loop: sandbox surfaces live simulation clock, travel controls, logistics controls, and world-state readouts each tick.
+- Gameplay impact: fast development iteration and early balancing feedback without editor-only workflows.
+
+### Planned Core Gameplay Systems
+#### Real-time trade simulation
+- Purpose: make non-combat economic play a power path with strategic leverage.
+- Loop: markets hold inventory and targets, trade shipments traverse routes with throughput/safety/tariff effects, and prices update from shortage/surplus pressure.
+- Gameplay impact: controlling routes and market flow changes local affordability, leverage, and faction capability.
+
+#### Real-time espionage simulation
+- Purpose: make information quality and deception part of core strategy.
+- Loop: informant assets generate reports with confidence/reliability metadata; misinformation and counter-intelligence interact over time.
+- Gameplay impact: intelligence superiority and disinformation become alternatives to direct force.
+
+#### Real-time politics simulation
+- Purpose: support influence-based progression beyond military strength.
+- Loop: faction standing, legitimacy, offices, and treaty effects evolve continuously with action-driven deltas.
+- Gameplay impact: players can win through governance, alliances, and legitimacy pressure.
+
+#### Real-time battle instancing contract
+- Purpose: connect campaign encounters to tactical resolution without breaking world continuity.
+- Loop: campaign collision/engagement triggers an instance, instance resolves on authoritative fixed steps, and outcomes write back to campaign state.
+- Gameplay impact: tactical execution directly changes campaign momentum and territorial pressure.
+
+#### Tactical battle MVP (real-time)
+- Purpose: provide first battlefield command loop.
+- Loop: formations, reserves, morale, and reinforcement timing resolve continuously in instanced combat.
+- Gameplay impact: tactical timing and cohesion determine losses and strategic consequences.
+
+### Planned Platform and Validation Systems
+#### PostgreSQL LISTEN/NOTIFY outbox worker
+- Purpose: provide low-cost PoC wake/fanout path before Redis adoption.
+- Loop: outbox writes trigger NOTIFY, processors resume idempotently from durable cursors.
+- Gameplay impact: timely state propagation without early infrastructure cost expansion.
+
+#### Redis adoption gate
+- Purpose: prevent premature complexity/cost.
+- Loop: migrate only when measured bottlenecks exceed defined latency/contention/backlog thresholds.
+- Gameplay impact: preserves development velocity and budget while retaining a clear scale path.
+
+#### Replay determinism and operations hardening
+- Purpose: guarantee stable outcomes and safe external playtests.
+- Loop: replay/golden checks detect divergence; observability and rollback runbooks protect live operations.
+- Gameplay impact: predictable world behavior and safer iteration cadence as player exposure grows.
+
 ## Player Fantasy
 The player is simultaneously:
 - a person,

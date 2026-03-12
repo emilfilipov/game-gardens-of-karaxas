@@ -5,7 +5,8 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sim_core::{
     ArmyId, CommandEnvelope, CommandPayload, EventEnvelope, EventPayload, FactionId, LogisticsTickEvent,
-    LogisticsWorld, SettlementId, SupplyStock, SupplyTransferOrder, Tick, sample_logistics_world,
+    LogisticsWorld, MarketState, SettlementId, SupplyStock, SupplyTransferOrder, Tick, TradeRoute, TradeShipmentOrder,
+    TradeTickEvent, TradeWorld, sample_logistics_world, sample_trade_world,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,6 +69,13 @@ pub struct LogisticsStateSnapshot {
     pub pending_transfers: Vec<SupplyTransferOrder>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct TradeStateSnapshot {
+    pub markets: Vec<MarketState>,
+    pub routes: Vec<TradeRoute>,
+    pub pending_shipments: Vec<TradeShipmentOrder>,
+}
+
 pub struct TickRunner {
     config: TickRunnerConfig,
     current_tick: Tick,
@@ -77,6 +85,7 @@ pub struct TickRunner {
     snapshots: VecDeque<TickSnapshot>,
     metrics: TickMetrics,
     logistics: LogisticsWorld,
+    trade: TradeWorld,
 }
 
 impl TickRunner {
@@ -90,6 +99,7 @@ impl TickRunner {
             snapshots: VecDeque::new(),
             metrics: TickMetrics::default(),
             logistics: sample_logistics_world(),
+            trade: sample_trade_world(),
         }
     }
 
@@ -153,6 +163,14 @@ impl TickRunner {
         }
     }
 
+    pub fn trade_state(&self) -> TradeStateSnapshot {
+        TradeStateSnapshot {
+            markets: self.trade.markets().cloned().collect(),
+            routes: self.trade.routes().cloned().collect(),
+            pending_shipments: self.trade.pending_shipments().to_vec(),
+        }
+    }
+
     fn run_single_tick(&mut self, now_ms: u64) {
         let work_started = Instant::now();
         let lag_ms = now_ms.saturating_sub(self.next_tick_due_ms);
@@ -177,6 +195,13 @@ impl TickRunner {
             let trace_id = format!("logistics-{}-{}", tick_now.0, self.event_log.len());
             self.event_log
                 .push(EventEnvelope::new(trace_id, logistics_event_to_payload(event)));
+        }
+
+        let trade_tick = self.trade.advance_tick(tick_now);
+        for event in trade_tick.events {
+            let trace_id = format!("trade-{}-{}", tick_now.0, self.event_log.len());
+            self.event_log
+                .push(EventEnvelope::new(trace_id, trade_event_to_payload(event)));
         }
 
         self.metrics.total_ticks = self.metrics.total_ticks.saturating_add(1);
@@ -241,6 +266,23 @@ impl TickRunner {
                     tick,
                 }
             }
+            CommandPayload::QueueTradeShipment {
+                origin_settlement,
+                destination_settlement,
+                goods,
+            } => {
+                self.trade.queue_shipment(TradeShipmentOrder {
+                    origin: origin_settlement,
+                    destination: destination_settlement,
+                    goods,
+                });
+                EventPayload::TradeShipmentQueued {
+                    origin_settlement,
+                    destination_settlement,
+                    goods,
+                    tick,
+                }
+            }
         };
 
         vec![EventEnvelope::new(trace_id, payload)]
@@ -286,6 +328,41 @@ fn logistics_event_to_payload(event: LogisticsTickEvent) -> EventPayload {
             attrition,
             troop_strength,
             shortage_ticks,
+            tick,
+        },
+    }
+}
+
+fn trade_event_to_payload(event: TradeTickEvent) -> EventPayload {
+    match event {
+        TradeTickEvent::ShipmentExecuted {
+            origin,
+            destination,
+            delivered,
+            lost,
+            tariff_bp,
+            safety_bp,
+            tick,
+        } => EventPayload::TradeShipmentExecuted {
+            origin_settlement: origin,
+            destination_settlement: destination,
+            delivered,
+            lost,
+            tariff_bp,
+            safety_bp,
+            tick,
+        },
+        TradeTickEvent::MarketPriceUpdated {
+            settlement_id,
+            price_index_bp,
+            shortage_pressure_bp,
+            tariff_pressure_bp,
+            tick,
+        } => EventPayload::MarketPriceUpdated {
+            settlement_id,
+            price_index_bp,
+            shortage_pressure_bp,
+            tariff_pressure_bp,
             tick,
         },
     }
@@ -345,10 +422,29 @@ pub fn build_supply_transfer_command(
     )
 }
 
+pub fn build_trade_shipment_command(
+    trace_id: &str,
+    origin_settlement: u64,
+    destination_settlement: u64,
+    food: u32,
+    horses: u32,
+    materiel: u32,
+) -> CommandEnvelope {
+    CommandEnvelope::new(
+        trace_id,
+        CommandPayload::QueueTradeShipment {
+            origin_settlement: SettlementId(origin_settlement),
+            destination_settlement: SettlementId(destination_settlement),
+            goods: SupplyStock { food, horses, materiel },
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         TickRunner, TickRunnerConfig, build_move_army_command, build_set_stance_command, build_supply_transfer_command,
+        build_trade_shipment_command,
     };
 
     #[test]
@@ -403,5 +499,22 @@ mod tests {
             .expect("army 8 should exist");
 
         assert!(army8.stock.food >= 12);
+    }
+
+    #[test]
+    fn trade_shipment_updates_market_state_over_ticks() {
+        let mut runner = TickRunner::new(TickRunnerConfig::new(100, 10, 16));
+        runner.queue_command(build_trade_shipment_command("trace-trade", 1, 3, 20, 5, 4));
+        let _summary = runner.run_due_ticks(300);
+
+        let state = runner.trade_state();
+        let market3 = state
+            .markets
+            .iter()
+            .find(|row| row.settlement_id.0 == 3)
+            .expect("market 3 should exist");
+
+        assert!(market3.stock.food > 90);
+        assert!(market3.price_index_bp >= 10_000);
     }
 }
