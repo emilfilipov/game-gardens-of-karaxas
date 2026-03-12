@@ -19,7 +19,7 @@ Current modules include transitional prototype components plus backend/release i
 - `backend/` - FastAPI online services and Cloud SQL integration.
 - `designer-client/` - legacy external authoring prototype (transitional).
 - `sim-core/` - shared Rust simulation-domain contracts scaffold.
-- `world-service/` - Rust world-authority service scaffold.
+- `world-service/` - Rust world-authority service skeleton (Axum + health/readiness/config endpoints + tracing/request IDs).
 - `tooling-core/` - Rust tooling/shared validation scaffold.
 - `client-app/` - Rust client runtime scaffold.
 - `assets/` - shared content/assets.

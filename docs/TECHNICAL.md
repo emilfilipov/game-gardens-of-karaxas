@@ -57,7 +57,7 @@ Legacy prototype documents that conflict with this direction are archived under 
 - Existing FastAPI auth/session/account/content/release endpoints remain operational during migration.
 
 ### New world authority plane
-- Rust world service owns campaign simulation ticks, economic/logistics simulation, espionage state, and instanced battle authority orchestration.
+- Rust world service (`world-service`) now provides the initial Axum skeleton with env-driven config and health/readiness/config endpoints; it will expand to own campaign simulation ticks, economic/logistics simulation, espionage state, and instanced battle authority orchestration.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 
