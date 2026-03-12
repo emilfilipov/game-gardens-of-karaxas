@@ -16,6 +16,7 @@ The repository currently contains a prior prototype stack:
 - Godot runtime client (`game-client/`)
 - FastAPI + PostgreSQL backend (`backend/`)
 - Velopack + GCS release pipeline
+- Rust workspace scaffold (`sim-core/`, `world-service/`, `tooling-core/`, `client-app/`)
 
 This state is treated as transitional. The active implementation target is the Crusades-era persistent strategy RPG model documented in `docs/GAME.md`.
 Legacy prototype documents that conflict with this direction are archived under `docs/archive/legacy-prototype/` with inventory notes in `docs/DEPRECATION_AUDIT.md`.
@@ -90,11 +91,14 @@ Legacy prototype documents that conflict with this direction are archived under 
 Current baseline checks retained during transition:
 - `python3 -m compileall backend/app`
 - `./gradlew :launcher:test`
-
-Migration-era additions (to be introduced with Rust modules):
 - `cargo fmt --all -- --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
+
+Migration-era additions (implemented in scaffold phase):
+- Rust CI workflow: `.github/workflows/rust-checks.yml`
+
+Migration-era additions still pending:
 - simulation determinism replay checks
 - API contract compatibility tests (FastAPI <-> Rust world service)
 

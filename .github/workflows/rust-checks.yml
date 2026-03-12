@@ -1,0 +1,47 @@
+name: Rust Checks
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "Cargo.toml"
+      - "rust-toolchain.toml"
+      - ".rustfmt.toml"
+      - "sim-core/**"
+      - "world-service/**"
+      - "tooling-core/**"
+      - "client-app/**"
+      - ".github/workflows/rust-checks.yml"
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "rust-toolchain.toml"
+      - ".rustfmt.toml"
+      - "sim-core/**"
+      - "world-service/**"
+      - "tooling-core/**"
+      - "client-app/**"
+      - ".github/workflows/rust-checks.yml"
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cargo fmt
+        run: cargo fmt --all -- --check
+
+      - name: Cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Cargo test
+        run: cargo test --workspace

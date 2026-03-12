@@ -18,6 +18,10 @@ Current modules include transitional prototype components plus backend/release i
 - `game-client/` - legacy Godot runtime prototype (transitional).
 - `backend/` - FastAPI online services and Cloud SQL integration.
 - `designer-client/` - legacy external authoring prototype (transitional).
+- `sim-core/` - shared Rust simulation-domain contracts scaffold.
+- `world-service/` - Rust world-authority service scaffold.
+- `tooling-core/` - Rust tooling/shared validation scaffold.
+- `client-app/` - Rust client runtime scaffold.
 - `assets/` - shared content/assets.
 - `docs/` - canonical and supporting documentation.
 - `docs/archive/` - archived/superseded documentation.
@@ -36,11 +40,12 @@ Current modules include transitional prototype components plus backend/release i
 Current baseline checks retained during transition:
 - `python3 -m compileall backend/app`
 - `./gradlew :launcher:test`
-
-Planned Rust checks (introduced with workspace scaffold):
 - `cargo fmt --all -- --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
+
+Rust CI workflow:
+- `.github/workflows/rust-checks.yml`
 
 ## Packaging and Release
 - Windows packaging script: `scripts/pack.ps1`

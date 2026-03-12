@@ -33,3 +33,7 @@ backend/.mypy_cache/
 # Local tooling caches
 .tools/
 **/__pycache__/
+
+# Rust
+/target/
+**/target/

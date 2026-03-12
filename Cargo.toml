@@ -1,0 +1,8 @@
+[workspace]
+members = [
+  "sim-core",
+  "world-service",
+  "tooling-core",
+  "client-app",
+]
+resolver = "3"
