@@ -82,6 +82,12 @@ Primary runtime observability surfaces for the PoC:
 - Billing export mode:
   - `backend/scripts/generate_monthly_cost_report.py --month YYYY-MM --billing-csv <billing_export.csv> --output docs/cost-reports/YYYY-MM-report.md --budget-total 80`
 
+## External Playtest Hardening
+- Canonical checklist: `docs/PLAYTEST_HARDENING_CHECKLIST.md`
+- Baseline sign-off records: `docs/playtest-drills/`
+- Automation gate:
+  - `backend/scripts/validate_playtest_hardening.sh`
+
 ## Redis Adoption Gate Reference
 - Redis adoption is controlled by `docs/REDIS_ADOPTION_GATE.md`.
 - Do not enable Redis-backed fanout paths unless the documented thresholds, preconditions, and rollback drill requirements are satisfied.

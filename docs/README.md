@@ -11,6 +11,8 @@ Core simulation contract: all core gameplay systems run in real-time (travel, lo
 - `docs/REDIS_ADOPTION_GATE.md` - explicit Redis cutover thresholds, dual-write migration, and rollback contract.
 - `docs/COST_GUARDRAILS.md` - monthly PoC budget policy and reporting process.
 - `docs/cost-reports/` - generated monthly estimate/actual cost reports.
+- `docs/PLAYTEST_HARDENING_CHECKLIST.md` - external playtest readiness checklist and drill requirements.
+- `docs/playtest-drills/` - dated hardening sign-off records and drill evidence summaries.
 
 ## Archived Documentation
 - `docs/archive/legacy-prototype/` - superseded prototype-era documents retained for historical traceability only.
@@ -78,6 +80,7 @@ Manual sandbox client run (feature-gated):
 - Sandbox includes real-time battle-contract validation controls (encounter start, formation/reserve actions, resolve + instance/result readouts).
 - Online loop smoke harness (`backend/scripts/smoke_online_loop.py`) now exercises login + character bootstrap + gameplay resolve + vertical-slice battle/writeback endpoint.
 - Runtime alert threshold checker: `backend/scripts/check_world_runtime_alerts.sh` (page-worthy vs log-only severity split).
+- External playtest hardening gate: `backend/scripts/validate_playtest_hardening.sh`.
 
 ## Packaging and Release
 - Windows packaging script: `scripts/pack.ps1`

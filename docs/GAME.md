@@ -157,6 +157,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: monthly report generation and budget thresholds track Cloud Run, Cloud SQL, GCS, and optional Redis spend; warning/over-budget status triggers mitigation review.
 - Gameplay impact: prevents infra spend spikes from stalling feature delivery during the solo-dev phase.
 
+#### External playtest hardening baseline
+- Purpose: ensure first external cohorts can be run with defensible safety, rollback, and incident posture.
+- Loop: checklist + validation script gate security controls, abuse controls, observability readiness, rollback/backup drills, and incident-response preparation before playtest launch.
+- Gameplay impact: reduces risk of corrupted progression, prolonged outages, or unmanaged abuse during first public exposure.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.
