@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_egui::{EguiContexts, EguiPlugin, egui};
+use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
 use reqwest::blocking::Client;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::Deserialize;
@@ -1647,9 +1647,9 @@ pub fn run() {
                 draw_campaign_map_gizmos,
                 sync_campaign_scene,
                 panel_hotkeys,
-                draw_shell_ui,
             ),
         )
+        .add_systems(EguiPrimaryContextPass, draw_shell_ui)
         .run();
 }
 

@@ -142,6 +142,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
   - panels hydrate from live `world-sync` character/household/domain payloads,
   - panel actions dispatch through `POST /gameplay/domain-action`,
   - optimistic in-flight guards and explicit success/error state are surfaced in UI.
+- Bootstrap shell UI draw system now executes in `bevy_egui` primary context pass (`EguiPrimaryContextPass`) to prevent startup-time egui font/context panics on packaged Windows runtime launch.
 - Bootstrap shell now includes role-gated code-first map authoring tools mode:
   - enable via `AOP_TOOLS_ENABLED=true` or `AOP_TOOLS_ROLE=designer|admin`,
   - edit settlements (camp/village/town/city/fortress) and routes in-app, run schema validation before save, and view inline validation errors,
