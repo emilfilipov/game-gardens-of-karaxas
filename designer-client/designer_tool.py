@@ -25,7 +25,7 @@ def _load_local_version() -> str:
 class DesignerTool(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("Children of Ikphelion - Designer Client")
+        self.title("Ambitions of Peace - Designer Client")
         self.geometry("1360x900")
         self.minsize(1120, 760)
 
@@ -42,6 +42,8 @@ class DesignerTool(tk.Tk):
         self.trigger_backend = tk.BooleanVar(value=False)
         self.world_stage_hash = tk.StringVar(value="")
         self.world_commit_message = tk.StringVar(value="Designer world map update")
+        self.world_province_id = tk.StringVar(value="acre")
+        self.world_rollback_target = tk.StringVar(value="")
         self.level_rows: list[dict] = []
         self.access_token = ""
         self.refresh_token = ""
@@ -143,11 +145,17 @@ class DesignerTool(tk.Tk):
         ttk.Button(controls, text="Validate Local", command=self._validate_world_pack_local).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(controls, text="Stage World Pack", command=self._stage_world_pack_remote).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(controls, text="Activate + Publish", command=self._activate_world_pack_remote).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(controls, text="Deactivate Active", command=self._deactivate_world_pack_remote).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(controls, text="Rollback", command=self._rollback_world_pack_remote).pack(side=tk.LEFT, padx=(8, 0))
 
         commit_row = ttk.Frame(parent)
         commit_row.pack(fill=tk.X, pady=(0, 8))
+        ttk.Label(commit_row, text="Province").pack(side=tk.LEFT)
+        ttk.Entry(commit_row, width=14, textvariable=self.world_province_id).pack(side=tk.LEFT, padx=(8, 10))
         ttk.Label(commit_row, text="Commit").pack(side=tk.LEFT)
-        ttk.Entry(commit_row, width=68, textvariable=self.world_commit_message).pack(side=tk.LEFT, padx=(8, 12))
+        ttk.Entry(commit_row, width=54, textvariable=self.world_commit_message).pack(side=tk.LEFT, padx=(8, 10))
+        ttk.Label(commit_row, text="Rollback Target").pack(side=tk.LEFT)
+        ttk.Entry(commit_row, width=22, textvariable=self.world_rollback_target).pack(side=tk.LEFT, padx=(8, 10))
         ttk.Label(commit_row, text="Staged Hash").pack(side=tk.LEFT)
         ttk.Entry(commit_row, width=32, textvariable=self.world_stage_hash).pack(side=tk.LEFT, padx=(8, 0))
 
@@ -155,7 +163,8 @@ class DesignerTool(tk.Tk):
             parent,
             text=(
                 "World design schema includes settlements (camp/village/town/city/fortress), routes, and spawn points. "
-                "Stage validates and locks a hash; Activate publishes a versioned pack and signature to repo/release."
+                "Stage validates and locks a hash; Activate publishes a versioned pack and signature. "
+                "Deactivate clears current active version; Rollback re-activates a previous version."
             ),
         ).pack(anchor="w", pady=(0, 6))
 
@@ -364,8 +373,10 @@ class DesignerTool(tk.Tk):
             self._set_status("Publish runtime config failed.")
 
     def _load_world_template(self) -> None:
+        template = default_world_pack()
         self.world_payload.delete("1.0", tk.END)
-        self.world_payload.insert("1.0", json.dumps(default_world_pack(), indent=2))
+        self.world_payload.insert("1.0", json.dumps(template, indent=2))
+        self.world_province_id.set(str(template.get("province_id", "acre")))
         self._set_status("Loaded world-design template.")
 
     def _read_world_payload(self) -> dict:
@@ -404,6 +415,7 @@ class DesignerTool(tk.Tk):
             response = self._request("POST", "/designer/world-pack/stage", {"pack": pack})
             if not isinstance(response, dict):
                 raise RuntimeError("Unexpected stage response.")
+            self.world_province_id.set(str(pack.get("province_id", self.world_province_id.get())).strip().lower())
             staged_hash = str(response.get("pack_hash", "")).strip()
             self.world_stage_hash.set(staged_hash)
             self._set_status(
@@ -451,6 +463,73 @@ class DesignerTool(tk.Tk):
         except Exception as exc:
             messagebox.showerror("Activate World Pack Failed", str(exc))
             self._set_status("World activation failed.")
+
+    def _deactivate_world_pack_remote(self) -> None:
+        if not self._require_login():
+            return
+        try:
+            province_id = self.world_province_id.get().strip().lower()
+            if not province_id:
+                raise RuntimeError("Province is required.")
+            commit_message = self.world_commit_message.get().strip()
+            if len(commit_message) < 3:
+                raise RuntimeError("World commit message must be at least 3 characters.")
+            payload = {
+                "province_id": province_id,
+                "commit_message": commit_message,
+                "trigger_release_workflow": bool(self.trigger_release.get()),
+                "trigger_backend_workflow": bool(self.trigger_backend.get()),
+            }
+            response = self._request("POST", "/designer/world-pack/deactivate", payload)
+            if not isinstance(response, dict):
+                raise RuntimeError("Unexpected deactivate response.")
+            self._set_status(
+                "Deactivated world pack %s commit=%s release=%s backend=%s"
+                % (
+                    response.get("deactivated_version_key", "unknown"),
+                    str(response.get("commit_sha", "unknown"))[:12],
+                    response.get("release_workflow_triggered", False),
+                    response.get("backend_workflow_triggered", False),
+                )
+            )
+        except Exception as exc:
+            messagebox.showerror("Deactivate World Pack Failed", str(exc))
+            self._set_status("World deactivation failed.")
+
+    def _rollback_world_pack_remote(self) -> None:
+        if not self._require_login():
+            return
+        try:
+            province_id = self.world_province_id.get().strip().lower()
+            if not province_id:
+                raise RuntimeError("Province is required.")
+            commit_message = self.world_commit_message.get().strip()
+            if len(commit_message) < 3:
+                raise RuntimeError("World commit message must be at least 3 characters.")
+            target = self.world_rollback_target.get().strip() or None
+            payload = {
+                "province_id": province_id,
+                "target_version_key": target,
+                "commit_message": commit_message,
+                "trigger_release_workflow": bool(self.trigger_release.get()),
+                "trigger_backend_workflow": bool(self.trigger_backend.get()),
+            }
+            response = self._request("POST", "/designer/world-pack/rollback", payload)
+            if not isinstance(response, dict):
+                raise RuntimeError("Unexpected rollback response.")
+            self._set_status(
+                "Rolled back to %s (%s) commit=%s release=%s backend=%s"
+                % (
+                    response.get("version_key", "unknown"),
+                    str(response.get("pack_hash", ""))[:12],
+                    str(response.get("commit_sha", "unknown"))[:12],
+                    response.get("release_workflow_triggered", False),
+                    response.get("backend_workflow_triggered", False),
+                )
+            )
+        except Exception as exc:
+            messagebox.showerror("Rollback World Pack Failed", str(exc))
+            self._set_status("World rollback failed.")
 
     def _publish_to_github_ci(self) -> None:
         if not self._require_login():

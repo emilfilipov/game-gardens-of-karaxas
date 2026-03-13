@@ -9,6 +9,10 @@ from app.schemas.designer_publish import (
     DesignerPublishResponse,
     DesignerWorldPackActivateRequest,
     DesignerWorldPackActivateResponse,
+    DesignerWorldPackDeactivateRequest,
+    DesignerWorldPackDeactivateResponse,
+    DesignerWorldPackRollbackRequest,
+    DesignerWorldPackRollbackResponse,
     DesignerWorldPackStageRequest,
     DesignerWorldPackStageResponse,
 )
@@ -16,6 +20,8 @@ from app.services.admin_audit import write_admin_audit
 from app.services.designer_world_promotion import (
     activate_staged_world_pack,
     clear_staged_world_pack,
+    deactivate_active_world_pack,
+    rollback_world_pack_version,
     stage_world_pack,
 )
 from app.services.github_publish import (
@@ -155,6 +161,122 @@ def activate_designer_world_pack(
     return DesignerWorldPackActivateResponse(
         pack_hash=promotion.pack_hash,
         version_key=promotion.version_key,
+        repo=publish_result.repo,
+        branch=publish_result.branch,
+        commit_sha=publish_result.commit_sha,
+        release_workflow_triggered=publish_result.release_workflow_triggered,
+        backend_workflow_triggered=publish_result.backend_workflow_triggered,
+    )
+
+
+@router.post("/world-pack/deactivate", response_model=DesignerWorldPackDeactivateResponse)
+def deactivate_designer_world_pack(
+    payload: DesignerWorldPackDeactivateRequest,
+    context: AuthContext = Depends(require_admin_context),
+    db: Session = Depends(get_db),
+):
+    try:
+        deactivated = deactivate_active_world_pack(payload.province_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(exc), "code": "designer_world_pack_deactivate_failed"},
+        ) from exc
+
+    try:
+        publish_result = publish_changes_and_dispatch(
+            commit_message=payload.commit_message,
+            file_changes=deactivated.file_changes,
+            trigger_release_workflow=payload.trigger_release_workflow,
+            trigger_backend_workflow=payload.trigger_backend_workflow,
+            workflow_inputs={
+                "origin": "designer-world-pack",
+                "action": "deactivate",
+                "province_id": deactivated.province_id,
+                "version_key": deactivated.version_key,
+            },
+        )
+    except GitHubPublishError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(exc), "code": "designer_world_pack_publish_failed"},
+        ) from exc
+
+    write_admin_audit(
+        db,
+        actor=f"user:{context.user.id}",
+        action="designer_world_deactivate",
+        target_type="world_pack",
+        target_id=deactivated.version_key,
+        summary=(
+            f"province={deactivated.province_id} sha={publish_result.commit_sha} "
+            f"release={publish_result.release_workflow_triggered} "
+            f"backend={publish_result.backend_workflow_triggered}"
+        ),
+    )
+
+    return DesignerWorldPackDeactivateResponse(
+        province_id=deactivated.province_id,
+        deactivated_version_key=deactivated.version_key,
+        repo=publish_result.repo,
+        branch=publish_result.branch,
+        commit_sha=publish_result.commit_sha,
+        release_workflow_triggered=publish_result.release_workflow_triggered,
+        backend_workflow_triggered=publish_result.backend_workflow_triggered,
+    )
+
+
+@router.post("/world-pack/rollback", response_model=DesignerWorldPackRollbackResponse)
+def rollback_designer_world_pack(
+    payload: DesignerWorldPackRollbackRequest,
+    context: AuthContext = Depends(require_admin_context),
+    db: Session = Depends(get_db),
+):
+    try:
+        rollback = rollback_world_pack_version(payload.province_id, payload.target_version_key)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(exc), "code": "designer_world_pack_rollback_failed"},
+        ) from exc
+
+    try:
+        publish_result = publish_changes_and_dispatch(
+            commit_message=payload.commit_message,
+            file_changes=rollback.file_changes,
+            trigger_release_workflow=payload.trigger_release_workflow,
+            trigger_backend_workflow=payload.trigger_backend_workflow,
+            workflow_inputs={
+                "origin": "designer-world-pack",
+                "action": "rollback",
+                "province_id": rollback.province_id,
+                "version_key": rollback.version_key,
+                "pack_hash": rollback.pack_hash,
+            },
+        )
+    except GitHubPublishError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(exc), "code": "designer_world_pack_publish_failed"},
+        ) from exc
+
+    write_admin_audit(
+        db,
+        actor=f"user:{context.user.id}",
+        action="designer_world_rollback",
+        target_type="world_pack",
+        target_id=rollback.version_key,
+        summary=(
+            f"province={rollback.province_id} sha={publish_result.commit_sha} "
+            f"release={publish_result.release_workflow_triggered} "
+            f"backend={publish_result.backend_workflow_triggered}"
+        ),
+    )
+
+    return DesignerWorldPackRollbackResponse(
+        province_id=rollback.province_id,
+        version_key=rollback.version_key,
+        pack_hash=rollback.pack_hash,
         repo=publish_result.repo,
         branch=publish_result.branch,
         commit_sha=publish_result.commit_sha,

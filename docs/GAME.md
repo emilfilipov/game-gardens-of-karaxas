@@ -129,7 +129,7 @@ This section is the detailed product-level description of all implemented and pl
 
 #### Designer world-authoring and promotion baseline
 - Purpose: support decoupled world-design workflows and safe deployment of authored world content.
-- Loop: standalone designer client authors camp/village/town/city/fortress layouts with spawn points/routes, validates locally, stages packs through backend hash-locking, and activates versioned signed province packs through authenticated promotion endpoints.
+- Loop: standalone designer client authors camp/village/town/city/fortress layouts with spawn points/routes, validates locally, stages packs through backend hash-locking, activates versioned signed province packs, and supports explicit deactivate/rollback promotion controls through authenticated endpoints.
 - Gameplay impact: world topology and spawn flow can be iterated rapidly without bundling every design change into player-runtime code changes.
 
 #### Deterministic content import/export pipeline

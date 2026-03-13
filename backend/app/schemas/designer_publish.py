@@ -86,3 +86,39 @@ class DesignerWorldPackActivateResponse(BaseModel):
     commit_sha: str
     release_workflow_triggered: bool
     backend_workflow_triggered: bool
+
+
+class DesignerWorldPackDeactivateRequest(BaseModel):
+    province_id: str = Field(min_length=1, max_length=64)
+    commit_message: str = Field(min_length=3, max_length=220)
+    trigger_release_workflow: bool = True
+    trigger_backend_workflow: bool = False
+
+
+class DesignerWorldPackDeactivateResponse(BaseModel):
+    province_id: str
+    deactivated_version_key: str
+    repo: str
+    branch: str
+    commit_sha: str
+    release_workflow_triggered: bool
+    backend_workflow_triggered: bool
+
+
+class DesignerWorldPackRollbackRequest(BaseModel):
+    province_id: str = Field(min_length=1, max_length=64)
+    target_version_key: str | None = Field(default=None, min_length=3, max_length=128)
+    commit_message: str = Field(min_length=3, max_length=220)
+    trigger_release_workflow: bool = True
+    trigger_backend_workflow: bool = False
+
+
+class DesignerWorldPackRollbackResponse(BaseModel):
+    province_id: str
+    version_key: str
+    pack_hash: str
+    repo: str
+    branch: str
+    commit_sha: str
+    release_workflow_triggered: bool
+    backend_workflow_triggered: bool

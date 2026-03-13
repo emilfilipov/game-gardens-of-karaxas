@@ -129,7 +129,8 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - `designer-client` now includes world-design primitives and promotion controls:
   - local deterministic validation/hash generation (`designer-client/world_design.py`),
   - backend stage endpoint `POST /designer/world-pack/stage`,
-  - backend activate/publish endpoint `POST /designer/world-pack/activate` producing versioned pack/signature/latest pointers under `assets/content/provinces/<province_id>/`.
+  - backend activate/publish endpoint `POST /designer/world-pack/activate` producing versioned pack/signature/latest pointers under `assets/content/provinces/<province_id>/`,
+  - backend deactivate/rollback endpoints (`POST /designer/world-pack/deactivate`, `POST /designer/world-pack/rollback`) maintaining per-province promotion history in `assets/content/provinces/<province_id>/versions.json` with runtime continuity cache under `backend/runtime/designer_world_state/`.
 - First province content pack baseline is now checked in at `assets/content/provinces/acre/`:
   - one city (`Acre Port`) and one fortress (`Montmusard Fortress`),
   - connected land + sea routes, faction setup, market seeds, and intelligence seeds,

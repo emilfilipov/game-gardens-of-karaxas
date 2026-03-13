@@ -7,6 +7,7 @@ Scope of this bootstrap:
 - edit and save level payloads through `/levels`,
 - edit and stage runtime content payloads through `/content/runtime-config/stage`,
 - publish staged runtime payloads through `/content/runtime-config/publish`,
+- stage/activate/deactivate/rollback world packs through `/designer/world-pack/*`,
 - submit repo commit + workflow dispatch through backend-managed `/designer/publish`.
 
 Run:
