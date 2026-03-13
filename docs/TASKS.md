@@ -61,6 +61,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 | AOP-PIVOT-047 | ⏳ | 4 | AOP-PIVOT-046 | Implement designer-to-game content promotion flow (signed pack generation, version metadata, staging/activate controls) so authored map/system changes can be deployed safely (activation/deactivate parity and rollback UX still pending). |
 | AOP-PIVOT-048 | ✅ | 3 | AOP-PIVOT-047 | Add fully separate designer installer/update release channel in GCS (artifact naming, feed URL, retention, rollback) decoupled from game client release flow. |
 | AOP-PIVOT-049 | ✅ | 3 | AOP-PIVOT-036 | Remove Kotlin launcher/Godot/Gradle legacy runtime artifacts after Rust runtime + channel packaging parity reached baseline. |
+| AOP-PIVOT-050 | ✅ | 2 | AOP-PIVOT-049 | Scrape remaining deprecated prototype docs/assets/tooling references (art-pipeline leftovers, legacy archive docs, stale asset generators) and align canonical docs with the final Rust-only repository surface. |
 
 ## Detailed Task Specs
 
@@ -662,6 +663,18 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 - Validation:
   - parity checklist sign-off + successful release candidate without legacy stack artifacts.
 
+### AOP-PIVOT-050 - Final Deprecated Artifact Scrape
+- Objective: complete post-migration deprecation cleanup by removing remaining prototype-era documents, assets, and generators that are no longer part of runtime delivery.
+- Implementation checklist:
+  - remove stale legacy-prototype docs and obsolete art-pipeline contracts/manifests from repository tracking,
+  - remove unused prototype icons/tiles/character bundles and generator scripts,
+  - update canonical docs/task ledger/deprecation audit to reflect the final active module and asset set.
+- Acceptance criteria:
+  - only active Rust-first runtime/tooling assets remain tracked for gameplay and release flows,
+  - no canonical docs describe deleted archive paths as active references.
+- Validation:
+  - grep audit for removed path references + canonical doc review.
+
 ## Sequencing Guide (Strict Order)
 1. Program setup tasks: `AOP-PIVOT-003`, `AOP-PIVOT-032`, then `AOP-PIVOT-004` to `AOP-PIVOT-007`.
 2. Persistence/simulation foundation: `AOP-PIVOT-008` to `AOP-PIVOT-019`.
@@ -669,7 +682,7 @@ Status legend: `⬜` not started, `⏳` in progress/blocked, `✅` done.
 4. Vertical slice assembly: `AOP-PIVOT-025` to `AOP-PIVOT-028`.
 5. Operations and launch readiness: `AOP-PIVOT-029` to `AOP-PIVOT-031`.
 6. Productization and release hardening: `AOP-PIVOT-035` to `AOP-PIVOT-042`.
-7. Cleanup, auth continuity, and designer pipeline: `AOP-PIVOT-043` to `AOP-PIVOT-049`.
+7. Cleanup, auth continuity, and designer pipeline: `AOP-PIVOT-043` to `AOP-PIVOT-050`.
 
 ## Resume Protocol
 When work resumes after a pause:
@@ -684,7 +697,7 @@ When work resumes after a pause:
 | AOP-PIVOT-001 | ✅ | 2 | - | Canonical docs migrated to the new Crusades-era strategy RPG direction and Rust-first architecture contract. |
 | AOP-PIVOT-002 | ✅ | 1 | - | Release retention policy updated to latest 3 builds and documentation aligned. |
 | AOP-PIVOT-003 | ✅ | 2 | AOP-PIVOT-001 | ADR baseline created under `docs/adr/` and linked from `docs/TECHNICAL.md`. |
-| AOP-PIVOT-032 | ✅ | 2 | AOP-PIVOT-003 | Legacy prototype docs archived under `docs/archive/legacy-prototype/`, active operations/security docs rewritten, and deprecation audit recorded in `docs/DEPRECATION_AUDIT.md`. |
+| AOP-PIVOT-032 | ✅ | 2 | AOP-PIVOT-003 | Legacy prototype docs removed from active tracking, active operations/security docs rewritten, and deprecation audit recorded in `docs/DEPRECATION_AUDIT.md`. |
 | AOP-PIVOT-004 | ✅ | 3 | AOP-PIVOT-003 | Rust workspace scaffolded (`sim-core`, `world-service`, `tooling-core`, `client-app`) with root Cargo workspace, rust toolchain config, and CI workflow `rust-checks.yml`. |
 | AOP-PIVOT-005 | ✅ | 3 | AOP-PIVOT-004 | Shared contracts implemented in `sim-core` (typed IDs, command/event envelopes, schema compatibility checks) and consumed by `world-service` and `client-app`. |
 | AOP-PIVOT-006 | ✅ | 3 | AOP-PIVOT-004 | `world-service` now boots an Axum server with env-based config, `/healthz` + `/readyz` + `/config` endpoints, request-ID propagation, and structured tracing. |
@@ -722,3 +735,4 @@ When work resumes after a pause:
 | AOP-PIVOT-046 | ✅ | 4 | AOP-PIVOT-045 | Implemented world-authoring primitives and deterministic validation/hash utilities (`designer-client/world_design.py`) for camps/villages/towns/cities/fortresses, routes, and spawn points. |
 | AOP-PIVOT-048 | ✅ | 3 | AOP-PIVOT-047 | Added separate game/designer GCS release channels in `.github/workflows/release.yml`, deterministic designer packaging (`tools/package_designer_client_release.py`), and per-channel install scripts (`scripts/install_game_client.ps1`, `scripts/install_designer_client.ps1`). |
 | AOP-PIVOT-049 | ✅ | 3 | AOP-PIVOT-036 | Removed deprecated Kotlin/Godot/Gradle/Blender runtime artifacts (`launcher/`, `game-client/`, Gradle wrappers, blender/tool wrappers) and updated canonical docs to the Rust-only runtime path. |
+| AOP-PIVOT-050 | ✅ | 2 | AOP-PIVOT-049 | Removed residual prototype documentation/assets/tooling (`docs/archive/legacy-prototype/*`, `docs/ART_PIPELINE_CONTRACT.md`, `assets/tiles/*`, `assets/characters/sellsword_v1/*`, obsolete icon/manifest files, and legacy sprite ingest generators) and aligned canonical docs/deprecation audit to the final post-migration repository shape. |

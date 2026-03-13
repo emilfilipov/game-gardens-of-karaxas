@@ -15,7 +15,6 @@ Core simulation contract: all core systems run in real time (travel, logistics, 
 - `docs/REDIS_ADOPTION_GATE.md` - Redis adoption thresholds and migration/rollback gates.
 - `docs/COST_GUARDRAILS.md` - monthly PoC budget policy.
 - `docs/DEPRECATION_AUDIT.md` - cleanup inventory and migration removals.
-- `docs/archive/legacy-prototype/` - superseded historical docs (non-canonical).
 
 ## Repository Layout
 - `backend/` - FastAPI control-plane services, Cloud SQL integration, release metadata, auth/session, content APIs.

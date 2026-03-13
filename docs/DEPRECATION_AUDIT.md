@@ -1,30 +1,15 @@
-# Deprecation Audit (AOP-PIVOT-032)
+# Deprecation Audit
 
-Date: 2026-03-12
+Last updated: 2026-03-13
 
 ## Objective
-Remove legacy prototype assets/modules that create migration drift and keep only components aligned with the Rust-first Ambitions of Peace architecture.
+Remove prototype-era modules, assets, and documentation that are no longer required for the Rust-first Ambitions of Peace runtime and tooling track.
 
 ## Classification Rules
-- `archived`: moved under `docs/archive/legacy-prototype/`.
 - `removed`: deleted from active repository tracking.
-- `active`: retained and aligned with canonical docs.
+- `active`: retained and aligned with canonical docs and current delivery path.
 
-## Archived Documents
-Moved to `docs/archive/legacy-prototype/`:
-- `ART_DIRECTION_BOARD.md`
-- `LORE.md`
-- `ENGINE_SPIKE_GOK_MMO_176.md`
-- `ISOMETRIC_COORDINATE_SPEC.md`
-- `ISOMETRIC_VERTICAL_SLICE_GATES.md`
-- `LEVEL_SCHEMA_V3.md`
-- `LEVEL_SCHEMA_V3_MIGRATION.md`
-- `CHARACTER_FLOW_QA.md`
-- `TOWER_ADMIN_CHECKLIST.md`
-- `CONFIG_FIELDS.md`
-
-## Removed Legacy Modules/Artifacts
-Removed from active repository tracking:
+## Removed Legacy Modules and Toolchains
 - Kotlin/Gradle launcher stack:
   - `launcher/`
   - `build.gradle.kts`, `settings.gradle.kts`, `gradlew`, `gradlew.bat`, `gradle/`, `gradle.properties`
@@ -41,17 +26,40 @@ Removed from active repository tracking:
   - `tools/generate_config_docs.py`
   - `icon_2.png`
   - `issues_png/`
-- Previously removed in earlier cleanup:
-  - legacy `concept_art/` bundle and concept-art helper scripts.
+- Concept-art bundle and concept-art helper scripts.
 
-## Active Documents Updated In This Cleanup
-- `docs/README.md`
-- `docs/INSTALLER.md`
-- `docs/OPERATIONS.md`
-- `docs/GAME.md`
-- `docs/TECHNICAL.md`
-- `docs/TASKS.md`
-- `AGENTS.md`
+## Removed Legacy Documentation and Assets
+- Superseded prototype/product docs:
+  - `docs/ART_PIPELINE_CONTRACT.md`
+  - `docs/archive/legacy-prototype/ART_DIRECTION_BOARD.md`
+  - `docs/archive/legacy-prototype/CHARACTER_FLOW_QA.md`
+  - `docs/archive/legacy-prototype/CONFIG_FIELDS.md`
+  - `docs/archive/legacy-prototype/ENGINE_SPIKE_GOK_MMO_176.md`
+  - `docs/archive/legacy-prototype/ISOMETRIC_COORDINATE_SPEC.md`
+  - `docs/archive/legacy-prototype/ISOMETRIC_VERTICAL_SLICE_GATES.md`
+  - `docs/archive/legacy-prototype/LEVEL_SCHEMA_V3.md`
+  - `docs/archive/legacy-prototype/LEVEL_SCHEMA_V3_MIGRATION.md`
+  - `docs/archive/legacy-prototype/LORE.md`
+  - `docs/archive/legacy-prototype/TOWER_ADMIN_CHECKLIST.md`
+- Prototype art/asset pipeline artifacts:
+  - `assets/README.md`
+  - `assets/iso_asset_manifest.json`
+  - `assets/icons/game_icon.ico`
+  - `assets/icons/game_icon.png`
+  - `assets/tiles/*`
+  - `assets/characters/sellsword_v1/*`
+  - `assets/characters/karaxas_human_*`
+  - `tools/generate_sellsword_sprite_pack.py`
+  - `tools/validate_asset_ingest.py`
+
+## Active Runtime Scope After Cleanup
+- `backend/`
+- `world-service/`
+- `sim-core/`
+- `tooling-core/`
+- `client-app/`
+- `designer-client/`
+- `assets/content/` province-pack content
 
 ## Result
-The active repository is now aligned to the Rust-first stack (`backend`, `world-service`, `sim-core`, `client-app`, `designer-client`, `tooling-core`) with no retained Kotlin/Godot/Gradle/Blender compatibility modules.
+The repository is stripped to the current Rust-first game/runtime/tooling path with legacy prototype-era stacks and asset pipelines removed from tracked history.

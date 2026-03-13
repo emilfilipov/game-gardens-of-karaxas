@@ -19,7 +19,7 @@ Active repository stack is now Rust-first plus a retained FastAPI control plane:
 - Standalone designer client (`designer-client/`)
 - GCS dual-channel release pipeline (game/designer) with 3-version retention
 
-Legacy Kotlin/Godot/Gradle/Blender prototype modules are removed from active tracking; historical product-direction docs remain archived under `docs/archive/legacy-prototype/`.
+Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded prototype documentation are removed from active tracking.
 
 ## Architecture Direction
 ### Primary language and framework choice
