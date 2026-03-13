@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from time import perf_counter
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import desc, select
@@ -16,17 +17,24 @@ from app.schemas.gameplay import (
     ResolveActionResponse,
     VerticalSliceLoopRequest,
     VerticalSliceLoopResponse,
+    WorldSyncRequest,
+    WorldSyncResponse,
 )
 from app.services.gameplay_authority import movement_sanity_ok, resolve_combat_and_rewards
+from app.services.observability import record_world_sync_result
 from app.services.security_events import write_security_event
 from app.services.world_service_control import (
     WorldServiceControlError,
     advance_ticks,
     dispatch_control_command,
     fetch_battle_state,
+    fetch_world_sync_snapshot,
 )
 
 router = APIRouter(prefix="/gameplay", tags=["gameplay"])
+_WORLD_SYNC_START_MONOTONIC = perf_counter()
+_WORLD_SYNC_TICK_INTERVAL_MS = 200
+_WORLD_SYNC_STALE_AFTER_MS = 5_000
 
 
 def _xp_to_levelup() -> int:
@@ -268,6 +276,10 @@ def _instance_status_from_battle_state(state_payload: dict, instance_id: int) ->
     return "resolved"
 
 
+def _world_sync_now_ms() -> int:
+    return max(0, int((perf_counter() - _WORLD_SYNC_START_MONOTONIC) * 1000.0))
+
+
 @router.post("/vertical-slice-loop", response_model=VerticalSliceLoopResponse)
 def run_vertical_slice_loop(
     payload: VerticalSliceLoopRequest,
@@ -382,4 +394,70 @@ def run_vertical_slice_loop(
         character_experience=character.experience,
         persisted_location_x=int(character.location_x or 0),
         persisted_location_y=int(character.location_y or 0),
+    )
+
+
+@router.post("/world-sync", response_model=WorldSyncResponse)
+def world_sync(
+    payload: WorldSyncRequest,
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    character = db.get(Character, payload.character_id)
+    if character is None or character.user_id != context.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Character not found", "code": "character_not_found"},
+        )
+
+    now_ms = _world_sync_now_ms()
+    started = perf_counter()
+    include_map = bool(payload.include_map or payload.last_applied_tick <= 0)
+    try:
+        snapshot = fetch_world_sync_snapshot(now_ms=now_ms, include_travel_map=include_map)
+    except WorldServiceControlError as exc:
+        record_world_sync_result(success=False)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "message": "world-service sync call failed",
+                "code": "world_sync_unavailable",
+                "reason": str(exc),
+            },
+        ) from exc
+
+    latency_ms = (perf_counter() - started) * 1000.0
+    record_world_sync_result(success=True, latency_ms=latency_ms)
+
+    tick_payload = snapshot.get("tick", {})
+    campaign_tick = int(tick_payload.get("current_tick", payload.last_applied_tick))
+    metrics_payload = snapshot.get("metrics", {})
+    tick_interval_ms = int(metrics_payload.get("tick_interval_ms", _WORLD_SYNC_TICK_INTERVAL_MS))
+    if tick_interval_ms <= 0:
+        tick_interval_ms = _WORLD_SYNC_TICK_INTERVAL_MS
+    stale_after_ms = max(_WORLD_SYNC_STALE_AFTER_MS, tick_interval_ms * 4)
+
+    warnings: list[str] = []
+    if payload.last_applied_tick > campaign_tick:
+        warnings.append("campaign_tick_regressed")
+
+    return WorldSyncResponse(
+        accepted=True,
+        reason_code="world_sync_snapshot",
+        character_id=character.id,
+        server_unix_ms=int(datetime.now(UTC).timestamp() * 1000),
+        campaign_tick=campaign_tick,
+        tick_interval_ms=tick_interval_ms,
+        stale_after_ms=stale_after_ms,
+        sync_cursor=f"{character.id}:{campaign_tick}:{now_ms}",
+        world={
+            "travel_map": snapshot.get("travel_map", {}),
+            "logistics": snapshot.get("logistics", {}),
+            "trade": snapshot.get("trade", {}),
+            "espionage": snapshot.get("espionage", {}),
+            "politics": snapshot.get("politics", {}),
+            "battle": snapshot.get("battle", {}),
+            "metrics": snapshot.get("metrics", {}),
+        },
+        warnings=warnings,
     )

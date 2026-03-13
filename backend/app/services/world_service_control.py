@@ -8,7 +8,13 @@ from app.services.world_service_auth import build_signed_headers
 
 CONTROL_COMMAND_PATH = "/internal/control/commands"
 CONTROL_TICK_PATH = "/internal/control/tick"
+TRAVEL_MAP_PATH = "/travel/map"
+LOGISTICS_STATE_PATH = "/logistics/state"
+TRADE_STATE_PATH = "/trade/state"
+ESPIONAGE_STATE_PATH = "/espionage/state"
+POLITICS_STATE_PATH = "/politics/state"
 BATTLE_STATE_PATH = "/battle/state"
+METRICS_SUMMARY_PATH = "/metrics/summary"
 
 
 class WorldServiceControlError(RuntimeError):
@@ -28,23 +34,50 @@ def advance_ticks(*, now_ms: int) -> dict:
 
 
 def fetch_battle_state() -> dict:
+    return _json_get(BATTLE_STATE_PATH)
+
+
+def fetch_world_sync_snapshot(*, now_ms: int, include_travel_map: bool = True) -> dict:
+    tick_payload = advance_ticks(now_ms=now_ms)
+    logistics_payload = _json_get(LOGISTICS_STATE_PATH)
+    trade_payload = _json_get(TRADE_STATE_PATH)
+    espionage_payload = _json_get(ESPIONAGE_STATE_PATH)
+    politics_payload = _json_get(POLITICS_STATE_PATH)
+    battle_payload = _json_get(BATTLE_STATE_PATH)
+    metrics_payload = _json_get(METRICS_SUMMARY_PATH)
+
+    payload = {
+        "tick": tick_payload,
+        "logistics": logistics_payload,
+        "trade": trade_payload,
+        "espionage": espionage_payload,
+        "politics": politics_payload,
+        "battle": battle_payload,
+        "metrics": metrics_payload,
+    }
+    if include_travel_map:
+        payload["travel_map"] = _json_get(TRAVEL_MAP_PATH)
+    return payload
+
+
+def _json_get(path: str) -> dict:
     base_url = settings.world_service_base_url.strip().rstrip("/")
     if not base_url:
         raise WorldServiceControlError("world_service_base_url is empty")
 
-    req = request.Request(f"{base_url}{BATTLE_STATE_PATH}", method="GET")
+    req = request.Request(f"{base_url}{path}", method="GET")
     try:
         with request.urlopen(req, timeout=settings.world_service_request_timeout_seconds) as response:
             raw = response.read().decode("utf-8")
             parsed = json.loads(raw) if raw else {}
             if not isinstance(parsed, dict):
-                raise WorldServiceControlError("battle state payload is not a JSON object")
+                raise WorldServiceControlError(f"{path} payload is not a JSON object")
             return parsed
     except error.HTTPError as exc:
         raw = exc.read().decode("utf-8")
-        raise WorldServiceControlError(f"battle state HTTP {exc.code}: {raw}") from exc
+        raise WorldServiceControlError(f"{path} HTTP {exc.code}: {raw}") from exc
     except error.URLError as exc:
-        raise WorldServiceControlError(f"battle state network error: {exc.reason}") from exc
+        raise WorldServiceControlError(f"{path} network error: {exc.reason}") from exc
 
 
 def _signed_json_post(path: str, payload: dict) -> dict:

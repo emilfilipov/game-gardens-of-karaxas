@@ -52,3 +52,22 @@ class VerticalSliceLoopResponse(BaseModel):
     character_experience: int
     persisted_location_x: int
     persisted_location_y: int
+
+
+class WorldSyncRequest(BaseModel):
+    character_id: int = Field(ge=1)
+    last_applied_tick: int = Field(default=0, ge=0)
+    include_map: bool = True
+
+
+class WorldSyncResponse(BaseModel):
+    accepted: bool
+    reason_code: str
+    character_id: int
+    server_unix_ms: int
+    campaign_tick: int
+    tick_interval_ms: int
+    stale_after_ms: int
+    sync_cursor: str
+    world: dict
+    warnings: list[str] = Field(default_factory=list)

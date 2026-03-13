@@ -298,6 +298,7 @@ struct MetricsSummaryResponse {
     status: &'static str,
     current_tick: u64,
     queue_depth: usize,
+    tick_interval_ms: u64,
     tick_metrics: TickMetrics,
     latest_snapshot: Option<TickSnapshot>,
 }
@@ -891,6 +892,7 @@ async fn metrics_summary(State(state): State<AppState>) -> (StatusCode, Json<Met
             status: "ok",
             current_tick: runner.current_tick().0,
             queue_depth: runner.queue_depth(),
+            tick_interval_ms: state.config.tick_interval_ms,
             tick_metrics: runner.metrics(),
             latest_snapshot: runner.latest_snapshot(),
         }),
@@ -1175,6 +1177,7 @@ mod tests {
         let payload: serde_json::Value = serde_json::from_slice(&bytes).expect("valid json body");
         assert_eq!(payload["status"], "ok");
         assert_eq!(payload["current_tick"], 1);
+        assert_eq!(payload["tick_interval_ms"], 100);
         assert_eq!(payload["tick_metrics"]["total_ticks"], 1);
     }
 

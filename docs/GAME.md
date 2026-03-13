@@ -117,6 +117,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: player logs in (or uses external startup handoff session via structured file/JSON contract), client fetches authenticated character roster, requests world bootstrap payload for selected character, and FastAPI bridges that request to signed Rust world-entry bootstrap metadata before campaign scene handoff.
 - Gameplay impact: establishes the practical account/session-to-world handoff path needed for vertical-slice playability.
 
+#### Real-time campaign world sync channel
+- Purpose: keep campaign UI continuously aligned with authoritative world state without manual refresh.
+- Loop: authenticated client polling pulls deterministic snapshots (travel/logistics/trade/espionage/politics/battle), applies only monotonic tick updates, and shows stale/reconnect state when sync fails.
+- Gameplay impact: strategic decisions now use live state instead of bootstrap-only snapshots, improving reliability of real-time playtesting.
+
 #### Code-first gameplay panel suite (`bevy_egui`)
 - Purpose: provide controllable vertical-slice domain surfaces without engine-authored editor UI.
 - Loop: campaign view renders dedicated `character`, `household`, `logistics`, `trade`, `espionage`, `diplomacy`, and `notifications` panels with standardized hotkeys and saved layout presets.

@@ -58,6 +58,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 ### Control plane (transitional)
 - Existing FastAPI auth/session/account/content/release endpoints remain operational during migration.
 - FastAPI now exposes authenticated vertical-slice orchestration endpoint `POST /gameplay/vertical-slice-loop` to run the PoC loop (campaign command dispatch -> battle instance lifecycle -> persistence writeback) while keeping login/account/session contracts intact.
+- FastAPI now also exposes authenticated world-sync feed endpoint `POST /gameplay/world-sync` that advances deterministic world ticks and returns the current multi-domain snapshot (`travel/logistics/trade/espionage/politics/battle`) for client polling.
 - FastAPI ops metrics endpoint `GET /ops/release/metrics` now includes runtime health probes for DB latency, outbox lag, and release feed health metadata.
 
 ### New world authority plane
@@ -97,6 +98,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Internal signed control command contract now also includes tactical battle controls (`set_battle_formation`, `deploy_battle_reserve`) for instance-level formation/reserve decisions.
 - Internal signed bridge contract now also includes world-entry handoff (`/internal/world-entry/bootstrap`) consumed by FastAPI auth/session/character bootstrap flow.
 - FastAPI world-service control client (`backend/app/services/world_service_control.py`) now orchestrates signed command dispatch and tick advancement (`/internal/control/commands`, `/internal/control/tick`) plus battle-state reads (`/battle/state`) for vertical-slice loop execution.
+- FastAPI world-service control client now also aggregates multi-domain world sync snapshots by combining `/internal/control/tick` with `/travel/map`, `/logistics/state`, `/trade/state`, `/espionage/state`, `/politics/state`, `/battle/state`, and `/metrics/summary`.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 - Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, deterministic route risk bands, choke-point detection, and arrival estimates).
@@ -124,6 +126,11 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
   - `character`, `household`, `logistics`, `trade`, `espionage`, `diplomacy`, and `notifications`,
   - unified keyboard toggles (`F1`..`F7`) and panel toolbar controls,
   - persisted panel state + layout preset save/load (`strategist`, `operations`) through JSON snapshot file (`AOP_PANEL_LAYOUT_PATH`, default `client-app/runtime/panel_layout.json`).
+- Bootstrap shell now also runs an authenticated world-sync polling loop against `POST /gameplay/world-sync`:
+  - deterministic tick-ordered snapshot application (ignore regressed ticks),
+  - reconnect/backoff strategy (`1s` base up to `10s`),
+  - stale-data surface when no successful sync is received before `stale_after_ms`,
+  - server/client clock alignment metadata for campaign tick projection in UI.
 - Bootstrap shell now includes role-gated code-first map authoring tools mode:
   - enable via `AOP_TOOLS_ENABLED=true` or `AOP_TOOLS_ROLE=designer|admin`,
   - edit settlements (camp/village/town/city/fortress) and routes in-app, run schema validation before save, and view inline validation errors,
@@ -221,6 +228,8 @@ Current baseline checks retained during transition:
   - `cargo test -p world-service replay_`
 - Observability threshold smoke:
   - `OPS_BASE_URL=<backend-url> OPS_TOKEN=<ops-token> WORLD_SERVICE_BASE_URL=<world-service-url> backend/scripts/check_world_runtime_alerts.sh`
+- World-sync backend contract smoke:
+  - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_world_sync_feed.py`
 - Cost guardrail report smoke:
   - `backend/scripts/generate_monthly_cost_report.py --month YYYY-MM --output docs/cost-reports/YYYY-MM-estimate.md --budget-total 80`
 - Playtest hardening baseline smoke:

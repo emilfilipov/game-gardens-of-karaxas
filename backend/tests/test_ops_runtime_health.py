@@ -14,6 +14,11 @@ from app.api.routes.ops import _outbox_lag_metrics, _release_feed_health  # noqa
 from app.db.base import Base  # noqa: E402
 from app.models.event_pipeline import WorldOutbox  # noqa: E402
 from app.models.release_record import ReleaseRecord  # noqa: E402
+from app.services.observability import (  # noqa: E402
+    record_world_sync_result,
+    reset_runtime_metrics_for_tests,
+    zone_runtime_stats,
+)
 
 
 def _db_session() -> Session:
@@ -64,3 +69,14 @@ def test_release_feed_health_reports_latest_release_record() -> None:
     assert health["latest_build_version"] == "v0.1.2"
     assert health["update_feed_url_present"] is True
     assert float(health["minutes_since_latest_activation"]) >= 0.0
+
+
+def test_zone_runtime_stats_include_world_sync_counters() -> None:
+    reset_runtime_metrics_for_tests()
+    record_world_sync_result(success=True, latency_ms=12.0)
+    record_world_sync_result(success=False)
+
+    stats = zone_runtime_stats()
+    assert stats["world_sync"]["success_total"] == 1
+    assert stats["world_sync"]["failure_total"] == 1
+    assert float(stats["world_sync"]["latency_ms"]["avg_ms"]) >= 0.0

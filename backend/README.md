@@ -6,7 +6,7 @@ FastAPI backend for Ambitions of Peace online account/control-plane systems duri
 - Auth: register/login/refresh/logout
 - Account lobby overview
 - Character create/list/select
-- Gameplay action resolve + vertical-slice loop orchestration (`/gameplay/resolve-action`, `/gameplay/vertical-slice-loop`)
+- Gameplay action resolve + real-time orchestration (`/gameplay/resolve-action`, `/gameplay/vertical-slice-loop`, `/gameplay/world-sync`)
 - Chat channels/messages + websocket endpoint
 - Release policy ops endpoint for forced-update gating
 - Ops runtime health metrics (`/ops/release/metrics`) now include DB probe latency, outbox lag, and release-feed health metadata.

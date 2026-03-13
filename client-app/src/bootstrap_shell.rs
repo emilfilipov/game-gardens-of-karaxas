@@ -23,6 +23,9 @@ const DEFAULT_PANEL_LAYOUT_PATH: &str = "client-app/runtime/panel_layout.json";
 const DEFAULT_AUTHORED_MAP_PATH: &str = "client-app/runtime/authored_map.json";
 const DEFAULT_PROVINCE_PACK_PATH: &str = "assets/content/provinces/acre/acre_poc_v1.json";
 const MAP_SCALE: f32 = 2.3;
+const WORLD_SYNC_BASE_POLL_MS: u64 = 1_000;
+const WORLD_SYNC_MAX_BACKOFF_MS: u64 = 10_000;
+const WORLD_SYNC_DEFAULT_STALE_AFTER_MS: u64 = 5_000;
 const SETTLEMENT_KIND_OPTIONS: [&str; 5] = ["camp", "village", "town", "city", "fortress"];
 
 const HANDOFF_SCHEMA_VERSION: u32 = 1;
@@ -269,6 +272,56 @@ impl ShellState {
 struct CampaignScene {
     marker_entity: Option<Entity>,
     active_character_id: Option<u64>,
+}
+
+#[derive(Resource)]
+struct WorldSyncState {
+    request_in_flight: bool,
+    next_poll_unix_ms: u64,
+    backoff_ms: u64,
+    stale_after_ms: u64,
+    last_received_unix_ms: u64,
+    last_campaign_tick: u64,
+    sync_cursor: String,
+    server_clock_offset_ms: i64,
+    status_line: String,
+    last_error: Option<String>,
+    snapshot: Option<WorldSyncPayload>,
+}
+
+impl Default for WorldSyncState {
+    fn default() -> Self {
+        Self {
+            request_in_flight: false,
+            next_poll_unix_ms: 0,
+            backoff_ms: WORLD_SYNC_BASE_POLL_MS,
+            stale_after_ms: WORLD_SYNC_DEFAULT_STALE_AFTER_MS,
+            last_received_unix_ms: 0,
+            last_campaign_tick: 0,
+            sync_cursor: String::new(),
+            server_clock_offset_ms: 0,
+            status_line: "Awaiting first world sync snapshot.".to_string(),
+            last_error: None,
+            snapshot: None,
+        }
+    }
+}
+
+impl WorldSyncState {
+    fn is_stale(&self, now_unix_ms: u64) -> bool {
+        if self.last_received_unix_ms == 0 {
+            return true;
+        }
+        now_unix_ms.saturating_sub(self.last_received_unix_ms) > self.stale_after_ms
+    }
+
+    fn estimated_campaign_tick(&self, now_unix_ms: u64, tick_interval_ms: u64) -> u64 {
+        if self.last_received_unix_ms == 0 || tick_interval_ms == 0 {
+            return self.last_campaign_tick;
+        }
+        let elapsed_ms = now_unix_ms.saturating_sub(self.last_received_unix_ms);
+        self.last_campaign_tick + elapsed_ms / tick_interval_ms
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -989,12 +1042,19 @@ enum BackendRequest {
         access_token: String,
         character_id: u64,
     },
+    FetchWorldSync {
+        access_token: String,
+        character_id: u64,
+        last_applied_tick: u64,
+        include_map: bool,
+    },
 }
 
 enum BackendResponse {
     Login(Result<SessionContext, String>),
     Characters(Result<Vec<CharacterSummary>, String>),
     Bootstrap(Result<CampaignBootstrapSummary, String>),
+    WorldSync(Box<Result<WorldSyncPayload, String>>),
 }
 
 #[derive(Deserialize)]
@@ -1067,6 +1127,351 @@ struct BootstrapRuntimePayload {
     camera_profile_key: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct WorldSyncPayload {
+    #[serde(default)]
+    accepted: bool,
+    #[serde(default)]
+    reason_code: String,
+    #[serde(default)]
+    character_id: u64,
+    #[serde(default)]
+    server_unix_ms: u64,
+    #[serde(default)]
+    campaign_tick: u64,
+    #[serde(default)]
+    tick_interval_ms: u64,
+    #[serde(default)]
+    stale_after_ms: u64,
+    #[serde(default)]
+    sync_cursor: String,
+    #[serde(default)]
+    world: WorldSyncWorldPayload,
+    #[serde(default)]
+    warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct WorldSyncWorldPayload {
+    #[serde(default)]
+    travel_map: TravelMapPayload,
+    #[serde(default)]
+    logistics: LogisticsSyncPayload,
+    #[serde(default)]
+    trade: TradeSyncPayload,
+    #[serde(default)]
+    espionage: EspionageSyncPayload,
+    #[serde(default)]
+    politics: PoliticsSyncPayload,
+    #[serde(default)]
+    battle: BattleSyncPayload,
+    #[serde(default)]
+    metrics: MetricsSyncPayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct TravelMapPayload {
+    #[serde(default)]
+    settlements: Vec<TravelSettlementPayload>,
+    #[serde(default)]
+    routes: Vec<TravelRoutePayload>,
+    #[serde(default)]
+    choke_points: Vec<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct TravelSettlementPayload {
+    id: u64,
+    name: String,
+    map_x: i32,
+    map_y: i32,
+    #[serde(default)]
+    tier: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct TravelRoutePayload {
+    id: u64,
+    origin: u64,
+    destination: u64,
+    travel_hours: u32,
+    base_risk: u32,
+    is_sea_route: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct LogisticsSyncPayload {
+    #[serde(default)]
+    current_tick: u64,
+    #[serde(default)]
+    state: LogisticsSyncStatePayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct LogisticsSyncStatePayload {
+    #[serde(default)]
+    armies: Vec<LogisticsArmyPayload>,
+    #[serde(default)]
+    pending_transfers: Vec<SupplyTransferPayload>,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct LogisticsArmyPayload {
+    army_id: u64,
+    location: u64,
+    troop_strength: u32,
+    #[serde(default)]
+    stock: StockPayload,
+    #[serde(default)]
+    shortage_ticks: u32,
+    #[serde(default)]
+    cumulative_attrition: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct SupplyTransferPayload {
+    from_army: u64,
+    to_army: u64,
+    #[serde(default)]
+    stock: StockPayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct StockPayload {
+    #[serde(default)]
+    food: u32,
+    #[serde(default)]
+    horses: u32,
+    #[serde(default)]
+    materiel: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct TradeSyncPayload {
+    #[serde(default)]
+    current_tick: u64,
+    #[serde(default)]
+    state: TradeSyncStatePayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct TradeSyncStatePayload {
+    #[serde(default)]
+    markets: Vec<MarketPayload>,
+    #[serde(default)]
+    routes: Vec<TradeRoutePayload>,
+    #[serde(default)]
+    pending_shipments: Vec<TradeShipmentPayload>,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct MarketPayload {
+    settlement_id: u64,
+    #[serde(default)]
+    price_index_bp: u32,
+    #[serde(default)]
+    shortage_pressure_bp: u32,
+    #[serde(default)]
+    tariff_pressure_bp: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct TradeRoutePayload {
+    route_id: u64,
+    origin: u64,
+    destination: u64,
+    #[serde(default)]
+    tariff_bp: u32,
+    #[serde(default)]
+    safety_bp: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct TradeShipmentPayload {
+    origin: u64,
+    destination: u64,
+    #[serde(default)]
+    goods: StockPayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct EspionageSyncPayload {
+    #[serde(default)]
+    current_tick: u64,
+    #[serde(default)]
+    state: EspionageSyncStatePayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct EspionageSyncStatePayload {
+    #[serde(default)]
+    informants: Vec<InformantPayload>,
+    #[serde(default)]
+    recent_reports: Vec<IntelReportPayload>,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct InformantPayload {
+    informant_id: u64,
+    #[serde(default)]
+    location: u64,
+    #[serde(default)]
+    status: String,
+    #[serde(default)]
+    reliability_bp: u32,
+    #[serde(default)]
+    exposure_bp: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct IntelReportPayload {
+    informant_id: u64,
+    subject_settlement: u64,
+    #[serde(default)]
+    confidence_bp: u32,
+    #[serde(default)]
+    reliability_bp: u32,
+    #[serde(default)]
+    false_report: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct PoliticsSyncPayload {
+    #[serde(default)]
+    current_tick: u64,
+    #[serde(default)]
+    state: PoliticsSyncStatePayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct PoliticsSyncStatePayload {
+    #[serde(default)]
+    factions: Vec<PoliticalFactionPayload>,
+    #[serde(default)]
+    standings: Vec<FactionStandingPayload>,
+    #[serde(default)]
+    treaties: Vec<TreatyPayload>,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct PoliticalFactionPayload {
+    faction_id: u64,
+    #[serde(default)]
+    legitimacy_bp: u32,
+    #[serde(default)]
+    stability_bp: u32,
+    #[serde(default)]
+    influence_points: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct FactionStandingPayload {
+    actor_faction: u64,
+    target_faction: u64,
+    #[serde(default)]
+    standing_bp: i32,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct TreatyPayload {
+    treaty_id: u64,
+    faction_a: u64,
+    faction_b: u64,
+    #[serde(default)]
+    treaty_kind: String,
+    #[serde(default)]
+    active: bool,
+    #[serde(default)]
+    trust_bp: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct BattleSyncPayload {
+    #[serde(default)]
+    current_tick: u64,
+    #[serde(default)]
+    state: BattleSyncStatePayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct BattleSyncStatePayload {
+    #[serde(default)]
+    instances: Vec<BattleInstancePayload>,
+    #[serde(default)]
+    recent_results: Vec<BattleResultPayload>,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct BattleInstancePayload {
+    instance_id: u64,
+    attacker_army: u64,
+    defender_army: u64,
+    #[serde(default)]
+    attacker_strength: u32,
+    #[serde(default)]
+    defender_strength: u32,
+    #[serde(default)]
+    attacker_morale_bp: u32,
+    #[serde(default)]
+    defender_morale_bp: u32,
+    #[serde(default)]
+    attacker_outcome_score_bp: i32,
+    #[serde(default)]
+    defender_outcome_score_bp: i32,
+    #[serde(default)]
+    status: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct BattleResultPayload {
+    instance_id: u64,
+    winner_army: u64,
+    loser_army: u64,
+    #[serde(default)]
+    attacker_remaining_strength: u32,
+    #[serde(default)]
+    defender_remaining_strength: u32,
+    #[serde(default)]
+    resolved_tick: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct MetricsSyncPayload {
+    #[serde(default)]
+    current_tick: u64,
+    #[serde(default)]
+    tick_interval_ms: u64,
+}
+
 pub fn run() {
     let startup_options = StartupOptions::from_args();
     let mut config = BackendConfig::from_env();
@@ -1079,6 +1484,7 @@ pub fn run() {
         .insert_resource(shell_state)
         .insert_resource(CampaignScene::default())
         .insert_resource(CampaignMapSurface::sample())
+        .insert_resource(WorldSyncState::default())
         .insert_resource(PanelUiState::from_env())
         .insert_resource(MapToolsState::from_env())
         .insert_resource(ClearColor(Color::srgb(0.05, 0.07, 0.08)))
@@ -1092,6 +1498,7 @@ pub fn run() {
             Update,
             (
                 poll_backend_responses,
+                drive_world_sync_poll,
                 animate_campaign_markers,
                 draw_campaign_map_gizmos,
                 sync_campaign_scene,
@@ -1149,6 +1556,22 @@ fn backend_worker_loop(
             } => {
                 let result = execute_fetch_bootstrap(&client, &config, &access_token, character_id);
                 let _ = response_tx.send(BackendResponse::Bootstrap(result));
+            }
+            BackendRequest::FetchWorldSync {
+                access_token,
+                character_id,
+                last_applied_tick,
+                include_map,
+            } => {
+                let result = execute_fetch_world_sync(
+                    &client,
+                    &config,
+                    &access_token,
+                    character_id,
+                    last_applied_tick,
+                    include_map,
+                );
+                let _ = response_tx.send(BackendResponse::WorldSync(Box::new(result)));
             }
         }
     }
@@ -1250,6 +1673,34 @@ fn execute_fetch_bootstrap(
         yaw_deg: payload.spawn.yaw_deg,
         camera_profile_key: payload.runtime.camera_profile_key,
     })
+}
+
+fn execute_fetch_world_sync(
+    client: &Client,
+    config: &BackendConfig,
+    access_token: &str,
+    character_id: u64,
+    last_applied_tick: u64,
+    include_map: bool,
+) -> Result<WorldSyncPayload, String> {
+    let url = format!("{}/gameplay/world-sync", config.base_url);
+    let payload = serde_json::json!({
+        "character_id": character_id,
+        "last_applied_tick": last_applied_tick,
+        "include_map": include_map,
+    });
+
+    let response = client
+        .post(url)
+        .header(AUTHORIZATION, format!("Bearer {access_token}"))
+        .header(CONTENT_TYPE, "application/json")
+        .header("x-client-version", &config.client_version)
+        .header("x-client-content-version", &config.client_content_version_key)
+        .body(payload.to_string())
+        .send()
+        .map_err(|error| format!("World sync request failed: {error}"))?;
+
+    decode_api_response(response)
 }
 
 fn decode_api_response<T: DeserializeOwned>(response: reqwest::blocking::Response) -> Result<T, String> {
@@ -1547,7 +1998,12 @@ fn startup_apply_authored_map(mut map: ResMut<CampaignMapSurface>, mut tools: Re
     }
 }
 
-fn poll_backend_responses(mut shell: ResMut<ShellState>, bridge: Res<BackendBridge>) {
+fn poll_backend_responses(
+    mut shell: ResMut<ShellState>,
+    mut map: ResMut<CampaignMapSurface>,
+    mut world_sync: ResMut<WorldSyncState>,
+    bridge: Res<BackendBridge>,
+) {
     let mut messages = Vec::new();
     {
         let Ok(receiver) = bridge.response_rx.lock() else {
@@ -1570,7 +2026,12 @@ fn poll_backend_responses(mut shell: ResMut<ShellState>, bridge: Res<BackendBrid
     }
 
     for message in messages {
-        handle_backend_response(&mut shell, &bridge.request_tx, message);
+        match message {
+            BackendResponse::WorldSync(result) => {
+                handle_world_sync_response(&mut shell, &mut map, &mut world_sync, *result);
+            }
+            other => handle_backend_response(&mut shell, &bridge.request_tx, other),
+        }
     }
 }
 
@@ -1591,6 +2052,187 @@ fn panel_hotkeys(keys: Res<ButtonInput<KeyCode>>, shell: Res<ShellState>, mut pa
             );
         }
     }
+}
+
+fn drive_world_sync_poll(shell: Res<ShellState>, bridge: Res<BackendBridge>, mut world_sync: ResMut<WorldSyncState>) {
+    if shell.phase != ShellPhase::CampaignReady {
+        world_sync.request_in_flight = false;
+        return;
+    }
+
+    let Some(session) = shell.session.as_ref() else {
+        world_sync.request_in_flight = false;
+        return;
+    };
+
+    let character_id = shell
+        .campaign_bootstrap
+        .as_ref()
+        .map(|row| row.character_id)
+        .or(shell.selected_character_id);
+    let Some(character_id) = character_id else {
+        return;
+    };
+
+    let now_ms = unix_now_millis();
+    if world_sync.request_in_flight || now_ms < world_sync.next_poll_unix_ms {
+        return;
+    }
+
+    let include_map = world_sync.snapshot.is_none() || world_sync.last_campaign_tick == 0;
+    let dispatched = bridge.request_tx.send(BackendRequest::FetchWorldSync {
+        access_token: session.access_token.clone(),
+        character_id,
+        last_applied_tick: world_sync.last_campaign_tick,
+        include_map,
+    });
+
+    if dispatched.is_ok() {
+        world_sync.request_in_flight = true;
+        world_sync.status_line = format!("Polling world sync (tick >= {}).", world_sync.last_campaign_tick);
+    } else {
+        schedule_world_sync_retry(
+            &mut world_sync,
+            now_ms,
+            "Failed dispatching world sync request".to_string(),
+        );
+    }
+}
+
+fn schedule_world_sync_retry(world_sync: &mut WorldSyncState, now_ms: u64, reason: String) {
+    world_sync.request_in_flight = false;
+    world_sync.last_error = Some(reason.clone());
+    world_sync.status_line = reason;
+    world_sync.next_poll_unix_ms = now_ms.saturating_add(world_sync.backoff_ms);
+    world_sync.backoff_ms = world_sync.backoff_ms.saturating_mul(2).min(WORLD_SYNC_MAX_BACKOFF_MS);
+}
+
+fn handle_world_sync_response(
+    shell: &mut ShellState,
+    map: &mut CampaignMapSurface,
+    world_sync: &mut WorldSyncState,
+    result: Result<WorldSyncPayload, String>,
+) {
+    let now_ms = unix_now_millis();
+    match result {
+        Ok(payload) => {
+            world_sync.request_in_flight = false;
+            world_sync.next_poll_unix_ms = now_ms.saturating_add(WORLD_SYNC_BASE_POLL_MS);
+            world_sync.backoff_ms = WORLD_SYNC_BASE_POLL_MS;
+            world_sync.last_error = None;
+
+            if !payload.accepted {
+                schedule_world_sync_retry(
+                    world_sync,
+                    now_ms,
+                    format!("World sync rejected: {}", payload.reason_code),
+                );
+                return;
+            }
+
+            if payload.campaign_tick < world_sync.last_campaign_tick {
+                world_sync.status_line = format!(
+                    "Ignored stale world sync tick {} (last {}).",
+                    payload.campaign_tick, world_sync.last_campaign_tick
+                );
+                return;
+            }
+
+            apply_world_sync_snapshot(map, &payload);
+            world_sync.last_received_unix_ms = now_ms;
+            world_sync.last_campaign_tick = payload.campaign_tick;
+            world_sync.sync_cursor = payload.sync_cursor.clone();
+            world_sync.stale_after_ms = payload.stale_after_ms.max(WORLD_SYNC_DEFAULT_STALE_AFTER_MS);
+            world_sync.server_clock_offset_ms =
+                i64::try_from(payload.server_unix_ms as i128 - now_ms as i128).unwrap_or(0);
+            world_sync.status_line = format!(
+                "World sync applied at tick {} (cursor {}).",
+                payload.campaign_tick, payload.sync_cursor
+            );
+            world_sync.snapshot = Some(payload.clone());
+            if !payload.warnings.is_empty() {
+                shell.status_line = format!("World sync warnings: {}", payload.warnings.join(", "));
+            }
+        }
+        Err(error) => {
+            schedule_world_sync_retry(world_sync, now_ms, format!("World sync failed: {error}"));
+        }
+    }
+}
+
+fn apply_world_sync_snapshot(map: &mut CampaignMapSurface, payload: &WorldSyncPayload) {
+    if !payload.world.travel_map.settlements.is_empty()
+        && !payload.world.travel_map.routes.is_empty()
+        && let Ok(graph) = build_graph_from_world_sync_map(&payload.world.travel_map)
+    {
+        apply_graph_to_surface(map, graph);
+    }
+
+    let mut army_markers = Vec::new();
+    for army in &payload.world.logistics.state.armies {
+        army_markers.push(MovingMapMarker {
+            label: format!(
+                "Army {} ({} troops, supply {}/{}/{})",
+                army.army_id, army.troop_strength, army.stock.food, army.stock.horses, army.stock.materiel
+            ),
+            origin: SettlementId(army.location),
+            destination: SettlementId(army.location),
+            progress: 0.0,
+            speed: 0.0,
+        });
+    }
+    map.army_markers = army_markers;
+
+    map.caravan_markers = payload
+        .world
+        .trade
+        .state
+        .pending_shipments
+        .iter()
+        .enumerate()
+        .map(|(index, shipment)| {
+            let seed = ((shipment.origin + shipment.destination + u64::try_from(index).unwrap_or(0)) % 100) as f32;
+            MovingMapMarker {
+                label: format!(
+                    "Caravan {} (goods {}/{}/{})",
+                    index + 1,
+                    shipment.goods.food,
+                    shipment.goods.horses,
+                    shipment.goods.materiel
+                ),
+                origin: SettlementId(shipment.origin),
+                destination: SettlementId(shipment.destination),
+                progress: (seed / 100.0).clamp(0.0, 1.0),
+                speed: 0.04,
+            }
+        })
+        .collect();
+}
+
+fn build_graph_from_world_sync_map(payload: &TravelMapPayload) -> Result<TravelGraph, String> {
+    let mut graph = TravelGraph::default();
+    for settlement in &payload.settlements {
+        graph.insert_settlement(sim_core::SettlementNode {
+            id: SettlementId(settlement.id),
+            name: settlement.name.trim().to_string(),
+            map_x: settlement.map_x,
+            map_y: settlement.map_y,
+            tier: settlement_tier_from_kind(&settlement.tier),
+        });
+    }
+    for route in &payload.routes {
+        graph
+            .insert_route(sim_core::RouteEdge {
+                id: sim_core::RouteId(route.id),
+                origin: SettlementId(route.origin),
+                destination: SettlementId(route.destination),
+                travel_hours: route.travel_hours,
+                base_risk: route.base_risk,
+                is_sea_route: route.is_sea_route,
+            })
+            .map_err(|error| format!("Route {} invalid: {}", route.id, error))?;
+    }
+    Ok(graph)
 }
 
 fn handle_backend_response(shell: &mut ShellState, request_tx: &Sender<BackendRequest>, message: BackendResponse) {
@@ -1665,6 +2307,7 @@ fn handle_backend_response(shell: &mut ShellState, request_tx: &Sender<BackendRe
             shell.request_in_flight = false;
             shell.status_line = format!("World bootstrap failed: {error}");
         }
+        BackendResponse::WorldSync(_) => {}
     }
 }
 
@@ -1787,12 +2430,14 @@ fn apply_graph_to_surface(map: &mut CampaignMapSurface, graph: TravelGraph) {
     map.routes = routes;
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_shell_ui(
     mut egui_contexts: EguiContexts,
     mut shell: ResMut<ShellState>,
     config: Res<BackendConfig>,
     bridge: Res<BackendBridge>,
     mut map: ResMut<CampaignMapSurface>,
+    world_sync: Res<WorldSyncState>,
     mut panels: ResMut<PanelUiState>,
     mut tools: ResMut<MapToolsState>,
 ) {
@@ -1826,13 +2471,13 @@ fn draw_shell_ui(
                     render_character_controls(ui, &mut shell, &config, &bridge);
                 }
                 ShellPhase::CampaignReady => {
-                    render_campaign_summary(ui, &mut shell, &config, &bridge, &mut map, &mut panels);
+                    render_campaign_summary(ui, &mut shell, &config, &bridge, &mut map, &world_sync, &mut panels);
                 }
             }
         });
 
     if shell.phase == ShellPhase::CampaignReady {
-        render_domain_panels(ctx, &shell, &map, &mut panels);
+        render_domain_panels(ctx, &shell, &map, &world_sync, &mut panels);
         render_tools_window(ctx, &mut map, &mut tools);
     }
 }
@@ -1990,6 +2635,7 @@ fn render_campaign_summary(
     config: &BackendConfig,
     bridge: &BackendBridge,
     map: &mut CampaignMapSurface,
+    world_sync: &WorldSyncState,
     panels: &mut PanelUiState,
 ) {
     ui.heading("Campaign Entry Scene");
@@ -2031,6 +2677,27 @@ fn render_campaign_summary(
         map.army_markers.len(),
         map.caravan_markers.len()
     ));
+    let now_ms = unix_now_millis();
+    let stale_label = if world_sync.is_stale(now_ms) { "STALE" } else { "LIVE" };
+    let tick_interval_ms = world_sync
+        .snapshot
+        .as_ref()
+        .map(|row| row.tick_interval_ms.max(1))
+        .unwrap_or(200);
+    ui.label(format!(
+        "World Sync: {} | last tick {} | est tick {} | offset {} ms",
+        stale_label,
+        world_sync.last_campaign_tick,
+        world_sync.estimated_campaign_tick(now_ms, tick_interval_ms),
+        world_sync.server_clock_offset_ms
+    ));
+    ui.label(format!("World Sync status: {}", world_sync.status_line));
+    if let Some(error) = world_sync.last_error.as_ref() {
+        ui.colored_label(
+            egui::Color32::from_rgb(235, 109, 95),
+            format!("Last sync error: {error}"),
+        );
+    }
     if let Some(settlement) = map
         .settlements
         .iter()
@@ -2107,7 +2774,13 @@ fn render_campaign_summary(
     }
 }
 
-fn render_domain_panels(ctx: &egui::Context, shell: &ShellState, map: &CampaignMapSurface, panels: &mut PanelUiState) {
+fn render_domain_panels(
+    ctx: &egui::Context,
+    shell: &ShellState,
+    map: &CampaignMapSurface,
+    world_sync: &WorldSyncState,
+    panels: &mut PanelUiState,
+) {
     render_panel_window(ctx, panels, DomainPanel::Character, |ui| {
         if let Some(bootstrap) = shell.campaign_bootstrap.as_ref() {
             ui.label(format!("Name: {}", bootstrap.character_name));
@@ -2142,61 +2815,114 @@ fn render_domain_panels(ctx: &egui::Context, shell: &ShellState, map: &CampaignM
     });
 
     render_panel_window(ctx, panels, DomainPanel::Logistics, |ui| {
-        ui.label("Army movement status");
-        for marker in &map.army_markers {
+        let armies = world_sync
+            .snapshot
+            .as_ref()
+            .map(|row| row.world.logistics.state.armies.as_slice())
+            .unwrap_or(&[]);
+        ui.label(format!(
+            "Army movement status ({})",
+            if armies.is_empty() { "no data" } else { "live" }
+        ));
+        for army in armies.iter().take(8) {
             ui.label(format!(
-                "{}: S{} -> S{} | progress {:.0}%",
-                marker.label,
-                marker.origin.0,
-                marker.destination.0,
-                marker.progress * 100.0
+                "Army {} @ S{} | troops {} | stock {}/{}/{} | shortage {}",
+                army.army_id,
+                army.location,
+                army.troop_strength,
+                army.stock.food,
+                army.stock.horses,
+                army.stock.materiel,
+                army.shortage_ticks
             ));
         }
     });
 
     render_panel_window(ctx, panels, DomainPanel::Trade, |ui| {
-        ui.label("Caravan lane status");
-        for marker in &map.caravan_markers {
+        let snapshot = world_sync.snapshot.as_ref();
+        let shipments = snapshot
+            .map(|row| row.world.trade.state.pending_shipments.as_slice())
+            .unwrap_or(&[]);
+        ui.label(format!(
+            "Caravan lane status ({})",
+            if shipments.is_empty() {
+                "no pending shipments"
+            } else {
+                "live"
+            }
+        ));
+        for shipment in shipments.iter().take(8) {
             ui.label(format!(
-                "{}: S{} -> S{} | progress {:.0}%",
-                marker.label,
-                marker.origin.0,
-                marker.destination.0,
-                marker.progress * 100.0
+                "S{} -> S{} | goods {}/{}/{}",
+                shipment.origin,
+                shipment.destination,
+                shipment.goods.food,
+                shipment.goods.horses,
+                shipment.goods.materiel
             ));
         }
-        let sea_routes = map.routes.iter().filter(|row| row.is_sea_route).count();
-        ui.label(format!("Sea routes monitored: {sea_routes}"));
+        let markets = snapshot
+            .map(|row| row.world.trade.state.markets.as_slice())
+            .unwrap_or(&[]);
+        let avg_price = if markets.is_empty() {
+            0.0
+        } else {
+            let total = markets.iter().map(|row| row.price_index_bp as f64).sum::<f64>();
+            total / markets.len() as f64
+        };
+        ui.label(format!(
+            "Markets tracked: {} | avg price idx {:.1}",
+            markets.len(),
+            avg_price
+        ));
     });
 
     render_panel_window(ctx, panels, DomainPanel::Espionage, |ui| {
-        let visible = map
-            .settlements
-            .iter()
-            .filter(|row| row.fog == FogVisibility::Visible)
-            .count();
-        let shrouded = map
-            .settlements
-            .iter()
-            .filter(|row| row.fog == FogVisibility::Shrouded)
-            .count();
-        let obscured = map
-            .settlements
-            .iter()
-            .filter(|row| row.fog == FogVisibility::Obscured)
-            .count();
-        ui.label("Fog intelligence posture");
-        ui.label(format!("Visible: {visible}"));
-        ui.label(format!("Shrouded: {shrouded}"));
-        ui.label(format!("Obscured: {obscured}"));
+        let informants = world_sync
+            .snapshot
+            .as_ref()
+            .map(|row| row.world.espionage.state.informants.as_slice())
+            .unwrap_or(&[]);
+        let reports = world_sync
+            .snapshot
+            .as_ref()
+            .map(|row| row.world.espionage.state.recent_reports.as_slice())
+            .unwrap_or(&[]);
+        ui.label(format!("Informants: {}", informants.len()));
+        for informant in informants.iter().take(6) {
+            ui.label(format!(
+                "Informant {} @ S{} | {} | rel {} | exp {}",
+                informant.informant_id,
+                informant.location,
+                informant.status,
+                informant.reliability_bp,
+                informant.exposure_bp
+            ));
+        }
+        ui.separator();
+        ui.label(format!("Recent reports: {}", reports.len()));
+        for report in reports.iter().take(4) {
+            ui.label(format!(
+                "Inf {} -> S{} | confidence {} | false={}",
+                report.informant_id, report.subject_settlement, report.confidence_bp, report.false_report
+            ));
+        }
     });
 
     render_panel_window(ctx, panels, DomainPanel::Diplomacy, |ui| {
-        ui.label("Diplomatic route pressure snapshot");
-        let land_routes = map.routes.iter().filter(|row| !row.is_sea_route).count();
-        let sea_routes = map.routes.iter().filter(|row| row.is_sea_route).count();
-        ui.label(format!("Land corridors: {land_routes}"));
-        ui.label(format!("Sea corridors: {sea_routes}"));
+        let politics = world_sync.snapshot.as_ref().map(|row| &row.world.politics.state);
+        let faction_count = politics.map(|row| row.factions.len()).unwrap_or(0);
+        let treaty_count = politics.map(|row| row.treaties.len()).unwrap_or(0);
+        ui.label("Diplomatic pressure snapshot");
+        ui.label(format!("Factions: {faction_count} | Treaties: {treaty_count}"));
+        if let Some(row) = politics {
+            for faction in row.factions.iter().take(4) {
+                ui.label(format!(
+                    "Faction {} | legitimacy {} | stability {} | influence {}",
+                    faction.faction_id, faction.legitimacy_bp, faction.stability_bp, faction.influence_points
+                ));
+            }
+        }
         if let Some(bootstrap) = shell.campaign_bootstrap.as_ref() {
             ui.label(format!(
                 "Current theater: {} ({})",
@@ -2209,6 +2935,16 @@ fn render_domain_panels(ctx: &egui::Context, shell: &ShellState, map: &CampaignM
     render_panel_window(ctx, panels, DomainPanel::Notifications, |ui| {
         ui.label("Latest status");
         ui.label(shell.status_line.as_str());
+        ui.separator();
+        ui.label(format!(
+            "World sync: {}",
+            if world_sync.is_stale(unix_now_millis()) {
+                "stale"
+            } else {
+                "live"
+            }
+        ));
+        ui.label(world_sync.status_line.as_str());
         ui.separator();
         ui.label("Panel layout");
         ui.label(layout_status.as_str());
@@ -2548,9 +3284,10 @@ mod tests {
 
     use super::{
         AuthoredMapData, AuthoredRoute, AuthoredSettlement, CharacterSummary, DOMAIN_PANELS, LayoutPreset,
-        ProvincePackData, build_graph_from_pack, default_layout_snapshot, extract_error_message, is_auth_http_error,
-        parse_startup_options, parse_structured_handoff_payload, resolve_selected_character_id,
-        sample_authored_map_data, validate_and_build_graph,
+        ProvincePackData, WorldSyncPayload, WorldSyncState, apply_world_sync_snapshot, build_graph_from_pack,
+        default_layout_snapshot, extract_error_message, is_auth_http_error, parse_startup_options,
+        parse_structured_handoff_payload, resolve_selected_character_id, sample_authored_map_data,
+        schedule_world_sync_retry, validate_and_build_graph,
     };
 
     #[test]
@@ -2738,5 +3475,67 @@ mod tests {
         assert!(is_auth_http_error("HTTP 401: invalid token"));
         assert!(is_auth_http_error("HTTP 403: forbidden"));
         assert!(!is_auth_http_error("HTTP 502: upstream failed"));
+    }
+
+    #[test]
+    fn world_sync_retry_backoff_increases_and_sets_next_poll() {
+        let mut state = WorldSyncState::default();
+        schedule_world_sync_retry(&mut state, 1_000, "network".to_string());
+        assert_eq!(state.next_poll_unix_ms, 2_000);
+        assert_eq!(state.backoff_ms, 2_000);
+        assert!(state.last_error.is_some());
+    }
+
+    #[test]
+    fn world_sync_snapshot_updates_army_and_caravan_markers() {
+        let mut map = super::CampaignMapSurface::sample();
+        let payload = WorldSyncPayload {
+            accepted: true,
+            campaign_tick: 7,
+            world: super::WorldSyncWorldPayload {
+                logistics: super::LogisticsSyncPayload {
+                    current_tick: 7,
+                    state: super::LogisticsSyncStatePayload {
+                        armies: vec![super::LogisticsArmyPayload {
+                            army_id: 7001,
+                            location: 101,
+                            troop_strength: 950,
+                            stock: super::StockPayload {
+                                food: 30,
+                                horses: 10,
+                                materiel: 12,
+                            },
+                            shortage_ticks: 0,
+                            cumulative_attrition: 0,
+                        }],
+                        pending_transfers: Vec::new(),
+                    },
+                },
+                trade: super::TradeSyncPayload {
+                    current_tick: 7,
+                    state: super::TradeSyncStatePayload {
+                        markets: Vec::new(),
+                        routes: Vec::new(),
+                        pending_shipments: vec![super::TradeShipmentPayload {
+                            origin: 101,
+                            destination: 222,
+                            goods: super::StockPayload {
+                                food: 10,
+                                horses: 2,
+                                materiel: 6,
+                            },
+                        }],
+                    },
+                },
+                ..super::WorldSyncWorldPayload::default()
+            },
+            ..WorldSyncPayload::default()
+        };
+
+        apply_world_sync_snapshot(&mut map, &payload);
+        assert_eq!(map.army_markers.len(), 1);
+        assert_eq!(map.army_markers[0].origin.0, 101);
+        assert_eq!(map.caravan_markers.len(), 1);
+        assert_eq!(map.caravan_markers[0].destination.0, 222);
     }
 }

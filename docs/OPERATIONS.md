@@ -63,6 +63,9 @@ Primary runtime observability surfaces for the PoC:
     - `runtime_health.outbox_lag.pending_count`
     - `runtime_health.release_feed.minutes_since_latest_activation`
     - `runtime_health.release_feed.update_feed_url_present`
+    - `zone_runtime.world_sync.success_total`
+    - `zone_runtime.world_sync.failure_total`
+    - `zone_runtime.world_sync.latency_ms.p95_ms`
 - World-service summary: `GET /metrics/summary`.
   - Required tiles:
     - `tick_metrics.last_tick_lag_ms`

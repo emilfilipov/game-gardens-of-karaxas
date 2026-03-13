@@ -24,6 +24,9 @@ class _MetricsState:
     zone_broadcast_recipients_total: int = 0
     auth_login_success_total: int = 0
     auth_login_failure_total: int = 0
+    world_sync_success_total: int = 0
+    world_sync_failure_total: int = 0
+    world_sync_samples_ms: deque[float] = field(default_factory=lambda: deque(maxlen=512))
     ws_disconnect_reason_counts: dict[str, int] = field(default_factory=dict)
     instance_assignments_by_kind: dict[str, int] = field(default_factory=dict)
     instance_restores_total: int = 0
@@ -84,6 +87,16 @@ def record_auth_login_result(success: bool) -> None:
             _state.auth_login_failure_total += 1
 
 
+def record_world_sync_result(*, success: bool, latency_ms: float | None = None) -> None:
+    with _lock:
+        if success:
+            _state.world_sync_success_total += 1
+            if latency_ms is not None:
+                _state.world_sync_samples_ms.append(max(0.0, float(latency_ms)))
+        else:
+            _state.world_sync_failure_total += 1
+
+
 def record_ws_disconnect(reason: str) -> None:
     normalized = (reason or "unknown").strip().lower() or "unknown"
     with _lock:
@@ -128,6 +141,9 @@ def zone_runtime_stats() -> dict[str, object]:
         zone_broadcast_recipients = _state.zone_broadcast_recipients_total
         auth_success = _state.auth_login_success_total
         auth_failure = _state.auth_login_failure_total
+        world_sync_success = _state.world_sync_success_total
+        world_sync_failure = _state.world_sync_failure_total
+        world_sync_samples = list(_state.world_sync_samples_ms)
         ws_disconnect_reason_counts = dict(_state.ws_disconnect_reason_counts)
         instance_assignments_by_kind = dict(_state.instance_assignments_by_kind)
         instance_restores_total = _state.instance_restores_total
@@ -150,6 +166,11 @@ def zone_runtime_stats() -> dict[str, object]:
             "success_total": int(auth_success),
             "failure_total": int(auth_failure),
         },
+        "world_sync": {
+            "success_total": int(world_sync_success),
+            "failure_total": int(world_sync_failure),
+            "latency_ms": _sample_stats(world_sync_samples),
+        },
         "ws_disconnect_reasons": ws_disconnect_reason_counts,
         "instance_assignments_by_kind": instance_assignments_by_kind,
         "instance_restores_total": int(instance_restores_total),
@@ -170,6 +191,9 @@ def reset_runtime_metrics_for_tests() -> None:
         _state.forced_logout_events = 0
         _state.auth_login_success_total = 0
         _state.auth_login_failure_total = 0
+        _state.world_sync_success_total = 0
+        _state.world_sync_failure_total = 0
+        _state.world_sync_samples_ms.clear()
         _state.ws_disconnect_reason_counts.clear()
         _state.instance_assignments_by_kind.clear()
         _state.instance_restores_total = 0
