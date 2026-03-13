@@ -11,7 +11,15 @@ $ErrorActionPreference = "Stop"
 
 $feed = $FeedUrl.TrimEnd("/")
 $latestUrl = "$feed/latest.json"
-$latest = Invoke-RestMethod -Method Get -Uri $latestUrl
+$latestBody = (Invoke-WebRequest -Method Get -Uri $latestUrl).Content
+if (-not $latestBody) {
+  throw "latest.json at $latestUrl is empty."
+}
+try {
+  $latest = $latestBody | ConvertFrom-Json
+} catch {
+  throw "latest.json at $latestUrl is not valid JSON."
+}
 if (-not $latest.version) {
   throw "latest.json at $latestUrl does not include 'version'."
 }

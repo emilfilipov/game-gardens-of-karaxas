@@ -125,8 +125,8 @@ try {
   Write-Latest -ChannelDir $gameChannelDir -Version $gameOld -Channel "game" -ArtifactPrefix $gamePrefix
   Write-Latest -ChannelDir $designerChannelDir -Version $designerOld -Channel "designer" -ArtifactPrefix $designerPrefix
 
-  & powershell -ExecutionPolicy Bypass -File "$PSScriptRoot/install_game_client.ps1" -FeedUrl $gameFeedUrl -InstallDir $GameInstallDir
-  & powershell -ExecutionPolicy Bypass -File "$PSScriptRoot/install_designer_client.ps1" -FeedUrl $designerFeedUrl -InstallDir $DesignerInstallDir
+  & "$PSScriptRoot/install_game_client.ps1" -FeedUrl $gameFeedUrl -InstallDir $GameInstallDir
+  & "$PSScriptRoot/install_designer_client.ps1" -FeedUrl $designerFeedUrl -InstallDir $DesignerInstallDir
 
   Require-Path -Path (Join-Path $GameInstallDir "bin\\AmbitionsOfPeaceClient.exe") -Label "game runtime executable"
   Require-Path -Path (Join-Path $DesignerInstallDir "start_designer_client.bat") -Label "designer launcher"
@@ -143,8 +143,8 @@ try {
   Write-Latest -ChannelDir $gameChannelDir -Version $gameNew -Channel "game" -ArtifactPrefix $gamePrefix
   Write-Latest -ChannelDir $designerChannelDir -Version $designerNew -Channel "designer" -ArtifactPrefix $designerPrefix
 
-  & powershell -ExecutionPolicy Bypass -File "$PSScriptRoot/install_game_client.ps1" -FeedUrl $gameFeedUrl -InstallDir $GameInstallDir
-  & powershell -ExecutionPolicy Bypass -File "$PSScriptRoot/install_designer_client.ps1" -FeedUrl $designerFeedUrl -InstallDir $DesignerInstallDir
+  & "$PSScriptRoot/install_game_client.ps1" -FeedUrl $gameFeedUrl -InstallDir $GameInstallDir
+  & "$PSScriptRoot/install_designer_client.ps1" -FeedUrl $designerFeedUrl -InstallDir $DesignerInstallDir
 
   $installedGameNew = Read-InstalledVersion -InstallDir $GameInstallDir
   $installedDesignerNew = Read-InstalledVersion -InstallDir $DesignerInstallDir
