@@ -40,3 +40,7 @@ backend/runtime/designer_world_state/
 # Rust
 /target/
 **/target/
+
+# Local runtime outputs
+runtime/
+client-app/runtime/

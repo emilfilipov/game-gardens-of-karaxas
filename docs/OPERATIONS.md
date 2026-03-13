@@ -25,6 +25,17 @@ Operational runbook for Ambitions of Peace Rust-first runtime/services, release 
    - designer (`win-designer`)
 5. Verify retention policy kept only the latest 3 versions per channel/feed/archive.
 
+## Local PoC Bootstrap (Task 037)
+### First run
+1. Copy `backend/.env.example` to `backend/.env` and configure DB + auth values.
+2. Run `scripts/run_local_poc_stack.sh`.
+3. Confirm readiness banner and generated handoff file (`client-app/runtime/startup_handoff.local.json`).
+
+### Reset flow
+1. Stop stack (`Ctrl+C`).
+2. Run `scripts/run_local_poc_stack.sh --reset-runtime`.
+3. If needed, skip client launch for service-only debugging: `scripts/run_local_poc_stack.sh --no-client`.
+
 ## Failure Handling
 ### CI failure
 1. Identify failing workflow/job.

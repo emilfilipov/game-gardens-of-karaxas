@@ -36,9 +36,13 @@ Core simulation contract: all core systems run in real time (travel, logistics, 
 - `~/.cargo/bin/cargo test --workspace`
 
 ## Key Runtime Commands
+- One-command local PoC stack bootstrap (backend + world-service + deterministic seed + client handoff): `scripts/run_local_poc_stack.sh`
+- One-command bootstrap without launching client: `scripts/run_local_poc_stack.sh --no-client`
+- Runtime/log reset flow before re-bootstrap: `scripts/run_local_poc_stack.sh --reset-runtime`
 - Bootstrap shell: `~/.cargo/bin/cargo run -p client-app --features bootstrap-shell`
 - Bootstrap shell with startup handoff file: `~/.cargo/bin/cargo run -p client-app --features bootstrap-shell -- --handoff-file <path/to/startup_handoff.json>`
 - Sandbox UI: `~/.cargo/bin/cargo run -p client-app --features sandbox-ui`
+- Deterministic local seed helper only: `python3 backend/scripts/seed_local_poc_account.py --base-url http://127.0.0.1:8000 --output-handoff client-app/runtime/startup_handoff.local.json`
 - Placeholder player sprite regeneration: `python3 tools/generate_player_placeholder_png.py`
 
 ## Packaging and Release

@@ -17,6 +17,8 @@ FastAPI backend for Ambitions of Peace online account/control-plane systems duri
 ## Local
 1. Copy `backend/.env.example` to `backend/.env` and fill values.
 2. Run `backend/scripts/run_local.sh`.
+3. For full-stack local bootstrap (world-service + backend + seed + client handoff), run repository command:
+   - `scripts/run_local_poc_stack.sh`
 
 ## Deploy
 Run `backend/scripts/deploy_cloud_run.sh` after setting env vars (or `backend/.env`).

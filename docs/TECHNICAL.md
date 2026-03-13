@@ -10,7 +10,7 @@ Accepted ADRs for the current migration program:
 - `docs/adr/0003-phased-fastapi-to-rust-authority-migration.md`
 - `docs/adr/0004-redis-deferral-and-adoption-gate.md`
 
-## Current State Summary (As Of 2026-03-12)
+## Current State Summary (As Of 2026-03-13)
 Active repository stack is now Rust-first plus a retained FastAPI control plane:
 - FastAPI + PostgreSQL backend (`backend/`)
 - Rust world authority service (`world-service/`)
@@ -150,6 +150,11 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Sandbox UI now also includes a real-time politics panel (standing/office/treaty controls + legitimacy/stability/influence readouts) powered by shared `sim-core` politics rules.
 - Sandbox UI now also includes a real-time battle contract panel (encounter start, formation/reserve controls, force-resolve controls + live instance/result readouts) powered by shared `sim-core` battle contract rules.
 - Placeholder player sprite asset is generated in-repo (`tools/generate_player_placeholder_png.py` -> `client-app/assets/player_circle.png`) to keep early UI flow asset-stable.
+- Local one-command PoC bootstrap now exists at `scripts/run_local_poc_stack.sh`:
+  - starts `world-service` + backend with readiness gates,
+  - runs deterministic account/character seed (`backend/scripts/seed_local_poc_account.py`),
+  - emits startup handoff payload (`client-app/runtime/startup_handoff.local.json`),
+  - can run backend smoke and launch `client-app` bootstrap shell automatically.
 - Runtime priority is Windows-first for client delivery and manual validation loops; Linux/Steam client parity is deferred until post-PoC hardening.
 
 ## Data and Eventing Model
@@ -224,6 +229,7 @@ Current baseline checks retained during transition:
   - `python tools/package_client_app_release.py --version <x.y.z> --exe <path/to/client-app.exe> --output-dir releases/game`
   - `python tools/package_designer_client_release.py --version <x.y.z> --output-dir releases/designer`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
+- One-command local stack smoke: `scripts/run_local_poc_stack.sh --no-client`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.
 - CI now includes Windows client sandbox compile gate (`client-windows-sandbox`) and deterministic replay gate (`determinism-replay`) in `.github/workflows/rust-checks.yml`.
 - Regression policy: each implemented simulation subsystem must include deterministic unit tests plus payload serialization roundtrip tests to prevent cross-system breakage during rapid iteration.
