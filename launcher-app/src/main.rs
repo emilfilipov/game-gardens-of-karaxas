@@ -251,10 +251,10 @@ impl LauncherApp {
                     } => {
                         self.latest_version = latest_version;
                         self.news_notes = notes;
-                        if let Some(url) = feed_url {
-                            if !url.trim().is_empty() {
-                                self.feed_url = url;
-                            }
+                        if let Some(url) = feed_url
+                            && !url.trim().is_empty()
+                        {
+                            self.feed_url = url;
                         }
                     }
                     WorkerEvent::DownloadProgress { downloaded, total } => {
