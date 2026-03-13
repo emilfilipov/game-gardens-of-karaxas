@@ -14,6 +14,7 @@ use std::sync::Mutex;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const DEFAULT_API_BASE_URL: &str = "http://127.0.0.1:8000";
 const DEFAULT_CLIENT_VERSION: &str = "dev-0.1.0";
@@ -23,6 +24,59 @@ const DEFAULT_AUTHORED_MAP_PATH: &str = "client-app/runtime/authored_map.json";
 const DEFAULT_PROVINCE_PACK_PATH: &str = "assets/content/provinces/acre/acre_poc_v1.json";
 const MAP_SCALE: f32 = 2.3;
 const SETTLEMENT_KIND_OPTIONS: [&str; 5] = ["camp", "village", "town", "city", "fortress"];
+
+const HANDOFF_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Default)]
+struct StartupOptions {
+    handoff_file: Option<PathBuf>,
+    handoff_json: Option<String>,
+}
+
+impl StartupOptions {
+    fn from_args() -> Self {
+        parse_startup_options(env::args().skip(1))
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedStartupHandoff {
+    source: String,
+    email: Option<String>,
+    selected_character_id: Option<u64>,
+    session: SessionContext,
+    base_url: Option<String>,
+    client_version: Option<String>,
+    client_content_version_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct StructuredHandoffPayload {
+    #[serde(default)]
+    schema_version: u32,
+    #[serde(default)]
+    email: String,
+    #[serde(default)]
+    access_token: String,
+    #[serde(default)]
+    refresh_token: String,
+    #[serde(default)]
+    session_id: String,
+    #[serde(default)]
+    user_id: Option<u64>,
+    #[serde(default)]
+    display_name: String,
+    #[serde(default)]
+    character_id: Option<u64>,
+    #[serde(default)]
+    api_base_url: String,
+    #[serde(default)]
+    client_version: String,
+    #[serde(default)]
+    client_content_version_key: String,
+    #[serde(default)]
+    expires_unix_ms: Option<u64>,
+}
 
 fn default_settlement_kind() -> String {
     "town".to_string()
@@ -130,6 +184,23 @@ impl BackendConfig {
             client_content_version_key,
         }
     }
+
+    fn apply_handoff_overrides(
+        &mut self,
+        base_url: Option<String>,
+        client_version: Option<String>,
+        client_content_version_key: Option<String>,
+    ) {
+        if let Some(value) = base_url.and_then(trimmed_nonempty) {
+            self.base_url = value.trim_end_matches('/').to_string();
+        }
+        if let Some(value) = client_version.and_then(trimmed_nonempty) {
+            self.client_version = value;
+        }
+        if let Some(value) = client_content_version_key.and_then(trimmed_nonempty) {
+            self.client_content_version_key = value;
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -143,6 +214,7 @@ struct ShellState {
     phase: ShellPhase,
     status_line: String,
     request_in_flight: bool,
+    handoff_session_active: bool,
     email: String,
     password: String,
     otp_code: String,
@@ -153,7 +225,7 @@ struct ShellState {
 }
 
 impl ShellState {
-    fn from_env_handoff() -> Self {
+    fn from_startup_handoff(config: &mut BackendConfig, options: &StartupOptions) -> Self {
         let mut state = Self {
             phase: ShellPhase::Login,
             status_line: "Ready. Enter account credentials to continue.".to_string(),
@@ -162,32 +234,31 @@ impl ShellState {
             ..Self::default()
         };
 
-        let access_token = env::var("AOP_HANDOFF_ACCESS_TOKEN").ok().and_then(trimmed_nonempty);
-        let session_id = env::var("AOP_HANDOFF_SESSION_ID").ok().and_then(trimmed_nonempty);
-
-        if let (Some(access_token), Some(session_id)) = (access_token, session_id) {
-            let refresh_token = env::var("AOP_HANDOFF_REFRESH_TOKEN")
-                .ok()
-                .and_then(trimmed_nonempty)
-                .unwrap_or_default();
-            let user_id = env::var("AOP_HANDOFF_USER_ID")
-                .ok()
-                .and_then(|value| value.parse::<u64>().ok())
-                .unwrap_or(0);
-            let display_name = env::var("AOP_HANDOFF_DISPLAY_NAME")
-                .ok()
-                .and_then(trimmed_nonempty)
-                .unwrap_or_else(|| "Handoff User".to_string());
-
-            state.session = Some(SessionContext {
-                access_token,
-                refresh_token,
-                session_id,
-                user_id,
-                display_name,
-            });
-            state.phase = ShellPhase::CharacterSelect;
-            state.status_line = "Launcher handoff session loaded. Fetching characters...".to_string();
+        match resolve_startup_handoff(options) {
+            Ok(Some(handoff)) => {
+                let ResolvedStartupHandoff {
+                    source,
+                    email,
+                    selected_character_id,
+                    session,
+                    base_url,
+                    client_version,
+                    client_content_version_key,
+                } = handoff;
+                config.apply_handoff_overrides(base_url, client_version, client_content_version_key);
+                if let Some(email) = email {
+                    state.email = email;
+                }
+                state.selected_character_id = selected_character_id;
+                state.session = Some(session);
+                state.handoff_session_active = true;
+                state.phase = ShellPhase::CharacterSelect;
+                state.status_line = format!("External handoff loaded from {}. Fetching characters...", source);
+            }
+            Ok(None) => {}
+            Err(error) => {
+                state.status_line = format!("External handoff rejected: {error}. Enter credentials to continue.");
+            }
         }
 
         state
@@ -997,13 +1068,15 @@ struct BootstrapRuntimePayload {
 }
 
 pub fn run() {
-    let config = BackendConfig::from_env();
+    let startup_options = StartupOptions::from_args();
+    let mut config = BackendConfig::from_env();
+    let shell_state = ShellState::from_startup_handoff(&mut config, &startup_options);
     let bridge = spawn_backend_bridge(config.clone());
 
     App::new()
         .insert_resource(config)
         .insert_resource(bridge)
-        .insert_resource(ShellState::from_env_handoff())
+        .insert_resource(shell_state)
         .insert_resource(CampaignScene::default())
         .insert_resource(CampaignMapSurface::sample())
         .insert_resource(PanelUiState::from_env())
@@ -1232,6 +1305,206 @@ fn extract_error_message(body: &str) -> String {
     fallback.chars().take(180).collect()
 }
 
+fn parse_startup_options<I>(args: I) -> StartupOptions
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut options = StartupOptions::default();
+    let mut iter = args.into_iter();
+
+    while let Some(arg) = iter.next() {
+        if let Some(value) = arg.strip_prefix("--handoff-file=") {
+            options.handoff_file = trimmed_nonempty(value.to_string()).map(PathBuf::from);
+            continue;
+        }
+        if arg == "--handoff-file" {
+            options.handoff_file = iter.next().and_then(trimmed_nonempty).map(PathBuf::from);
+            continue;
+        }
+        if let Some(value) = arg.strip_prefix("--handoff-json=") {
+            options.handoff_json = trimmed_nonempty(value.to_string());
+            continue;
+        }
+        if arg == "--handoff-json" {
+            options.handoff_json = iter.next().and_then(trimmed_nonempty);
+            continue;
+        }
+    }
+
+    options
+}
+
+fn unix_now_millis() -> u64 {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(duration) => u64::try_from(duration.as_millis()).unwrap_or(u64::MAX),
+        Err(_) => 0,
+    }
+}
+
+fn resolve_startup_handoff(options: &StartupOptions) -> Result<Option<ResolvedStartupHandoff>, String> {
+    if let Some(raw) = options.handoff_json.clone() {
+        let handoff = parse_structured_handoff_payload(&raw, "cli:--handoff-json", unix_now_millis())?;
+        return Ok(Some(handoff));
+    }
+
+    if let Some(path) = options.handoff_file.as_ref() {
+        let raw = fs::read_to_string(path)
+            .map_err(|error| format!("failed reading handoff file {}: {error}", path.display()))?;
+        let handoff = parse_structured_handoff_payload(&raw, &format!("cli:{}", path.display()), unix_now_millis())?;
+        return Ok(Some(handoff));
+    }
+
+    if let Some(raw) = env::var("AOP_HANDOFF_JSON").ok().and_then(trimmed_nonempty) {
+        let handoff = parse_structured_handoff_payload(&raw, "env:AOP_HANDOFF_JSON", unix_now_millis())?;
+        return Ok(Some(handoff));
+    }
+
+    if let Some(path_text) = env::var("AOP_HANDOFF_PATH").ok().and_then(trimmed_nonempty) {
+        let path = PathBuf::from(path_text);
+        let raw = fs::read_to_string(&path)
+            .map_err(|error| format!("failed reading handoff file {}: {error}", path.display()))?;
+        let handoff = parse_structured_handoff_payload(&raw, &format!("env:{}", path.display()), unix_now_millis())?;
+        return Ok(Some(handoff));
+    }
+
+    resolve_legacy_env_handoff()
+}
+
+fn parse_structured_handoff_payload(
+    raw: &str,
+    source: &str,
+    now_unix_ms: u64,
+) -> Result<ResolvedStartupHandoff, String> {
+    let payload: StructuredHandoffPayload =
+        serde_json::from_str(raw).map_err(|error| format!("invalid handoff JSON from {source}: {error}"))?;
+
+    if payload.schema_version != 0 && payload.schema_version != HANDOFF_SCHEMA_VERSION {
+        return Err(format!(
+            "unsupported handoff schema_version={} from {}",
+            payload.schema_version, source
+        ));
+    }
+
+    if let Some(expires_unix_ms) = payload.expires_unix_ms
+        && now_unix_ms > expires_unix_ms
+    {
+        return Err(format!(
+            "handoff payload from {} is expired (expires_unix_ms={expires_unix_ms})",
+            source
+        ));
+    }
+
+    let access_token = trimmed_nonempty(payload.access_token)
+        .ok_or_else(|| format!("handoff payload from {} is missing access_token", source))?;
+    let session_id = trimmed_nonempty(payload.session_id)
+        .ok_or_else(|| format!("handoff payload from {} is missing session_id", source))?;
+
+    let selected_character_id = payload.character_id.filter(|value| *value > 0);
+    let session = SessionContext {
+        access_token,
+        refresh_token: trimmed_nonempty(payload.refresh_token).unwrap_or_default(),
+        session_id,
+        user_id: payload.user_id.unwrap_or(0),
+        display_name: trimmed_nonempty(payload.display_name).unwrap_or_else(|| "Handoff User".to_string()),
+    };
+
+    Ok(ResolvedStartupHandoff {
+        source: source.to_string(),
+        email: trimmed_nonempty(payload.email),
+        selected_character_id,
+        session,
+        base_url: trimmed_nonempty(payload.api_base_url),
+        client_version: trimmed_nonempty(payload.client_version),
+        client_content_version_key: trimmed_nonempty(payload.client_content_version_key),
+    })
+}
+
+fn resolve_legacy_env_handoff() -> Result<Option<ResolvedStartupHandoff>, String> {
+    let access_token = env::var("AOP_HANDOFF_ACCESS_TOKEN").ok().and_then(trimmed_nonempty);
+    let session_id = env::var("AOP_HANDOFF_SESSION_ID").ok().and_then(trimmed_nonempty);
+
+    if access_token.is_none() && session_id.is_none() {
+        return Ok(None);
+    }
+
+    let access_token = access_token.ok_or_else(|| {
+        "legacy handoff missing AOP_HANDOFF_ACCESS_TOKEN while AOP_HANDOFF_SESSION_ID is set".to_string()
+    })?;
+    let session_id = session_id.ok_or_else(|| {
+        "legacy handoff missing AOP_HANDOFF_SESSION_ID while AOP_HANDOFF_ACCESS_TOKEN is set".to_string()
+    })?;
+
+    let expires_unix_ms = env::var("AOP_HANDOFF_EXPIRES_UNIX_MS")
+        .ok()
+        .and_then(trimmed_nonempty)
+        .map(|value| {
+            value
+                .parse::<u64>()
+                .map_err(|_| "AOP_HANDOFF_EXPIRES_UNIX_MS must be an unsigned integer (unix milliseconds)".to_string())
+        })
+        .transpose()?;
+
+    if let Some(expires) = expires_unix_ms
+        && unix_now_millis() > expires
+    {
+        return Err(format!(
+            "legacy handoff payload is expired (AOP_HANDOFF_EXPIRES_UNIX_MS={expires})"
+        ));
+    }
+
+    let user_id = env::var("AOP_HANDOFF_USER_ID")
+        .ok()
+        .and_then(trimmed_nonempty)
+        .map(|value| {
+            value
+                .parse::<u64>()
+                .map_err(|_| "AOP_HANDOFF_USER_ID must be an unsigned integer".to_string())
+        })
+        .transpose()?
+        .unwrap_or(0);
+
+    let selected_character_id = env::var("AOP_HANDOFF_CHARACTER_ID")
+        .ok()
+        .and_then(trimmed_nonempty)
+        .map(|value| {
+            value
+                .parse::<u64>()
+                .map_err(|_| "AOP_HANDOFF_CHARACTER_ID must be an unsigned integer".to_string())
+        })
+        .transpose()?
+        .filter(|value| *value > 0);
+
+    let session = SessionContext {
+        access_token,
+        refresh_token: env::var("AOP_HANDOFF_REFRESH_TOKEN")
+            .ok()
+            .and_then(trimmed_nonempty)
+            .unwrap_or_default(),
+        session_id,
+        user_id,
+        display_name: env::var("AOP_HANDOFF_DISPLAY_NAME")
+            .ok()
+            .and_then(trimmed_nonempty)
+            .unwrap_or_else(|| "Handoff User".to_string()),
+    };
+
+    Ok(Some(ResolvedStartupHandoff {
+        source: "legacy-env".to_string(),
+        email: env::var("AOP_HANDOFF_EMAIL").ok().and_then(trimmed_nonempty),
+        selected_character_id,
+        session,
+        base_url: env::var("AOP_HANDOFF_API_BASE_URL").ok().and_then(trimmed_nonempty),
+        client_version: env::var("AOP_HANDOFF_CLIENT_VERSION").ok().and_then(trimmed_nonempty),
+        client_content_version_key: env::var("AOP_HANDOFF_CLIENT_CONTENT_VERSION_KEY")
+            .ok()
+            .and_then(trimmed_nonempty),
+    }))
+}
+
+fn is_auth_http_error(error: &str) -> bool {
+    error.contains("HTTP 401") || error.contains("HTTP 403")
+}
+
 fn setup_scene(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
@@ -1324,6 +1597,7 @@ fn handle_backend_response(shell: &mut ShellState, request_tx: &Sender<BackendRe
     match message {
         BackendResponse::Login(Ok(session)) => {
             shell.session = Some(session.clone());
+            shell.handoff_session_active = false;
             shell.phase = ShellPhase::CharacterSelect;
             shell.status_line = "Login successful. Fetching character roster...".to_string();
             shell.request_in_flight = request_tx
@@ -1352,12 +1626,23 @@ fn handle_backend_response(shell: &mut ShellState, request_tx: &Sender<BackendRe
             }
         }
         BackendResponse::Characters(Err(error)) => {
+            if shell.handoff_session_active && is_auth_http_error(&error) {
+                shell.phase = ShellPhase::Login;
+                shell.request_in_flight = false;
+                shell.session = None;
+                shell.characters.clear();
+                shell.selected_character_id = None;
+                shell.handoff_session_active = false;
+                shell.status_line = format!("External handoff session was rejected ({error}). Please log in again.");
+                return;
+            }
             shell.phase = ShellPhase::CharacterSelect;
             shell.request_in_flight = false;
             shell.status_line = format!("Character fetch failed: {error}");
         }
         BackendResponse::Bootstrap(Ok(bootstrap)) => {
             shell.campaign_bootstrap = Some(bootstrap.clone());
+            shell.handoff_session_active = false;
             shell.phase = ShellPhase::CampaignReady;
             shell.request_in_flight = false;
             shell.status_line = format!(
@@ -1366,6 +1651,16 @@ fn handle_backend_response(shell: &mut ShellState, request_tx: &Sender<BackendRe
             );
         }
         BackendResponse::Bootstrap(Err(error)) => {
+            if shell.handoff_session_active && is_auth_http_error(&error) {
+                shell.phase = ShellPhase::Login;
+                shell.request_in_flight = false;
+                shell.session = None;
+                shell.characters.clear();
+                shell.selected_character_id = None;
+                shell.handoff_session_active = false;
+                shell.status_line = format!("External handoff session was rejected ({error}). Please log in again.");
+                return;
+            }
             shell.phase = ShellPhase::CharacterSelect;
             shell.request_in_flight = false;
             shell.status_line = format!("World bootstrap failed: {error}");
@@ -1590,8 +1885,9 @@ fn render_login_controls(ui: &mut egui::Ui, shell: &mut ShellState, config: &Bac
     }
 
     ui.separator();
-    ui.label("Optional external handoff env vars:");
-    ui.label("AOP_HANDOFF_ACCESS_TOKEN, AOP_HANDOFF_SESSION_ID, AOP_HANDOFF_USER_ID, AOP_HANDOFF_DISPLAY_NAME");
+    ui.label("Optional external handoff:");
+    ui.label("Preferred: --handoff-file <path> or AOP_HANDOFF_PATH (JSON contract, schema_version=1).");
+    ui.label("Fallback: legacy env vars AOP_HANDOFF_ACCESS_TOKEN + AOP_HANDOFF_SESSION_ID.");
 }
 
 fn render_character_controls(
@@ -1681,6 +1977,7 @@ fn render_character_controls(
         shell.characters.clear();
         shell.selected_character_id = None;
         shell.campaign_bootstrap = None;
+        shell.handoff_session_active = false;
         shell.phase = ShellPhase::Login;
         shell.request_in_flight = false;
         shell.status_line = "Session cleared. Enter credentials to continue.".to_string();
@@ -2251,8 +2548,9 @@ mod tests {
 
     use super::{
         AuthoredMapData, AuthoredRoute, AuthoredSettlement, CharacterSummary, DOMAIN_PANELS, LayoutPreset,
-        ProvincePackData, build_graph_from_pack, default_layout_snapshot, extract_error_message,
-        resolve_selected_character_id, sample_authored_map_data, validate_and_build_graph,
+        ProvincePackData, build_graph_from_pack, default_layout_snapshot, extract_error_message, is_auth_http_error,
+        parse_startup_options, parse_structured_handoff_payload, resolve_selected_character_id,
+        sample_authored_map_data, validate_and_build_graph,
     };
 
     #[test]
@@ -2366,5 +2664,79 @@ mod tests {
         let graph = build_graph_from_pack(&parsed).expect("province pack graph should validate");
         assert_eq!(graph.settlements().count(), 2);
         assert_eq!(graph.routes().count(), 4);
+    }
+
+    #[test]
+    fn startup_options_parse_handoff_flags() {
+        let options = parse_startup_options(vec![
+            "--handoff-file".to_string(),
+            "C:/tmp/handoff.json".to_string(),
+            "--handoff-json={\"schema_version\":1}".to_string(),
+        ]);
+
+        assert_eq!(
+            options
+                .handoff_file
+                .expect("handoff file should be parsed")
+                .to_string_lossy(),
+            "C:/tmp/handoff.json"
+        );
+        assert_eq!(
+            options.handoff_json.expect("handoff json should be parsed"),
+            "{\"schema_version\":1}"
+        );
+    }
+
+    #[test]
+    fn structured_handoff_payload_parses_and_validates() {
+        let payload = r#"{
+            "schema_version": 1,
+            "email": "designer@test.com",
+            "access_token": "token-abc",
+            "refresh_token": "refresh-xyz",
+            "session_id": "session-123",
+            "user_id": 77,
+            "display_name": "Designer",
+            "character_id": 42,
+            "api_base_url": "https://example.test/api",
+            "client_version": "1.2.3",
+            "client_content_version_key": "runtime_v2",
+            "expires_unix_ms": 32503680000000
+        }"#;
+
+        let handoff = parse_structured_handoff_payload(payload, "test", 1).expect("handoff should parse");
+        assert_eq!(handoff.session.session_id, "session-123");
+        assert_eq!(handoff.session.user_id, 77);
+        assert_eq!(handoff.selected_character_id, Some(42));
+        assert_eq!(handoff.base_url.as_deref(), Some("https://example.test/api"));
+        assert_eq!(handoff.client_version.as_deref(), Some("1.2.3"));
+        assert_eq!(handoff.client_content_version_key.as_deref(), Some("runtime_v2"));
+    }
+
+    #[test]
+    fn structured_handoff_payload_rejects_missing_required_fields_and_expired_payloads() {
+        let missing_session_id = r#"{
+            "schema_version": 1,
+            "access_token": "token-abc"
+        }"#;
+        let error = parse_structured_handoff_payload(missing_session_id, "test", 10)
+            .expect_err("missing session_id should fail");
+        assert!(error.contains("session_id"));
+
+        let expired = r#"{
+            "schema_version": 1,
+            "access_token": "token-abc",
+            "session_id": "session-123",
+            "expires_unix_ms": 9
+        }"#;
+        let error = parse_structured_handoff_payload(expired, "test", 10).expect_err("expired payload should fail");
+        assert!(error.contains("expired"));
+    }
+
+    #[test]
+    fn auth_http_error_detection_catches_401_and_403() {
+        assert!(is_auth_http_error("HTTP 401: invalid token"));
+        assert!(is_auth_http_error("HTTP 403: forbidden"));
+        assert!(!is_auth_http_error("HTTP 502: upstream failed"));
     }
 }

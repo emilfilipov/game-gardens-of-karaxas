@@ -48,6 +48,25 @@ Optional overrides:
 - pass `-FeedUrl` to target an explicit channel URL.
 - pass `-InstallDir` to customize install root.
 
+## Windows Startup Handoff (AOP-PIVOT-036)
+`client-app` supports structured startup handoff so launcher/install flows can inject authenticated session context without manual environment setup.
+
+Supported inputs (priority order):
+- CLI: `--handoff-json <json>` or `--handoff-file <path>`
+- Env: `AOP_HANDOFF_JSON` or `AOP_HANDOFF_PATH`
+- Legacy env fallback: `AOP_HANDOFF_ACCESS_TOKEN` + `AOP_HANDOFF_SESSION_ID` (plus optional legacy fields)
+
+Structured handoff JSON (schema version `1`) fields:
+- required: `schema_version`, `access_token`, `session_id`
+- optional: `refresh_token`, `user_id`, `display_name`, `email`, `character_id`, `expires_unix_ms`, `api_base_url`, `client_version`, `client_content_version_key`
+
+Example launch:
+```powershell
+.\client-app.exe --handoff-file "$env:LOCALAPPDATA\AmbitionsOfPeace\handoff\startup_handoff.json"
+```
+
+If handoff payload is invalid/expired or rejected by backend (`HTTP 401/403`), client clears handoff session and returns to login with actionable status text.
+
 ## Required CI Variables/Secrets
 Required for publish:
 - `KARAXAS_GCS_RELEASE_BUCKET` (variable)

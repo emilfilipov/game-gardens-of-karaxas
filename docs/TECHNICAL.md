@@ -110,10 +110,12 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Designer tooling is delivered as a dedicated, separately packaged client/update channel so authoring workflows are decoupled from player runtime releases.
 - `client-app` now includes a feature-gated Bevy bootstrap shell (`cargo run -p client-app --features bootstrap-shell`) with:
   - credential login to FastAPI `/auth/login`,
-  - optional external session handoff via environment (`AOP_HANDOFF_ACCESS_TOKEN`, `AOP_HANDOFF_SESSION_ID`, etc.),
+  - external startup handoff contract via `--handoff-file` / `--handoff-json` or env (`AOP_HANDOFF_PATH` / `AOP_HANDOFF_JSON`) with schema validation, expiry checks, and backend config overrides (`api_base_url`, `client_version`, `client_content_version_key`),
+  - legacy env handoff compatibility (`AOP_HANDOFF_ACCESS_TOKEN`, `AOP_HANDOFF_SESSION_ID`, etc.) as fallback during migration,
   - authenticated character roster fetch from `/characters`,
   - session bootstrap fetch from `/characters/{character_id}/world-bootstrap`,
-  - campaign entry scene handoff with spawned player marker at bootstrap world coordinates.
+  - campaign entry scene handoff with spawned player marker at bootstrap world coordinates,
+  - actionable stale/invalid handoff handling that clears rejected handoff sessions and returns user to login.
 - Bootstrap shell campaign view now includes a rendering MVP for strategic map surfaces:
   - settlement nodes and road/sea route overlays from shared `sim-core` travel graph data,
   - deterministic sample army/caravan marker animation along routes,

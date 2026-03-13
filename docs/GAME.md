@@ -114,7 +114,7 @@ This section is the detailed product-level description of all implemented and pl
 
 #### Bevy bootstrap shell (login -> world bootstrap -> campaign entry)
 - Purpose: provide the first Rust client entry path without external editor/UI tooling.
-- Loop: player logs in (or uses external handoff session), client fetches authenticated character roster, requests world bootstrap payload for selected character, and FastAPI bridges that request to signed Rust world-entry bootstrap metadata before campaign scene handoff.
+- Loop: player logs in (or uses external startup handoff session via structured file/JSON contract), client fetches authenticated character roster, requests world bootstrap payload for selected character, and FastAPI bridges that request to signed Rust world-entry bootstrap metadata before campaign scene handoff.
 - Gameplay impact: establishes the practical account/session-to-world handoff path needed for vertical-slice playability.
 
 #### Code-first gameplay panel suite (`bevy_egui`)

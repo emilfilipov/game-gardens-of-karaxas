@@ -37,6 +37,7 @@ Core simulation contract: all core systems run in real time (travel, logistics, 
 
 ## Key Runtime Commands
 - Bootstrap shell: `~/.cargo/bin/cargo run -p client-app --features bootstrap-shell`
+- Bootstrap shell with startup handoff file: `~/.cargo/bin/cargo run -p client-app --features bootstrap-shell -- --handoff-file <path/to/startup_handoff.json>`
 - Sandbox UI: `~/.cargo/bin/cargo run -p client-app --features sandbox-ui`
 - Placeholder player sprite regeneration: `python3 tools/generate_player_placeholder_png.py`
 
