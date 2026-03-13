@@ -19,11 +19,14 @@ Operational runbook for Ambitions of Peace Rust-first runtime/services, release 
 ## Release Operations
 1. Confirm patch notes contain only current-cycle changes.
 2. Run release prechecks (auth/session continuity + packaging tests).
-3. Push workflow-triggering changes.
-4. Verify published artifacts for both channels:
+3. Validate external PoC release gate evidence bundle:
+   - `python backend/scripts/validate_external_poc_release_gate.py --gate-pointer docs/release-gates/current_gate.json`
+4. Push workflow-triggering changes.
+5. Verify published artifacts for both channels:
    - game (`win-game`)
    - designer (`win-designer`)
-5. Verify retention policy kept only the latest 3 versions per channel/feed/archive.
+6. Verify release workflow uploaded `windows-installer-smoke-summary` artifact (install/update + gameplay/handoff smoke evidence).
+7. Verify retention policy kept only the latest 3 versions per channel/feed/archive.
 
 ## Local PoC Bootstrap (Task 037)
 ### First run

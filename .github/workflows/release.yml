@@ -151,6 +151,61 @@ jobs:
           $designerChecksum = Get-ChildItem "releases/designer" -Filter "AmbitionsOfPeace-designer-client-win-x64-*.sha256" -ErrorAction SilentlyContinue
           if (-not $designerChecksum -or $designerChecksum.Count -eq 0) { throw "Missing designer client checksum artifact" }
 
+      - name: Prepare Windows Installer Smoke Feeds
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          if (Test-Path "windows-smoke") {
+            Remove-Item -Path "windows-smoke" -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path "windows-smoke/win-game" -Force | Out-Null
+          New-Item -ItemType Directory -Path "windows-smoke/win-designer" -Force | Out-Null
+
+          python tools/package_client_app_release.py `
+            --version "0.0.0" `
+            --exe "target/x86_64-pc-windows-msvc/release/client-app.exe" `
+            --output-dir "windows-smoke/win-game"
+          python tools/package_designer_client_release.py `
+            --version "0.0.0" `
+            --output-dir "windows-smoke/win-designer"
+
+          Copy-Item "releases/game/*" "windows-smoke/win-game/" -Force
+          Copy-Item "releases/designer/*" "windows-smoke/win-designer/" -Force
+
+      - name: Windows Installer Acceptance Smoke
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File "scripts/windows_installer_acceptance_smoke.ps1" `
+            -FeedRoot "windows-smoke" `
+            -SummaryPath "windows-smoke/windows-installer-smoke-summary.md"
+
+      - name: Gameplay/Handoff Acceptance Gates
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        env:
+          PYTHONPATH: backend
+        run: |
+          python -m pytest -q backend/tests/test_security_edges.py backend/tests/test_publish_drain.py backend/tests/test_world_bootstrap_3d_contract.py backend/tests/test_vertical_slice_loop.py backend/tests/test_battle_commands.py backend/tests/test_domain_actions.py
+          cargo test -p client-app --features bootstrap-shell
+          Add-Content -Path "windows-smoke/windows-installer-smoke-summary.md" -Value ""
+          Add-Content -Path "windows-smoke/windows-installer-smoke-summary.md" -Value "- Gameplay/handoff acceptance gates: PASS"
+
+      - name: External PoC Release Gate Evidence Check
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          python backend/scripts/validate_external_poc_release_gate.py --gate-pointer docs/release-gates/current_gate.json
+          Add-Content -Path "windows-smoke/windows-installer-smoke-summary.md" -Value "- External PoC release gate evidence: PASS"
+
+      - name: Upload Windows Smoke Summary
+        if: always() && steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-smoke-summary
+          path: windows-smoke/windows-installer-smoke-summary.md
+          if-no-files-found: warn
+
       - name: Upload Game Channel Artifacts To GCS
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh

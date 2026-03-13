@@ -83,6 +83,7 @@ def main() -> int:
     if stage_dir.exists():
         shutil.rmtree(stage_dir)
     stage_dir.mkdir(parents=True)
+    (stage_dir / "release_version.txt").write_text(f"{version}\n", encoding="ascii")
 
     target_designer = stage_dir / "designer-client"
     shutil.copytree(designer_dir, target_designer)

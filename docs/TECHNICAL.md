@@ -214,6 +214,9 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Both channels publish deterministic manifest/checksum metadata and `latest.json`.
 - Feed and archive retention are pruned to latest 3 versions per channel.
 - Install/update helpers are script-based (`scripts/install_game_client.ps1`, `scripts/install_designer_client.ps1`).
+- Runtime bundles now include `release_version.txt` marker for deterministic install/update acceptance verification.
+- Release workflow now runs Windows installer acceptance smoke (`scripts/windows_installer_acceptance_smoke.ps1`) plus gameplay/handoff regression tests before GCS publish.
+- Release workflow now also enforces dated external PoC release-gate evidence validation (`backend/scripts/validate_external_poc_release_gate.py`).
 
 ## Validation and Quality Gates
 Current baseline checks retained during transition:
@@ -250,6 +253,10 @@ Current baseline checks retained during transition:
 - Windows Rust runtime packaging smoke:
   - `python tools/package_client_app_release.py --version <x.y.z> --exe <path/to/client-app.exe> --output-dir releases/game`
   - `python tools/package_designer_client_release.py --version <x.y.z> --output-dir releases/designer`
+- Windows installer acceptance smoke:
+  - `powershell -ExecutionPolicy Bypass -File scripts/windows_installer_acceptance_smoke.ps1 -FeedRoot <local-feed-root> -SummaryPath <summary.md>`
+- External PoC release gate evidence smoke:
+  - `python backend/scripts/validate_external_poc_release_gate.py --gate-pointer docs/release-gates/current_gate.json`
 - Client bootstrap shell smoke: `cargo run -p client-app --features bootstrap-shell`
 - One-command local stack smoke: `scripts/run_local_poc_stack.sh --no-client`
 - Manual sandbox smoke (Windows-first): `cargo run -p client-app --features sandbox-ui`.

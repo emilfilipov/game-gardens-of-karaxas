@@ -12,6 +12,7 @@ Windows-first install/update flow for Ambitions of Peace game runtime and standa
   - `.zip` payload
   - `.manifest.json` deterministic file manifest
   - `.sha256` checksum
+  - `release_version.txt` install marker embedded in runtime bundle
   - mutable `latest.json` pointer (cache-busted)
 - Retention policy: keep latest 3 versions in both feed and archive prefixes per channel.
 
@@ -81,3 +82,5 @@ Optional:
 - `python tools/package_client_app_release.py --version <x.y.z> --exe <path/to/client-app.exe> --output-dir releases/game`
 - `python tools/package_designer_client_release.py --version <x.y.z> --output-dir releases/designer`
 - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_security_edges.py backend/tests/test_publish_drain.py`
+- `powershell -ExecutionPolicy Bypass -File scripts/windows_installer_acceptance_smoke.ps1 -FeedRoot <local-feed-root> -SummaryPath <summary.md>`
+- `python backend/scripts/validate_external_poc_release_gate.py --gate-pointer docs/release-gates/current_gate.json`

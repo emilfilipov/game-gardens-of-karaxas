@@ -187,6 +187,16 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: release automation builds/packages Windows game runtime and standalone designer runtime, publishes deterministic bundles + manifest/checksum to separate GCS feed/archive prefixes, and retains only the latest three versions per channel.
 - Gameplay impact: player and designer update cadence can diverge safely while keeping rollback simplicity and low storage growth.
 
+#### Windows installer acceptance smoke baseline
+- Purpose: fail release candidates early if install/update or runtime entry regress.
+- Loop: release pipeline now runs installer smoke for both channels (game + designer) against a local feed, verifies install->update sequencing, then executes gameplay/handoff regression tests and uploads a run summary artifact.
+- Gameplay impact: reduces risk of shipping a build players can download but not safely install/update/use.
+
+#### External single-player PoC release gate baseline
+- Purpose: require explicit dated go/no-go evidence before first external PoC distribution.
+- Loop: maintain a dated release-gate evidence bundle (checklist, risk ledger, rollback proof, decision memo) and enforce it with an automated validator in release CI.
+- Gameplay impact: external testing now has auditable readiness/rollback discipline rather than ad-hoc release decisions.
+
 ### Planned Platform and Validation Systems
 #### Redis adoption gate
 - Purpose: prevent premature complexity/cost.

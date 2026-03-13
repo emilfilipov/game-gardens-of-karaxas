@@ -28,3 +28,4 @@ Run `backend/scripts/deploy_cloud_run.sh` after setting env vars (or `backend/.e
 - Check runtime thresholds (page-worthy + log-only): `backend/scripts/check_world_runtime_alerts.sh`
 - Generate monthly cost report (estimate or billing CSV mode): `backend/scripts/generate_monthly_cost_report.py`
 - Validate external playtest hardening baseline: `backend/scripts/validate_playtest_hardening.sh`
+- Validate external single-player PoC release gate bundle: `backend/scripts/validate_external_poc_release_gate.py`

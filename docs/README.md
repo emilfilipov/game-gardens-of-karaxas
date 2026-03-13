@@ -12,6 +12,7 @@ Core simulation contract: all core systems run in real time (travel, logistics, 
 ## Supporting Documentation
 - `docs/INSTALLER.md` - Windows install/update and release-channel behavior.
 - `docs/OPERATIONS.md` - release/deploy runbook and incident flow.
+- `docs/release-gates/` - dated external PoC go/no-go evidence bundles and rollback proof artifacts.
 - `docs/REDIS_ADOPTION_GATE.md` - Redis adoption thresholds and migration/rollback gates.
 - `docs/COST_GUARDRAILS.md` - monthly PoC budget policy.
 - `docs/DEPRECATION_AUDIT.md` - cleanup inventory and migration removals.
@@ -44,6 +45,8 @@ Core simulation contract: all core systems run in real time (travel, logistics, 
 - Sandbox UI: `~/.cargo/bin/cargo run -p client-app --features sandbox-ui`
 - Deterministic local seed helper only: `python3 backend/scripts/seed_local_poc_account.py --base-url http://127.0.0.1:8000 --output-handoff client-app/runtime/startup_handoff.local.json`
 - Placeholder player sprite regeneration: `python3 tools/generate_player_placeholder_png.py`
+- Windows installer acceptance smoke (local feed): `powershell -ExecutionPolicy Bypass -File scripts/windows_installer_acceptance_smoke.ps1 -FeedRoot <local-feed-root> -SummaryPath <summary.md>`
+- External PoC release gate validator: `python backend/scripts/validate_external_poc_release_gate.py --gate-pointer docs/release-gates/current_gate.json`
 
 ## Packaging and Release
 - Release workflow: `.github/workflows/release.yml`
