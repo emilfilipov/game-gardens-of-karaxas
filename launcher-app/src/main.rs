@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 use std::env;
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -14,9 +16,12 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use zip::ZipArchive;
 
-const DEFAULT_API_BASE_URL: &str = "http://127.0.0.1:8000";
+const DEFAULT_API_BASE_URL: &str = match option_env!("AOP_DEFAULT_API_BASE_URL") {
+    Some(url) => url,
+    None => "https://karaxas-backend-rss3xj2ixq-ew.a.run.app",
+};
 const DEFAULT_GAME_FEED_URL: &str = "https://storage.googleapis.com/karaxas-releases-lustrous-bond-298815/win-game";
-const APP_TITLE: &str = "Ambitions of Peace Launcher";
+const APP_TITLE: &str = "Ambitions of Peace";
 
 #[derive(Debug)]
 enum WorkerEvent {
@@ -25,6 +30,7 @@ enum WorkerEvent {
         latest_version: String,
         notes: String,
         feed_url: Option<String>,
+        content_version_key: String,
     },
     DownloadProgress {
         downloaded: u64,
@@ -42,6 +48,12 @@ struct ReleaseSummaryResponse {
     latest_version: String,
     #[serde(default)]
     update_feed_url: Option<String>,
+    #[serde(default)]
+    client_content_version_key: String,
+    #[serde(default)]
+    latest_content_version_key: String,
+    #[serde(default)]
+    min_supported_content_version_key: String,
     #[serde(default)]
     latest_user_facing_notes: String,
     #[serde(default)]
@@ -73,6 +85,10 @@ struct VersionStatus {
     latest_version: String,
     #[serde(default)]
     update_feed_url: Option<String>,
+    #[serde(default)]
+    client_content_version_key: String,
+    #[serde(default)]
+    latest_content_version_key: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -141,6 +157,7 @@ struct LauncherApp {
     otp_code: String,
     local_version: String,
     latest_version: String,
+    client_content_version_key: String,
     news_notes: String,
     status_line: String,
     progress: f32,
@@ -165,7 +182,8 @@ impl LauncherApp {
             password: String::new(),
             otp_code: String::new(),
             local_version,
-            latest_version: "unknown".to_string(),
+            latest_version: "checking...".to_string(),
+            client_content_version_key: "unknown".to_string(),
             news_notes: "Loading latest release notes...".to_string(),
             status_line: "Ready".to_string(),
             progress: 0.0,
@@ -185,21 +203,46 @@ impl LauncherApp {
         }
         let api_base_url = self.api_base_url.clone();
         let client_version = self.local_version.clone();
+        let client_content_version_key = self.client_content_version_key.clone();
+        let fallback_feed_url = self.feed_url.clone();
         let tx = self.tx.clone();
         self.status_line = "Fetching latest news and patch notes...".to_string();
         thread::spawn(move || {
-            let result = fetch_release_summary(&api_base_url, &client_version);
+            let result = fetch_release_summary(&api_base_url, &client_version, &client_content_version_key);
             match result {
                 Ok(summary) => {
                     let notes = choose_notes(&summary);
+                    let selected_content_key = select_declared_content_key(&summary);
+                    let mut latest_version = normalize_version(&summary.latest_version);
+                    let feed_candidates =
+                        collect_feed_candidates(summary.update_feed_url.as_deref(), None, &fallback_feed_url);
+                    let mut selected_feed_url = summary.update_feed_url.clone();
+                    for candidate in &feed_candidates {
+                        if let Ok(feed_payload) = fetch_latest_feed(candidate)
+                            && !feed_payload.version.trim().is_empty()
+                        {
+                            latest_version = normalize_version(&feed_payload.version);
+                            selected_feed_url = Some(candidate.clone());
+                            break;
+                        }
+                    }
                     let _ = tx.send(WorkerEvent::NewsLoaded {
-                        latest_version: summary.latest_version,
+                        latest_version,
                         notes,
-                        feed_url: summary.update_feed_url,
+                        feed_url: selected_feed_url,
+                        content_version_key: selected_content_key,
                     });
                     let _ = tx.send(WorkerEvent::Status("News refreshed".to_string()));
                 }
                 Err(error) => {
+                    if let Ok(feed_payload) = fetch_latest_feed(&fallback_feed_url) {
+                        let _ = tx.send(WorkerEvent::NewsLoaded {
+                            latest_version: normalize_version(&feed_payload.version),
+                            notes: "Release notes are temporarily unavailable.".to_string(),
+                            feed_url: Some(fallback_feed_url.clone()),
+                            content_version_key: "unknown".to_string(),
+                        });
+                    }
                     let _ = tx.send(WorkerEvent::Status(format!("News fetch failed: {error}")));
                 }
             }
@@ -248,9 +291,11 @@ impl LauncherApp {
                         latest_version,
                         notes,
                         feed_url,
+                        content_version_key,
                     } => {
                         self.latest_version = latest_version;
                         self.news_notes = notes;
+                        self.client_content_version_key = content_version_key;
                         if let Some(url) = feed_url
                             && !url.trim().is_empty()
                         {
@@ -318,63 +363,58 @@ impl eframe::App for LauncherApp {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading(APP_TITLE);
-            ui.separator();
+            ui.columns(2, |columns| {
+                columns[0].vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(format!("Installed: {}", self.local_version));
+                        ui.separator();
+                        ui.label(format!("Latest: {}", self.latest_version));
+                    });
+                    ui.add_space(8.0);
+                    ui.group(|ui| {
+                        ui.label("Login Required");
+                        ui.label("Sign in first. Play checks and installs updates before launch.");
+                        ui.add_space(4.0);
+                        ui.label("Email");
+                        ui.text_edit_singleline(&mut self.email);
+                        ui.label("Password");
+                        ui.add(egui::TextEdit::singleline(&mut self.password).password(true));
+                        ui.label("OTP (optional)");
+                        ui.text_edit_singleline(&mut self.otp_code);
+                    });
+                    ui.add_space(8.0);
+                    if self.busy {
+                        ui.add_enabled(false, egui::Button::new("Working..."));
+                    } else if ui.button("Play").clicked() {
+                        self.login_update_and_play();
+                    }
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        if ui.button("Refresh News").clicked() {
+                            self.refresh_news();
+                        }
+                        if ui.button("Open Install Folder").clicked() {
+                            let _ = open_directory(&self.install_dir);
+                        }
+                    });
 
-            ui.horizontal(|ui| {
-                ui.label(format!("Installed: {}", self.local_version));
-                ui.separator();
-                ui.label(format!("Latest: {}", self.latest_version));
-            });
-            ui.add_space(6.0);
+                    ui.add_space(8.0);
+                    ui.label(format!("Status: {}", self.status_line));
+                    if self.busy || self.progress > 0.0 {
+                        ui.add(egui::ProgressBar::new(self.progress.clamp(0.0, 1.0)).show_percentage());
+                        if !self.progress_label.is_empty() {
+                            ui.label(self.progress_label.clone());
+                        }
+                    }
+                });
 
-            ui.label("Backend API URL");
-            ui.text_edit_singleline(&mut self.api_base_url);
-            ui.label("Game feed URL");
-            ui.text_edit_singleline(&mut self.feed_url);
-
-            ui.add_space(8.0);
-            ui.group(|ui| {
-                ui.label("Login Required");
-                ui.label("Sign in first. Play will then check, download, and install updates before launch.");
-                ui.add_space(4.0);
-                ui.label("Email");
-                ui.text_edit_singleline(&mut self.email);
-                ui.label("Password");
-                ui.add(egui::TextEdit::singleline(&mut self.password).password(true));
-                ui.label("OTP (optional)");
-                ui.text_edit_singleline(&mut self.otp_code);
-            });
-
-            ui.add_space(8.0);
-            if self.busy {
-                ui.add_enabled(false, egui::Button::new("Working..."));
-            } else if ui.button("Play").clicked() {
-                self.login_update_and_play();
-            }
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                if ui.button("Refresh News").clicked() {
-                    self.refresh_news();
-                }
-                if ui.button("Open Install Folder").clicked() {
-                    let _ = open_directory(&self.install_dir);
-                }
-            });
-
-            ui.add_space(8.0);
-            ui.label(format!("Status: {}", self.status_line));
-            if self.busy || self.progress > 0.0 {
-                ui.add(egui::ProgressBar::new(self.progress.clamp(0.0, 1.0)).show_percentage());
-                if !self.progress_label.is_empty() {
-                    ui.label(self.progress_label.clone());
-                }
-            }
-
-            ui.separator();
-            ui.label("Latest News / Patch Notes");
-            egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
-                ui.label(&self.news_notes);
+                columns[1].vertical(|ui| {
+                    ui.label("Latest News / Patch Notes");
+                    ui.separator();
+                    egui::ScrollArea::vertical().max_height(520.0).show(ui, |ui| {
+                        ui.label(&self.news_notes);
+                    });
+                });
             });
         });
     }
@@ -397,15 +437,17 @@ fn run_login_update_launch(input: LaunchInput, tx: Sender<WorkerEvent>) -> Resul
     let installed_version = normalize_version(&input.installed_version);
 
     let _ = tx.send(WorkerEvent::Status("Fetching release summary...".to_string()));
-    let summary = fetch_release_summary(&api_base_url, &installed_version)?;
+    let summary = fetch_release_summary(&api_base_url, &installed_version, "unknown")?;
     let notes = choose_notes(&summary);
     let _ = tx.send(WorkerEvent::NewsLoaded {
         latest_version: summary.latest_version.clone(),
         notes,
         feed_url: summary.update_feed_url.clone(),
+        content_version_key: select_declared_content_key(&summary),
     });
 
     let declared_version = normalize_version(&summary.latest_version);
+    let declared_content_key = select_declared_content_key(&summary);
     let _ = tx.send(WorkerEvent::Status("Logging in...".to_string()));
     let session = login_session(
         &api_base_url,
@@ -413,18 +455,39 @@ fn run_login_update_launch(input: LaunchInput, tx: Sender<WorkerEvent>) -> Resul
         &input.password,
         input.otp_code.as_deref(),
         &declared_version,
+        &declared_content_key,
     )?;
 
-    let feed_url = summary
-        .update_feed_url
-        .or(session.version_status.update_feed_url.clone())
-        .unwrap_or(feed_fallback);
-    if feed_url.trim().is_empty() {
-        bail!("No update feed URL is configured.");
-    }
-
     let _ = tx.send(WorkerEvent::Status("Checking for updates...".to_string()));
-    let latest = fetch_latest_feed(&feed_url)?;
+    let feed_candidates = collect_feed_candidates(
+        summary.update_feed_url.as_deref(),
+        session.version_status.update_feed_url.as_deref(),
+        &feed_fallback,
+    );
+    let mut resolved_feed_url = String::new();
+    let mut last_feed_error: Option<anyhow::Error> = None;
+    let mut latest: Option<LatestFeedPayload> = None;
+    for candidate in &feed_candidates {
+        match fetch_latest_feed(candidate) {
+            Ok(payload) => {
+                resolved_feed_url = candidate.clone();
+                latest = Some(payload);
+                break;
+            }
+            Err(error) => {
+                last_feed_error = Some(error);
+            }
+        }
+    }
+    let latest = match latest {
+        Some(payload) => payload,
+        None => {
+            if let Some(error) = last_feed_error {
+                return Err(error.context("all configured feed URLs failed"));
+            }
+            bail!("No update feed URL is configured.");
+        }
+    };
     let current_local =
         normalize_version(&read_installed_version(&input.install_dir).unwrap_or_else(|_| "0.0.0".to_string()));
     let latest_version = if latest.version.trim().is_empty() {
@@ -452,11 +515,11 @@ fn run_login_update_launch(input: LaunchInput, tx: Sender<WorkerEvent>) -> Resul
                 "Applying delta update {} -> {}...",
                 current_local, latest_version
             )));
-            let delta_url = format!("{}/{}", feed_url.trim_end_matches('/'), delta.artifact);
+            let delta_url = format!("{}/{}", resolved_feed_url.trim_end_matches('/'), delta.artifact);
             let delta_path = temp_root.join(&delta.artifact);
             let delta_apply_result = download_with_progress(&delta_url, &delta_path, &tx).and_then(|_| {
                 if let Some(checksum_artifact) = delta.checksum.as_deref() {
-                    let expected = fetch_expected_sha256(&feed_url, checksum_artifact)?;
+                    let expected = fetch_expected_sha256(&resolved_feed_url, checksum_artifact)?;
                     verify_file_sha256(&delta_path, &expected)?;
                 }
                 apply_delta_with_progress(&delta_path, &input.install_dir, &tx)
@@ -480,32 +543,51 @@ fn run_login_update_launch(input: LaunchInput, tx: Sender<WorkerEvent>) -> Resul
                 .installer_artifact
                 .clone()
                 .unwrap_or_else(|| format!("AmbitionsOfPeace-game-installer-win-x64-{latest_version}.exe"));
-            let installer_url = format!("{}/{}", feed_url.trim_end_matches('/'), installer_name);
+            let installer_url = format!("{}/{}", resolved_feed_url.trim_end_matches('/'), installer_name);
             let installer_path = temp_root.join(installer_name);
             download_with_progress(&installer_url, &installer_path, &tx)?;
             if let Some(checksum_artifact) = latest.installer_checksum.as_deref() {
-                let expected = fetch_expected_sha256(&feed_url, checksum_artifact)?;
+                let expected = fetch_expected_sha256(&resolved_feed_url, checksum_artifact)?;
                 verify_file_sha256(&installer_path, &expected)?;
             }
             run_installer_with_progress(&installer_path, &input.install_dir, &tx)?;
         }
     }
 
+    let handoff_content_key = preferred_content_key(
+        &session.version_status.latest_content_version_key,
+        &session.version_status.client_content_version_key,
+        &declared_content_key,
+    );
     let handoff_path = default_handoff_path();
-    write_startup_handoff(&handoff_path, &session, &api_base_url, &latest_version, "unknown")?;
+    write_startup_handoff(
+        &handoff_path,
+        &session,
+        &api_base_url,
+        &latest_version,
+        &handoff_content_key,
+    )?;
 
     launch_game(&input.install_dir, &handoff_path)?;
     Ok(format!("Launched game {}", latest_version))
 }
 
-fn fetch_release_summary(api_base_url: &str, client_version: &str) -> Result<ReleaseSummaryResponse> {
-    let url = format!(
-        "{}/release/summary?client_version={}&client_content_version_key=unknown",
-        api_base_url.trim_end_matches('/'),
-        client_version
-    );
+fn fetch_release_summary(
+    api_base_url: &str,
+    client_version: &str,
+    client_content_version_key: &str,
+) -> Result<ReleaseSummaryResponse> {
+    let url = format!("{}/release/summary", api_base_url.trim_end_matches('/'));
     let client = http_client()?;
-    let response = client.get(url).send().context("failed to call release summary")?;
+    let response = client
+        .get(url)
+        .header("x-client-version", normalize_version(client_version))
+        .header(
+            "x-client-content-version",
+            preferred_content_key(client_content_version_key, "unknown", "unknown"),
+        )
+        .send()
+        .context("failed to call release summary")?;
     parse_json_response(response, "release summary")
 }
 
@@ -515,6 +597,7 @@ fn login_session(
     password: &str,
     otp_code: Option<&str>,
     client_version: &str,
+    client_content_version_key: &str,
 ) -> Result<SessionResponse> {
     let url = format!("{}/auth/login", api_base_url.trim_end_matches('/'));
     let request = LoginRequest {
@@ -522,7 +605,7 @@ fn login_session(
         password: password.to_string(),
         otp_code: otp_code.map(|value| value.to_string()),
         client_version: client_version.to_string(),
-        client_content_version_key: "unknown".to_string(),
+        client_content_version_key: client_content_version_key.to_string(),
     };
 
     let client = http_client()?;
@@ -865,6 +948,40 @@ fn normalize_version(value: &str) -> String {
     }
 }
 
+fn collect_feed_candidates(summary_feed: Option<&str>, session_feed: Option<&str>, fallback_feed: &str) -> Vec<String> {
+    let mut feeds = Vec::new();
+    for raw in [summary_feed, session_feed, Some(fallback_feed)] {
+        let Some(value) = raw else {
+            continue;
+        };
+        let normalized = normalize_url(value);
+        if normalized.is_empty() {
+            continue;
+        }
+        if !feeds.iter().any(|existing| existing == &normalized) {
+            feeds.push(normalized);
+        }
+    }
+    feeds
+}
+
+fn preferred_content_key(primary: &str, secondary: &str, fallback: &str) -> String {
+    for candidate in [primary.trim(), secondary.trim(), fallback.trim()] {
+        if !candidate.is_empty() && candidate != "unknown" {
+            return candidate.to_string();
+        }
+    }
+    "unknown".to_string()
+}
+
+fn select_declared_content_key(summary: &ReleaseSummaryResponse) -> String {
+    preferred_content_key(
+        &summary.latest_content_version_key,
+        &summary.min_supported_content_version_key,
+        &summary.client_content_version_key,
+    )
+}
+
 fn env_or_default(key: &str, fallback: &str) -> String {
     env::var(key)
         .ok()
@@ -938,7 +1055,7 @@ fn main() -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(APP_TITLE)
-            .with_inner_size([640.0, 720.0]),
+            .with_inner_size([980.0, 560.0]),
         ..Default::default()
     };
 
@@ -948,7 +1065,7 @@ fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_api_error, normalize_version};
+    use super::{collect_feed_candidates, extract_api_error, normalize_version, preferred_content_key};
 
     #[test]
     fn normalize_version_defaults_to_zero() {
@@ -963,5 +1080,33 @@ mod tests {
 
         let plain = r#"{"detail":"bad request"}"#;
         assert_eq!(extract_api_error(plain), "bad request");
+    }
+
+    #[test]
+    fn preferred_content_key_ignores_unknown_values() {
+        assert_eq!(
+            preferred_content_key("unknown", "cv_bootstrap_v1", "unknown"),
+            "cv_bootstrap_v1"
+        );
+        assert_eq!(preferred_content_key(" ", "unknown", "cv_fallback"), "cv_fallback");
+        assert_eq!(preferred_content_key("unknown", "unknown", "unknown"), "unknown");
+    }
+
+    #[test]
+    fn collect_feed_candidates_dedupes_and_keeps_order() {
+        let result = collect_feed_candidates(
+            Some("https://storage.googleapis.com/karaxas-releases-lustrous-bond-298815/win"),
+            Some("https://storage.googleapis.com/karaxas-releases-lustrous-bond-298815/win-game"),
+            "https://storage.googleapis.com/karaxas-releases-lustrous-bond-298815/win-game",
+        );
+        assert_eq!(result.len(), 2);
+        assert_eq!(
+            result[0],
+            "https://storage.googleapis.com/karaxas-releases-lustrous-bond-298815/win"
+        );
+        assert_eq!(
+            result[1],
+            "https://storage.googleapis.com/karaxas-releases-lustrous-bond-298815/win-game"
+        );
     }
 }

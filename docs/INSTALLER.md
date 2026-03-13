@@ -92,13 +92,14 @@ If handoff payload is invalid/expired or rejected by backend (`HTTP 401/403`), c
 - Installer places `AmbitionsOfPeaceLauncher.exe` alongside the game runtime.
 - Launcher is the auth gate:
   - prompts login first (`/auth/login`),
-  - refreshes release notes/news (`/release/summary`),
-  - checks update feed,
+  - refreshes release notes/news (`/release/summary`) via client-version/content-version headers,
+  - resolves update feed with fallback chain (`release summary feed` -> `session feed` -> bundled `win-game` feed),
   - applies matching delta update when available, otherwise falls back to full installer update.
 - Launcher writes startup handoff JSON and starts game with:
   - `--handoff-file <path>`
   - `--fullscreen`
 - After successful launch trigger, launcher minimizes and stays running.
+- Release launcher binary is built as a Windows GUI subsystem executable (no extra terminal window).
 
 ## Required CI Variables/Secrets
 Required for publish:

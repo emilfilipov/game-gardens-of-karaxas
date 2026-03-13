@@ -126,6 +126,8 @@ jobs:
 
       - name: Build Rust Launcher Runtime (Windows)
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        env:
+          AOP_DEFAULT_API_BASE_URL: ${{ vars.KARAXAS_BACKEND_OPS_URL }}
         shell: pwsh
         run: |
           cargo build -p launcher-app --release --target x86_64-pc-windows-msvc

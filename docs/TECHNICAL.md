@@ -239,9 +239,11 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Game installer executable is built in CI via NSIS (`scripts/build_game_installer.ps1`) from the packaged runtime zip and embeds `launcher-app` as the primary player entrypoint.
 - Launcher (`launcher-app`) is the runtime auth/update gate:
   - login required before update/launch,
-  - in-window news/patch notes rendering via `/release/summary`,
+  - in-window news/patch notes rendering via `/release/summary` using `x-client-version` and `x-client-content-version` headers,
+  - feed resolution fallback chain (`release summary feed` -> `session feed` -> packaged default `win-game`) to survive stale backend policy feed pointers,
   - progress-visible update flow (delta-first, full-installer fallback),
   - startup handoff generation and full-screen game launch command.
+  - production-first launcher defaults are compile-time injected in CI (`AOP_DEFAULT_API_BASE_URL`) and release launcher uses Windows GUI subsystem (no companion console window).
 - Runtime bundles now include `release_version.txt` marker for deterministic install/update acceptance verification.
 - Release workflow now runs Windows installer acceptance smoke (`scripts/windows_installer_acceptance_smoke.ps1`) plus gameplay/handoff regression tests before GCS publish.
 - Release workflow now also enforces dated external PoC release-gate evidence validation (`backend/scripts/validate_external_poc_release_gate.py`).
