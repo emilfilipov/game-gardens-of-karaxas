@@ -71,3 +71,51 @@ class WorldSyncResponse(BaseModel):
     sync_cursor: str
     world: dict
     warnings: list[str] = Field(default_factory=list)
+
+
+class BattleStartRequest(BaseModel):
+    character_id: int = Field(ge=1)
+    location_settlement_id: int = Field(default=222, ge=1)
+    attacker_army_id: int = Field(default=7001, ge=1)
+    defender_army_id: int = Field(default=7002, ge=1)
+    attacker_strength: int = Field(default=1200, ge=100, le=50_000)
+    defender_strength: int = Field(default=1100, ge=100, le=50_000)
+
+
+class BattleStartResponse(BaseModel):
+    accepted: bool
+    reason_code: str
+    battle_instance_id: int
+    encounter_id: int
+    battle_status: str
+    campaign_tick: int
+
+
+class BattleCommandRequest(BaseModel):
+    character_id: int = Field(ge=1)
+    battle_instance_id: int = Field(ge=1)
+    action_type: str = Field(min_length=1, max_length=32)
+    side: str | None = Field(default=None, max_length=16)
+    formation: str | None = Field(default=None, max_length=16)
+    reserve_strength: int | None = Field(default=None, ge=1, le=50_000)
+
+
+class BattleCommandResponse(BaseModel):
+    accepted: bool
+    reason_code: str
+    battle_instance_id: int
+    battle_status: str
+    campaign_tick: int
+
+
+class DomainActionRequest(BaseModel):
+    character_id: int = Field(ge=1)
+    action_type: str = Field(min_length=1, max_length=64)
+    payload: dict = Field(default_factory=dict)
+
+
+class DomainActionResponse(BaseModel):
+    accepted: bool
+    reason_code: str
+    action_type: str
+    campaign_tick: int

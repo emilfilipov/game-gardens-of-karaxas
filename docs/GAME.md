@@ -100,6 +100,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: players can set formation stance, deploy reserves after timing gates, and observe continuous outcome scoring/morale pressure across fixed steps until resolution.
 - Gameplay impact: tactical posture and timing now directly influence battle outcome signals rather than only raw army strength.
 
+#### Playable real-time battle scene (client vertical slice)
+- Purpose: expose battle authority as a directly playable in-client surface instead of contract-only controls.
+- Loop: player enters/starts battle instance from campaign UI, fixed-step battle scene renders front line + unit markers + pressure HUD in real time, tactical commands are dispatched live, and authoritative status/result updates stream back into the same scene.
+- Gameplay impact: battle interactions are now manually testable end-to-end inside the runtime client and no longer rely only on backend/script orchestration.
+
 #### Real-time manual validation sandbox UI
 - Purpose: allow direct manual validation of simulation systems before full vertical-slice UX exists.
 - Loop: sandbox surfaces live simulation clock, travel controls, logistics/trade/espionage/politics/battle-contract controls, and world-state readouts each tick.
@@ -126,6 +131,11 @@ This section is the detailed product-level description of all implemented and pl
 - Purpose: provide controllable vertical-slice domain surfaces without engine-authored editor UI.
 - Loop: campaign view renders dedicated `character`, `household`, `logistics`, `trade`, `espionage`, `diplomacy`, and `notifications` panels with standardized hotkeys and saved layout presets.
 - Gameplay impact: core strategic interfaces are now navigable through code-defined UI primitives and can evolve deterministically with gameplay systems.
+
+#### Live panel wiring and domain action dispatch
+- Purpose: remove placeholder panel content and ensure all gameplay surfaces reflect authoritative runtime state.
+- Loop: world-sync snapshots now hydrate `character` and `household` summaries plus live domain state, panel actions dispatch through backend gameplay action routes, and optimistic in-flight UI guards resolve to explicit success/error status.
+- Gameplay impact: strategic panel decisions now operate on live state and provide clear operator feedback during real-time playtesting.
 
 #### Code-first authoring tools mode (map/system editing)
 - Purpose: allow internal world/system authoring without external editor dependency.

@@ -13,6 +13,12 @@ from app.models.character import Character
 from app.models.gameplay import GameplayActionAudit
 from app.models.session import UserSession
 from app.schemas.gameplay import (
+    BattleCommandRequest,
+    BattleCommandResponse,
+    BattleStartRequest,
+    BattleStartResponse,
+    DomainActionRequest,
+    DomainActionResponse,
     ResolveActionRequest,
     ResolveActionResponse,
     VerticalSliceLoopRequest,
@@ -280,6 +286,149 @@ def _world_sync_now_ms() -> int:
     return max(0, int((perf_counter() - _WORLD_SYNC_START_MONOTONIC) * 1000.0))
 
 
+def _battle_action_command(payload: BattleCommandRequest) -> dict:
+    action = payload.action_type.strip().lower()
+    if action == "set_formation":
+        side = (payload.side or "").strip().lower()
+        formation = (payload.formation or "").strip().lower()
+        if side not in {"attacker", "defender"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={"message": "side must be attacker or defender", "code": "invalid_battle_side"},
+            )
+        if formation not in {"line", "wedge", "defensive"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={"message": "formation must be line, wedge, or defensive", "code": "invalid_formation"},
+            )
+        return {
+            "type": "set_battle_formation",
+            "instance_id": payload.battle_instance_id,
+            "side": side,
+            "formation": formation,
+        }
+    if action == "deploy_reserve":
+        side = (payload.side or "").strip().lower()
+        if side not in {"attacker", "defender"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={"message": "side must be attacker or defender", "code": "invalid_battle_side"},
+            )
+        if payload.reserve_strength is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={"message": "reserve_strength is required", "code": "missing_reserve_strength"},
+            )
+        return {
+            "type": "deploy_battle_reserve",
+            "instance_id": payload.battle_instance_id,
+            "side": side,
+            "reserve_strength": int(payload.reserve_strength),
+        }
+    if action == "force_resolve":
+        return {
+            "type": "force_resolve_battle_instance",
+            "instance_id": payload.battle_instance_id,
+        }
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail={
+            "message": "action_type must be set_formation, deploy_reserve, or force_resolve",
+            "code": "invalid_battle_action_type",
+        },
+    )
+
+
+def _payload_int(payload: dict, key: str, *, minimum: int = 0, maximum: int = 2_147_483_647) -> int:
+    try:
+        value = int(payload.get(key))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"message": f"{key} must be an integer", "code": "invalid_domain_action_payload"},
+        ) from None
+    if value < minimum or value > maximum:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "message": f"{key} must be between {minimum} and {maximum}",
+                "code": "invalid_domain_action_payload",
+            },
+        )
+    return value
+
+
+def _payload_bool(payload: dict, key: str) -> bool:
+    value = payload.get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes"}:
+            return True
+        if normalized in {"false", "0", "no"}:
+            return False
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail={"message": f"{key} must be a boolean", "code": "invalid_domain_action_payload"},
+    )
+
+
+def _domain_action_command(payload: DomainActionRequest) -> dict:
+    action_type = payload.action_type.strip().lower()
+    raw = payload.payload if isinstance(payload.payload, dict) else {}
+    if action_type == "queue_supply_transfer":
+        return {
+            "type": "queue_supply_transfer",
+            "from_army": _payload_int(raw, "from_army", minimum=1),
+            "to_army": _payload_int(raw, "to_army", minimum=1),
+            "food": _payload_int(raw, "food", minimum=0, maximum=100_000),
+            "horses": _payload_int(raw, "horses", minimum=0, maximum=100_000),
+            "materiel": _payload_int(raw, "materiel", minimum=0, maximum=100_000),
+        }
+    if action_type == "queue_trade_shipment":
+        return {
+            "type": "queue_trade_shipment",
+            "origin_settlement": _payload_int(raw, "origin_settlement", minimum=1),
+            "destination_settlement": _payload_int(raw, "destination_settlement", minimum=1),
+            "food": _payload_int(raw, "food", minimum=0, maximum=100_000),
+            "horses": _payload_int(raw, "horses", minimum=0, maximum=100_000),
+            "materiel": _payload_int(raw, "materiel", minimum=0, maximum=100_000),
+        }
+    if action_type == "request_intel_report":
+        return {
+            "type": "request_intel_report",
+            "informant_id": _payload_int(raw, "informant_id", minimum=1),
+            "subject_settlement": _payload_int(raw, "subject_settlement", minimum=1),
+        }
+    if action_type == "set_treaty_status":
+        treaty_kind = str(raw.get("treaty_kind", "")).strip().lower()
+        if treaty_kind not in {"trade_pact", "non_aggression", "military_access"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "message": "treaty_kind must be trade_pact, non_aggression, or military_access",
+                    "code": "invalid_domain_action_payload",
+                },
+            )
+        return {
+            "type": "set_treaty_status",
+            "treaty_id": _payload_int(raw, "treaty_id", minimum=1),
+            "faction_a": _payload_int(raw, "faction_a", minimum=1),
+            "faction_b": _payload_int(raw, "faction_b", minimum=1),
+            "treaty_kind": treaty_kind,
+            "active": _payload_bool(raw, "active"),
+            "trust_bp": _payload_int(raw, "trust_bp", minimum=0, maximum=10_000),
+        }
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail={
+            "message": "Unsupported action_type for domain action",
+            "code": "invalid_domain_action_type",
+        },
+    )
+
+
 @router.post("/vertical-slice-loop", response_model=VerticalSliceLoopResponse)
 def run_vertical_slice_loop(
     payload: VerticalSliceLoopRequest,
@@ -441,6 +590,17 @@ def world_sync(
     if payload.last_applied_tick > campaign_tick:
         warnings.append("campaign_tick_regressed")
 
+    logistics_state = snapshot.get("logistics", {}).get("state", {}) if isinstance(snapshot.get("logistics"), dict) else {}
+    trade_state = snapshot.get("trade", {}).get("state", {}) if isinstance(snapshot.get("trade"), dict) else {}
+    espionage_state = snapshot.get("espionage", {}).get("state", {}) if isinstance(snapshot.get("espionage"), dict) else {}
+    politics_state = snapshot.get("politics", {}).get("state", {}) if isinstance(snapshot.get("politics"), dict) else {}
+    household_summary = {
+        "active_armies": len(logistics_state.get("armies", [])) if isinstance(logistics_state, dict) else 0,
+        "market_count": len(trade_state.get("markets", [])) if isinstance(trade_state, dict) else 0,
+        "informant_count": len(espionage_state.get("informants", [])) if isinstance(espionage_state, dict) else 0,
+        "treaty_count": len(politics_state.get("treaties", [])) if isinstance(politics_state, dict) else 0,
+    }
+
     return WorldSyncResponse(
         accepted=True,
         reason_code="world_sync_snapshot",
@@ -451,6 +611,15 @@ def world_sync(
         stale_after_ms=stale_after_ms,
         sync_cursor=f"{character.id}:{campaign_tick}:{now_ms}",
         world={
+            "character": {
+                "id": character.id,
+                "name": character.name,
+                "level": character.level,
+                "experience": character.experience,
+                "location_x": int(character.location_x or 0),
+                "location_y": int(character.location_y or 0),
+            },
+            "household": household_summary,
             "travel_map": snapshot.get("travel_map", {}),
             "logistics": snapshot.get("logistics", {}),
             "trade": snapshot.get("trade", {}),
@@ -460,4 +629,136 @@ def world_sync(
             "metrics": snapshot.get("metrics", {}),
         },
         warnings=warnings,
+    )
+
+
+@router.post("/battle/start", response_model=BattleStartResponse)
+def start_battle_instance(
+    payload: BattleStartRequest,
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    character = db.get(Character, payload.character_id)
+    if character is None or character.user_id != context.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Character not found", "code": "character_not_found"},
+        )
+
+    now_ms = _world_sync_now_ms()
+    instance_id = int(f"{character.id}{now_ms % 1_000_000}") % 2_147_000_000
+    encounter_id = instance_id + 17
+    trace_id = f"battle-start-{context.session.id}-{character.id}-{now_ms}"
+    command = {
+        "type": "start_battle_encounter",
+        "instance_id": instance_id,
+        "encounter_id": encounter_id,
+        "location": payload.location_settlement_id,
+        "attacker_army": payload.attacker_army_id,
+        "defender_army": payload.defender_army_id,
+        "attacker_strength": payload.attacker_strength,
+        "defender_strength": payload.defender_strength,
+    }
+
+    try:
+        dispatch_control_command(trace_id=trace_id, command=command)
+        tick_payload = advance_ticks(now_ms=now_ms)
+        battle_payload = fetch_battle_state()
+    except WorldServiceControlError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "message": "world-service control call failed",
+                "code": "world_service_unavailable",
+                "reason": str(exc),
+            },
+        ) from exc
+
+    battle_status = _instance_status_from_battle_state(battle_payload, instance_id)
+    return BattleStartResponse(
+        accepted=True,
+        reason_code="battle_instance_started",
+        battle_instance_id=instance_id,
+        encounter_id=encounter_id,
+        battle_status=battle_status,
+        campaign_tick=int(tick_payload.get("current_tick", 0)),
+    )
+
+
+@router.post("/battle/command", response_model=BattleCommandResponse)
+def issue_battle_command(
+    payload: BattleCommandRequest,
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    character = db.get(Character, payload.character_id)
+    if character is None or character.user_id != context.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Character not found", "code": "character_not_found"},
+        )
+
+    now_ms = _world_sync_now_ms()
+    command = _battle_action_command(payload)
+    action = payload.action_type.strip().lower()
+    trace_id = f"battle-action-{action}-{context.session.id}-{payload.battle_instance_id}-{now_ms}"
+
+    try:
+        dispatch_control_command(trace_id=trace_id, command=command)
+        tick_payload = advance_ticks(now_ms=now_ms)
+        battle_payload = fetch_battle_state()
+    except WorldServiceControlError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "message": "world-service control call failed",
+                "code": "world_service_unavailable",
+                "reason": str(exc),
+            },
+        ) from exc
+
+    battle_status = _instance_status_from_battle_state(battle_payload, payload.battle_instance_id)
+    return BattleCommandResponse(
+        accepted=True,
+        reason_code="battle_command_dispatched",
+        battle_instance_id=payload.battle_instance_id,
+        battle_status=battle_status,
+        campaign_tick=int(tick_payload.get("current_tick", 0)),
+    )
+
+
+@router.post("/domain-action", response_model=DomainActionResponse)
+def issue_domain_action(
+    payload: DomainActionRequest,
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    character = db.get(Character, payload.character_id)
+    if character is None or character.user_id != context.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Character not found", "code": "character_not_found"},
+        )
+
+    command = _domain_action_command(payload)
+    now_ms = _world_sync_now_ms()
+    trace_id = f"domain-action-{payload.action_type.strip().lower()}-{context.session.id}-{now_ms}"
+    try:
+        dispatch_control_command(trace_id=trace_id, command=command)
+        tick_payload = advance_ticks(now_ms=now_ms)
+    except WorldServiceControlError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "message": "world-service control call failed",
+                "code": "world_service_unavailable",
+                "reason": str(exc),
+            },
+        ) from exc
+
+    return DomainActionResponse(
+        accepted=True,
+        reason_code="domain_action_dispatched",
+        action_type=payload.action_type.strip().lower(),
+        campaign_tick=int(tick_payload.get("current_tick", 0)),
     )

@@ -324,6 +324,48 @@ impl WorldSyncState {
     }
 }
 
+#[derive(Resource)]
+struct BattleSceneState {
+    active_instance_id: Option<u64>,
+    visual_step_accumulator: f32,
+    visual_step: u64,
+    time_scale: f32,
+    paused: bool,
+    command_in_flight: bool,
+    status_line: String,
+}
+
+impl Default for BattleSceneState {
+    fn default() -> Self {
+        Self {
+            active_instance_id: None,
+            visual_step_accumulator: 0.0,
+            visual_step: 0,
+            time_scale: 1.0,
+            paused: false,
+            command_in_flight: false,
+            status_line: "No active battle instance.".to_string(),
+        }
+    }
+}
+
+#[derive(Resource)]
+struct PanelActionState {
+    in_flight: bool,
+    status_line: String,
+    last_error: Option<String>,
+}
+
+impl Default for PanelActionState {
+    fn default() -> Self {
+        Self {
+            in_flight: false,
+            status_line: "No panel action dispatched.".to_string(),
+            last_error: None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum FogVisibility {
     Visible,
@@ -1048,6 +1090,25 @@ enum BackendRequest {
         last_applied_tick: u64,
         include_map: bool,
     },
+    StartBattle {
+        access_token: String,
+        character_id: u64,
+    },
+    IssueBattleCommand {
+        access_token: String,
+        character_id: u64,
+        battle_instance_id: u64,
+        action_type: String,
+        side: Option<String>,
+        formation: Option<String>,
+        reserve_strength: Option<u32>,
+    },
+    IssueDomainAction {
+        access_token: String,
+        character_id: u64,
+        action_type: String,
+        payload: serde_json::Value,
+    },
 }
 
 enum BackendResponse {
@@ -1055,6 +1116,9 @@ enum BackendResponse {
     Characters(Result<Vec<CharacterSummary>, String>),
     Bootstrap(Result<CampaignBootstrapSummary, String>),
     WorldSync(Box<Result<WorldSyncPayload, String>>),
+    BattleStart(Result<BattleStartResponsePayload, String>),
+    BattleCommand(Result<BattleCommandResponsePayload, String>),
+    DomainAction(Result<DomainActionResponsePayload, String>),
 }
 
 #[derive(Deserialize)]
@@ -1156,6 +1220,10 @@ struct WorldSyncPayload {
 #[allow(dead_code)]
 struct WorldSyncWorldPayload {
     #[serde(default)]
+    character: CharacterSyncPayload,
+    #[serde(default)]
+    household: HouseholdSyncPayload,
+    #[serde(default)]
     travel_map: TravelMapPayload,
     #[serde(default)]
     logistics: LogisticsSyncPayload,
@@ -1169,6 +1237,36 @@ struct WorldSyncWorldPayload {
     battle: BattleSyncPayload,
     #[serde(default)]
     metrics: MetricsSyncPayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct CharacterSyncPayload {
+    #[serde(default)]
+    id: u64,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    level: i32,
+    #[serde(default)]
+    experience: i32,
+    #[serde(default)]
+    location_x: i32,
+    #[serde(default)]
+    location_y: i32,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct HouseholdSyncPayload {
+    #[serde(default)]
+    active_armies: usize,
+    #[serde(default)]
+    market_count: usize,
+    #[serde(default)]
+    informant_count: usize,
+    #[serde(default)]
+    treaty_count: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Default)]
@@ -1472,6 +1570,49 @@ struct MetricsSyncPayload {
     tick_interval_ms: u64,
 }
 
+#[derive(Clone, Debug, Deserialize, Default)]
+#[allow(dead_code)]
+struct BattleStartResponsePayload {
+    #[serde(default)]
+    accepted: bool,
+    #[serde(default)]
+    reason_code: String,
+    #[serde(default)]
+    battle_instance_id: u64,
+    #[serde(default)]
+    encounter_id: u64,
+    #[serde(default)]
+    battle_status: String,
+    #[serde(default)]
+    campaign_tick: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+struct BattleCommandResponsePayload {
+    #[serde(default)]
+    accepted: bool,
+    #[serde(default)]
+    reason_code: String,
+    #[serde(default)]
+    battle_instance_id: u64,
+    #[serde(default)]
+    battle_status: String,
+    #[serde(default)]
+    campaign_tick: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+struct DomainActionResponsePayload {
+    #[serde(default)]
+    accepted: bool,
+    #[serde(default)]
+    reason_code: String,
+    #[serde(default)]
+    action_type: String,
+    #[serde(default)]
+    campaign_tick: u64,
+}
+
 pub fn run() {
     let startup_options = StartupOptions::from_args();
     let mut config = BackendConfig::from_env();
@@ -1485,6 +1626,8 @@ pub fn run() {
         .insert_resource(CampaignScene::default())
         .insert_resource(CampaignMapSurface::sample())
         .insert_resource(WorldSyncState::default())
+        .insert_resource(BattleSceneState::default())
+        .insert_resource(PanelActionState::default())
         .insert_resource(PanelUiState::from_env())
         .insert_resource(MapToolsState::from_env())
         .insert_resource(ClearColor(Color::srgb(0.05, 0.07, 0.08)))
@@ -1499,6 +1642,7 @@ pub fn run() {
             (
                 poll_backend_responses,
                 drive_world_sync_poll,
+                advance_battle_visual_clock,
                 animate_campaign_markers,
                 draw_campaign_map_gizmos,
                 sync_campaign_scene,
@@ -1572,6 +1716,45 @@ fn backend_worker_loop(
                     include_map,
                 );
                 let _ = response_tx.send(BackendResponse::WorldSync(Box::new(result)));
+            }
+            BackendRequest::StartBattle {
+                access_token,
+                character_id,
+            } => {
+                let result = execute_start_battle(&client, &config, &access_token, character_id);
+                let _ = response_tx.send(BackendResponse::BattleStart(result));
+            }
+            BackendRequest::IssueBattleCommand {
+                access_token,
+                character_id,
+                battle_instance_id,
+                action_type,
+                side,
+                formation,
+                reserve_strength,
+            } => {
+                let result = execute_battle_command(
+                    &client,
+                    &config,
+                    &access_token,
+                    character_id,
+                    battle_instance_id,
+                    &action_type,
+                    side,
+                    formation,
+                    reserve_strength,
+                );
+                let _ = response_tx.send(BackendResponse::BattleCommand(result));
+            }
+            BackendRequest::IssueDomainAction {
+                access_token,
+                character_id,
+                action_type,
+                payload,
+            } => {
+                let result =
+                    execute_domain_action(&client, &config, &access_token, character_id, &action_type, payload);
+                let _ = response_tx.send(BackendResponse::DomainAction(result));
             }
         }
     }
@@ -1700,6 +1883,91 @@ fn execute_fetch_world_sync(
         .send()
         .map_err(|error| format!("World sync request failed: {error}"))?;
 
+    decode_api_response(response)
+}
+
+fn execute_start_battle(
+    client: &Client,
+    config: &BackendConfig,
+    access_token: &str,
+    character_id: u64,
+) -> Result<BattleStartResponsePayload, String> {
+    let url = format!("{}/gameplay/battle/start", config.base_url);
+    let payload = serde_json::json!({
+        "character_id": character_id,
+    });
+
+    let response = client
+        .post(url)
+        .header(AUTHORIZATION, format!("Bearer {access_token}"))
+        .header(CONTENT_TYPE, "application/json")
+        .header("x-client-version", &config.client_version)
+        .header("x-client-content-version", &config.client_content_version_key)
+        .body(payload.to_string())
+        .send()
+        .map_err(|error| format!("Battle start request failed: {error}"))?;
+
+    decode_api_response(response)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_battle_command(
+    client: &Client,
+    config: &BackendConfig,
+    access_token: &str,
+    character_id: u64,
+    battle_instance_id: u64,
+    action_type: &str,
+    side: Option<String>,
+    formation: Option<String>,
+    reserve_strength: Option<u32>,
+) -> Result<BattleCommandResponsePayload, String> {
+    let url = format!("{}/gameplay/battle/command", config.base_url);
+    let payload = serde_json::json!({
+        "character_id": character_id,
+        "battle_instance_id": battle_instance_id,
+        "action_type": action_type,
+        "side": side,
+        "formation": formation,
+        "reserve_strength": reserve_strength,
+    });
+
+    let response = client
+        .post(url)
+        .header(AUTHORIZATION, format!("Bearer {access_token}"))
+        .header(CONTENT_TYPE, "application/json")
+        .header("x-client-version", &config.client_version)
+        .header("x-client-content-version", &config.client_content_version_key)
+        .body(payload.to_string())
+        .send()
+        .map_err(|error| format!("Battle command request failed: {error}"))?;
+
+    decode_api_response(response)
+}
+
+fn execute_domain_action(
+    client: &Client,
+    config: &BackendConfig,
+    access_token: &str,
+    character_id: u64,
+    action_type: &str,
+    payload: serde_json::Value,
+) -> Result<DomainActionResponsePayload, String> {
+    let url = format!("{}/gameplay/domain-action", config.base_url);
+    let body = serde_json::json!({
+        "character_id": character_id,
+        "action_type": action_type,
+        "payload": payload,
+    });
+    let response = client
+        .post(url)
+        .header(AUTHORIZATION, format!("Bearer {access_token}"))
+        .header(CONTENT_TYPE, "application/json")
+        .header("x-client-version", &config.client_version)
+        .header("x-client-content-version", &config.client_content_version_key)
+        .body(body.to_string())
+        .send()
+        .map_err(|error| format!("Domain action request failed: {error}"))?;
     decode_api_response(response)
 }
 
@@ -2002,6 +2270,8 @@ fn poll_backend_responses(
     mut shell: ResMut<ShellState>,
     mut map: ResMut<CampaignMapSurface>,
     mut world_sync: ResMut<WorldSyncState>,
+    mut battle_scene: ResMut<BattleSceneState>,
+    mut panel_actions: ResMut<PanelActionState>,
     bridge: Res<BackendBridge>,
 ) {
     let mut messages = Vec::new();
@@ -2029,6 +2299,15 @@ fn poll_backend_responses(
         match message {
             BackendResponse::WorldSync(result) => {
                 handle_world_sync_response(&mut shell, &mut map, &mut world_sync, *result);
+            }
+            BackendResponse::BattleStart(result) => {
+                handle_battle_start_response(&mut shell, &mut battle_scene, result);
+            }
+            BackendResponse::BattleCommand(result) => {
+                handle_battle_command_response(&mut shell, &mut battle_scene, result);
+            }
+            BackendResponse::DomainAction(result) => {
+                handle_panel_action_response(&mut shell, &mut panel_actions, result);
             }
             other => handle_backend_response(&mut shell, &bridge.request_tx, other),
         }
@@ -2099,6 +2378,31 @@ fn drive_world_sync_poll(shell: Res<ShellState>, bridge: Res<BackendBridge>, mut
     }
 }
 
+fn advance_battle_visual_clock(
+    time: Res<Time>,
+    world_sync: Res<WorldSyncState>,
+    mut battle_scene: ResMut<BattleSceneState>,
+) {
+    if battle_scene.paused {
+        return;
+    }
+    let has_active_battle = world_sync
+        .snapshot
+        .as_ref()
+        .map(|snapshot| !snapshot.world.battle.state.instances.is_empty())
+        .unwrap_or(false);
+    if !has_active_battle {
+        return;
+    }
+
+    let fixed_step = 0.1_f32;
+    battle_scene.visual_step_accumulator += time.delta_secs() * battle_scene.time_scale.max(0.1);
+    while battle_scene.visual_step_accumulator >= fixed_step {
+        battle_scene.visual_step = battle_scene.visual_step.saturating_add(1);
+        battle_scene.visual_step_accumulator -= fixed_step;
+    }
+}
+
 fn schedule_world_sync_retry(world_sync: &mut WorldSyncState, now_ms: u64, reason: String) {
     world_sync.request_in_flight = false;
     world_sync.last_error = Some(reason.clone());
@@ -2156,6 +2460,83 @@ fn handle_world_sync_response(
         }
         Err(error) => {
             schedule_world_sync_retry(world_sync, now_ms, format!("World sync failed: {error}"));
+        }
+    }
+}
+
+fn handle_battle_start_response(
+    shell: &mut ShellState,
+    battle_scene: &mut BattleSceneState,
+    result: Result<BattleStartResponsePayload, String>,
+) {
+    battle_scene.command_in_flight = false;
+    match result {
+        Ok(payload) => {
+            if payload.accepted {
+                battle_scene.active_instance_id = Some(payload.battle_instance_id);
+                battle_scene.status_line = format!(
+                    "Battle {} started (status: {}, tick {}).",
+                    payload.battle_instance_id, payload.battle_status, payload.campaign_tick
+                );
+                shell.status_line = battle_scene.status_line.clone();
+            } else {
+                battle_scene.status_line = format!("Battle start rejected: {}", payload.reason_code);
+            }
+        }
+        Err(error) => {
+            battle_scene.status_line = format!("Battle start failed: {error}");
+        }
+    }
+}
+
+fn handle_battle_command_response(
+    shell: &mut ShellState,
+    battle_scene: &mut BattleSceneState,
+    result: Result<BattleCommandResponsePayload, String>,
+) {
+    battle_scene.command_in_flight = false;
+    match result {
+        Ok(payload) => {
+            if payload.accepted {
+                battle_scene.status_line = format!(
+                    "Battle command applied to {} (status: {}, tick {}).",
+                    payload.battle_instance_id, payload.battle_status, payload.campaign_tick
+                );
+                shell.status_line = battle_scene.status_line.clone();
+            } else {
+                battle_scene.status_line = format!("Battle command rejected: {}", payload.reason_code);
+            }
+        }
+        Err(error) => {
+            battle_scene.status_line = format!("Battle command failed: {error}");
+        }
+    }
+}
+
+fn handle_panel_action_response(
+    shell: &mut ShellState,
+    panel_actions: &mut PanelActionState,
+    result: Result<DomainActionResponsePayload, String>,
+) {
+    panel_actions.in_flight = false;
+    match result {
+        Ok(payload) => {
+            if payload.accepted {
+                panel_actions.last_error = None;
+                panel_actions.status_line = format!(
+                    "Action '{}' accepted at tick {}.",
+                    payload.action_type, payload.campaign_tick
+                );
+                shell.status_line = panel_actions.status_line.clone();
+            } else {
+                panel_actions.last_error = Some(payload.reason_code.clone());
+                panel_actions.status_line =
+                    format!("Action '{}' rejected: {}", payload.action_type, payload.reason_code);
+            }
+        }
+        Err(error) => {
+            panel_actions.last_error = Some(error.clone());
+            panel_actions.status_line = format!("Panel action failed: {error}");
         }
     }
 }
@@ -2308,6 +2689,9 @@ fn handle_backend_response(shell: &mut ShellState, request_tx: &Sender<BackendRe
             shell.status_line = format!("World bootstrap failed: {error}");
         }
         BackendResponse::WorldSync(_) => {}
+        BackendResponse::BattleStart(_) => {}
+        BackendResponse::BattleCommand(_) => {}
+        BackendResponse::DomainAction(_) => {}
     }
 }
 
@@ -2438,6 +2822,8 @@ fn draw_shell_ui(
     bridge: Res<BackendBridge>,
     mut map: ResMut<CampaignMapSurface>,
     world_sync: Res<WorldSyncState>,
+    mut battle_scene: ResMut<BattleSceneState>,
+    mut panel_actions: ResMut<PanelActionState>,
     mut panels: ResMut<PanelUiState>,
     mut tools: ResMut<MapToolsState>,
 ) {
@@ -2471,13 +2857,23 @@ fn draw_shell_ui(
                     render_character_controls(ui, &mut shell, &config, &bridge);
                 }
                 ShellPhase::CampaignReady => {
-                    render_campaign_summary(ui, &mut shell, &config, &bridge, &mut map, &world_sync, &mut panels);
+                    render_campaign_summary(
+                        ui,
+                        &mut shell,
+                        &config,
+                        &bridge,
+                        &mut map,
+                        &world_sync,
+                        &mut battle_scene,
+                        &mut panels,
+                    );
                 }
             }
         });
 
     if shell.phase == ShellPhase::CampaignReady {
-        render_domain_panels(ctx, &shell, &map, &world_sync, &mut panels);
+        render_domain_panels(ctx, &shell, &bridge, &world_sync, &mut panel_actions, &mut panels);
+        render_battle_scene_window(ctx, &shell, &bridge, &world_sync, &mut battle_scene);
         render_tools_window(ctx, &mut map, &mut tools);
     }
 }
@@ -2629,6 +3025,7 @@ fn render_character_controls(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_campaign_summary(
     ui: &mut egui::Ui,
     shell: &mut ShellState,
@@ -2636,6 +3033,7 @@ fn render_campaign_summary(
     bridge: &BackendBridge,
     map: &mut CampaignMapSurface,
     world_sync: &WorldSyncState,
+    battle_scene: &mut BattleSceneState,
     panels: &mut PanelUiState,
 ) {
     ui.heading("Campaign Entry Scene");
@@ -2746,6 +3144,37 @@ fn render_campaign_summary(
     ui.label(format!("Layout state: {}", panels.last_io_status));
 
     ui.separator();
+    ui.heading("Battle Scene");
+    ui.label("Real-time instanced battle surface is available in a dedicated battle window.");
+    ui.label(format!("Battle status: {}", battle_scene.status_line));
+    if let Some(instance_id) = battle_scene.active_instance_id {
+        ui.label(format!("Active instance: {instance_id}"));
+    } else {
+        ui.label("Active instance: none");
+    }
+    let can_start_battle =
+        !battle_scene.command_in_flight && shell.session.is_some() && shell.campaign_bootstrap.is_some();
+    if ui
+        .add_enabled(can_start_battle, egui::Button::new("Start Skirmish Instance"))
+        .clicked()
+        && let (Some(session), Some(bootstrap)) = (shell.session.as_ref(), shell.campaign_bootstrap.as_ref())
+    {
+        if bridge
+            .request_tx
+            .send(BackendRequest::StartBattle {
+                access_token: session.access_token.clone(),
+                character_id: bootstrap.character_id,
+            })
+            .is_ok()
+        {
+            battle_scene.command_in_flight = true;
+            battle_scene.status_line = "Dispatching battle start command...".to_string();
+        } else {
+            battle_scene.status_line = "Failed dispatching battle start command.".to_string();
+        }
+    }
+
+    ui.separator();
     if ui.button("Back to Character Selection").clicked() {
         shell.phase = ShellPhase::CharacterSelect;
         shell.status_line = format!("Returned to character selection for {}.", config.base_url);
@@ -2777,40 +3206,38 @@ fn render_campaign_summary(
 fn render_domain_panels(
     ctx: &egui::Context,
     shell: &ShellState,
-    map: &CampaignMapSurface,
+    bridge: &BackendBridge,
     world_sync: &WorldSyncState,
+    panel_actions: &mut PanelActionState,
     panels: &mut PanelUiState,
 ) {
     render_panel_window(ctx, panels, DomainPanel::Character, |ui| {
-        if let Some(bootstrap) = shell.campaign_bootstrap.as_ref() {
-            ui.label(format!("Name: {}", bootstrap.character_name));
-            ui.label(format!("Character ID: {}", bootstrap.character_id));
-            ui.label(format!("Level Surface: {}", bootstrap.level_description));
+        if let Some(snapshot) = world_sync.snapshot.as_ref() {
+            let character = &snapshot.world.character;
+            ui.label(format!("Name: {}", character.name));
+            ui.label(format!("Character ID: {}", character.id));
+            ui.label(format!("Level: {}", character.level));
+            ui.label(format!("XP: {}", character.experience));
             ui.label(format!(
-                "Spawn: ({}, {})",
-                bootstrap.spawn_world_x, bootstrap.spawn_world_y
+                "Location: ({}, {})",
+                character.location_x, character.location_y
             ));
+            ui.label(format!("Campaign tick: {}", world_sync.last_campaign_tick));
         } else {
-            ui.label("No active character bootstrap payload.");
+            ui.label("No live character snapshot yet.");
         }
     });
 
     render_panel_window(ctx, panels, DomainPanel::Household, |ui| {
-        let visible = map
-            .settlements
-            .iter()
-            .filter(|row| row.fog == FogVisibility::Visible)
-            .count();
-        let shrouded = map
-            .settlements
-            .iter()
-            .filter(|row| row.fog == FogVisibility::Shrouded)
-            .count();
-        ui.label("Household dashboard (code-first panel shell).");
-        ui.label(format!("Visible holdings: {visible}"));
-        ui.label(format!("Peripheral holdings: {shrouded}"));
-        if let Some(node) = map.settlements.first() {
-            ui.label(format!("Primary seat candidate: {}", node.name));
+        if let Some(snapshot) = world_sync.snapshot.as_ref() {
+            let household = &snapshot.world.household;
+            ui.label("Household dashboard (live sync).");
+            ui.label(format!("Active armies: {}", household.active_armies));
+            ui.label(format!("Markets influenced: {}", household.market_count));
+            ui.label(format!("Informants active: {}", household.informant_count));
+            ui.label(format!("Treaties tracked: {}", household.treaty_count));
+        } else {
+            ui.label("Household live snapshot unavailable.");
         }
     });
 
@@ -2835,6 +3262,35 @@ fn render_domain_panels(
                 army.stock.materiel,
                 army.shortage_ticks
             ));
+        }
+        let can_send = !panel_actions.in_flight && shell.session.is_some() && shell.campaign_bootstrap.is_some();
+        if ui
+            .add_enabled(can_send, egui::Button::new("Dispatch Supply Transfer (7 -> 8)"))
+            .clicked()
+            && let (Some(session), Some(bootstrap)) = (shell.session.as_ref(), shell.campaign_bootstrap.as_ref())
+        {
+            if bridge
+                .request_tx
+                .send(BackendRequest::IssueDomainAction {
+                    access_token: session.access_token.clone(),
+                    character_id: bootstrap.character_id,
+                    action_type: "queue_supply_transfer".to_string(),
+                    payload: serde_json::json!({
+                        "from_army": 7,
+                        "to_army": 8,
+                        "food": 12,
+                        "horses": 3,
+                        "materiel": 4
+                    }),
+                })
+                .is_ok()
+            {
+                panel_actions.in_flight = true;
+                panel_actions.status_line = "Dispatching logistics action...".to_string();
+                panel_actions.last_error = None;
+            } else {
+                panel_actions.status_line = "Failed dispatching logistics action.".to_string();
+            }
         }
     });
 
@@ -2875,6 +3331,35 @@ fn render_domain_panels(
             markets.len(),
             avg_price
         ));
+        let can_send = !panel_actions.in_flight && shell.session.is_some() && shell.campaign_bootstrap.is_some();
+        if ui
+            .add_enabled(can_send, egui::Button::new("Queue Trade Shipment (101 -> 222)"))
+            .clicked()
+            && let (Some(session), Some(bootstrap)) = (shell.session.as_ref(), shell.campaign_bootstrap.as_ref())
+        {
+            if bridge
+                .request_tx
+                .send(BackendRequest::IssueDomainAction {
+                    access_token: session.access_token.clone(),
+                    character_id: bootstrap.character_id,
+                    action_type: "queue_trade_shipment".to_string(),
+                    payload: serde_json::json!({
+                        "origin_settlement": 101,
+                        "destination_settlement": 222,
+                        "food": 14,
+                        "horses": 2,
+                        "materiel": 6
+                    }),
+                })
+                .is_ok()
+            {
+                panel_actions.in_flight = true;
+                panel_actions.status_line = "Dispatching trade action...".to_string();
+                panel_actions.last_error = None;
+            } else {
+                panel_actions.status_line = "Failed dispatching trade action.".to_string();
+            }
+        }
     });
 
     render_panel_window(ctx, panels, DomainPanel::Espionage, |ui| {
@@ -2907,6 +3392,32 @@ fn render_domain_panels(
                 report.informant_id, report.subject_settlement, report.confidence_bp, report.false_report
             ));
         }
+        let can_send = !panel_actions.in_flight && shell.session.is_some() && shell.campaign_bootstrap.is_some();
+        if ui
+            .add_enabled(can_send, egui::Button::new("Request Intel Report (Inf 9001)"))
+            .clicked()
+            && let (Some(session), Some(bootstrap)) = (shell.session.as_ref(), shell.campaign_bootstrap.as_ref())
+        {
+            if bridge
+                .request_tx
+                .send(BackendRequest::IssueDomainAction {
+                    access_token: session.access_token.clone(),
+                    character_id: bootstrap.character_id,
+                    action_type: "request_intel_report".to_string(),
+                    payload: serde_json::json!({
+                        "informant_id": 9001,
+                        "subject_settlement": 101
+                    }),
+                })
+                .is_ok()
+            {
+                panel_actions.in_flight = true;
+                panel_actions.status_line = "Dispatching espionage action...".to_string();
+                panel_actions.last_error = None;
+            } else {
+                panel_actions.status_line = "Failed dispatching espionage action.".to_string();
+            }
+        }
     });
 
     render_panel_window(ctx, panels, DomainPanel::Diplomacy, |ui| {
@@ -2929,6 +3440,36 @@ fn render_domain_panels(
                 bootstrap.level_name, bootstrap.instance_kind
             ));
         }
+        let can_send = !panel_actions.in_flight && shell.session.is_some() && shell.campaign_bootstrap.is_some();
+        if ui
+            .add_enabled(can_send, egui::Button::new("Set Treaty Active (501)"))
+            .clicked()
+            && let (Some(session), Some(bootstrap)) = (shell.session.as_ref(), shell.campaign_bootstrap.as_ref())
+        {
+            if bridge
+                .request_tx
+                .send(BackendRequest::IssueDomainAction {
+                    access_token: session.access_token.clone(),
+                    character_id: bootstrap.character_id,
+                    action_type: "set_treaty_status".to_string(),
+                    payload: serde_json::json!({
+                        "treaty_id": 501,
+                        "faction_a": 1,
+                        "faction_b": 2,
+                        "treaty_kind": "trade_pact",
+                        "active": true,
+                        "trust_bp": 6800
+                    }),
+                })
+                .is_ok()
+            {
+                panel_actions.in_flight = true;
+                panel_actions.status_line = "Dispatching diplomacy action...".to_string();
+                panel_actions.last_error = None;
+            } else {
+                panel_actions.status_line = "Failed dispatching diplomacy action.".to_string();
+            }
+        }
     });
 
     let layout_status = panels.last_io_status.clone();
@@ -2946,9 +3487,290 @@ fn render_domain_panels(
         ));
         ui.label(world_sync.status_line.as_str());
         ui.separator();
+        ui.label(format!("Panel actions: {}", panel_actions.status_line));
+        if let Some(error) = panel_actions.last_error.as_ref() {
+            ui.colored_label(egui::Color32::from_rgb(236, 111, 99), format!("Action error: {error}"));
+        }
+        ui.separator();
         ui.label("Panel layout");
         ui.label(layout_status.as_str());
     });
+}
+
+fn active_battle_instance(
+    world_sync: &WorldSyncState,
+    battle_scene: &BattleSceneState,
+) -> Option<BattleInstancePayload> {
+    let snapshot = world_sync.snapshot.as_ref()?;
+    if let Some(instance_id) = battle_scene.active_instance_id
+        && let Some(row) = snapshot
+            .world
+            .battle
+            .state
+            .instances
+            .iter()
+            .find(|row| row.instance_id == instance_id)
+    {
+        return Some(row.clone());
+    }
+    snapshot
+        .world
+        .battle
+        .state
+        .instances
+        .iter()
+        .find(|row| row.status.eq_ignore_ascii_case("active"))
+        .cloned()
+}
+
+fn battle_result_for_instance(world_sync: &WorldSyncState, instance_id: u64) -> Option<BattleResultPayload> {
+    let snapshot = world_sync.snapshot.as_ref()?;
+    snapshot
+        .world
+        .battle
+        .state
+        .recent_results
+        .iter()
+        .find(|row| row.instance_id == instance_id)
+        .cloned()
+}
+
+fn render_battle_scene_window(
+    ctx: &egui::Context,
+    shell: &ShellState,
+    bridge: &BackendBridge,
+    world_sync: &WorldSyncState,
+    battle_scene: &mut BattleSceneState,
+) {
+    if shell.phase != ShellPhase::CampaignReady {
+        return;
+    }
+
+    let active_instance = active_battle_instance(world_sync, battle_scene);
+    if battle_scene.active_instance_id.is_none()
+        && let Some(instance) = active_instance.as_ref()
+    {
+        battle_scene.active_instance_id = Some(instance.instance_id);
+    }
+
+    egui::Window::new("Battle Instance - Real-Time")
+        .anchor(egui::Align2::RIGHT_BOTTOM, [-18.0, -18.0])
+        .default_size([500.0, 420.0])
+        .resizable(true)
+        .show(ctx, |ui| {
+            ui.label(format!("Status: {}", battle_scene.status_line));
+            ui.horizontal(|ui| {
+                ui.label("Time scale");
+                ui.add(egui::Slider::new(&mut battle_scene.time_scale, 0.25..=3.0));
+                let toggle_label = if battle_scene.paused { "Resume" } else { "Pause" };
+                if ui.button(toggle_label).clicked() {
+                    battle_scene.paused = !battle_scene.paused;
+                }
+            });
+            ui.label(format!("Visual fixed-step cursor: {}", battle_scene.visual_step));
+            ui.separator();
+
+            let Some(instance) = active_instance.as_ref() else {
+                ui.label("No active battle instance from world sync feed.");
+                return;
+            };
+
+            ui.label(format!(
+                "Instance {} | armies {} vs {} | status {}",
+                instance.instance_id, instance.attacker_army, instance.defender_army, instance.status
+            ));
+            ui.label(format!(
+                "Strength: {} vs {} | morale {} / {}",
+                instance.attacker_strength,
+                instance.defender_strength,
+                instance.attacker_morale_bp,
+                instance.defender_morale_bp
+            ));
+
+            let (response, painter) = ui.allocate_painter(egui::vec2(460.0, 220.0), egui::Sense::hover());
+            let rect = response.rect;
+            let center_y = rect.center().y;
+            let normalized_pressure =
+                ((instance.attacker_outcome_score_bp - instance.defender_outcome_score_bp) as f32 / 20_000.0)
+                    .clamp(-1.0, 1.0);
+            let frontline_x = rect.center().x + normalized_pressure * 90.0;
+            painter.rect_stroke(
+                rect,
+                4.0,
+                egui::Stroke::new(1.0, egui::Color32::from_gray(90)),
+                egui::StrokeKind::Outside,
+            );
+            painter.line_segment(
+                [
+                    egui::pos2(frontline_x, rect.top() + 10.0),
+                    egui::pos2(frontline_x, rect.bottom() - 10.0),
+                ],
+                egui::Stroke::new(2.0, egui::Color32::from_rgb(240, 206, 94)),
+            );
+
+            for index in 0..6 {
+                let phase = (battle_scene.visual_step as f32 * 0.2 + index as f32 * 0.5).sin();
+                let offset_y = phase * 8.0;
+                let attacker_x = rect.left() + 40.0 + index as f32 * 24.0 + normalized_pressure * 26.0;
+                let defender_x = rect.right() - 40.0 - index as f32 * 24.0 + normalized_pressure * 26.0;
+                painter.circle_filled(
+                    egui::pos2(attacker_x, center_y - 20.0 + offset_y),
+                    8.0,
+                    egui::Color32::from_rgb(209, 84, 56),
+                );
+                painter.circle_filled(
+                    egui::pos2(defender_x, center_y + 20.0 - offset_y),
+                    8.0,
+                    egui::Color32::from_rgb(79, 146, 209),
+                );
+            }
+
+            ui.horizontal(|ui| {
+                ui.label("Morale pressure HUD");
+                ui.label(format!(
+                    "attacker {} bp | defender {} bp",
+                    instance.attacker_morale_bp, instance.defender_morale_bp
+                ));
+            });
+
+            let Some(session) = shell.session.as_ref() else {
+                return;
+            };
+            let character_id = shell
+                .campaign_bootstrap
+                .as_ref()
+                .map(|row| row.character_id)
+                .or(shell.selected_character_id)
+                .unwrap_or(0);
+            if character_id == 0 {
+                return;
+            }
+
+            ui.separator();
+            ui.horizontal(|ui| {
+                let can_send = !battle_scene.command_in_flight;
+                if ui.add_enabled(can_send, egui::Button::new("Formation: Line")).clicked() {
+                    if bridge
+                        .request_tx
+                        .send(BackendRequest::IssueBattleCommand {
+                            access_token: session.access_token.clone(),
+                            character_id,
+                            battle_instance_id: instance.instance_id,
+                            action_type: "set_formation".to_string(),
+                            side: Some("attacker".to_string()),
+                            formation: Some("line".to_string()),
+                            reserve_strength: None,
+                        })
+                        .is_ok()
+                    {
+                        battle_scene.command_in_flight = true;
+                    } else {
+                        battle_scene.status_line = "Failed dispatching battle formation command.".to_string();
+                    }
+                }
+                if ui
+                    .add_enabled(can_send, egui::Button::new("Formation: Wedge"))
+                    .clicked()
+                {
+                    if bridge
+                        .request_tx
+                        .send(BackendRequest::IssueBattleCommand {
+                            access_token: session.access_token.clone(),
+                            character_id,
+                            battle_instance_id: instance.instance_id,
+                            action_type: "set_formation".to_string(),
+                            side: Some("attacker".to_string()),
+                            formation: Some("wedge".to_string()),
+                            reserve_strength: None,
+                        })
+                        .is_ok()
+                    {
+                        battle_scene.command_in_flight = true;
+                    } else {
+                        battle_scene.status_line = "Failed dispatching battle formation command.".to_string();
+                    }
+                }
+                if ui
+                    .add_enabled(can_send, egui::Button::new("Formation: Defensive"))
+                    .clicked()
+                {
+                    if bridge
+                        .request_tx
+                        .send(BackendRequest::IssueBattleCommand {
+                            access_token: session.access_token.clone(),
+                            character_id,
+                            battle_instance_id: instance.instance_id,
+                            action_type: "set_formation".to_string(),
+                            side: Some("attacker".to_string()),
+                            formation: Some("defensive".to_string()),
+                            reserve_strength: None,
+                        })
+                        .is_ok()
+                    {
+                        battle_scene.command_in_flight = true;
+                    } else {
+                        battle_scene.status_line = "Failed dispatching battle formation command.".to_string();
+                    }
+                }
+            });
+
+            ui.horizontal(|ui| {
+                let can_send = !battle_scene.command_in_flight;
+                if ui.add_enabled(can_send, egui::Button::new("Deploy Reserve")).clicked() {
+                    if bridge
+                        .request_tx
+                        .send(BackendRequest::IssueBattleCommand {
+                            access_token: session.access_token.clone(),
+                            character_id,
+                            battle_instance_id: instance.instance_id,
+                            action_type: "deploy_reserve".to_string(),
+                            side: Some("attacker".to_string()),
+                            formation: None,
+                            reserve_strength: Some(200),
+                        })
+                        .is_ok()
+                    {
+                        battle_scene.command_in_flight = true;
+                    } else {
+                        battle_scene.status_line = "Failed dispatching reserve command.".to_string();
+                    }
+                }
+                if ui.add_enabled(can_send, egui::Button::new("Force Resolve")).clicked() {
+                    if bridge
+                        .request_tx
+                        .send(BackendRequest::IssueBattleCommand {
+                            access_token: session.access_token.clone(),
+                            character_id,
+                            battle_instance_id: instance.instance_id,
+                            action_type: "force_resolve".to_string(),
+                            side: None,
+                            formation: None,
+                            reserve_strength: None,
+                        })
+                        .is_ok()
+                    {
+                        battle_scene.command_in_flight = true;
+                    } else {
+                        battle_scene.status_line = "Failed dispatching force-resolve command.".to_string();
+                    }
+                }
+            });
+
+            if let Some(result) = battle_result_for_instance(world_sync, instance.instance_id) {
+                ui.separator();
+                ui.label(format!(
+                    "Resolved: winner army {} | loser army {} | remaining {}:{}",
+                    result.winner_army,
+                    result.loser_army,
+                    result.attacker_remaining_strength,
+                    result.defender_remaining_strength
+                ));
+                if ui.button("Return To Campaign Surface").clicked() {
+                    battle_scene.active_instance_id = None;
+                    battle_scene.status_line = "Battle resolved. Returned to campaign surface.".to_string();
+                }
+            }
+        });
 }
 
 fn render_panel_window<F>(ctx: &egui::Context, panels: &mut PanelUiState, panel: DomainPanel, add_contents: F)
@@ -3283,9 +4105,10 @@ mod tests {
     use std::path::PathBuf;
 
     use super::{
-        AuthoredMapData, AuthoredRoute, AuthoredSettlement, CharacterSummary, DOMAIN_PANELS, LayoutPreset,
-        ProvincePackData, WorldSyncPayload, WorldSyncState, apply_world_sync_snapshot, build_graph_from_pack,
-        default_layout_snapshot, extract_error_message, is_auth_http_error, parse_startup_options,
+        AuthoredMapData, AuthoredRoute, AuthoredSettlement, BattleSceneState, CharacterSummary, DOMAIN_PANELS,
+        LayoutPreset, PanelActionState, ProvincePackData, WorldSyncPayload, WorldSyncState, active_battle_instance,
+        apply_world_sync_snapshot, battle_result_for_instance, build_graph_from_pack, default_layout_snapshot,
+        extract_error_message, handle_panel_action_response, is_auth_http_error, parse_startup_options,
         parse_structured_handoff_payload, resolve_selected_character_id, sample_authored_map_data,
         schedule_world_sync_retry, validate_and_build_graph,
     };
@@ -3537,5 +4360,98 @@ mod tests {
         assert_eq!(map.army_markers[0].origin.0, 101);
         assert_eq!(map.caravan_markers.len(), 1);
         assert_eq!(map.caravan_markers[0].destination.0, 222);
+    }
+
+    #[test]
+    fn active_battle_instance_prefers_selected_instance() {
+        let world_sync = WorldSyncState {
+            snapshot: Some(WorldSyncPayload {
+                world: super::WorldSyncWorldPayload {
+                    battle: super::BattleSyncPayload {
+                        state: super::BattleSyncStatePayload {
+                            instances: vec![
+                                super::BattleInstancePayload {
+                                    instance_id: 7001,
+                                    status: "active".to_string(),
+                                    ..super::BattleInstancePayload::default()
+                                },
+                                super::BattleInstancePayload {
+                                    instance_id: 7002,
+                                    status: "active".to_string(),
+                                    ..super::BattleInstancePayload::default()
+                                },
+                            ],
+                            recent_results: Vec::new(),
+                        },
+                        ..super::BattleSyncPayload::default()
+                    },
+                    ..super::WorldSyncWorldPayload::default()
+                },
+                ..WorldSyncPayload::default()
+            }),
+            ..WorldSyncState::default()
+        };
+        let scene = BattleSceneState {
+            active_instance_id: Some(7002),
+            ..BattleSceneState::default()
+        };
+        let resolved = active_battle_instance(&world_sync, &scene).expect("active instance should resolve");
+        assert_eq!(resolved.instance_id, 7002);
+    }
+
+    #[test]
+    fn battle_result_lookup_returns_matching_instance() {
+        let world_sync = WorldSyncState {
+            snapshot: Some(WorldSyncPayload {
+                world: super::WorldSyncWorldPayload {
+                    battle: super::BattleSyncPayload {
+                        state: super::BattleSyncStatePayload {
+                            instances: Vec::new(),
+                            recent_results: vec![super::BattleResultPayload {
+                                instance_id: 8123,
+                                winner_army: 10,
+                                loser_army: 11,
+                                ..super::BattleResultPayload::default()
+                            }],
+                        },
+                        ..super::BattleSyncPayload::default()
+                    },
+                    ..super::WorldSyncWorldPayload::default()
+                },
+                ..WorldSyncPayload::default()
+            }),
+            ..WorldSyncState::default()
+        };
+        let result = battle_result_for_instance(&world_sync, 8123).expect("result should exist");
+        assert_eq!(result.winner_army, 10);
+    }
+
+    #[test]
+    fn panel_action_response_maps_success_and_error_state() {
+        let mut shell = super::ShellState::default();
+        let mut panel_actions = PanelActionState {
+            in_flight: true,
+            ..PanelActionState::default()
+        };
+
+        handle_panel_action_response(
+            &mut shell,
+            &mut panel_actions,
+            Ok(super::DomainActionResponsePayload {
+                accepted: true,
+                action_type: "queue_trade_shipment".to_string(),
+                campaign_tick: 55,
+                ..super::DomainActionResponsePayload::default()
+            }),
+        );
+        assert!(!panel_actions.in_flight);
+        assert!(panel_actions.last_error.is_none());
+        assert!(panel_actions.status_line.contains("accepted"));
+
+        panel_actions.in_flight = true;
+        handle_panel_action_response(&mut shell, &mut panel_actions, Err("network".to_string()));
+        assert!(!panel_actions.in_flight);
+        assert!(panel_actions.status_line.contains("failed"));
+        assert!(panel_actions.last_error.is_some());
     }
 }

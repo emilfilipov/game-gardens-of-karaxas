@@ -59,6 +59,8 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Existing FastAPI auth/session/account/content/release endpoints remain operational during migration.
 - FastAPI now exposes authenticated vertical-slice orchestration endpoint `POST /gameplay/vertical-slice-loop` to run the PoC loop (campaign command dispatch -> battle instance lifecycle -> persistence writeback) while keeping login/account/session contracts intact.
 - FastAPI now also exposes authenticated world-sync feed endpoint `POST /gameplay/world-sync` that advances deterministic world ticks and returns the current multi-domain snapshot (`travel/logistics/trade/espionage/politics/battle`) for client polling.
+- FastAPI now also exposes authenticated battle control endpoints `POST /gameplay/battle/start` and `POST /gameplay/battle/command` for real-time client battle scene actions.
+- FastAPI now also exposes authenticated domain action endpoint `POST /gameplay/domain-action` for logistics/trade/espionage/politics panel actions.
 - FastAPI ops metrics endpoint `GET /ops/release/metrics` now includes runtime health probes for DB latency, outbox lag, and release feed health metadata.
 
 ### New world authority plane
@@ -99,6 +101,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Internal signed bridge contract now also includes world-entry handoff (`/internal/world-entry/bootstrap`) consumed by FastAPI auth/session/character bootstrap flow.
 - FastAPI world-service control client (`backend/app/services/world_service_control.py`) now orchestrates signed command dispatch and tick advancement (`/internal/control/commands`, `/internal/control/tick`) plus battle-state reads (`/battle/state`) for vertical-slice loop execution.
 - FastAPI world-service control client now also aggregates multi-domain world sync snapshots by combining `/internal/control/tick` with `/travel/map`, `/logistics/state`, `/trade/state`, `/espionage/state`, `/politics/state`, `/battle/state`, and `/metrics/summary`.
+- `POST /gameplay/world-sync` payload now includes authoritative `world.character` and derived `world.household` summaries in addition to domain snapshots to support live panel hydration.
 - Shared Rust domain crates provide deterministic rules used by both service and client presentation layers.
 - Shared Rust domain crate `sim-core` now defines typed entity IDs, command/event envelopes, and schema compatibility policy consumed by both `world-service` and `client-app`.
 - Shared `sim-core` now also includes travel-domain contracts/planner logic (route adjacency, fastest/safest route planning, risk modifiers, deterministic route risk bands, choke-point detection, and arrival estimates).
@@ -131,6 +134,14 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
   - reconnect/backoff strategy (`1s` base up to `10s`),
   - stale-data surface when no successful sync is received before `stale_after_ms`,
   - server/client clock alignment metadata for campaign tick projection in UI.
+- Bootstrap shell now includes a playable real-time battle scene window:
+  - fixed-step visual battle clock and front-line rendering,
+  - live unit markers + morale/pressure summaries,
+  - real-time tactical action controls wired to backend `battle/start` + `battle/command` routes.
+- Bootstrap shell gameplay panels are now fully wired to authoritative data + actions:
+  - panels hydrate from live `world-sync` character/household/domain payloads,
+  - panel actions dispatch through `POST /gameplay/domain-action`,
+  - optimistic in-flight guards and explicit success/error state are surfaced in UI.
 - Bootstrap shell now includes role-gated code-first map authoring tools mode:
   - enable via `AOP_TOOLS_ENABLED=true` or `AOP_TOOLS_ROLE=designer|admin`,
   - edit settlements (camp/village/town/city/fortress) and routes in-app, run schema validation before save, and view inline validation errors,
@@ -230,6 +241,8 @@ Current baseline checks retained during transition:
   - `OPS_BASE_URL=<backend-url> OPS_TOKEN=<ops-token> WORLD_SERVICE_BASE_URL=<world-service-url> backend/scripts/check_world_runtime_alerts.sh`
 - World-sync backend contract smoke:
   - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_world_sync_feed.py`
+- Battle/domain backend contract smoke:
+  - `PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests/test_battle_commands.py backend/tests/test_domain_actions.py`
 - Cost guardrail report smoke:
   - `backend/scripts/generate_monthly_cost_report.py --month YYYY-MM --output docs/cost-reports/YYYY-MM-estimate.md --budget-total 80`
 - Playtest hardening baseline smoke:
