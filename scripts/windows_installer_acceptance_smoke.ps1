@@ -14,7 +14,7 @@ $ErrorActionPreference = "Stop"
 function Require-Path {
   param([string]$Path, [string]$Label)
   if (-not (Test-Path $Path)) {
-    throw "Missing $Label: $Path"
+    throw "Missing ${Label}: ${Path}"
   }
 }
 
@@ -141,11 +141,11 @@ try {
 
   $summary.Add("# Windows Installer Acceptance Smoke")
   $summary.Add("")
-  $summary.Add("- Feed root: `$feedRootPath`")
-  $summary.Add("- Game install/update: `$gameOld` -> `$gameNew`")
-  $summary.Add("- Designer install/update: `$designerOld` -> `$designerNew`")
-  $summary.Add("- Game install dir: `$GameInstallDir`")
-  $summary.Add("- Designer install dir: `$DesignerInstallDir`")
+  $summary.Add("- Feed root: $feedRootPath")
+  $summary.Add("- Game install/update: $gameOld -> $gameNew")
+  $summary.Add("- Designer install/update: $designerOld -> $designerNew")
+  $summary.Add("- Game install dir: $GameInstallDir")
+  $summary.Add("- Designer install dir: $DesignerInstallDir")
   $summary.Add("- Result: PASS")
 
   Set-Content -Path $SummaryPath -Value ($summary -join "`n") -Encoding utf8
