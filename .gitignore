@@ -23,6 +23,7 @@ Thumbs.db
 game-client/.godot/
 
 # Python backend
+.venv/
 backend/.venv/
 backend/.env
 backend/.pytest_cache/
