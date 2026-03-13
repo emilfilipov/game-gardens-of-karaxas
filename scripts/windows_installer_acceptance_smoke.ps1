@@ -3,6 +3,10 @@ param(
   [string]$FeedRoot,
   [string]$GameChannel = "win-game",
   [string]$DesignerChannel = "win-designer",
+  [string]$GameFromVersion = "",
+  [string]$GameToVersion = "",
+  [string]$DesignerFromVersion = "",
+  [string]$DesignerToVersion = "",
   [string]$GameInstallDir = "$env:TEMP\\AmbitionsOfPeace\\smoke-game-runtime",
   [string]$DesignerInstallDir = "$env:TEMP\\AmbitionsOfPeace\\smoke-designer-runtime",
   [string]$SummaryPath = "$env:TEMP\\AmbitionsOfPeace\\windows-installer-smoke-summary.md",
@@ -71,13 +75,25 @@ Require-Path -Path $designerChannelDir -Label "designer feed directory"
 
 $gamePrefix = "AmbitionsOfPeace-client-app-win-x64"
 $designerPrefix = "AmbitionsOfPeace-designer-client-win-x64"
-$gameVersions = Find-Versions -ChannelDir $gameChannelDir -ArtifactPrefix $gamePrefix
-$designerVersions = Find-Versions -ChannelDir $designerChannelDir -ArtifactPrefix $designerPrefix
 
-$gameOld = $gameVersions[0].VersionText
-$gameNew = $gameVersions[-1].VersionText
-$designerOld = $designerVersions[0].VersionText
-$designerNew = $designerVersions[-1].VersionText
+if ($GameFromVersion -and $GameToVersion -and $DesignerFromVersion -and $DesignerToVersion) {
+  $gameOld = $GameFromVersion
+  $gameNew = $GameToVersion
+  $designerOld = $DesignerFromVersion
+  $designerNew = $DesignerToVersion
+} else {
+  $gameVersions = Find-Versions -ChannelDir $gameChannelDir -ArtifactPrefix $gamePrefix
+  $designerVersions = Find-Versions -ChannelDir $designerChannelDir -ArtifactPrefix $designerPrefix
+  $gameOld = $gameVersions[0].VersionText
+  $gameNew = $gameVersions[-1].VersionText
+  $designerOld = $designerVersions[0].VersionText
+  $designerNew = $designerVersions[-1].VersionText
+}
+
+Require-Path -Path (Join-Path $gameChannelDir "$gamePrefix-$gameOld.zip") -Label "game from-version zip"
+Require-Path -Path (Join-Path $gameChannelDir "$gamePrefix-$gameNew.zip") -Label "game to-version zip"
+Require-Path -Path (Join-Path $designerChannelDir "$designerPrefix-$designerOld.zip") -Label "designer from-version zip"
+Require-Path -Path (Join-Path $designerChannelDir "$designerPrefix-$designerNew.zip") -Label "designer to-version zip"
 
 $summaryDir = Split-Path -Parent $SummaryPath
 if (-not (Test-Path $summaryDir)) {

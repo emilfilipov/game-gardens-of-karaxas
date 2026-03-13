@@ -178,6 +178,10 @@ jobs:
         run: |
           powershell -ExecutionPolicy Bypass -File "scripts/windows_installer_acceptance_smoke.ps1" `
             -FeedRoot "windows-smoke" `
+            -GameFromVersion "0.0.0" `
+            -GameToVersion "${{ steps.get-version.outputs.version }}" `
+            -DesignerFromVersion "0.0.0" `
+            -DesignerToVersion "${{ steps.get-version.outputs.version }}" `
             -SummaryPath "windows-smoke/windows-installer-smoke-summary.md"
 
       - name: Gameplay/Handoff Acceptance Gates
