@@ -235,6 +235,37 @@ Primary progression fantasy: rise from minor local actor to regional power broke
 - Education/learning branches.
 - Espionage network maturity.
 
+## Character Creation Contract
+Character creation now has four mandatory permanent identity layers:
+- `Faction`
+- `Origin`
+- `Profession`
+- `Aspiration`
+
+Rules:
+- every selectable option in those four layers must include one explicit upside and one explicit downside,
+- selected options are permanent for the character in the current cycle (no routine respec path),
+- bonuses and downsides are gameplay-relevant, not flavor-only.
+
+## Education and Skill Book Contract
+Education is not a character-creation tradeoff layer.
+
+Education is implemented as an XP-driven skill book:
+- players invest earned XP into skill-book nodes,
+- nodes provide benefits only (no direct downside entry on skill-book nodes),
+- skill-book domains include combat, trade, diplomacy, logistics, espionage, and education/languages.
+
+### Language Proficiency
+Languages are education skills with independent progression dimensions:
+- speaking,
+- reading,
+- writing.
+
+Gameplay impact:
+- limited speaking reduces or blocks communication quality with foreign NPCs,
+- limited reading blocks direct comprehension of documents/reports/intercepted letters in that language,
+- helper paths (interpreters/translators/scribes) can provide fallback access with cost/time/risk tradeoffs.
+
 ## Espionage Contract
 Espionage is a first-class system, not a single button action.
 

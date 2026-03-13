@@ -176,12 +176,25 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
   - can run backend smoke and launch `client-app` bootstrap shell automatically.
 - Runtime priority is Windows-first for client delivery and manual validation loops; Linux/Steam client parity is deferred until post-PoC hardening.
 
+### Character Identity and Skill Book Architecture (Planned)
+- Character creation will require four permanent identity selections: `faction`, `origin`, `profession`, `aspiration`.
+- Each identity option will carry explicit `upside` and `downside` modifier bundles; persistence layer must enforce both are present.
+- Identity selections are immutable after creation in the current cycle (future respec mechanics out of scope).
+- Education progression will be modeled as a separate XP-backed skill book with benefits-only node effects.
+- Skill-book model will include language proficiency nodes by dimension (`speak`, `read`, `write`) per language.
+- Communication/document systems will consume language proficiency checks and optional helper contracts (interpreter/translator) for fallback access.
+
 ## Data and Eventing Model
 ### Persistence
 - PostgreSQL is canonical source of truth for durable entities/events.
 - Schema versioning remains migration-driven and source-controlled.
 - Campaign schema baseline is now established via `backend/alembic/versions/0021_campaign_world_foundation.py` with durable tables for regions, settlements, routes, factions, households, armies, caravans, and espionage assets.
 - ORM mappings for these entities are defined in `backend/app/models/campaign_world.py` for incremental authority-service integration.
+- Planned character-depth persistence additions:
+  - identity option definitions and per-character identity selections,
+  - XP ledger + spend journal,
+  - skill-book node definitions + per-character progression,
+  - per-language proficiency state (`speak`/`read`/`write`) per character.
 
 ### Eventing (PoC phase)
 - Transactional outbox table for service events.
