@@ -4,5 +4,6 @@ members = [
   "world-service",
   "tooling-core",
   "client-app",
+  "launcher-app",
 ]
 resolver = "3"

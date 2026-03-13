@@ -122,6 +122,11 @@ This section is the detailed product-level description of all implemented and pl
 - Loop: player logs in (or uses external startup handoff session via structured file/JSON contract), client fetches authenticated character roster, requests world bootstrap payload for selected character, and FastAPI bridges that request to signed Rust world-entry bootstrap metadata before campaign scene handoff.
 - Gameplay impact: establishes the practical account/session-to-world handoff path needed for vertical-slice playability.
 
+#### Windows launcher auth/update gate (news + login + play orchestration)
+- Purpose: provide player-facing startup flow with visible update/install progress before gameplay runtime starts.
+- Loop: launcher shows latest notes/news, requires login, checks release feed on `Play`, applies delta update when available (fallback full update when not), then launches game fullscreen with authenticated handoff and minimizes while staying active.
+- Gameplay impact: users enter the game through a single authenticated gate and reliably land on character selection with up-to-date runtime state.
+
 #### Real-time campaign world sync channel
 - Purpose: keep campaign UI continuously aligned with authoritative world state without manual refresh.
 - Loop: authenticated client polling pulls deterministic snapshots (travel/logistics/trade/espionage/politics/battle), applies only monotonic tick updates, and shows stale/reconnect state when sync fails.

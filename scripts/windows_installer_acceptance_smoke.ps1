@@ -23,12 +23,16 @@ function Require-Path {
 }
 
 function Find-Versions {
-  param([string]$ChannelDir, [string]$ArtifactPrefix)
+  param(
+    [string]$ChannelDir,
+    [string]$ArtifactPrefix,
+    [string]$ArtifactExtension = "zip"
+  )
 
   $items = @()
-  $pattern = "^" + [regex]::Escape($ArtifactPrefix) + "-(?<version>\\d+\\.\\d+\\.\\d+)\\.zip$"
-  foreach ($zip in Get-ChildItem -Path $ChannelDir -Filter "$ArtifactPrefix-*.zip" -ErrorAction SilentlyContinue) {
-    $match = [regex]::Match($zip.Name, $pattern)
+  $pattern = "^" + [regex]::Escape($ArtifactPrefix) + "-(?<version>\\d+\\.\\d+\\.\\d+)\\." + [regex]::Escape($ArtifactExtension) + "$"
+  foreach ($artifact in Get-ChildItem -Path $ChannelDir -Filter "$ArtifactPrefix-*.$ArtifactExtension" -ErrorAction SilentlyContinue) {
+    $match = [regex]::Match($artifact.Name, $pattern)
     if (-not $match.Success) {
       continue
     }
@@ -53,11 +57,20 @@ function Write-Latest {
     [string]$ChannelDir,
     [string]$Version,
     [string]$Channel,
-    [string]$ArtifactPrefix
+    [string]$ArtifactPrefix,
+    [string]$InstallerArtifact = ""
   )
 
-  $payload = @{ version = $Version; channel = $Channel; artifact_prefix = $ArtifactPrefix } | ConvertTo-Json
-  Set-Content -Path (Join-Path $ChannelDir "latest.json") -Value $payload -Encoding utf8
+  $payload = @{
+    version = $Version
+    channel = $Channel
+    artifact_prefix = $ArtifactPrefix
+  }
+  if (-not [string]::IsNullOrWhiteSpace($InstallerArtifact)) {
+    $payload.installer_artifact = $InstallerArtifact
+  }
+  $payloadJson = $payload | ConvertTo-Json
+  Set-Content -Path (Join-Path $ChannelDir "latest.json") -Value $payloadJson -Encoding utf8
 }
 
 function Read-InstalledVersion {
@@ -73,7 +86,7 @@ $designerChannelDir = Join-Path $feedRootPath $DesignerChannel
 Require-Path -Path $gameChannelDir -Label "game feed directory"
 Require-Path -Path $designerChannelDir -Label "designer feed directory"
 
-$gamePrefix = "AmbitionsOfPeace-client-app-win-x64"
+$gameInstallerPrefix = "AmbitionsOfPeace-game-installer-win-x64"
 $designerPrefix = "AmbitionsOfPeace-designer-client-win-x64"
 
 if ($GameFromVersion -and $GameToVersion -and $DesignerFromVersion -and $DesignerToVersion) {
@@ -82,7 +95,7 @@ if ($GameFromVersion -and $GameToVersion -and $DesignerFromVersion -and $Designe
   $designerOld = $DesignerFromVersion
   $designerNew = $DesignerToVersion
 } else {
-  $gameVersions = Find-Versions -ChannelDir $gameChannelDir -ArtifactPrefix $gamePrefix
+  $gameVersions = Find-Versions -ChannelDir $gameChannelDir -ArtifactPrefix $gameInstallerPrefix -ArtifactExtension "exe"
   $designerVersions = Find-Versions -ChannelDir $designerChannelDir -ArtifactPrefix $designerPrefix
   $gameOld = $gameVersions[0].VersionText
   $gameNew = $gameVersions[-1].VersionText
@@ -90,8 +103,8 @@ if ($GameFromVersion -and $GameToVersion -and $DesignerFromVersion -and $Designe
   $designerNew = $designerVersions[-1].VersionText
 }
 
-Require-Path -Path (Join-Path $gameChannelDir "$gamePrefix-$gameOld.zip") -Label "game from-version zip"
-Require-Path -Path (Join-Path $gameChannelDir "$gamePrefix-$gameNew.zip") -Label "game to-version zip"
+Require-Path -Path (Join-Path $gameChannelDir "$gameInstallerPrefix-$gameOld.exe") -Label "game from-version installer"
+Require-Path -Path (Join-Path $gameChannelDir "$gameInstallerPrefix-$gameNew.exe") -Label "game to-version installer"
 Require-Path -Path (Join-Path $designerChannelDir "$designerPrefix-$designerOld.zip") -Label "designer from-version zip"
 Require-Path -Path (Join-Path $designerChannelDir "$designerPrefix-$designerNew.zip") -Label "designer to-version zip"
 
@@ -122,7 +135,7 @@ try {
   $gameFeedUrl = "$baseUrl/$GameChannel"
   $designerFeedUrl = "$baseUrl/$DesignerChannel"
 
-  Write-Latest -ChannelDir $gameChannelDir -Version $gameOld -Channel "game" -ArtifactPrefix $gamePrefix
+  Write-Latest -ChannelDir $gameChannelDir -Version $gameOld -Channel "game" -ArtifactPrefix $gameInstallerPrefix -InstallerArtifact "$gameInstallerPrefix-$gameOld.exe"
   Write-Latest -ChannelDir $designerChannelDir -Version $designerOld -Channel "designer" -ArtifactPrefix $designerPrefix
 
   & "$PSScriptRoot/install_game_client.ps1" -FeedUrl $gameFeedUrl -InstallDir $GameInstallDir
@@ -140,7 +153,7 @@ try {
     throw "Designer install expected version $designerOld but found $installedDesignerOld"
   }
 
-  Write-Latest -ChannelDir $gameChannelDir -Version $gameNew -Channel "game" -ArtifactPrefix $gamePrefix
+  Write-Latest -ChannelDir $gameChannelDir -Version $gameNew -Channel "game" -ArtifactPrefix $gameInstallerPrefix -InstallerArtifact "$gameInstallerPrefix-$gameNew.exe"
   Write-Latest -ChannelDir $designerChannelDir -Version $designerNew -Channel "designer" -ArtifactPrefix $designerPrefix
 
   & "$PSScriptRoot/install_game_client.ps1" -FeedUrl $gameFeedUrl -InstallDir $GameInstallDir

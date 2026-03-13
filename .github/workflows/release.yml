@@ -7,6 +7,7 @@ on:
       - master
     paths:
       - "client-app/**"
+      - "launcher-app/**"
       - "designer-client/**"
       - "sim-core/**"
       - "tooling-core/**"
@@ -14,6 +15,7 @@ on:
       - "scripts/**"
       - "tools/package_client_app_release.py"
       - "tools/package_designer_client_release.py"
+      - "tools/build_runtime_delta.py"
       - ".github/workflows/release.yml"
   workflow_dispatch:
 
@@ -100,6 +102,12 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Setup NSIS
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          choco install nsis --no-progress -y
+
       - name: Auth/session continuity gate
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
@@ -115,6 +123,12 @@ jobs:
         shell: pwsh
         run: |
           cargo build -p client-app --release --features bootstrap-shell --target x86_64-pc-windows-msvc
+
+      - name: Build Rust Launcher Runtime (Windows)
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          cargo build -p launcher-app --release --target x86_64-pc-windows-msvc
 
       - name: Package Rust Game Client Artifact
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
@@ -133,6 +147,84 @@ jobs:
             --version "${{ steps.get-version.outputs.version }}" `
             --output-dir "releases/designer"
 
+      - name: Build Game Installer Artifact
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          $gameVersion = "${{ steps.get-version.outputs.version }}"
+          $runtimeZip = "releases/game/AmbitionsOfPeace-client-app-win-x64-$gameVersion.zip"
+          if (-not (Test-Path $runtimeZip)) {
+            throw "Missing runtime zip needed for installer packaging: $runtimeZip"
+          }
+          powershell -ExecutionPolicy Bypass -File "scripts/build_game_installer.ps1" `
+            -Version $gameVersion `
+            -RuntimeZip $runtimeZip `
+            -LauncherExe "target/x86_64-pc-windows-msvc/release/launcher-app.exe" `
+            -OutputDir "releases/game"
+
+      - name: Build Runtime Delta Artifacts
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get-version.outputs.version }}"
+          $runtimeZip = "releases/game/AmbitionsOfPeace-client-app-win-x64-$version.zip"
+          if (-not (Test-Path $runtimeZip)) {
+            throw "Missing runtime zip for delta generation: $runtimeZip"
+          }
+
+          $deltaBaseDir = "releases/game/_delta_bases"
+          if (Test-Path $deltaBaseDir) {
+            Remove-Item -Path $deltaBaseDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $deltaBaseDir -Force | Out-Null
+
+          $feedPrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.game_prefix }}"
+          $runtimePattern = "$feedPrefix/AmbitionsOfPeace-client-app-win-x64-*.zip"
+          $existing = & gsutil ls $runtimePattern 2>$null
+          $entries = @()
+          $versionRegex = [regex]'AmbitionsOfPeace-client-app-win-x64-(\d+\.\d+\.\d+)\.zip$'
+          foreach ($path in $existing) {
+            $trimmed = $path.Trim()
+            if ([string]::IsNullOrWhiteSpace($trimmed)) {
+              continue
+            }
+            $match = $versionRegex.Match($trimmed)
+            if (-not $match.Success) {
+              continue
+            }
+            $fromVersion = $match.Groups[1].Value
+            if ($fromVersion -eq $version) {
+              continue
+            }
+            try {
+              $versionObj = [version]$fromVersion
+            } catch {
+              continue
+            }
+            $entries += [PSCustomObject]@{ Path = $trimmed; VersionText = $fromVersion; Version = $versionObj }
+          }
+
+          $candidates = $entries | Sort-Object Version -Descending | Select-Object -First 3
+          foreach ($candidate in $candidates) {
+            $fromVersion = $candidate.VersionText
+            $fromZipLocal = Join-Path $deltaBaseDir "AmbitionsOfPeace-client-app-win-x64-$fromVersion.zip"
+            & gsutil cp $candidate.Path $fromZipLocal
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed downloading base runtime zip for delta: $($candidate.Path)"
+            }
+
+            python tools/build_runtime_delta.py `
+              --from-version $fromVersion `
+              --to-version $version `
+              --from-zip $fromZipLocal `
+              --to-zip $runtimeZip `
+              --output-dir "releases/game"
+          }
+
+          if (Test-Path $deltaBaseDir) {
+            Remove-Item -Path $deltaBaseDir -Recurse -Force
+          }
+
       - name: Verify Release Artifacts
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: pwsh
@@ -143,6 +235,10 @@ jobs:
           if (-not $gameManifest -or $gameManifest.Count -eq 0) { throw "Missing game client manifest artifact" }
           $gameChecksum = Get-ChildItem "releases/game" -Filter "AmbitionsOfPeace-client-app-win-x64-*.sha256" -ErrorAction SilentlyContinue
           if (-not $gameChecksum -or $gameChecksum.Count -eq 0) { throw "Missing game client checksum artifact" }
+          $gameInstaller = Get-ChildItem "releases/game" -Filter "AmbitionsOfPeace-game-installer-win-x64-*.exe" -ErrorAction SilentlyContinue
+          if (-not $gameInstaller -or $gameInstaller.Count -eq 0) { throw "Missing game installer artifact" }
+          $gameInstallerChecksum = Get-ChildItem "releases/game" -Filter "AmbitionsOfPeace-game-installer-win-x64-*.sha256" -ErrorAction SilentlyContinue
+          if (-not $gameInstallerChecksum -or $gameInstallerChecksum.Count -eq 0) { throw "Missing game installer checksum artifact" }
 
           $designerZip = Get-ChildItem "releases/designer" -Filter "AmbitionsOfPeace-designer-client-win-x64-*.zip" -ErrorAction SilentlyContinue
           if (-not $designerZip -or $designerZip.Count -eq 0) { throw "Missing designer client zip artifact" }
@@ -165,6 +261,11 @@ jobs:
             --version "0.0.0" `
             --exe "target/x86_64-pc-windows-msvc/release/client-app.exe" `
             --output-dir "windows-smoke/win-game"
+          powershell -ExecutionPolicy Bypass -File "scripts/build_game_installer.ps1" `
+            -Version "0.0.0" `
+            -RuntimeZip "windows-smoke/win-game/AmbitionsOfPeace-client-app-win-x64-0.0.0.zip" `
+            -LauncherExe "target/x86_64-pc-windows-msvc/release/launcher-app.exe" `
+            -OutputDir "windows-smoke/win-game"
           python tools/package_designer_client_release.py `
             --version "0.0.0" `
             --output-dir "windows-smoke/win-designer"
@@ -216,14 +317,66 @@ jobs:
         run: |
           $feedPrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.game_prefix }}"
           $archivePrefix = "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/game/${{ steps.get-version.outputs.version }}"
-          gsutil -m cp "releases/game/*" "$feedPrefix/"
-          gsutil -m cp "releases/game/*" "$archivePrefix/"
+          $version = "${{ steps.get-version.outputs.version }}"
+          $installerBase = "AmbitionsOfPeace-game-installer-win-x64-$version"
+          $installerExe = "releases/game/$installerBase.exe"
+          $installerSha = "releases/game/$installerBase.sha256"
+          $runtimeBase = "AmbitionsOfPeace-client-app-win-x64-$version"
+          $runtimeZip = "releases/game/$runtimeBase.zip"
+          $runtimeManifest = "releases/game/$runtimeBase.manifest.json"
+          $runtimeSha = "releases/game/$runtimeBase.sha256"
+          if (-not (Test-Path $installerExe)) { throw "Missing installer executable: $installerExe" }
+          if (-not (Test-Path $installerSha)) { throw "Missing installer checksum: $installerSha" }
+          if (-not (Test-Path $runtimeZip)) { throw "Missing runtime zip: $runtimeZip" }
+          if (-not (Test-Path $runtimeManifest)) { throw "Missing runtime manifest: $runtimeManifest" }
+          if (-not (Test-Path $runtimeSha)) { throw "Missing runtime checksum: $runtimeSha" }
+          gsutil cp $installerExe "$feedPrefix/"
+          gsutil cp $installerSha "$feedPrefix/"
+          gsutil cp $runtimeZip "$feedPrefix/"
+          gsutil cp $runtimeManifest "$feedPrefix/"
+          gsutil cp $runtimeSha "$feedPrefix/"
+          gsutil cp $installerExe "$archivePrefix/"
+          gsutil cp $installerSha "$archivePrefix/"
+          gsutil cp $runtimeZip "$archivePrefix/"
+          gsutil cp $runtimeManifest "$archivePrefix/"
+          gsutil cp $runtimeSha "$archivePrefix/"
+
+          $deltaEntries = @()
+          $deltaZips = Get-ChildItem "releases/game" -Filter "AmbitionsOfPeace-client-delta-$version-from-*.zip" -ErrorAction SilentlyContinue
+          foreach ($deltaZip in $deltaZips) {
+            $deltaPath = $deltaZip.FullName
+            $deltaShaName = "$($deltaZip.BaseName).sha256"
+            $deltaShaPath = Join-Path "releases/game" $deltaShaName
+            if (-not (Test-Path $deltaShaPath)) {
+              throw "Missing delta checksum: $deltaShaPath"
+            }
+
+            gsutil cp $deltaPath "$feedPrefix/"
+            gsutil cp $deltaShaPath "$feedPrefix/"
+            gsutil cp $deltaPath "$archivePrefix/"
+            gsutil cp $deltaShaPath "$archivePrefix/"
+
+            $fromMatch = [regex]::Match($deltaZip.BaseName, "from-(\d+\.\d+\.\d+)$")
+            if ($fromMatch.Success) {
+              $deltaEntries += @{
+                from_version = $fromMatch.Groups[1].Value
+                artifact = $deltaZip.Name
+                checksum = $deltaShaName
+              }
+            }
+          }
           $latestPath = "releases/game/latest.json"
           $latestPayload = @{
-            version = "${{ steps.get-version.outputs.version }}"
+            version = $version
             channel = "game"
-            artifact_prefix = "AmbitionsOfPeace-client-app-win-x64"
-          } | ConvertTo-Json
+            artifact_prefix = "AmbitionsOfPeace-game-installer-win-x64"
+            installer_artifact = "$installerBase.exe"
+            installer_checksum = "$installerBase.sha256"
+            runtime_artifact = "$runtimeBase.zip"
+            runtime_manifest = "$runtimeBase.manifest.json"
+            runtime_checksum = "$runtimeBase.sha256"
+            deltas = $deltaEntries
+          } | ConvertTo-Json -Depth 8
           Set-Content -Path $latestPath -Value $latestPayload -Encoding utf8
           gsutil cp $latestPath "$feedPrefix/latest.json"
           gsutil setmeta -h "Cache-Control:no-cache, max-age=0" "$feedPrefix/latest.json"
@@ -262,16 +415,12 @@ jobs:
           function Prune-FeedArtifacts {
             param(
               [string]$feedPrefix,
-              [string]$artifactPrefix
+              [string[]]$artifactPatterns
             )
 
-            $patterns = @(
-              "$feedPrefix/$artifactPrefix-*.zip",
-              "$feedPrefix/$artifactPrefix-*.manifest.json",
-              "$feedPrefix/$artifactPrefix-*.sha256"
-            )
             $versionBuckets = @{}
-            foreach ($pattern in $patterns) {
+            foreach ($artifactPattern in $artifactPatterns) {
+              $pattern = "$feedPrefix/$artifactPattern"
               $artifactPaths = & gsutil ls $pattern 2>$null
               if ($LASTEXITCODE -ne 0 -or -not $artifactPaths) {
                 continue
@@ -361,8 +510,20 @@ jobs:
 
           $gameFeed = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.game_prefix }}"
           $designerFeed = "gs://${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.designer_prefix }}"
-          Prune-FeedArtifacts -feedPrefix $gameFeed -artifactPrefix "AmbitionsOfPeace-client-app-win-x64"
-          Prune-FeedArtifacts -feedPrefix $designerFeed -artifactPrefix "AmbitionsOfPeace-designer-client-win-x64"
+          Prune-FeedArtifacts -feedPrefix $gameFeed -artifactPatterns @(
+            "AmbitionsOfPeace-game-installer-win-x64-*.exe",
+            "AmbitionsOfPeace-game-installer-win-x64-*.sha256",
+            "AmbitionsOfPeace-client-app-win-x64-*.zip",
+            "AmbitionsOfPeace-client-app-win-x64-*.manifest.json",
+            "AmbitionsOfPeace-client-app-win-x64-*.sha256",
+            "AmbitionsOfPeace-client-delta-*.zip",
+            "AmbitionsOfPeace-client-delta-*.sha256"
+          )
+          Prune-FeedArtifacts -feedPrefix $designerFeed -artifactPatterns @(
+            "AmbitionsOfPeace-designer-client-win-x64-*.zip",
+            "AmbitionsOfPeace-designer-client-win-x64-*.manifest.json",
+            "AmbitionsOfPeace-designer-client-win-x64-*.sha256"
+          )
 
           Prune-ArchiveVersions -archiveRoot "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/game"
           Prune-ArchiveVersions -archiveRoot "gs://${{ env.GCS_RELEASE_BUCKET }}/archive/designer"

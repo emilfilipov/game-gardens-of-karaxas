@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::window::{MonitorSelection, WindowMode, WindowPlugin};
 use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
 use reqwest::blocking::Client;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
@@ -34,6 +35,7 @@ const HANDOFF_SCHEMA_VERSION: u32 = 1;
 struct StartupOptions {
     handoff_file: Option<PathBuf>,
     handoff_json: Option<String>,
+    fullscreen: bool,
 }
 
 impl StartupOptions {
@@ -1618,6 +1620,18 @@ pub fn run() {
     let mut config = BackendConfig::from_env();
     let shell_state = ShellState::from_startup_handoff(&mut config, &startup_options);
     let bridge = spawn_backend_bridge(config.clone());
+    let window_plugin = if startup_options.fullscreen {
+        WindowPlugin {
+            primary_window: Some(Window {
+                title: "Ambitions of Peace".to_string(),
+                mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    } else {
+        WindowPlugin::default()
+    };
 
     App::new()
         .insert_resource(config)
@@ -1631,7 +1645,7 @@ pub fn run() {
         .insert_resource(PanelUiState::from_env())
         .insert_resource(MapToolsState::from_env())
         .insert_resource(ClearColor(Color::srgb(0.05, 0.07, 0.08)))
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(window_plugin))
         .add_plugins(EguiPlugin::default())
         .add_systems(
             Startup,
@@ -2046,6 +2060,10 @@ where
         }
         if arg == "--handoff-json" {
             options.handoff_json = iter.next().and_then(trimmed_nonempty);
+            continue;
+        }
+        if arg == "--fullscreen" {
+            options.fullscreen = true;
             continue;
         }
     }
@@ -4232,6 +4250,7 @@ mod tests {
             "--handoff-file".to_string(),
             "C:/tmp/handoff.json".to_string(),
             "--handoff-json={\"schema_version\":1}".to_string(),
+            "--fullscreen".to_string(),
         ]);
 
         assert_eq!(
@@ -4245,6 +4264,7 @@ mod tests {
             options.handoff_json.expect("handoff json should be parsed"),
             "{\"schema_version\":1}"
         );
+        assert!(options.fullscreen);
     }
 
     #[test]

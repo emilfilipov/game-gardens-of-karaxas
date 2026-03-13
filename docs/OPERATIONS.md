@@ -23,7 +23,7 @@ Operational runbook for Ambitions of Peace Rust-first runtime/services, release 
    - `python backend/scripts/validate_external_poc_release_gate.py --gate-pointer docs/release-gates/current_gate.json`
 4. Push workflow-triggering changes.
 5. Verify published artifacts for both channels:
-   - game (`win-game`)
+   - game (`win-game`, installer `.exe` + `.sha256`, runtime `.zip` + `.manifest.json` + `.sha256`, and optional delta `.zip` + `.sha256`)
    - designer (`win-designer`)
 6. Verify release workflow uploaded `windows-installer-smoke-summary` artifact (install/update + gameplay/handoff smoke evidence).
 7. Verify retention policy kept only the latest 3 versions per channel/feed/archive.

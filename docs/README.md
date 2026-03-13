@@ -20,6 +20,7 @@ Core simulation contract: all core systems run in real time (travel, logistics, 
 ## Repository Layout
 - `backend/` - FastAPI control-plane services, Cloud SQL integration, release metadata, auth/session, content APIs.
 - `world-service/` - Rust Axum world authority with deterministic tick runner and real-time subsystem simulation.
+- `launcher-app/` - Rust Windows launcher/auth gate (news/patch notes, update orchestration, progress UI, play handoff).
 - `sim-core/` - shared Rust simulation contracts/rules used by world-service and client surfaces.
 - `client-app/` - Rust Bevy runtime (`bootstrap-shell`, `sandbox-ui`) with code-first panels/tools.
 - `designer-client/` - standalone Python designer client for authenticated content/world promotion operations.
@@ -42,6 +43,7 @@ Core simulation contract: all core systems run in real time (travel, logistics, 
 - Runtime/log reset flow before re-bootstrap: `scripts/run_local_poc_stack.sh --reset-runtime`
 - Bootstrap shell: `~/.cargo/bin/cargo run -p client-app --features bootstrap-shell`
 - Bootstrap shell with startup handoff file: `~/.cargo/bin/cargo run -p client-app --features bootstrap-shell -- --handoff-file <path/to/startup_handoff.json>`
+- Launcher app: `~/.cargo/bin/cargo run -p launcher-app`
 - Sandbox UI: `~/.cargo/bin/cargo run -p client-app --features sandbox-ui`
 - Deterministic local seed helper only: `python3 backend/scripts/seed_local_poc_account.py --base-url http://127.0.0.1:8000 --output-handoff client-app/runtime/startup_handoff.local.json`
 - Placeholder player sprite regeneration: `python3 tools/generate_player_placeholder_png.py`
@@ -53,6 +55,6 @@ Core simulation contract: all core systems run in real time (travel, logistics, 
 - Backend deploy workflow: `.github/workflows/deploy-backend.yml`
 - Security scan workflow: `.github/workflows/security-scan.yml`
 - Release channels published to GCS:
-  - game: `AmbitionsOfPeace-client-app-win-x64-<version>.zip`
+  - game: `AmbitionsOfPeace-game-installer-win-x64-<version>.exe`
   - designer: `AmbitionsOfPeace-designer-client-win-x64-<version>.zip`
 - Each channel keeps the latest 3 versions in feed/archive.

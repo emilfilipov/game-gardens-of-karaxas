@@ -46,7 +46,11 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Release binaries remain in GCS.
 - GCS feed/archive retention keeps only the latest 3 build versions.
 - PostgreSQL stores release metadata (version/channel/checksum/notes/publish timestamps), not binary payload blobs.
-- Release workflow now also publishes a versioned Windows Rust client runtime bundle (`AmbitionsOfPeace-client-app-win-x64-<version>.zip`) with deterministic file manifest (`*.manifest.json`) and SHA256 checksum (`*.sha256`) to the same GCS feed/archive channels.
+- Release workflow publishes installer-first Windows game artifacts plus launcher-managed update payloads:
+  - installer: `AmbitionsOfPeace-game-installer-win-x64-<version>.exe` + `.sha256`,
+  - full runtime payload: `AmbitionsOfPeace-client-app-win-x64-<version>.zip` + `.manifest.json` + `.sha256`,
+  - optional runtime deltas: `AmbitionsOfPeace-client-delta-<to_version>-from-<from_version>.zip` + `.sha256` (file-level incremental update path).
+- Designer channel remains zip-based: `AmbitionsOfPeace-designer-client-win-x64-<version>.zip` + `.manifest.json` + `.sha256`.
 
 ### Redis policy
 - Redis is deferred for PoC cost control.
@@ -221,13 +225,23 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Release gating requirement: login/register/refresh/logout and force-revocation/session-drain paths must remain covered by regression checks during migration cleanup.
 
 ## Build, Packaging, and Distribution
-- Windows distribution is channel-based using standalone zip artifacts in GCS.
+- Windows distribution is channel-based in GCS, with installer-first game delivery.
 - Release workflow builds/packages:
-  - game runtime: `AmbitionsOfPeace-client-app-win-x64-<version>.zip`
+  - launcher runtime: `launcher-app` (Windows executable embedded in game installer)
+  - game installer: `AmbitionsOfPeace-game-installer-win-x64-<version>.exe`
+  - game runtime payload: `AmbitionsOfPeace-client-app-win-x64-<version>.zip`
+  - game runtime deltas (when compatible source versions exist in retained feed): `AmbitionsOfPeace-client-delta-<to_version>-from-<from_version>.zip`
   - designer runtime: `AmbitionsOfPeace-designer-client-win-x64-<version>.zip`
-- Both channels publish deterministic manifest/checksum metadata and `latest.json`.
+- Game channel publishes installer/checksum metadata, full runtime payload metadata, delta descriptors, and `latest.json` pointer fields.
+- Designer channel publishes deterministic zip manifest/checksum metadata and `latest.json`.
 - Feed and archive retention are pruned to latest 3 versions per channel.
 - Install/update helpers are script-based (`scripts/install_game_client.ps1`, `scripts/install_designer_client.ps1`).
+- Game installer executable is built in CI via NSIS (`scripts/build_game_installer.ps1`) from the packaged runtime zip and embeds `launcher-app` as the primary player entrypoint.
+- Launcher (`launcher-app`) is the runtime auth/update gate:
+  - login required before update/launch,
+  - in-window news/patch notes rendering via `/release/summary`,
+  - progress-visible update flow (delta-first, full-installer fallback),
+  - startup handoff generation and full-screen game launch command.
 - Runtime bundles now include `release_version.txt` marker for deterministic install/update acceptance verification.
 - Release workflow now runs Windows installer acceptance smoke (`scripts/windows_installer_acceptance_smoke.ps1`) plus gameplay/handoff regression tests before GCS publish.
 - Release workflow now also enforces dated external PoC release-gate evidence validation (`backend/scripts/validate_external_poc_release_gate.py`).
@@ -267,6 +281,8 @@ Current baseline checks retained during transition:
 - Windows Rust runtime packaging smoke:
   - `python tools/package_client_app_release.py --version <x.y.z> --exe <path/to/client-app.exe> --output-dir releases/game`
   - `python tools/package_designer_client_release.py --version <x.y.z> --output-dir releases/designer`
+  - `python tools/build_runtime_delta.py --from-version <a.b.c> --to-version <x.y.z> --from-zip <path/to/old.zip> --to-zip <path/to/new.zip> --output-dir releases/game`
+  - `powershell -ExecutionPolicy Bypass -File scripts/build_game_installer.ps1 -Version <x.y.z> -RuntimeZip <path/to/game-runtime.zip> -OutputDir releases/game`
 - Windows installer acceptance smoke:
   - `powershell -ExecutionPolicy Bypass -File scripts/windows_installer_acceptance_smoke.ps1 -FeedRoot <local-feed-root> -SummaryPath <summary.md>`
 - External PoC release gate evidence smoke:
