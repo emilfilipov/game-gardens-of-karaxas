@@ -227,10 +227,10 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 ## Build, Packaging, and Distribution
 - Windows distribution is channel-based in GCS, with installer-first game delivery.
 - Release workflow currently runs on GitHub-hosted `windows-latest` while local self-hosted runner provisioning is incomplete (missing Visual Studio Build Tools / `link.exe`); workflow steps remain PowerShell-based (`-ExecutionPolicy Bypass`) and are compatible with both hosted and self-hosted execution.
-- Self-hosted release workflow bootstraps `gcloud` from Google Cloud SDK release zips (runner-local, non-admin) when missing and exports Cloud SDK bin paths through `GITHUB_PATH` for subsequent release steps.
+- Release workflow now provisions Cloud SDK via `google-github-actions/setup-gcloud@v2` for hosted-run reliability and faster startup.
 - Self-hosted release workflow bootstraps Rust via `rustup` and resolves NSIS via installed paths or portable zip fallback (all non-admin) to avoid WSL/bash and Chocolatey elevation dependencies under Windows service runner accounts.
 - Workflow activates MSVC toolchain environment (`ilammy/msvc-dev-cmd`) before Rust build steps so `link.exe` is discoverable when Visual Studio Build Tools are present.
-- Self-hosted release workflow caches downloaded Cloud SDK/Python toolchains under runner-level tool cache (`RUNNER_TOOL_CACHE`) to avoid full bootstrap cost on every run.
+- Self-hosted compatibility path caches Python toolchain artifacts under runner-level tool cache (`RUNNER_TOOL_CACHE`) to avoid repeated bootstrap cost.
 - Self-hosted release workflow resolves Python 3.11 via existing `python`/`py` launcher or embedded Python zip fallback plus temporary command shims (instead of `actions/setup-python`) to avoid execution-policy/MSI-service blocks on service-account hosted runners.
 - Self-hosted release workflow treats `pip` as a capability check and bootstraps it via `get-pip.py` only when missing (embedded runtime path), avoiding `ensurepip` assumptions that can fail in embedded distributions.
 - Generated Windows `python.cmd`/`pip.cmd` shims quote executable paths explicitly for service-account environments to prevent PowerShell argument parsing failures.

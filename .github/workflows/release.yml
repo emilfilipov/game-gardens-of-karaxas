@@ -80,57 +80,7 @@ jobs:
 
       - name: Setup gcloud
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
-        run: |
-          $knownBins = @(
-            "C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin",
-            "C:\Program Files\Google\Cloud SDK\google-cloud-sdk\bin"
-          )
-
-          $gcloud = Get-Command gcloud -ErrorAction SilentlyContinue
-          if (-not $gcloud) {
-            $components = Invoke-RestMethod -Uri "https://dl.google.com/dl/cloudsdk/channels/rapid/components-2.json"
-            $version = "$($components.version)"
-            if ([string]::IsNullOrWhiteSpace($version)) {
-              throw "Unable to resolve Cloud SDK version from components manifest."
-            }
-            $archiveUrl = "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-$version-windows-x86_64-bundled-python.zip"
-            $zipPath = Join-Path $env:RUNNER_TEMP "google-cloud-sdk-$version.zip"
-            $toolRoot = $env:RUNNER_TOOL_CACHE
-            if ([string]::IsNullOrWhiteSpace($toolRoot)) {
-              $toolRoot = Join-Path $env:USERPROFILE ".aop-toolcache"
-            }
-            New-Item -ItemType Directory -Path $toolRoot -Force | Out-Null
-            $installRoot = Join-Path $toolRoot "google-cloud-sdk-$version"
-            $portableBin = Join-Path $installRoot "google-cloud-sdk\bin"
-
-            if (-not (Test-Path $portableBin)) {
-              if (-not (Test-Path $zipPath)) {
-                Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath
-              }
-              Expand-Archive -Path $zipPath -DestinationPath $installRoot -Force
-              if (-not (Test-Path $portableBin)) {
-                throw "Cloud SDK bootstrap did not produce expected bin path: $portableBin"
-              }
-            } else {
-              Write-Host "Using cached Cloud SDK from $portableBin"
-            }
-            Add-Content -Path $env:GITHUB_PATH -Value $portableBin
-            $env:Path = "$portableBin;$env:Path"
-          }
-
-          foreach ($binPath in $knownBins) {
-            if (Test-Path $binPath) {
-              Add-Content -Path $env:GITHUB_PATH -Value $binPath
-            }
-          }
-
-          $gcloud = Get-Command gcloud -ErrorAction SilentlyContinue
-          if (-not $gcloud) {
-            throw "gcloud CLI not found after bootstrap."
-          }
-
-          gcloud --version
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Compute Version
         id: get-version
