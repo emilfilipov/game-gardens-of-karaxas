@@ -89,7 +89,25 @@ jobs:
 
           $gcloud = Get-Command gcloud -ErrorAction SilentlyContinue
           if (-not $gcloud) {
-            choco install gcloudsdk --no-progress -y
+            $components = Invoke-RestMethod -Uri "https://dl.google.com/dl/cloudsdk/channels/rapid/components-2.json"
+            $version = "$($components.version)"
+            if ([string]::IsNullOrWhiteSpace($version)) {
+              throw "Unable to resolve Cloud SDK version from components manifest."
+            }
+            $archiveUrl = "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-$version-windows-x86_64-bundled-python.zip"
+            $zipPath = Join-Path $env:RUNNER_TEMP "google-cloud-sdk-$version.zip"
+            $installRoot = Join-Path $env:RUNNER_TEMP "google-cloud-sdk-$version"
+            if (Test-Path $installRoot) {
+              Remove-Item -Path $installRoot -Recurse -Force
+            }
+            Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath
+            Expand-Archive -Path $zipPath -DestinationPath $installRoot -Force
+            $portableBin = Join-Path $installRoot "google-cloud-sdk\bin"
+            if (-not (Test-Path $portableBin)) {
+              throw "Cloud SDK bootstrap did not produce expected bin path: $portableBin"
+            }
+            Add-Content -Path $env:GITHUB_PATH -Value $portableBin
+            $env:Path = "$portableBin;$env:Path"
           }
 
           foreach ($binPath in $knownBins) {
