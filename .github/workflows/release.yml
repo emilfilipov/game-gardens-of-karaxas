@@ -96,15 +96,19 @@ jobs:
             }
             $archiveUrl = "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-$version-windows-x86_64-bundled-python.zip"
             $zipPath = Join-Path $env:RUNNER_TEMP "google-cloud-sdk-$version.zip"
-            $installRoot = Join-Path $env:RUNNER_TEMP "google-cloud-sdk-$version"
-            if (Test-Path $installRoot) {
-              Remove-Item -Path $installRoot -Recurse -Force
-            }
-            Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath
-            Expand-Archive -Path $zipPath -DestinationPath $installRoot -Force
+            $toolRoot = Join-Path $env:RUNNER_WORKSPACE "_toolcache"
+            New-Item -ItemType Directory -Path $toolRoot -Force | Out-Null
+            $installRoot = Join-Path $toolRoot "google-cloud-sdk-$version"
             $portableBin = Join-Path $installRoot "google-cloud-sdk\bin"
+
             if (-not (Test-Path $portableBin)) {
-              throw "Cloud SDK bootstrap did not produce expected bin path: $portableBin"
+              if (-not (Test-Path $zipPath)) {
+                Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath
+              }
+              Expand-Archive -Path $zipPath -DestinationPath $installRoot -Force
+              if (-not (Test-Path $portableBin)) {
+                throw "Cloud SDK bootstrap did not produce expected bin path: $portableBin"
+              }
             }
             Add-Content -Path $env:GITHUB_PATH -Value $portableBin
             $env:Path = "$portableBin;$env:Path"
@@ -169,21 +173,49 @@ jobs:
             }
           } else {
             $py = Get-Command py -ErrorAction SilentlyContinue
-            if (-not $py) {
-              throw "Python 3.11 not available (python/py launcher missing on runner)."
+            if ($py) {
+              & py -3.11 --version
             }
 
-            & py -3.11 --version
-            if ($LASTEXITCODE -ne 0) {
-              throw "Python 3.11 launcher target not available."
-            }
+            if (-not $py -or $LASTEXITCODE -ne 0) {
+              $pyVersion = "3.11.9"
+              $installer = Join-Path $env:RUNNER_TEMP "python-$pyVersion-amd64.exe"
+              $installDir = Join-Path $env:RUNNER_WORKSPACE "_toolcache\python-$pyVersion"
+              $pythonExe = Join-Path $installDir "python.exe"
+              if (-not (Test-Path $pythonExe)) {
+                $uri = "https://www.python.org/ftp/python/$pyVersion/python-$pyVersion-amd64.exe"
+                Invoke-WebRequest -UseBasicParsing -Uri $uri -OutFile $installer
+                $args = @(
+                  "/quiet",
+                  "InstallAllUsers=0",
+                  "PrependPath=0",
+                  "Include_launcher=0",
+                  "Include_test=0",
+                  "Include_tcltk=0",
+                  "Include_pip=1",
+                  "Shortcuts=0",
+                  "TargetDir=$installDir"
+                )
+                $proc = Start-Process -FilePath $installer -ArgumentList $args -PassThru -Wait
+                if ($proc.ExitCode -ne 0) {
+                  throw "Python installer failed with exit code $($proc.ExitCode)."
+                }
+              }
 
-            $shimDir = Join-Path $env:RUNNER_TEMP "python-shims"
-            New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
-            Set-Content -Path (Join-Path $shimDir "python.cmd") -Value "@echo off`r`npy -3.11 %*" -Encoding ascii
-            Set-Content -Path (Join-Path $shimDir "pip.cmd") -Value "@echo off`r`npy -3.11 -m pip %*" -Encoding ascii
-            Add-Content -Path $env:GITHUB_PATH -Value $shimDir
-            $env:Path = "$shimDir;$env:Path"
+              $pyShimDir = Join-Path $env:RUNNER_TEMP "python-local-shims"
+              New-Item -ItemType Directory -Path $pyShimDir -Force | Out-Null
+              Set-Content -Path (Join-Path $pyShimDir "python.cmd") -Value "@echo off`r`n\"$pythonExe\" %*" -Encoding ascii
+              Set-Content -Path (Join-Path $pyShimDir "pip.cmd") -Value "@echo off`r`n\"$pythonExe\" -m pip %*" -Encoding ascii
+              Add-Content -Path $env:GITHUB_PATH -Value $pyShimDir
+              $env:Path = "$pyShimDir;$env:Path"
+            } else {
+              $shimDir = Join-Path $env:RUNNER_TEMP "python-shims"
+              New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
+              Set-Content -Path (Join-Path $shimDir "python.cmd") -Value "@echo off`r`npy -3.11 %*" -Encoding ascii
+              Set-Content -Path (Join-Path $shimDir "pip.cmd") -Value "@echo off`r`npy -3.11 -m pip %*" -Encoding ascii
+              Add-Content -Path $env:GITHUB_PATH -Value $shimDir
+              $env:Path = "$shimDir;$env:Path"
+            }
           }
 
           python --version
