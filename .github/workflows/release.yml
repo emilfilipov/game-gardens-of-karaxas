@@ -292,6 +292,13 @@ jobs:
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
         run: |
+          $backendPath = (Resolve-Path "backend").Path
+          $sitePackages = (python -c "import site; print(site.getsitepackages()[0])").Trim()
+          if ([string]::IsNullOrWhiteSpace($sitePackages)) {
+            throw "Unable to resolve Python site-packages path for auth/session gate."
+          }
+          Set-Content -Path (Join-Path $sitePackages "aop_backend.pth") -Value $backendPath -Encoding ascii
+
           Push-Location backend
           python -m pip install -r requirements.txt
           python -m pip install pytest

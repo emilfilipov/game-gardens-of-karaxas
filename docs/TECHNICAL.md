@@ -233,7 +233,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Self-hosted release workflow resolves Python 3.11 via existing `python`/`py` launcher or embedded Python zip fallback plus temporary command shims (instead of `actions/setup-python`) to avoid execution-policy/MSI-service blocks on service-account hosted runners.
 - Self-hosted release workflow treats `pip` as a capability check and bootstraps it via `get-pip.py` only when missing (embedded runtime path), avoiding `ensurepip` assumptions that can fail in embedded distributions.
 - Generated Windows `python.cmd`/`pip.cmd` shims quote executable paths explicitly for service-account environments to prevent PowerShell argument parsing failures.
-- Auth/session continuity gate now executes from `backend/` (`Push-Location backend`) and installs/runs tests with `python -m pip` / `python -m pytest`, avoiding embedded-Python `PYTHONPATH` isolation edge cases on self-hosted Windows service runners.
+- Auth/session continuity gate now injects repo backend path via a generated `aop_backend.pth` in Python `site-packages`, then executes from `backend/` with `python -m pip` / `python -m pytest` to bypass embedded-Python path isolation edge cases on self-hosted Windows service runners.
 - Release workflow builds/packages:
   - launcher runtime: `launcher-app` (Windows executable embedded in game installer)
   - game installer: `AmbitionsOfPeace-game-installer-win-x64-<version>.exe`
