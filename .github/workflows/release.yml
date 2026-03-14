@@ -291,11 +291,10 @@ jobs:
       - name: Auth/session continuity gate
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
-        env:
-          PYTHONPATH: backend
         run: |
-          pip install -r backend/requirements.txt
-          pip install pytest
+          $env:PYTHONPATH = (Resolve-Path "backend").Path
+          python -m pip install -r backend/requirements.txt
+          python -m pip install pytest
           python -m pytest -q backend/tests/test_security_edges.py backend/tests/test_publish_drain.py
 
       - name: Build Rust Game Client Runtime (Windows)
