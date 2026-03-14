@@ -159,9 +159,36 @@ jobs:
 
       - name: Setup Python
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
+        run: |
+          $python = Get-Command python -ErrorAction SilentlyContinue
+          if ($python) {
+            $version = & python --version
+            if (-not ($version -match '^Python 3\.11(\.|$)')) {
+              throw "Python 3.11 is required, found: $version"
+            }
+          } else {
+            $py = Get-Command py -ErrorAction SilentlyContinue
+            if (-not $py) {
+              throw "Python 3.11 not available (python/py launcher missing on runner)."
+            }
+
+            & py -3.11 --version
+            if ($LASTEXITCODE -ne 0) {
+              throw "Python 3.11 launcher target not available."
+            }
+
+            $shimDir = Join-Path $env:RUNNER_TEMP "python-shims"
+            New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
+            Set-Content -Path (Join-Path $shimDir "python.cmd") -Value "@echo off`r`npy -3.11 %*" -Encoding ascii
+            Set-Content -Path (Join-Path $shimDir "pip.cmd") -Value "@echo off`r`npy -3.11 -m pip %*" -Encoding ascii
+            Add-Content -Path $env:GITHUB_PATH -Value $shimDir
+            $env:Path = "$shimDir;$env:Path"
+          }
+
+          python --version
+          python -m ensurepip --upgrade
+          python -m pip --version
 
       - name: Setup NSIS
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
