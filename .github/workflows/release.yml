@@ -132,41 +132,7 @@ jobs:
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
         run: |
-          $knownBins = @(
-            "C:\Program Files (x86)\NSIS",
-            "C:\Program Files\NSIS"
-          )
-          $makensis = Get-Command makensis -ErrorAction SilentlyContinue
-          if (-not $makensis) {
-            foreach ($candidate in $knownBins) {
-              $exe = Join-Path $candidate "makensis.exe"
-              if (Test-Path $exe) {
-                Add-Content -Path $env:GITHUB_PATH -Value $candidate
-                $env:Path = "$candidate;$env:Path"
-                break
-              }
-            }
-          }
-
-          $makensis = Get-Command makensis -ErrorAction SilentlyContinue
-          if (-not $makensis) {
-            $nsisVersion = "3.11"
-            $nsisZip = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion.zip"
-            $nsisRoot = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion"
-            if (Test-Path $nsisRoot) {
-              Remove-Item -Path $nsisRoot -Recurse -Force
-            }
-            Invoke-WebRequest -UseBasicParsing -Uri "https://sourceforge.net/projects/nsis/files/NSIS%203/$nsisVersion/nsis-$nsisVersion.zip/download" -OutFile $nsisZip
-            Expand-Archive -Path $nsisZip -DestinationPath $nsisRoot -Force
-            $portableBin = Join-Path $nsisRoot "nsis-$nsisVersion"
-            $portableExe = Join-Path $portableBin "makensis.exe"
-            if (-not (Test-Path $portableExe)) {
-              throw "NSIS bootstrap failed: missing $portableExe"
-            }
-            Add-Content -Path $env:GITHUB_PATH -Value $portableBin
-            $env:Path = "$portableBin;$env:Path"
-          }
-
+          choco install nsis --no-progress -y
           makensis /VERSION
 
       - name: Auth/session continuity gate
