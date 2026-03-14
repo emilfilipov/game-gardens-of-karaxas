@@ -166,6 +166,12 @@ jobs:
           rustc --version
           cargo --version
 
+      - name: Setup MSVC build environment
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Setup Python
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
