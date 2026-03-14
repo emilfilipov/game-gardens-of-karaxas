@@ -133,7 +133,22 @@ jobs:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
         run: |
           choco install nsis --no-progress -y
-          makensis /VERSION
+          $nsisPaths = @(
+            "C:\Program Files (x86)\NSIS",
+            "C:\Program Files\NSIS",
+            "C:\ProgramData\chocolatey\bin"
+          )
+          foreach ($p in $nsisPaths) {
+            if (Test-Path $p) {
+              $env:Path = "$p;$env:Path"
+              Add-Content -Path $env:GITHUB_PATH -Value $p
+            }
+          }
+          $makensis = Get-Command makensis -ErrorAction SilentlyContinue
+          if (-not $makensis) {
+            throw "makensis not found after NSIS installation."
+          }
+          & $makensis.Source /VERSION
 
       - name: Auth/session continuity gate
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'

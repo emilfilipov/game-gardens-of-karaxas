@@ -228,7 +228,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Windows distribution is channel-based in GCS, with installer-first game delivery.
 - Release workflow currently runs on GitHub-hosted `windows-latest` while local self-hosted runner provisioning is incomplete (missing Visual Studio Build Tools / `link.exe`); workflow steps remain PowerShell-based (`-ExecutionPolicy Bypass`) and are compatible with both hosted and self-hosted execution.
 - Release workflow now provisions Cloud SDK via `google-github-actions/setup-gcloud@v2` for hosted-run reliability and faster startup.
-- Release workflow bootstraps Rust via `rustup` and installs NSIS through Chocolatey (`choco install nsis`) on hosted Windows runners.
+- Release workflow bootstraps Rust via `rustup` and installs NSIS through Chocolatey (`choco install nsis`) on hosted Windows runners, then exports NSIS/choco paths before invoking `makensis`.
 - Workflow activates MSVC toolchain environment (`ilammy/msvc-dev-cmd`) before Rust build steps so `link.exe` is discoverable when Visual Studio Build Tools are present.
 - Release workflow now provisions Python via `actions/setup-python@v5` pinned to `3.11` on hosted runners.
 - Auth/session continuity gate now injects repo backend path via a generated `aop_backend.pth` in Python `site-packages`, then executes from `backend/` with `python -m pip` / `python -m pytest` to bypass embedded-Python path isolation edge cases on self-hosted Windows service runners.
