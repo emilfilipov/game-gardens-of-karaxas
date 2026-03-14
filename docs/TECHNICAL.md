@@ -231,6 +231,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Self-hosted release workflow bootstraps Rust via `rustup` and resolves NSIS via installed paths or portable zip fallback (all non-admin) to avoid WSL/bash and Chocolatey elevation dependencies under Windows service runner accounts.
 - Self-hosted release workflow caches downloaded Cloud SDK/Python toolchains under runner-level tool cache (`RUNNER_TOOL_CACHE`) to avoid full bootstrap cost on every run.
 - Self-hosted release workflow resolves Python 3.11 via existing `python`/`py` launcher or embedded Python zip fallback plus temporary command shims (instead of `actions/setup-python`) to avoid execution-policy/MSI-service blocks on service-account hosted runners.
+- Self-hosted release workflow treats `pip` as a capability check and bootstraps it via `get-pip.py` only when missing (embedded runtime path), avoiding `ensurepip` assumptions that can fail in embedded distributions.
 - Release workflow builds/packages:
   - launcher runtime: `launcher-app` (Windows executable embedded in game installer)
   - game installer: `AmbitionsOfPeace-game-installer-win-x64-<version>.exe`
