@@ -238,10 +238,13 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Install/update helpers are script-based (`scripts/install_game_client.ps1`, `scripts/install_designer_client.ps1`).
 - Game installer executable is built in CI via NSIS (`scripts/build_game_installer.ps1`) from the packaged runtime zip and embeds `launcher-app` as the primary player entrypoint.
 - Launcher (`launcher-app`) is the runtime auth/update gate:
-  - login required before update/launch,
+  - login-only surface is rendered first; launcher content/news/update controls render only after authentication,
+  - explicit `Login` and `Play` actions are decoupled so account auth can occur without starting gameplay runtime,
+  - authenticated launcher auto-refreshes release summary + feed metadata every 60 seconds,
   - in-window news/patch notes rendering via `/release/summary` using `x-client-version` and `x-client-content-version` headers,
   - feed resolution fallback chain (`release summary feed` -> `session feed` -> packaged default `win-game`) to survive stale backend policy feed pointers,
   - progress-visible update flow (delta-first, full-installer fallback),
+  - account actions are consolidated in top-right menu with logout available when runtime launch is not active,
   - startup handoff generation and full-screen game launch command.
   - production-first launcher defaults are compile-time injected in CI (`AOP_DEFAULT_API_BASE_URL`) and release launcher uses Windows GUI subsystem (no companion console window).
 - Runtime bundles now include `release_version.txt` marker for deterministic install/update acceptance verification.

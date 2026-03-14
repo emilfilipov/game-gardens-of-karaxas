@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow, bail};
 use eframe::egui;
@@ -26,21 +26,21 @@ const APP_TITLE: &str = "Ambitions of Peace";
 #[derive(Debug)]
 enum WorkerEvent {
     Status(String),
-    NewsLoaded {
-        latest_version: String,
-        notes: String,
-        feed_url: Option<String>,
-        content_version_key: String,
-    },
-    DownloadProgress {
-        downloaded: u64,
-        total: Option<u64>,
-    },
-    InstallProgress {
-        fraction: f32,
-        message: String,
-    },
-    Finished(Result<String, String>),
+    NewsRefreshed(Result<NewsPayload, String>),
+    AuthFinished(Result<SessionResponse, String>),
+    LogoutFinished(Result<(), String>),
+    PlayFinished(Result<String, String>),
+    DownloadProgress { downloaded: u64, total: Option<u64> },
+    InstallProgress { fraction: f32, message: String },
+}
+
+#[derive(Debug, Clone)]
+struct NewsPayload {
+    latest_version: String,
+    news_notes: String,
+    patch_notes: String,
+    feed_url: Option<String>,
+    content_version_key: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,7 +69,7 @@ struct LoginRequest {
     client_content_version_key: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct SessionResponse {
     access_token: String,
     refresh_token: String,
@@ -80,7 +80,7 @@ struct SessionResponse {
     version_status: VersionStatus,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct VersionStatus {
     latest_version: String,
     #[serde(default)]
@@ -159,10 +159,15 @@ struct LauncherApp {
     latest_version: String,
     client_content_version_key: String,
     news_notes: String,
-    status_line: String,
+    patch_notes: String,
+    message_line: String,
     progress: f32,
     progress_label: String,
     busy: bool,
+    refresh_in_flight: bool,
+    session: Option<SessionResponse>,
+    game_started: bool,
+    next_auto_refresh_at: Option<Instant>,
     pending_minimize: bool,
     tx: Sender<WorkerEvent>,
     rx: Receiver<WorkerEvent>,
@@ -174,7 +179,7 @@ impl LauncherApp {
         let install_dir = default_install_dir();
         let local_version = read_installed_version(&install_dir).unwrap_or_else(|_| "not installed".to_string());
 
-        let mut app = Self {
+        Self {
             api_base_url: env_or_default("AOP_API_BASE_URL", DEFAULT_API_BASE_URL),
             feed_url: env_or_default("AOP_GAME_FEED_URL", DEFAULT_GAME_FEED_URL),
             install_dir,
@@ -182,102 +187,139 @@ impl LauncherApp {
             password: String::new(),
             otp_code: String::new(),
             local_version,
-            latest_version: "checking...".to_string(),
+            latest_version: "unknown".to_string(),
             client_content_version_key: "unknown".to_string(),
-            news_notes: "Loading latest release notes...".to_string(),
-            status_line: "Ready".to_string(),
+            news_notes: String::new(),
+            patch_notes: String::new(),
+            message_line: String::new(),
             progress: 0.0,
-            progress_label: String::new(),
+            progress_label: "Idle".to_string(),
             busy: false,
+            refresh_in_flight: false,
+            session: None,
+            game_started: false,
+            next_auto_refresh_at: None,
             pending_minimize: false,
             tx,
             rx,
-        };
-        app.refresh_news();
-        app
+        }
     }
 
     fn refresh_news(&mut self) {
-        if self.busy {
+        if self.refresh_in_flight || self.session.is_none() {
             return;
         }
+        self.refresh_in_flight = true;
         let api_base_url = self.api_base_url.clone();
         let client_version = self.local_version.clone();
         let client_content_version_key = self.client_content_version_key.clone();
         let fallback_feed_url = self.feed_url.clone();
         let tx = self.tx.clone();
-        self.status_line = "Fetching latest news and patch notes...".to_string();
         thread::spawn(move || {
-            let result = fetch_release_summary(&api_base_url, &client_version, &client_content_version_key);
-            match result {
-                Ok(summary) => {
-                    let notes = choose_notes(&summary);
-                    let selected_content_key = select_declared_content_key(&summary);
-                    let mut latest_version = normalize_version(&summary.latest_version);
-                    let feed_candidates =
-                        collect_feed_candidates(summary.update_feed_url.as_deref(), None, &fallback_feed_url);
-                    let mut selected_feed_url = summary.update_feed_url.clone();
-                    for candidate in &feed_candidates {
-                        if let Ok(feed_payload) = fetch_latest_feed(candidate)
-                            && !feed_payload.version.trim().is_empty()
-                        {
-                            latest_version = normalize_version(&feed_payload.version);
-                            selected_feed_url = Some(candidate.clone());
-                            break;
-                        }
-                    }
-                    let _ = tx.send(WorkerEvent::NewsLoaded {
-                        latest_version,
-                        notes,
-                        feed_url: selected_feed_url,
-                        content_version_key: selected_content_key,
-                    });
-                    let _ = tx.send(WorkerEvent::Status("News refreshed".to_string()));
-                }
-                Err(error) => {
-                    if let Ok(feed_payload) = fetch_latest_feed(&fallback_feed_url) {
-                        let _ = tx.send(WorkerEvent::NewsLoaded {
-                            latest_version: normalize_version(&feed_payload.version),
-                            notes: "Release notes are temporarily unavailable.".to_string(),
-                            feed_url: Some(fallback_feed_url.clone()),
-                            content_version_key: "unknown".to_string(),
-                        });
-                    }
-                    let _ = tx.send(WorkerEvent::Status(format!("News fetch failed: {error}")));
-                }
-            }
+            let result = refresh_news_payload(
+                &api_base_url,
+                &client_version,
+                &client_content_version_key,
+                &fallback_feed_url,
+            )
+            .map_err(|error| error.to_string());
+            let _ = tx.send(WorkerEvent::NewsRefreshed(result));
         });
     }
 
-    fn login_update_and_play(&mut self) {
+    fn begin_login(&mut self) {
         if self.busy {
             return;
         }
         if self.email.trim().is_empty() || self.password.trim().is_empty() {
-            self.status_line = "Email and password are required.".to_string();
+            self.message_line = "Email and password are required.".to_string();
             return;
         }
 
         let tx = self.tx.clone();
-        let input = LaunchInput {
+        let input = LoginInput {
             api_base_url: self.api_base_url.clone(),
-            configured_feed_url: self.feed_url.clone(),
-            install_dir: self.install_dir.clone(),
             email: self.email.trim().to_string(),
             password: self.password.clone(),
             otp_code: trimmed_or_none(&self.otp_code),
             installed_version: self.local_version.clone(),
+            declared_content_version_key: self.client_content_version_key.clone(),
+        };
+
+        self.busy = true;
+        self.message_line = "Signing in...".to_string();
+
+        thread::spawn(move || {
+            let result = run_login_only(input).map_err(|error| error.to_string());
+            let _ = tx.send(WorkerEvent::AuthFinished(result));
+        });
+    }
+
+    fn begin_logout(&mut self) {
+        if self.busy {
+            return;
+        }
+        let Some(session) = self.session.clone() else {
+            return;
+        };
+        self.busy = true;
+        self.message_line = "Signing out...".to_string();
+        let api_base_url = self.api_base_url.clone();
+        let client_version = self.local_version.clone();
+        let client_content_version_key = self.client_content_version_key.clone();
+        let tx = self.tx.clone();
+        thread::spawn(move || {
+            let result = logout_session(
+                &api_base_url,
+                &session.access_token,
+                &client_version,
+                &client_content_version_key,
+            )
+            .map_err(|error| error.to_string());
+            let _ = tx.send(WorkerEvent::LogoutFinished(result));
+        });
+    }
+
+    fn begin_play(&mut self) {
+        if self.busy {
+            return;
+        }
+        let Some(session) = self.session.clone() else {
+            self.message_line = "Sign in first.".to_string();
+            return;
+        };
+
+        let tx = self.tx.clone();
+        let input = PlayInput {
+            api_base_url: self.api_base_url.clone(),
+            configured_feed_url: self.feed_url.clone(),
+            install_dir: self.install_dir.clone(),
+            installed_version: self.local_version.clone(),
+            session,
         };
 
         self.busy = true;
         self.progress = 0.0;
-        self.progress_label = "Starting...".to_string();
-        self.status_line = "Authenticating...".to_string();
+        self.progress_label = "Preparing launch...".to_string();
 
         thread::spawn(move || {
-            let result = run_login_update_launch(input, tx.clone()).map_err(|error| error.to_string());
-            let _ = tx.send(WorkerEvent::Finished(result));
+            let result = run_play_update_launch(input, tx.clone()).map_err(|error| error.to_string());
+            let _ = tx.send(WorkerEvent::PlayFinished(result));
         });
+    }
+
+    fn maybe_trigger_auto_refresh(&mut self) {
+        if self.session.is_none() || self.busy || self.refresh_in_flight {
+            return;
+        }
+        let now = Instant::now();
+        match self.next_auto_refresh_at {
+            Some(next_at) if now < next_at => {}
+            _ => {
+                self.next_auto_refresh_at = Some(now + Duration::from_secs(60));
+                self.refresh_news();
+            }
+        }
     }
 
     fn handle_worker_events(&mut self) {
@@ -285,21 +327,62 @@ impl LauncherApp {
             match self.rx.try_recv() {
                 Ok(event) => match event {
                     WorkerEvent::Status(message) => {
-                        self.status_line = message;
+                        self.message_line = message;
                     }
-                    WorkerEvent::NewsLoaded {
-                        latest_version,
-                        notes,
-                        feed_url,
-                        content_version_key,
-                    } => {
-                        self.latest_version = latest_version;
-                        self.news_notes = notes;
-                        self.client_content_version_key = content_version_key;
-                        if let Some(url) = feed_url
-                            && !url.trim().is_empty()
-                        {
-                            self.feed_url = url;
+                    WorkerEvent::NewsRefreshed(result) => {
+                        self.refresh_in_flight = false;
+                        match result {
+                            Ok(payload) => {
+                                self.latest_version = payload.latest_version;
+                                self.news_notes = payload.news_notes;
+                                self.patch_notes = payload.patch_notes;
+                                self.client_content_version_key = payload.content_version_key;
+                                if let Some(url) = payload.feed_url
+                                    && !url.trim().is_empty()
+                                {
+                                    self.feed_url = url;
+                                }
+                            }
+                            Err(error) => {
+                                self.message_line = format!("News refresh failed: {error}");
+                            }
+                        }
+                    }
+                    WorkerEvent::AuthFinished(result) => {
+                        self.busy = false;
+                        match result {
+                            Ok(session) => {
+                                self.client_content_version_key = preferred_content_key(
+                                    &session.version_status.latest_content_version_key,
+                                    &session.version_status.client_content_version_key,
+                                    "unknown",
+                                );
+                                self.session = Some(session);
+                                self.message_line = "Signed in.".to_string();
+                                self.next_auto_refresh_at = Some(Instant::now());
+                                self.refresh_news();
+                            }
+                            Err(error) => {
+                                self.message_line = format!("Sign-in failed: {error}");
+                            }
+                        }
+                    }
+                    WorkerEvent::LogoutFinished(result) => {
+                        self.busy = false;
+                        match result {
+                            Ok(()) => {
+                                self.session = None;
+                                self.game_started = false;
+                                self.news_notes.clear();
+                                self.patch_notes.clear();
+                                self.latest_version = "unknown".to_string();
+                                self.progress = 0.0;
+                                self.progress_label = "Idle".to_string();
+                                self.message_line = "Signed out.".to_string();
+                            }
+                            Err(error) => {
+                                self.message_line = format!("Sign-out failed: {error}");
+                            }
                         }
                     }
                     WorkerEvent::DownloadProgress { downloaded, total } => {
@@ -328,21 +411,22 @@ impl LauncherApp {
                         self.progress = (0.75 + (fraction.clamp(0.0, 1.0) * 0.25)).clamp(0.75, 1.0);
                         self.progress_label = message;
                     }
-                    WorkerEvent::Finished(result) => {
+                    WorkerEvent::PlayFinished(result) => {
                         self.busy = false;
                         match result {
                             Ok(message) => {
                                 self.progress = 1.0;
                                 self.progress_label = "Completed".to_string();
-                                self.status_line = message;
+                                self.message_line = message;
                                 self.local_version =
                                     read_installed_version(&self.install_dir).unwrap_or_else(|_| "unknown".to_string());
+                                self.game_started = true;
                                 self.pending_minimize = true;
                             }
                             Err(error) => {
                                 self.progress = 0.0;
-                                self.progress_label.clear();
-                                self.status_line = format!("Failed: {error}");
+                                self.progress_label = "Idle".to_string();
+                                self.message_line = format!("Launch failed: {error}");
                             }
                         }
                     }
@@ -357,111 +441,171 @@ impl LauncherApp {
 impl eframe::App for LauncherApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_worker_events();
+        self.maybe_trigger_auto_refresh();
         if self.pending_minimize {
             ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
             self.pending_minimize = false;
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.columns(2, |columns| {
-                columns[0].vertical(|ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(format!("Installed: {}", self.local_version));
-                        ui.separator();
-                        ui.label(format!("Latest: {}", self.latest_version));
-                    });
-                    ui.add_space(8.0);
+            if self.session.is_none() {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(80.0);
                     ui.group(|ui| {
-                        ui.label("Login Required");
-                        ui.label("Sign in first. Play checks and installs updates before launch.");
-                        ui.add_space(4.0);
+                        ui.set_width(360.0);
                         ui.label("Email");
                         ui.text_edit_singleline(&mut self.email);
                         ui.label("Password");
                         ui.add(egui::TextEdit::singleline(&mut self.password).password(true));
                         ui.label("OTP (optional)");
                         ui.text_edit_singleline(&mut self.otp_code);
-                    });
-                    ui.add_space(8.0);
-                    if self.busy {
-                        ui.add_enabled(false, egui::Button::new("Working..."));
-                    } else if ui.button("Play").clicked() {
-                        self.login_update_and_play();
-                    }
-                    ui.add_space(4.0);
-                    ui.horizontal(|ui| {
-                        if ui.button("Refresh News").clicked() {
-                            self.refresh_news();
+                        ui.add_space(8.0);
+                        let login_button = egui::Button::new(egui::RichText::new("Login").size(18.0))
+                            .min_size(egui::vec2(160.0, 42.0));
+                        if ui.add_enabled(!self.busy, login_button).clicked() {
+                            self.begin_login();
                         }
-                        if ui.button("Open Install Folder").clicked() {
-                            let _ = open_directory(&self.install_dir);
+                        if !self.message_line.trim().is_empty() {
+                            ui.add_space(4.0);
+                            ui.label(&self.message_line);
                         }
                     });
-
-                    ui.add_space(8.0);
-                    ui.label(format!("Status: {}", self.status_line));
-                    if self.busy || self.progress > 0.0 {
-                        ui.add(egui::ProgressBar::new(self.progress.clamp(0.0, 1.0)).show_percentage());
-                        if !self.progress_label.is_empty() {
-                            ui.label(self.progress_label.clone());
-                        }
-                    }
                 });
+                return;
+            }
 
-                columns[1].vertical(|ui| {
-                    ui.label("Latest News / Patch Notes");
-                    ui.separator();
-                    egui::ScrollArea::vertical().max_height(520.0).show(ui, |ui| {
-                        ui.label(&self.news_notes);
+            ui.horizontal(|ui| {
+                ui.label(format!("Installed {}", self.local_version));
+                ui.separator();
+                ui.label(format!("Latest {}", self.latest_version));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let account_label = self
+                        .session
+                        .as_ref()
+                        .map(|session| session.display_name.clone())
+                        .unwrap_or_else(|| "Account".to_string());
+                    ui.menu_button(account_label, |ui| {
+                        if !self.game_started && ui.button("Logout").clicked() {
+                            self.begin_logout();
+                            ui.close_menu();
+                        }
+                        if self.game_started {
+                            ui.label("Game session active");
+                        }
                     });
                 });
             });
+
+            ui.add_space(8.0);
+            ui.columns(2, |columns| {
+                columns[0].vertical(|ui| {
+                    ui.group(|ui| {
+                        ui.label("News");
+                        ui.separator();
+                        egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                            if self.news_notes.trim().is_empty() {
+                                ui.label("No news available.");
+                            } else {
+                                ui.label(&self.news_notes);
+                            }
+                        });
+                    });
+                });
+
+                columns[1].vertical(|ui| {
+                    ui.group(|ui| {
+                        ui.label("Patch Notes");
+                        ui.separator();
+                        egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                            if self.patch_notes.trim().is_empty() {
+                                ui.label("No patch notes available.");
+                            } else {
+                                ui.label(&self.patch_notes);
+                            }
+                        });
+                    });
+                });
+            });
+
+            ui.add_space(10.0);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let play_button =
+                    egui::Button::new(egui::RichText::new("Play").size(22.0)).min_size(egui::vec2(180.0, 48.0));
+                if ui
+                    .add_enabled(self.session.is_some() && !self.busy, play_button)
+                    .clicked()
+                {
+                    self.begin_play();
+                }
+
+                ui.add_space(8.0);
+                ui.add_sized(
+                    [420.0, 24.0],
+                    egui::ProgressBar::new(self.progress.clamp(0.0, 1.0)).show_percentage(),
+                );
+            });
+            if !self.progress_label.trim().is_empty() {
+                ui.add_space(6.0);
+                ui.label(self.progress_label.clone());
+            }
+            if !self.message_line.trim().is_empty() {
+                ui.add_space(4.0);
+                ui.label(&self.message_line);
+            }
         });
     }
 }
 
 #[derive(Debug, Clone)]
-struct LaunchInput {
+struct LoginInput {
     api_base_url: String,
-    configured_feed_url: String,
-    install_dir: PathBuf,
     email: String,
     password: String,
     otp_code: Option<String>,
     installed_version: String,
+    declared_content_version_key: String,
 }
 
-fn run_login_update_launch(input: LaunchInput, tx: Sender<WorkerEvent>) -> Result<String> {
+#[derive(Debug, Clone)]
+struct PlayInput {
+    api_base_url: String,
+    configured_feed_url: String,
+    install_dir: PathBuf,
+    installed_version: String,
+    session: SessionResponse,
+}
+
+fn run_login_only(input: LoginInput) -> Result<SessionResponse> {
     let api_base_url = normalize_url(&input.api_base_url);
-    let feed_fallback = normalize_url(&input.configured_feed_url);
     let installed_version = normalize_version(&input.installed_version);
-
-    let _ = tx.send(WorkerEvent::Status("Fetching release summary...".to_string()));
-    let summary = fetch_release_summary(&api_base_url, &installed_version, "unknown")?;
-    let notes = choose_notes(&summary);
-    let _ = tx.send(WorkerEvent::NewsLoaded {
-        latest_version: summary.latest_version.clone(),
-        notes,
-        feed_url: summary.update_feed_url.clone(),
-        content_version_key: select_declared_content_key(&summary),
-    });
-
+    let summary = fetch_release_summary(&api_base_url, &installed_version, &input.declared_content_version_key)?;
     let declared_version = normalize_version(&summary.latest_version);
     let declared_content_key = select_declared_content_key(&summary);
-    let _ = tx.send(WorkerEvent::Status("Logging in...".to_string()));
-    let session = login_session(
+    login_session(
         &api_base_url,
         &input.email,
         &input.password,
         input.otp_code.as_deref(),
         &declared_version,
         &declared_content_key,
-    )?;
+    )
+}
 
-    let _ = tx.send(WorkerEvent::Status("Checking for updates...".to_string()));
+fn run_play_update_launch(input: PlayInput, tx: Sender<WorkerEvent>) -> Result<String> {
+    let api_base_url = normalize_url(&input.api_base_url);
+    let feed_fallback = normalize_url(&input.configured_feed_url);
+    let installed_version = normalize_version(&input.installed_version);
+
+    let session_content_key = preferred_content_key(
+        &input.session.version_status.client_content_version_key,
+        &input.session.version_status.latest_content_version_key,
+        "unknown",
+    );
+    let summary = fetch_release_summary(&api_base_url, &installed_version, &session_content_key)?;
+    let _ = tx.send(WorkerEvent::Status("Update check started...".to_string()));
     let feed_candidates = collect_feed_candidates(
         summary.update_feed_url.as_deref(),
-        session.version_status.update_feed_url.as_deref(),
+        input.session.version_status.update_feed_url.as_deref(),
         &feed_fallback,
     );
     let mut resolved_feed_url = String::new();
@@ -491,7 +635,7 @@ fn run_login_update_launch(input: LaunchInput, tx: Sender<WorkerEvent>) -> Resul
     let current_local =
         normalize_version(&read_installed_version(&input.install_dir).unwrap_or_else(|_| "0.0.0".to_string()));
     let latest_version = if latest.version.trim().is_empty() {
-        normalize_version(&session.version_status.latest_version)
+        normalize_version(&input.session.version_status.latest_version)
     } else {
         normalize_version(&latest.version)
     };
@@ -555,14 +699,14 @@ fn run_login_update_launch(input: LaunchInput, tx: Sender<WorkerEvent>) -> Resul
     }
 
     let handoff_content_key = preferred_content_key(
-        &session.version_status.latest_content_version_key,
-        &session.version_status.client_content_version_key,
-        &declared_content_key,
+        &input.session.version_status.latest_content_version_key,
+        &input.session.version_status.client_content_version_key,
+        &session_content_key,
     );
     let handoff_path = default_handoff_path();
     write_startup_handoff(
         &handoff_path,
-        &session,
+        &input.session,
         &api_base_url,
         &latest_version,
         &handoff_content_key,
@@ -612,6 +756,72 @@ fn login_session(
     let response = client.post(url).json(&request).send().context("failed to call login")?;
 
     parse_json_response(response, "login")
+}
+
+fn logout_session(
+    api_base_url: &str,
+    access_token: &str,
+    client_version: &str,
+    client_content_version_key: &str,
+) -> Result<()> {
+    let url = format!("{}/auth/logout", api_base_url.trim_end_matches('/'));
+    let client = http_client()?;
+    let response = client
+        .post(url)
+        .bearer_auth(access_token)
+        .header("x-client-version", normalize_version(client_version))
+        .header(
+            "x-client-content-version",
+            preferred_content_key(client_content_version_key, "unknown", "unknown"),
+        )
+        .send()
+        .context("failed to call logout")?;
+    let _: serde_json::Value = parse_json_response(response, "logout")?;
+    Ok(())
+}
+
+fn refresh_news_payload(
+    api_base_url: &str,
+    client_version: &str,
+    client_content_version_key: &str,
+    fallback_feed_url: &str,
+) -> Result<NewsPayload> {
+    let summary = match fetch_release_summary(api_base_url, client_version, client_content_version_key) {
+        Ok(value) => value,
+        Err(summary_error) => {
+            let fallback = fetch_latest_feed(fallback_feed_url).with_context(|| {
+                format!("release summary failed ({summary_error}); fallback feed lookup also failed")
+            })?;
+            return Ok(NewsPayload {
+                latest_version: normalize_version(&fallback.version),
+                news_notes: "News is temporarily unavailable.".to_string(),
+                patch_notes: "Patch notes are temporarily unavailable.".to_string(),
+                feed_url: Some(normalize_url(fallback_feed_url)),
+                content_version_key: preferred_content_key(client_content_version_key, "unknown", "unknown"),
+            });
+        }
+    };
+    let selected_content_key = select_declared_content_key(&summary);
+    let mut latest_version = normalize_version(&summary.latest_version);
+    let feed_candidates = collect_feed_candidates(summary.update_feed_url.as_deref(), None, fallback_feed_url);
+    let mut selected_feed_url = summary.update_feed_url.clone();
+    for candidate in &feed_candidates {
+        if let Ok(feed_payload) = fetch_latest_feed(candidate)
+            && !feed_payload.version.trim().is_empty()
+        {
+            latest_version = normalize_version(&feed_payload.version);
+            selected_feed_url = Some(candidate.clone());
+            break;
+        }
+    }
+
+    Ok(NewsPayload {
+        latest_version,
+        news_notes: extract_news_notes(&summary),
+        patch_notes: extract_patch_notes(&summary),
+        feed_url: selected_feed_url,
+        content_version_key: selected_content_key,
+    })
 }
 
 fn fetch_latest_feed(feed_url: &str) -> Result<LatestFeedPayload> {
@@ -886,30 +1096,6 @@ fn launch_game(install_dir: &Path, handoff_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn open_directory(path: &Path) -> Result<()> {
-    if !path.exists() {
-        fs::create_dir_all(path).with_context(|| format!("failed creating {}", path.display()))?;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("explorer")
-            .arg(path)
-            .spawn()
-            .context("failed opening install directory")?;
-        return Ok(());
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        Command::new("xdg-open")
-            .arg(path)
-            .spawn()
-            .context("failed opening install directory")?;
-        Ok(())
-    }
-}
-
 fn read_installed_version(install_dir: &Path) -> Result<String> {
     let marker = install_dir.join("release_version.txt");
     let raw = fs::read_to_string(&marker).with_context(|| format!("failed reading {}", marker.display()))?;
@@ -990,16 +1176,20 @@ fn env_or_default(key: &str, fallback: &str) -> String {
         .unwrap_or_else(|| fallback.to_string())
 }
 
-fn choose_notes(summary: &ReleaseSummaryResponse) -> String {
+fn extract_news_notes(summary: &ReleaseSummaryResponse) -> String {
     let user_notes = summary.latest_user_facing_notes.trim();
     if !user_notes.is_empty() {
         return user_notes.to_string();
     }
+    "No published news yet.".to_string()
+}
+
+fn extract_patch_notes(summary: &ReleaseSummaryResponse) -> String {
     let build_notes = summary.latest_build_release_notes.trim();
     if !build_notes.is_empty() {
         return build_notes.to_string();
     }
-    "No published notes yet.".to_string()
+    "No patch notes published yet.".to_string()
 }
 
 fn trimmed_or_none(value: &str) -> Option<String> {
