@@ -221,8 +221,8 @@ jobs:
 
               $pyShimDir = Join-Path $env:RUNNER_TEMP "python-local-shims"
               New-Item -ItemType Directory -Path $pyShimDir -Force | Out-Null
-              Set-Content -Path (Join-Path $pyShimDir "python.cmd") -Value "@echo off`r`n\"$pythonExe\" %*" -Encoding ascii
-              Set-Content -Path (Join-Path $pyShimDir "pip.cmd") -Value "@echo off`r`n\"$pythonExe\" -m pip %*" -Encoding ascii
+              Set-Content -Path (Join-Path $pyShimDir "python.cmd") -Value "@echo off`r`n`"$pythonExe`" %*" -Encoding ascii
+              Set-Content -Path (Join-Path $pyShimDir "pip.cmd") -Value "@echo off`r`n`"$pythonExe`" -m pip %*" -Encoding ascii
               Add-Content -Path $env:GITHUB_PATH -Value $pyShimDir
               $env:Path = "$pyShimDir;$env:Path"
             } else {
