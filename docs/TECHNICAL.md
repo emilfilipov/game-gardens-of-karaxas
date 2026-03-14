@@ -228,6 +228,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Windows distribution is channel-based in GCS, with installer-first game delivery.
 - Release workflow execution now targets the self-hosted Windows runner label set `[self-hosted, windows, x64, aop-release]` to reuse local toolchains/caches and reduce release latency; workflow run steps use Windows PowerShell shell with `-ExecutionPolicy Bypass` so `pwsh` installation and machine-wide execution-policy changes are not required on the host.
 - Self-hosted release workflow bootstraps `gcloud` from Google Cloud SDK release zips (runner-local, non-admin) when missing and exports Cloud SDK bin paths through `GITHUB_PATH` for subsequent release steps.
+- Self-hosted release workflow bootstraps Rust via `rustup` and resolves NSIS via installed paths or portable zip fallback (all non-admin) to avoid WSL/bash and Chocolatey elevation dependencies under Windows service runner accounts.
 - Release workflow builds/packages:
   - launcher runtime: `launcher-app` (Windows executable embedded in game installer)
   - game installer: `AmbitionsOfPeace-game-installer-win-x64-<version>.exe`
