@@ -80,7 +80,30 @@ jobs:
 
       - name: Setup gcloud
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
-        uses: google-github-actions/setup-gcloud@v2
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
+        run: |
+          $knownBins = @(
+            "C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin",
+            "C:\Program Files\Google\Cloud SDK\google-cloud-sdk\bin"
+          )
+
+          $gcloud = Get-Command gcloud -ErrorAction SilentlyContinue
+          if (-not $gcloud) {
+            choco install gcloudsdk --no-progress -y
+          }
+
+          foreach ($binPath in $knownBins) {
+            if (Test-Path $binPath) {
+              Add-Content -Path $env:GITHUB_PATH -Value $binPath
+            }
+          }
+
+          $gcloud = Get-Command gcloud -ErrorAction SilentlyContinue
+          if (-not $gcloud) {
+            throw "gcloud CLI not found after bootstrap."
+          }
+
+          gcloud --version
 
       - name: Compute Version
         id: get-version
