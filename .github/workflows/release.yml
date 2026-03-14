@@ -128,6 +128,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Configure Cloud SDK Python
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
+        run: |
+          $pythonPath = (Get-Command python -ErrorAction Stop).Source
+          "CLOUDSDK_PYTHON=$pythonPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Setup NSIS
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"

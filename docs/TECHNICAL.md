@@ -231,6 +231,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Release workflow bootstraps Rust via `rustup` and installs NSIS through Chocolatey (`choco install nsis`) on hosted Windows runners, then exports NSIS/choco paths before invoking `makensis`.
 - Workflow activates MSVC toolchain environment (`ilammy/msvc-dev-cmd`) before Rust build steps so `link.exe` is discoverable when Visual Studio Build Tools are present.
 - Release workflow now provisions Python via `actions/setup-python@v5` pinned to `3.11` on hosted runners.
+- Release workflow exports `CLOUDSDK_PYTHON` from the configured Python toolchain so `gsutil`/Cloud SDK helpers resolve a deterministic interpreter across later packaging steps.
 - Auth/session continuity gate now injects repo backend path via a generated `aop_backend.pth` in Python `site-packages`, then executes from `backend/` with `python -m pip` / `python -m pytest` to bypass embedded-Python path isolation edge cases on self-hosted Windows service runners.
 - Release workflow builds/packages:
   - launcher runtime: `launcher-app` (Windows executable embedded in game installer)
