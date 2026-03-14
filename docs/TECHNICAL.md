@@ -226,7 +226,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 
 ## Build, Packaging, and Distribution
 - Windows distribution is channel-based in GCS, with installer-first game delivery.
-- Release workflow execution now targets the self-hosted Windows runner label set `[self-hosted, windows, x64, aop-release]` to reuse local toolchains/caches and reduce release latency.
+- Release workflow execution now targets the self-hosted Windows runner label set `[self-hosted, windows, x64, aop-release]` to reuse local toolchains/caches and reduce release latency; workflow run steps use Windows PowerShell shell so `pwsh` installation is not required on the host.
 - Release workflow builds/packages:
   - launcher runtime: `launcher-app` (Windows executable embedded in game installer)
   - game installer: `AmbitionsOfPeace-game-installer-win-x64-<version>.exe`
