@@ -230,10 +230,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Release workflow now provisions Cloud SDK via `google-github-actions/setup-gcloud@v2` for hosted-run reliability and faster startup.
 - Self-hosted release workflow bootstraps Rust via `rustup` and resolves NSIS via installed paths or portable zip fallback (all non-admin) to avoid WSL/bash and Chocolatey elevation dependencies under Windows service runner accounts.
 - Workflow activates MSVC toolchain environment (`ilammy/msvc-dev-cmd`) before Rust build steps so `link.exe` is discoverable when Visual Studio Build Tools are present.
-- Self-hosted compatibility path caches Python toolchain artifacts under runner-level tool cache (`RUNNER_TOOL_CACHE`) to avoid repeated bootstrap cost.
-- Self-hosted release workflow resolves Python 3.11 via existing `python`/`py` launcher or embedded Python zip fallback plus temporary command shims (instead of `actions/setup-python`) to avoid execution-policy/MSI-service blocks on service-account hosted runners.
-- Self-hosted release workflow treats `pip` as a capability check and bootstraps it via `get-pip.py` only when missing (embedded runtime path), avoiding `ensurepip` assumptions that can fail in embedded distributions.
-- Generated Windows `python.cmd`/`pip.cmd` shims quote executable paths explicitly for service-account environments to prevent PowerShell argument parsing failures.
+- Release workflow now provisions Python via `actions/setup-python@v5` pinned to `3.11` on hosted runners.
 - Auth/session continuity gate now injects repo backend path via a generated `aop_backend.pth` in Python `site-packages`, then executes from `backend/` with `python -m pip` / `python -m pytest` to bypass embedded-Python path isolation edge cases on self-hosted Windows service runners.
 - Release workflow builds/packages:
   - launcher runtime: `launcher-app` (Windows executable embedded in game installer)
