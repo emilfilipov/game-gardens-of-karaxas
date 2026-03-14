@@ -229,7 +229,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Release workflow execution now targets the self-hosted Windows runner label set `[self-hosted, windows, x64, aop-release]` to reuse local toolchains/caches and reduce release latency; workflow run steps use Windows PowerShell shell with `-ExecutionPolicy Bypass` so `pwsh` installation and machine-wide execution-policy changes are not required on the host.
 - Self-hosted release workflow bootstraps `gcloud` from Google Cloud SDK release zips (runner-local, non-admin) when missing and exports Cloud SDK bin paths through `GITHUB_PATH` for subsequent release steps.
 - Self-hosted release workflow bootstraps Rust via `rustup` and resolves NSIS via installed paths or portable zip fallback (all non-admin) to avoid WSL/bash and Chocolatey elevation dependencies under Windows service runner accounts.
-- Self-hosted release workflow caches downloaded Cloud SDK/Python toolchains under runner workspace `_toolcache` to avoid full bootstrap cost on every run.
+- Self-hosted release workflow caches downloaded Cloud SDK/Python toolchains under runner-level tool cache (`RUNNER_TOOL_CACHE`) to avoid full bootstrap cost on every run.
 - Self-hosted release workflow resolves Python 3.11 via existing `python`/`py` launcher or non-admin silent installer fallback plus temporary command shims (instead of `actions/setup-python`) to avoid execution-policy blocks on service-account hosted runners.
 - Release workflow builds/packages:
   - launcher runtime: `launcher-app` (Windows executable embedded in game installer)

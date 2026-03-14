@@ -96,7 +96,10 @@ jobs:
             }
             $archiveUrl = "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-$version-windows-x86_64-bundled-python.zip"
             $zipPath = Join-Path $env:RUNNER_TEMP "google-cloud-sdk-$version.zip"
-            $toolRoot = Join-Path $env:RUNNER_WORKSPACE "_toolcache"
+            $toolRoot = $env:RUNNER_TOOL_CACHE
+            if ([string]::IsNullOrWhiteSpace($toolRoot)) {
+              $toolRoot = Join-Path $env:USERPROFILE ".aop-toolcache"
+            }
             New-Item -ItemType Directory -Path $toolRoot -Force | Out-Null
             $installRoot = Join-Path $toolRoot "google-cloud-sdk-$version"
             $portableBin = Join-Path $installRoot "google-cloud-sdk\bin"
@@ -109,6 +112,8 @@ jobs:
               if (-not (Test-Path $portableBin)) {
                 throw "Cloud SDK bootstrap did not produce expected bin path: $portableBin"
               }
+            } else {
+              Write-Host "Using cached Cloud SDK from $portableBin"
             }
             Add-Content -Path $env:GITHUB_PATH -Value $portableBin
             $env:Path = "$portableBin;$env:Path"
@@ -180,7 +185,12 @@ jobs:
             if (-not $py -or $LASTEXITCODE -ne 0) {
               $pyVersion = "3.11.9"
               $installer = Join-Path $env:RUNNER_TEMP "python-$pyVersion-amd64.exe"
-              $installDir = Join-Path $env:RUNNER_WORKSPACE "_toolcache\python-$pyVersion"
+              $toolRoot = $env:RUNNER_TOOL_CACHE
+              if ([string]::IsNullOrWhiteSpace($toolRoot)) {
+                $toolRoot = Join-Path $env:USERPROFILE ".aop-toolcache"
+              }
+              New-Item -ItemType Directory -Path $toolRoot -Force | Out-Null
+              $installDir = Join-Path $toolRoot "python-$pyVersion"
               $pythonExe = Join-Path $installDir "python.exe"
               if (-not (Test-Path $pythonExe)) {
                 $uri = "https://www.python.org/ftp/python/$pyVersion/python-$pyVersion-amd64.exe"
@@ -200,6 +210,8 @@ jobs:
                 if ($proc.ExitCode -ne 0) {
                   throw "Python installer failed with exit code $($proc.ExitCode)."
                 }
+              } else {
+                Write-Host "Using cached Python at $pythonExe"
               }
 
               $pyShimDir = Join-Path $env:RUNNER_TEMP "python-local-shims"
