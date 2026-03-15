@@ -513,15 +513,13 @@ impl eframe::App for LauncherApp {
 
             egui::TopBottomPanel::bottom("launcher_authenticated_bottom")
                 .resizable(false)
-                .exact_height(84.0)
+                .exact_height(72.0)
                 .show_inside(ui, |ui| {
-                    if !self.message_line.trim().is_empty() {
-                        ui.label(&self.message_line);
-                    }
                     ui.horizontal(|ui| {
+                        let control_height = 52.0;
                         let play_text = if self.play_in_progress { "Updating" } else { "Play" };
-                        let play_button =
-                            egui::Button::new(egui::RichText::new(play_text).size(22.0)).min_size(egui::vec2(220.0, 52.0));
+                        let play_button = egui::Button::new(egui::RichText::new(play_text).size(22.0))
+                            .min_size(egui::vec2(220.0, control_height));
 
                         let play_width = 220.0;
                         let spacing = 12.0;
@@ -530,11 +528,12 @@ impl eframe::App for LauncherApp {
                             self.progress.clamp(0.0, 1.0)
                         } else {
                             0.0
-                        });
+                        })
+                        .corner_radius(0.0);
                         if self.play_in_progress && !self.progress_label.trim().is_empty() {
                             progress_bar = progress_bar.text(self.progress_label.clone());
                         }
-                        ui.add_sized([bar_width, 24.0], progress_bar);
+                        ui.add_sized([bar_width, control_height], progress_bar);
 
                         ui.add_space(spacing);
                         if ui
@@ -654,7 +653,10 @@ fn run_play_update_launch(input: PlayInput, tx: Sender<WorkerEvent>) -> Result<S
             message: "Starting Game".to_string(),
         });
         launch_game(&input.install_dir, &handoff_path)?;
-        return Ok(format!("Launched game {} (local updater bypass)", normalize_version(&local_version)));
+        return Ok(format!(
+            "Launched game {} (local updater bypass)",
+            normalize_version(&local_version)
+        ));
     }
 
     let _ = tx.send(WorkerEvent::Status("Checking Latest Version".to_string()));

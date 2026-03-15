@@ -263,7 +263,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
   - in-window news/patch notes rendering via `/release/summary` using `x-client-version` and `x-client-content-version` headers,
   - feed resolution fallback chain (`release summary feed` -> `session feed` -> packaged default `win-game`) to survive stale backend policy feed pointers,
   - `Play` always re-checks latest release metadata before launch,
-  - while update is running, `Play` transitions to `Updating` (disabled) and progress is surfaced only in the bottom update bar (`Checking Latest Version` -> `Downloading` -> `Installing Update` -> `Starting Game`),
+  - while update is running, `Play` transitions to `Updating` (disabled) and progress is surfaced only in the bottom update bar (`Checking Latest Version` -> `Downloading` -> `Installing Update` -> `Starting Game`) using a rectangular full-height lane aligned to the `Play` control, with no separate authenticated status text row,
   - progress-visible update flow remains delta-first with full-installer fallback,
   - account actions are consolidated in top-right menu with logout available when runtime launch is not active,
   - startup handoff generation and full-screen game launch command.
