@@ -107,6 +107,10 @@ Required for publish:
 - `KARAXAS_GCS_RELEASE_BUCKET` (variable)
 - `GCP_WORKLOAD_IDENTITY_PROVIDER` (secret)
 - `GCP_SERVICE_ACCOUNT` (secret)
+- `KARAXAS_OPS_API_TOKEN` (secret)
+- backend base URL variable for metadata activation:
+  - `KARAXAS_BACKEND_OPS_URL` (preferred), or
+  - `KARAXAS_BACKEND_API_URL` (fallback)
 
 Optional:
 - `KARAXAS_GCS_GAME_RELEASE_PREFIX` (defaults `win-game`)

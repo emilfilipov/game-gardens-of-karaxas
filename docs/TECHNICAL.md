@@ -232,9 +232,13 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Workflow activates MSVC toolchain environment (`ilammy/msvc-dev-cmd`) before Rust build steps so `link.exe` is discoverable when Visual Studio Build Tools are present.
 - Release workflow now provisions Python via `actions/setup-python@v5` pinned to `3.11` on hosted runners.
 - Release workflow exports `CLOUDSDK_PYTHON` from the configured Python toolchain so `gsutil`/Cloud SDK helpers resolve a deterministic interpreter across later packaging steps.
+- Release workflow now fails fast (before build/package stages) when backend release-metadata activation inputs are missing:
+  - backend base URL (`KARAXAS_BACKEND_OPS_URL` preferred, fallback `KARAXAS_BACKEND_API_URL`)
+  - ops token (`KARAXAS_OPS_API_TOKEN`)
 - Release workflow now activates backend release policy metadata after artifact upload via `POST /ops/release/activate`, using CI-managed notes sources:
   - `assets/content/release/news_notes.md` -> `latest_user_facing_notes`
   - `assets/content/release/patch_notes.md` -> `latest_build_release_notes`
+- Release workflow now performs post-activation consistency verification against `/release/summary` (latest version, feed URL, news notes, patch notes) and fails the run if backend metadata does not match the just-published release.
 - Backend release policy/record tables are the canonical source for launcher-displayed `latest version`, `news`, and `patch notes`; GCS feed metadata remains artifact-distribution source.
 - Auth/session continuity gate now injects repo backend path via a generated `aop_backend.pth` in Python `site-packages`, then executes from `backend/` with `python -m pip` / `python -m pytest` to bypass embedded-Python path isolation edge cases on self-hosted Windows service runners.
 - Release workflow builds/packages:
@@ -249,6 +253,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Install/update helpers are script-based (`scripts/install_game_client.ps1`, `scripts/install_designer_client.ps1`).
 - Game installer executable is built in CI via NSIS (`scripts/build_game_installer.ps1`) from the packaged runtime zip and embeds `launcher-app` as the primary player entrypoint.
 - Launcher (`launcher-app`) is the runtime auth/update gate:
+  - compiled default API base URL now ignores empty CI-provided values and falls back to the canonical Cloud Run URL to prevent broken production launcher auth/news calls,
   - login-only surface is rendered first; launcher content/news/update controls render only after authentication,
   - explicit `Login` and `Play` actions are decoupled so account auth can occur without starting gameplay runtime,
   - authenticated launcher auto-refreshes release summary + feed metadata every 60 seconds,

@@ -16,10 +16,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use zip::ZipArchive;
 
-const DEFAULT_API_BASE_URL: &str = match option_env!("AOP_DEFAULT_API_BASE_URL") {
-    Some(url) => url,
-    None => "https://karaxas-backend-rss3xj2ixq-ew.a.run.app",
-};
+const FALLBACK_API_BASE_URL: &str = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app";
 const DEFAULT_GAME_FEED_URL: &str = "https://storage.googleapis.com/karaxas-releases-lustrous-bond-298815/win-game";
 const APP_TITLE: &str = "Ambitions of Peace";
 
@@ -181,7 +178,7 @@ impl LauncherApp {
         let local_version = read_installed_version(&install_dir).unwrap_or_else(|_| "not installed".to_string());
 
         Self {
-            api_base_url: env_or_default("AOP_API_BASE_URL", DEFAULT_API_BASE_URL),
+            api_base_url: env_or_default("AOP_API_BASE_URL", compiled_default_api_base_url()),
             feed_url: env_or_default("AOP_GAME_FEED_URL", DEFAULT_GAME_FEED_URL),
             install_dir,
             email: String::new(),
@@ -441,6 +438,13 @@ impl LauncherApp {
                 Err(mpsc::TryRecvError::Disconnected) => break,
             }
         }
+    }
+}
+
+fn compiled_default_api_base_url() -> &'static str {
+    match option_env!("AOP_DEFAULT_API_BASE_URL") {
+        Some(url) if !url.trim().is_empty() => url,
+        _ => FALLBACK_API_BASE_URL,
     }
 }
 

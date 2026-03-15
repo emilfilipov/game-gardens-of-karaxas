@@ -71,6 +71,21 @@ jobs:
             "mode=none" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
 
+      - name: Validate Backend Release Metadata Inputs
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        env:
+          OPS_BASE_URL: ${{ vars.KARAXAS_BACKEND_OPS_URL != '' && vars.KARAXAS_BACKEND_OPS_URL || vars.KARAXAS_BACKEND_API_URL }}
+          OPS_TOKEN: ${{ secrets.KARAXAS_OPS_API_TOKEN }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:OPS_BASE_URL)) {
+            throw "Missing backend base URL. Set KARAXAS_BACKEND_OPS_URL (preferred) or KARAXAS_BACKEND_API_URL."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:OPS_TOKEN)) {
+            throw "Missing KARAXAS_OPS_API_TOKEN secret; cannot activate backend release metadata."
+          }
+          Write-Host "Backend release metadata URL validated."
+
       - name: Authenticate to Google Cloud (WIF)
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode == 'wif'
         uses: google-github-actions/auth@v2
@@ -183,7 +198,7 @@ jobs:
       - name: Build Rust Launcher Runtime (Windows)
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         env:
-          AOP_DEFAULT_API_BASE_URL: ${{ vars.KARAXAS_BACKEND_OPS_URL }}
+          AOP_DEFAULT_API_BASE_URL: ${{ vars.KARAXAS_BACKEND_API_URL != '' && vars.KARAXAS_BACKEND_API_URL || vars.KARAXAS_BACKEND_OPS_URL }}
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
         run: |
           cargo build -p launcher-app --release --target x86_64-pc-windows-msvc
@@ -460,12 +475,12 @@ jobs:
       - name: Activate Release Metadata In Backend
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         env:
-          OPS_BASE_URL: ${{ vars.KARAXAS_BACKEND_OPS_URL }}
+          OPS_BASE_URL: ${{ vars.KARAXAS_BACKEND_OPS_URL != '' && vars.KARAXAS_BACKEND_OPS_URL || vars.KARAXAS_BACKEND_API_URL }}
           OPS_TOKEN: ${{ secrets.KARAXAS_OPS_API_TOKEN }}
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
         run: |
           if ([string]::IsNullOrWhiteSpace($env:OPS_BASE_URL)) {
-            throw "Missing KARAXAS_BACKEND_OPS_URL variable; cannot activate release metadata."
+            throw "Missing backend base URL. Set KARAXAS_BACKEND_OPS_URL (preferred) or KARAXAS_BACKEND_API_URL."
           }
           if ([string]::IsNullOrWhiteSpace($env:OPS_TOKEN)) {
             throw "Missing KARAXAS_OPS_API_TOKEN secret; cannot activate release metadata."
@@ -510,6 +525,28 @@ jobs:
               throw "Release metadata activation failed: $body"
             }
             throw
+          }
+
+          $summaryUri = "$($env:OPS_BASE_URL.TrimEnd('/'))/release/summary"
+          $summary = Invoke-RestMethod `
+            -Method Get `
+            -Uri $summaryUri `
+            -Headers @{
+              "x-client-version" = $version
+              "x-client-content-version" = "cv_bootstrap_v1"
+            }
+          if ("$($summary.latest_version)" -ne $version) {
+            throw "Release summary mismatch after activation: expected latest_version $version, got $($summary.latest_version)."
+          }
+          $reportedFeed = "$($summary.update_feed_url)".TrimEnd("/")
+          if ($reportedFeed -ne $feedUrl.TrimEnd("/")) {
+            throw "Release summary mismatch after activation: expected update_feed_url $feedUrl, got $reportedFeed."
+          }
+          if ([string]::IsNullOrWhiteSpace("$($summary.latest_user_facing_notes)")) {
+            throw "Release summary missing latest_user_facing_notes after activation."
+          }
+          if ([string]::IsNullOrWhiteSpace("$($summary.latest_build_release_notes)")) {
+            throw "Release summary missing latest_build_release_notes after activation."
           }
 
       - name: Prune Older Release Artifacts From GCS
