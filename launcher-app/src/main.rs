@@ -163,6 +163,7 @@ struct LauncherApp {
     message_line: String,
     progress: f32,
     progress_label: String,
+    play_in_progress: bool,
     busy: bool,
     refresh_in_flight: bool,
     session: Option<SessionResponse>,
@@ -193,7 +194,8 @@ impl LauncherApp {
             patch_notes: String::new(),
             message_line: String::new(),
             progress: 0.0,
-            progress_label: "Idle".to_string(),
+            progress_label: String::new(),
+            play_in_progress: false,
             busy: false,
             refresh_in_flight: false,
             session: None,
@@ -299,8 +301,10 @@ impl LauncherApp {
         };
 
         self.busy = true;
+        self.play_in_progress = true;
         self.progress = 0.0;
-        self.progress_label = "Preparing launch...".to_string();
+        self.progress_label = "Checking Latest Version".to_string();
+        self.message_line.clear();
 
         thread::spawn(move || {
             let result = run_play_update_launch(input, tx.clone()).map_err(|error| error.to_string());
@@ -327,7 +331,11 @@ impl LauncherApp {
             match self.rx.try_recv() {
                 Ok(event) => match event {
                     WorkerEvent::Status(message) => {
-                        self.message_line = message;
+                        if self.play_in_progress {
+                            self.progress_label = message;
+                        } else {
+                            self.message_line = message;
+                        }
                     }
                     WorkerEvent::NewsRefreshed(result) => {
                         self.refresh_in_flight = false;
@@ -377,7 +385,8 @@ impl LauncherApp {
                                 self.patch_notes.clear();
                                 self.latest_version = "unknown".to_string();
                                 self.progress = 0.0;
-                                self.progress_label = "Idle".to_string();
+                                self.progress_label.clear();
+                                self.play_in_progress = false;
                                 self.message_line = "Signed out.".to_string();
                             }
                             Err(error) => {
@@ -398,13 +407,8 @@ impl LauncherApp {
                             .clamp(0.0, 1.0);
                         self.progress = (fraction * 0.75).clamp(0.0, 0.75);
                         self.progress_label = match total {
-                            Some(value) if value > 0 => format!(
-                                "Downloading update... {:.1}% ({} / {})",
-                                fraction * 100.0,
-                                human_bytes(downloaded),
-                                human_bytes(value)
-                            ),
-                            _ => format!("Downloading update... {}", human_bytes(downloaded)),
+                            Some(value) if value > 0 => format!("Downloading {:.1}%", fraction * 100.0),
+                            _ => format!("Downloading {}", human_bytes(downloaded)),
                         };
                     }
                     WorkerEvent::InstallProgress { fraction, message } => {
@@ -413,19 +417,21 @@ impl LauncherApp {
                     }
                     WorkerEvent::PlayFinished(result) => {
                         self.busy = false;
+                        self.play_in_progress = false;
                         match result {
                             Ok(message) => {
-                                self.progress = 1.0;
-                                self.progress_label = "Completed".to_string();
+                                self.progress = 0.0;
+                                self.progress_label.clear();
                                 self.message_line = message;
                                 self.local_version =
                                     read_installed_version(&self.install_dir).unwrap_or_else(|_| "unknown".to_string());
+                                self.latest_version = self.local_version.clone();
                                 self.game_started = true;
                                 self.pending_minimize = true;
                             }
                             Err(error) => {
                                 self.progress = 0.0;
-                                self.progress_label = "Idle".to_string();
+                                self.progress_label.clear();
                                 self.message_line = format!("Launch failed: {error}");
                             }
                         }
@@ -474,84 +480,91 @@ impl eframe::App for LauncherApp {
                 return;
             }
 
-            ui.horizontal(|ui| {
-                ui.label(format!("Installed {}", self.local_version));
-                ui.separator();
-                ui.label(format!("Latest {}", self.latest_version));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let account_label = self
-                        .session
-                        .as_ref()
-                        .map(|session| session.display_name.clone())
-                        .unwrap_or_else(|| "Account".to_string());
-                    ui.menu_button(account_label, |ui| {
-                        if !self.game_started && ui.button("Logout").clicked() {
-                            self.begin_logout();
-                            ui.close_menu();
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let play_text = if self.play_in_progress { "Updating" } else { "Play" };
+                        let play_button =
+                            egui::Button::new(egui::RichText::new(play_text).size(22.0)).min_size(egui::vec2(220.0, 52.0));
+                        if ui
+                            .add_enabled(self.session.is_some() && !self.busy, play_button)
+                            .clicked()
+                        {
+                            self.begin_play();
                         }
-                        if self.game_started {
-                            ui.label("Game session active");
+
+                        if self.play_in_progress {
+                            ui.add_space(12.0);
+                            let bar_width = ui.available_width().max(160.0);
+                            ui.add_sized([bar_width, 24.0], egui::ProgressBar::new(self.progress.clamp(0.0, 1.0)));
                         }
                     });
                 });
-            });
 
-            ui.add_space(8.0);
-            ui.columns(2, |columns| {
-                columns[0].vertical(|ui| {
-                    ui.group(|ui| {
-                        ui.label("News");
-                        ui.separator();
-                        egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
-                            if self.news_notes.trim().is_empty() {
-                                ui.label("No news available.");
-                            } else {
-                                ui.label(&self.news_notes);
-                            }
-                        });
-                    });
-                });
-
-                columns[1].vertical(|ui| {
-                    ui.group(|ui| {
-                        ui.label("Patch Notes");
-                        ui.separator();
-                        egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
-                            if self.patch_notes.trim().is_empty() {
-                                ui.label("No patch notes available.");
-                            } else {
-                                ui.label(&self.patch_notes);
-                            }
-                        });
-                    });
-                });
-            });
-
-            ui.add_space(10.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let play_button =
-                    egui::Button::new(egui::RichText::new("Play").size(22.0)).min_size(egui::vec2(180.0, 48.0));
-                if ui
-                    .add_enabled(self.session.is_some() && !self.busy, play_button)
-                    .clicked()
-                {
-                    self.begin_play();
+                if self.play_in_progress && !self.progress_label.trim().is_empty() {
+                    ui.add_space(6.0);
+                    ui.label(self.progress_label.clone());
                 }
 
+                if !self.message_line.trim().is_empty() {
+                    ui.add_space(4.0);
+                    ui.label(&self.message_line);
+                }
+
+                ui.add_space(10.0);
+                ui.columns(2, |columns| {
+                    columns[0].vertical(|ui| {
+                        ui.group(|ui| {
+                            ui.label("News");
+                            ui.separator();
+                            egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                                if self.news_notes.trim().is_empty() {
+                                    ui.label("No news available.");
+                                } else {
+                                    ui.label(&self.news_notes);
+                                }
+                            });
+                        });
+                    });
+
+                    columns[1].vertical(|ui| {
+                        ui.group(|ui| {
+                            ui.label("Patch Notes");
+                            ui.separator();
+                            egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                                if self.patch_notes.trim().is_empty() {
+                                    ui.label("No patch notes available.");
+                                } else {
+                                    ui.label(&self.patch_notes);
+                                }
+                            });
+                        });
+                    });
+                });
+
                 ui.add_space(8.0);
-                ui.add_sized(
-                    [420.0, 24.0],
-                    egui::ProgressBar::new(self.progress.clamp(0.0, 1.0)).show_percentage(),
-                );
+                ui.horizontal(|ui| {
+                    ui.label(format!("Installed {}", self.local_version));
+                    ui.separator();
+                    ui.label(format!("Latest {}", self.latest_version));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let account_label = self
+                            .session
+                            .as_ref()
+                            .map(|session| session.display_name.clone())
+                            .unwrap_or_else(|| "Account".to_string());
+                        ui.menu_button(account_label, |ui| {
+                            if !self.game_started && ui.button("Logout").clicked() {
+                                self.begin_logout();
+                                ui.close_menu();
+                            }
+                            if self.game_started {
+                                ui.label("Game session active");
+                            }
+                        });
+                    });
+                });
             });
-            if !self.progress_label.trim().is_empty() {
-                ui.add_space(6.0);
-                ui.label(self.progress_label.clone());
-            }
-            if !self.message_line.trim().is_empty() {
-                ui.add_space(4.0);
-                ui.label(&self.message_line);
-            }
         });
     }
 }
@@ -601,8 +614,8 @@ fn run_play_update_launch(input: PlayInput, tx: Sender<WorkerEvent>) -> Result<S
         &input.session.version_status.latest_content_version_key,
         "unknown",
     );
+    let _ = tx.send(WorkerEvent::Status("Checking Latest Version".to_string()));
     let summary = fetch_release_summary(&api_base_url, &installed_version, &session_content_key)?;
-    let _ = tx.send(WorkerEvent::Status("Update check started...".to_string()));
     let feed_candidates = collect_feed_candidates(
         summary.update_feed_url.as_deref(),
         input.session.version_status.update_feed_url.as_deref(),
@@ -634,11 +647,17 @@ fn run_play_update_launch(input: PlayInput, tx: Sender<WorkerEvent>) -> Result<S
     };
     let current_local =
         normalize_version(&read_installed_version(&input.install_dir).unwrap_or_else(|_| "0.0.0".to_string()));
-    let latest_version = if latest.version.trim().is_empty() {
-        normalize_version(&input.session.version_status.latest_version)
-    } else {
-        normalize_version(&latest.version)
-    };
+    let latest_version = normalize_version(&summary.latest_version);
+    if !latest.version.trim().is_empty() {
+        let feed_version = normalize_version(&latest.version);
+        if feed_version != latest_version {
+            bail!(
+                "Release metadata mismatch (backend latest {}, feed latest {}). Retry in a minute.",
+                latest_version,
+                feed_version
+            );
+        }
+    }
 
     if current_local != latest_version {
         let temp_root = env::temp_dir().join("aop-launcher-update");
@@ -655,10 +674,7 @@ fn run_play_update_launch(input: PlayInput, tx: Sender<WorkerEvent>) -> Result<S
         let mut delta_applied = false;
 
         if let Some(delta) = maybe_delta {
-            let _ = tx.send(WorkerEvent::Status(format!(
-                "Applying delta update {} -> {}...",
-                current_local, latest_version
-            )));
+            let _ = tx.send(WorkerEvent::Status("Installing Update".to_string()));
             let delta_url = format!("{}/{}", resolved_feed_url.trim_end_matches('/'), delta.artifact);
             let delta_path = temp_root.join(&delta.artifact);
             let delta_apply_result = download_with_progress(&delta_url, &delta_path, &tx).and_then(|_| {
@@ -671,7 +687,6 @@ fn run_play_update_launch(input: PlayInput, tx: Sender<WorkerEvent>) -> Result<S
             match delta_apply_result {
                 Ok(()) => {
                     delta_applied = true;
-                    let _ = tx.send(WorkerEvent::Status("Delta update applied".to_string()));
                 }
                 Err(error) => {
                     let _ = tx.send(WorkerEvent::Status(format!(
@@ -712,6 +727,10 @@ fn run_play_update_launch(input: PlayInput, tx: Sender<WorkerEvent>) -> Result<S
         &handoff_content_key,
     )?;
 
+    let _ = tx.send(WorkerEvent::InstallProgress {
+        fraction: 1.0,
+        message: "Starting Game".to_string(),
+    });
     launch_game(&input.install_dir, &handoff_path)?;
     Ok(format!("Launched game {}", latest_version))
 }
@@ -802,14 +821,11 @@ fn refresh_news_payload(
         }
     };
     let selected_content_key = select_declared_content_key(&summary);
-    let mut latest_version = normalize_version(&summary.latest_version);
+    let latest_version = normalize_version(&summary.latest_version);
     let feed_candidates = collect_feed_candidates(summary.update_feed_url.as_deref(), None, fallback_feed_url);
     let mut selected_feed_url = summary.update_feed_url.clone();
     for candidate in &feed_candidates {
-        if let Ok(feed_payload) = fetch_latest_feed(candidate)
-            && !feed_payload.version.trim().is_empty()
-        {
-            latest_version = normalize_version(&feed_payload.version);
+        if fetch_latest_feed(candidate).is_ok() {
             selected_feed_url = Some(candidate.clone());
             break;
         }
@@ -929,7 +945,7 @@ fn verify_file_sha256(path: &Path, expected_hex: &str) -> Result<()> {
 fn run_installer_with_progress(installer_path: &Path, install_dir: &Path, tx: &Sender<WorkerEvent>) -> Result<()> {
     let _ = tx.send(WorkerEvent::InstallProgress {
         fraction: 0.05,
-        message: "Installing update...".to_string(),
+        message: "Installing Update".to_string(),
     });
 
     let mut child = Command::new(installer_path)
@@ -951,7 +967,7 @@ fn run_installer_with_progress(installer_path: &Path, install_dir: &Path, tx: &S
                 pseudo = (pseudo + 0.03).min(0.95);
                 let _ = tx.send(WorkerEvent::InstallProgress {
                     fraction: pseudo,
-                    message: format!("Installing update... {:.0}%", pseudo * 100.0),
+                    message: "Installing Update".to_string(),
                 });
                 thread::sleep(Duration::from_millis(250));
             }
@@ -960,7 +976,7 @@ fn run_installer_with_progress(installer_path: &Path, install_dir: &Path, tx: &S
 
     let _ = tx.send(WorkerEvent::InstallProgress {
         fraction: 1.0,
-        message: "Install completed".to_string(),
+        message: "Installing Update".to_string(),
     });
     Ok(())
 }
@@ -994,7 +1010,7 @@ fn apply_delta_with_progress(delta_path: &Path, install_dir: &Path, tx: &Sender<
         completed_ops += 1;
         let _ = tx.send(WorkerEvent::InstallProgress {
             fraction: completed_ops as f32 / total_ops as f32,
-            message: format!("Applying delta... ({}/{})", completed_ops, total_ops),
+            message: "Installing Update".to_string(),
         });
     }
 
@@ -1016,13 +1032,13 @@ fn apply_delta_with_progress(delta_path: &Path, install_dir: &Path, tx: &Sender<
         completed_ops += 1;
         let _ = tx.send(WorkerEvent::InstallProgress {
             fraction: completed_ops as f32 / total_ops as f32,
-            message: format!("Applying delta... ({}/{})", completed_ops, total_ops),
+            message: "Installing Update".to_string(),
         });
     }
 
     let _ = tx.send(WorkerEvent::InstallProgress {
         fraction: 1.0,
-        message: "Delta apply completed".to_string(),
+        message: "Installing Update".to_string(),
     });
     Ok(())
 }

@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
 
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("OPS_API_TOKEN", "test-ops")
@@ -13,9 +14,10 @@ os.environ.setdefault("DB_PASSWORD", "test")
 
 from app.db.base import Base  # noqa: E402
 from app.api.deps import AuthContext  # noqa: E402
+from app.core.security import create_access_token  # noqa: E402
 from app.models.session import UserSession  # noqa: E402
 from app.models.user import User  # noqa: E402
-from app.api.routes.auth import _assert_user_mfa, mfa_disable, mfa_enable  # noqa: E402
+from app.api.routes.auth import _assert_user_mfa, logout, mfa_disable, mfa_enable  # noqa: E402
 from app.services.ws_ticket import WsTicketError, consume_ws_ticket, issue_ws_ticket  # noqa: E402
 
 
@@ -126,3 +128,37 @@ def test_mfa_toggle_endpoints_accept_empty_payload() -> None:
     db.refresh(user)
     assert user.mfa_enabled is False
     assert user.mfa_totp_secret is None
+
+
+def test_logout_revokes_session_without_version_gate() -> None:
+    db = _db_session()
+    user = User(
+        email="logout@test.com",
+        display_name="Logout",
+        password_hash="x",
+        is_admin=False,
+        mfa_enabled=False,
+        mfa_totp_secret=None,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    session = UserSession(
+        id="logout-session",
+        user_id=user.id,
+        refresh_token_hash="hash",
+        client_version="0.1.0",
+        client_content_version_key="cv_1",
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+        last_seen_at=datetime.now(UTC),
+    )
+    db.add(session)
+    db.commit()
+
+    token = create_access_token(user.id, session.id)
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    response = logout(credentials=credentials, db=db)
+
+    assert response == {"ok": True}
+    db.refresh(session)
+    assert session.revoked_at is not None

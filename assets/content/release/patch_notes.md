@@ -1,0 +1,5 @@
+- Release pipeline now updates backend release metadata from this release.
+- Launcher latest-version display now uses backend release policy as source of truth.
+- Launcher play/update flow now reports explicit progress stages.
+- Launcher bottom action bar layout was adjusted for clearer controls.
+- Auth logout backend flow was hardened to avoid version-gate logout failures.

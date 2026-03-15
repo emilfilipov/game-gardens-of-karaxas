@@ -124,7 +124,7 @@ This section is the detailed product-level description of all implemented and pl
 
 #### Windows launcher auth/update gate (news + login + play orchestration)
 - Purpose: provide player-facing startup flow with visible update/install progress before gameplay runtime starts.
-- Loop: launcher opens on a login-only screen; after successful login it auto-refreshes latest version/news/patch notes every 60 seconds, exposes account actions through a top-right menu (including logout when gameplay is not launched), shows always-visible progress bar + large `Play` action, checks release feed on `Play`, applies delta update when available (fallback full update when not), then launches game fullscreen with authenticated handoff and minimizes while staying active.
+- Loop: launcher opens on a login-only screen; after successful login it auto-refreshes latest version/news/patch notes every 60 seconds from backend release metadata, exposes account actions through a top-right menu (including logout when gameplay is not launched), and when `Play` is pressed it re-checks latest version and runs silent background update with staged progress states (`Checking Latest Version`, `Downloading`, `Installing Update`, `Starting Game`) before launching fullscreen with authenticated handoff and minimizing while staying active.
 - Gameplay impact: users enter the game through a single authenticated gate and reliably land on character selection with up-to-date runtime state.
 
 #### Real-time campaign world sync channel

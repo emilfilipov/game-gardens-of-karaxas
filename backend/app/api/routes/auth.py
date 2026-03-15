@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from packaging.version import InvalidVersion, Version
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,11 +19,13 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.security import (
+    TokenPayloadError,
     build_totp_qr_svg,
     build_totp_provisioning_uri,
     create_access_token,
     create_refresh_token,
     create_totp_secret,
+    decode_access_token,
     hash_password,
     hash_token,
     verify_totp_code,
@@ -56,6 +59,7 @@ from app.services.session_drain import enforce_session_drain
 from app.services.ws_ticket import issue_ws_ticket
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logout_security = HTTPBearer(auto_error=False)
 
 
 def _version_status_model(version_status) -> VersionStatus:
@@ -620,20 +624,47 @@ def refresh(
 
 
 @router.post("/logout")
-def logout(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
-    session = db.get(UserSession, context.session.id)
-    if session is not None:
+def logout(
+    credentials: HTTPAuthorizationCredentials | None = Depends(logout_security),
+    db: Session = Depends(get_db),
+):
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"message": "Authentication required", "code": "unauthorized"},
+        )
+
+    try:
+        payload = decode_access_token(credentials.credentials)
+        session_id = str(payload["sid"])
+        user_id = int(payload["sub"])
+    except (TokenPayloadError, KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"message": "Authentication required", "code": "unauthorized"},
+        ) from exc
+
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"message": "Authentication required", "code": "unauthorized"},
+        )
+
+    session = db.get(UserSession, session_id)
+    if session is not None and session.user_id == user_id and session.revoked_at is None:
         session.revoked_at = datetime.now(UTC)
         db.add(session)
-        write_security_event(
-            db,
-            event_type="logout",
-            severity="info",
-            actor_user_id=context.user.id,
-            session_id=context.session.id,
-            detail={"is_admin": context.user.is_admin},
-        )
-        db.commit()
+
+    write_security_event(
+        db,
+        event_type="logout",
+        severity="info",
+        actor_user_id=user.id,
+        session_id=session_id,
+        detail={"is_admin": user.is_admin},
+    )
+    db.commit()
     return {"ok": True}
 
 

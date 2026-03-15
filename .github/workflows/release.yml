@@ -457,6 +457,61 @@ jobs:
           gsutil cp $latestPath "$feedPrefix/latest.json"
           gsutil setmeta -h "Cache-Control:no-cache, max-age=0" "$feedPrefix/latest.json"
 
+      - name: Activate Release Metadata In Backend
+        if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
+        env:
+          OPS_BASE_URL: ${{ vars.KARAXAS_BACKEND_OPS_URL }}
+          OPS_TOKEN: ${{ secrets.KARAXAS_OPS_API_TOKEN }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:OPS_BASE_URL)) {
+            throw "Missing KARAXAS_BACKEND_OPS_URL variable; cannot activate release metadata."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:OPS_TOKEN)) {
+            throw "Missing KARAXAS_OPS_API_TOKEN secret; cannot activate release metadata."
+          }
+
+          $version = "${{ steps.get-version.outputs.version }}"
+          $feedUrl = "https://storage.googleapis.com/${{ env.GCS_RELEASE_BUCKET }}/${{ steps.preflight.outputs.game_prefix }}"
+          $newsPath = "assets/content/release/news_notes.md"
+          $patchPath = "assets/content/release/patch_notes.md"
+
+          $newsNotes = if (Test-Path $newsPath) { (Get-Content -Path $newsPath -Raw -Encoding UTF8).Trim() } else { "" }
+          $patchNotes = if (Test-Path $patchPath) { (Get-Content -Path $patchPath -Raw -Encoding UTF8).Trim() } else { "" }
+          if ([string]::IsNullOrWhiteSpace($newsNotes)) {
+            $newsNotes = "Ambitions of Peace release $version is now available."
+          }
+          if ([string]::IsNullOrWhiteSpace($patchNotes)) {
+            $patchNotes = "Release $version build published."
+          }
+
+          $payload = @{
+            latest_version = $version
+            min_supported_version = $version
+            update_feed_url = $feedUrl
+            build_release_notes = $patchNotes
+            user_facing_notes = $newsNotes
+            grace_minutes = 5
+            allow_version_regression = $false
+          } | ConvertTo-Json -Depth 8
+
+          $uri = "$($env:OPS_BASE_URL.TrimEnd('/'))/ops/release/activate"
+          try {
+            Invoke-RestMethod `
+              -Method Post `
+              -Uri $uri `
+              -Headers @{ "x-ops-token" = $env:OPS_TOKEN } `
+              -ContentType "application/json" `
+              -Body $payload | Out-Null
+          } catch {
+            if ($_.Exception.Response -and $_.Exception.Response.GetResponseStream) {
+              $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+              $body = $reader.ReadToEnd()
+              throw "Release metadata activation failed: $body"
+            }
+            throw
+          }
+
       - name: Prune Older Release Artifacts From GCS
         if: steps.preflight.outputs.enabled == 'true' && steps.auth-mode.outputs.mode != 'none'
         shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"

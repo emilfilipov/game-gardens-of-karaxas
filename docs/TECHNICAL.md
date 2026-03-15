@@ -232,6 +232,10 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Workflow activates MSVC toolchain environment (`ilammy/msvc-dev-cmd`) before Rust build steps so `link.exe` is discoverable when Visual Studio Build Tools are present.
 - Release workflow now provisions Python via `actions/setup-python@v5` pinned to `3.11` on hosted runners.
 - Release workflow exports `CLOUDSDK_PYTHON` from the configured Python toolchain so `gsutil`/Cloud SDK helpers resolve a deterministic interpreter across later packaging steps.
+- Release workflow now activates backend release policy metadata after artifact upload via `POST /ops/release/activate`, using CI-managed notes sources:
+  - `assets/content/release/news_notes.md` -> `latest_user_facing_notes`
+  - `assets/content/release/patch_notes.md` -> `latest_build_release_notes`
+- Backend release policy/record tables are the canonical source for launcher-displayed `latest version`, `news`, and `patch notes`; GCS feed metadata remains artifact-distribution source.
 - Auth/session continuity gate now injects repo backend path via a generated `aop_backend.pth` in Python `site-packages`, then executes from `backend/` with `python -m pip` / `python -m pytest` to bypass embedded-Python path isolation edge cases on self-hosted Windows service runners.
 - Release workflow builds/packages:
   - launcher runtime: `launcher-app` (Windows executable embedded in game installer)
@@ -250,7 +254,9 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
   - authenticated launcher auto-refreshes release summary + feed metadata every 60 seconds,
   - in-window news/patch notes rendering via `/release/summary` using `x-client-version` and `x-client-content-version` headers,
   - feed resolution fallback chain (`release summary feed` -> `session feed` -> packaged default `win-game`) to survive stale backend policy feed pointers,
-  - progress-visible update flow (delta-first, full-installer fallback),
+  - `Play` always re-checks latest release metadata before launch,
+  - while update is running, `Play` transitions to `Updating` (disabled) and progress is surfaced only in the bottom update bar (`Checking Latest Version` -> `Downloading` -> `Installing Update` -> `Starting Game`),
+  - progress-visible update flow remains delta-first with full-installer fallback,
   - account actions are consolidated in top-right menu with logout available when runtime launch is not active,
   - startup handoff generation and full-screen game launch command.
   - production-first launcher defaults are compile-time injected in CI (`AOP_DEFAULT_API_BASE_URL`) and release launcher uses Windows GUI subsystem (no companion console window).
