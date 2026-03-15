@@ -265,8 +265,8 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
   - `Play` always re-checks latest release metadata before launch,
   - while update is running, `Play` transitions to `Updating` (disabled) and progress is surfaced only in the bottom update bar (`Checking Latest Version` -> `Downloading` -> `Installing Update` -> `Starting Game`) using a rectangular full-height lane aligned to the `Play` control, with no separate authenticated status text row,
   - progress-visible update flow remains delta-first with full-installer fallback,
-  - account actions are consolidated in top-right menu with logout available when runtime launch is not active,
-  - startup handoff generation and full-screen game launch command.
+  - account actions are consolidated in top-right menu with logout available when runtime launch is not active; if backend logout fails, launcher still clears local auth state and returns to login with an error message,
+  - startup handoff generation and full-screen game launch command (Windows launcher now starts runtime with `CREATE_NO_WINDOW` to suppress companion terminal windows).
   - production-first launcher defaults are compile-time injected in CI (`AOP_DEFAULT_API_BASE_URL`) and release launcher uses Windows GUI subsystem (no companion console window).
 - Runtime bundles now include `release_version.txt` marker for deterministic install/update acceptance verification.
 - Release workflow now runs Windows installer acceptance smoke (`scripts/windows_installer_acceptance_smoke.ps1`) plus gameplay/handoff regression tests before GCS publish.

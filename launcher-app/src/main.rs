@@ -3,6 +3,8 @@
 use std::env;
 use std::fs::{self, File};
 use std::io::{Read, Write};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -19,6 +21,8 @@ use zip::ZipArchive;
 const FALLBACK_API_BASE_URL: &str = "https://karaxas-backend-rss3xj2ixq-ew.a.run.app";
 const DEFAULT_GAME_FEED_URL: &str = "https://storage.googleapis.com/karaxas-releases-lustrous-bond-298815/win-game";
 const APP_TITLE: &str = "Ambitions of Peace";
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 #[derive(Debug)]
 enum WorkerEvent {
@@ -279,6 +283,18 @@ impl LauncherApp {
         });
     }
 
+    fn complete_local_logout(&mut self, message: String) {
+        self.session = None;
+        self.game_started = false;
+        self.news_notes.clear();
+        self.patch_notes.clear();
+        self.latest_version = "unknown".to_string();
+        self.progress = 0.0;
+        self.progress_label.clear();
+        self.play_in_progress = false;
+        self.message_line = message;
+    }
+
     fn begin_play(&mut self) {
         if self.busy {
             return;
@@ -376,18 +392,12 @@ impl LauncherApp {
                         self.busy = false;
                         match result {
                             Ok(()) => {
-                                self.session = None;
-                                self.game_started = false;
-                                self.news_notes.clear();
-                                self.patch_notes.clear();
-                                self.latest_version = "unknown".to_string();
-                                self.progress = 0.0;
-                                self.progress_label.clear();
-                                self.play_in_progress = false;
-                                self.message_line = "Signed out.".to_string();
+                                self.complete_local_logout("Signed out.".to_string());
                             }
                             Err(error) => {
-                                self.message_line = format!("Sign-out failed: {error}");
+                                self.complete_local_logout(format!(
+                                    "Signed out locally. Backend logout failed: {error}"
+                                ));
                             }
                         }
                     }
@@ -517,13 +527,15 @@ impl eframe::App for LauncherApp {
                 .show_inside(ui, |ui| {
                     ui.horizontal(|ui| {
                         let control_height = 52.0;
+                        let control_width = 212.0;
                         let play_text = if self.play_in_progress { "Updating" } else { "Play" };
                         let play_button = egui::Button::new(egui::RichText::new(play_text).size(22.0))
-                            .min_size(egui::vec2(220.0, control_height));
+                            .min_size(egui::vec2(control_width, control_height));
 
-                        let play_width = 220.0;
+                        let play_width = control_width;
                         let spacing = 12.0;
-                        let bar_width = (ui.available_width() - play_width - spacing).max(180.0);
+                        let edge_padding = 8.0;
+                        let bar_width = (ui.available_width() - play_width - spacing - edge_padding).max(160.0);
                         let mut progress_bar = egui::ProgressBar::new(if self.play_in_progress {
                             self.progress.clamp(0.0, 1.0)
                         } else {
@@ -546,7 +558,7 @@ impl eframe::App for LauncherApp {
                 });
 
             ui.add_space(8.0);
-            let panel_height = ui.available_height().max(120.0);
+            let panel_height = (ui.available_height() - 6.0).max(120.0);
             ui.columns(2, |columns| {
                 columns[0].vertical(|ui| {
                     ui.group(|ui| {
@@ -1148,10 +1160,13 @@ fn launch_game(install_dir: &Path, handoff_path: &Path) -> Result<()> {
         bail!("game executable not found at {}", game_exe.display());
     }
 
-    Command::new(&game_exe)
-        .arg("--handoff-file")
-        .arg(handoff_path)
-        .arg("--fullscreen")
+    let mut command = Command::new(&game_exe);
+    command.arg("--handoff-file").arg(handoff_path).arg("--fullscreen");
+    #[cfg(target_os = "windows")]
+    {
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command
         .spawn()
         .with_context(|| format!("failed to launch {}", game_exe.display()))?;
     Ok(())
