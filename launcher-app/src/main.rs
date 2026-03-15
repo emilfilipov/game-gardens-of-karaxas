@@ -484,86 +484,96 @@ impl eframe::App for LauncherApp {
                 return;
             }
 
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            egui::TopBottomPanel::top("launcher_authenticated_top")
+                .resizable(false)
+                .exact_height(36.0)
+                .show_inside(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(format!("Installed {}", self.local_version));
+                        ui.separator();
+                        ui.label(format!("Latest {}", self.latest_version));
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            let account_label = self
+                                .session
+                                .as_ref()
+                                .map(|session| session.display_name.clone())
+                                .unwrap_or_else(|| "Account".to_string());
+                            ui.menu_button(account_label, |ui| {
+                                if !self.game_started && ui.button("Logout").clicked() {
+                                    self.begin_logout();
+                                    ui.close_menu();
+                                }
+                                if self.game_started {
+                                    ui.label("Game session active");
+                                }
+                            });
+                        });
+                    });
+                });
+
+            egui::TopBottomPanel::bottom("launcher_authenticated_bottom")
+                .resizable(false)
+                .exact_height(84.0)
+                .show_inside(ui, |ui| {
+                    if !self.message_line.trim().is_empty() {
+                        ui.label(&self.message_line);
+                    }
+                    ui.horizontal(|ui| {
                         let play_text = if self.play_in_progress { "Updating" } else { "Play" };
                         let play_button =
                             egui::Button::new(egui::RichText::new(play_text).size(22.0)).min_size(egui::vec2(220.0, 52.0));
+
+                        let play_width = 220.0;
+                        let spacing = 12.0;
+                        let bar_width = (ui.available_width() - play_width - spacing).max(180.0);
+                        let mut progress_bar = egui::ProgressBar::new(if self.play_in_progress {
+                            self.progress.clamp(0.0, 1.0)
+                        } else {
+                            0.0
+                        });
+                        if self.play_in_progress && !self.progress_label.trim().is_empty() {
+                            progress_bar = progress_bar.text(self.progress_label.clone());
+                        }
+                        ui.add_sized([bar_width, 24.0], progress_bar);
+
+                        ui.add_space(spacing);
                         if ui
                             .add_enabled(self.session.is_some() && !self.busy, play_button)
                             .clicked()
                         {
                             self.begin_play();
                         }
-
-                        if self.play_in_progress {
-                            ui.add_space(12.0);
-                            let bar_width = ui.available_width().max(160.0);
-                            ui.add_sized([bar_width, 24.0], egui::ProgressBar::new(self.progress.clamp(0.0, 1.0)));
-                        }
                     });
                 });
 
-                if self.play_in_progress && !self.progress_label.trim().is_empty() {
-                    ui.add_space(6.0);
-                    ui.label(self.progress_label.clone());
-                }
-
-                if !self.message_line.trim().is_empty() {
-                    ui.add_space(4.0);
-                    ui.label(&self.message_line);
-                }
-
-                ui.add_space(10.0);
-                ui.columns(2, |columns| {
-                    columns[0].vertical(|ui| {
-                        ui.group(|ui| {
-                            ui.label("News");
-                            ui.separator();
-                            egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
-                                if self.news_notes.trim().is_empty() {
-                                    ui.label("No news available.");
-                                } else {
-                                    ui.label(&self.news_notes);
-                                }
-                            });
-                        });
-                    });
-
-                    columns[1].vertical(|ui| {
-                        ui.group(|ui| {
-                            ui.label("Patch Notes");
-                            ui.separator();
-                            egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
-                                if self.patch_notes.trim().is_empty() {
-                                    ui.label("No patch notes available.");
-                                } else {
-                                    ui.label(&self.patch_notes);
-                                }
-                            });
-                        });
-                    });
-                });
-
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    ui.label(format!("Installed {}", self.local_version));
-                    ui.separator();
-                    ui.label(format!("Latest {}", self.latest_version));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let account_label = self
-                            .session
-                            .as_ref()
-                            .map(|session| session.display_name.clone())
-                            .unwrap_or_else(|| "Account".to_string());
-                        ui.menu_button(account_label, |ui| {
-                            if !self.game_started && ui.button("Logout").clicked() {
-                                self.begin_logout();
-                                ui.close_menu();
+            ui.add_space(8.0);
+            let panel_height = ui.available_height().max(120.0);
+            ui.columns(2, |columns| {
+                columns[0].vertical(|ui| {
+                    ui.group(|ui| {
+                        ui.set_min_height(panel_height);
+                        ui.label("News");
+                        ui.separator();
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            if self.news_notes.trim().is_empty() {
+                                ui.label("No news available.");
+                            } else {
+                                ui.label(&self.news_notes);
                             }
-                            if self.game_started {
-                                ui.label("Game session active");
+                        });
+                    });
+                });
+
+                columns[1].vertical(|ui| {
+                    ui.group(|ui| {
+                        ui.set_min_height(panel_height);
+                        ui.label("Patch Notes");
+                        ui.separator();
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            if self.patch_notes.trim().is_empty() {
+                                ui.label("No patch notes available.");
+                            } else {
+                                ui.label(&self.patch_notes);
                             }
                         });
                     });
@@ -1265,7 +1275,10 @@ fn main() -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(APP_TITLE)
-            .with_inner_size([980.0, 560.0]),
+            .with_inner_size([980.0, 560.0])
+            .with_min_inner_size([980.0, 560.0])
+            .with_max_inner_size([980.0, 560.0])
+            .with_resizable(false),
         ..Default::default()
     };
 
