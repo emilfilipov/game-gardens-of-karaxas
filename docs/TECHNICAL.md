@@ -226,6 +226,8 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 
 ## Build, Packaging, and Distribution
 - Windows distribution is channel-based in GCS, with installer-first game delivery.
+- PoC speed mode is active: `Release` workflow runs manual-only (`workflow_dispatch`) while backend deployment remains automatic on backend code changes.
+- Original push-triggered release flow is preserved as commented YAML in `.github/workflows/release.yml` so reverting to automatic distribution is a direct uncomment operation.
 - Release workflow currently runs on GitHub-hosted `windows-latest` while local self-hosted runner provisioning is incomplete (missing Visual Studio Build Tools / `link.exe`); workflow steps remain PowerShell-based (`-ExecutionPolicy Bypass`) and are compatible with both hosted and self-hosted execution.
 - Release workflow now provisions Cloud SDK via `google-github-actions/setup-gcloud@v2` for hosted-run reliability and faster startup.
 - Release workflow bootstraps Rust via `rustup` and installs NSIS through Chocolatey (`choco install nsis`) on hosted Windows runners, then exports NSIS/choco paths before invoking `makensis`.
@@ -254,6 +256,7 @@ Legacy Kotlin/Godot/Gradle/Blender prototype modules and their superseded protot
 - Game installer executable is built in CI via NSIS (`scripts/build_game_installer.ps1`) from the packaged runtime zip and embeds `launcher-app` as the primary player entrypoint.
 - Launcher (`launcher-app`) is the runtime auth/update gate:
   - compiled default API base URL now ignores empty CI-provided values and falls back to the canonical Cloud Run URL to prevent broken production launcher auth/news calls,
+  - local PoC runtime validation can bypass updater/feed checks by setting `AOP_SKIP_UPDATER=true` before launch,
   - login-only surface is rendered first; launcher content/news/update controls render only after authentication,
   - explicit `Login` and `Play` actions are decoupled so account auth can occur without starting gameplay runtime,
   - authenticated launcher auto-refreshes release summary + feed metadata every 60 seconds,

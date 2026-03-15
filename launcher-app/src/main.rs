@@ -622,12 +622,41 @@ fn run_play_update_launch(input: PlayInput, tx: Sender<WorkerEvent>) -> Result<S
     let api_base_url = normalize_url(&input.api_base_url);
     let feed_fallback = normalize_url(&input.configured_feed_url);
     let installed_version = normalize_version(&input.installed_version);
+    let skip_updater = env_truthy("AOP_SKIP_UPDATER");
 
     let session_content_key = preferred_content_key(
         &input.session.version_status.client_content_version_key,
         &input.session.version_status.latest_content_version_key,
         "unknown",
     );
+    if skip_updater {
+        let local_version = read_installed_version(&input.install_dir).with_context(|| {
+            format!(
+                "AOP_SKIP_UPDATER=true requires a local install marker at {}/release_version.txt",
+                input.install_dir.display()
+            )
+        })?;
+        let handoff_content_key = preferred_content_key(
+            &input.session.version_status.latest_content_version_key,
+            &input.session.version_status.client_content_version_key,
+            &session_content_key,
+        );
+        let handoff_path = default_handoff_path();
+        write_startup_handoff(
+            &handoff_path,
+            &input.session,
+            &api_base_url,
+            &normalize_version(&local_version),
+            &handoff_content_key,
+        )?;
+        let _ = tx.send(WorkerEvent::InstallProgress {
+            fraction: 1.0,
+            message: "Starting Game".to_string(),
+        });
+        launch_game(&input.install_dir, &handoff_path)?;
+        return Ok(format!("Launched game {} (local updater bypass)", normalize_version(&local_version)));
+    }
+
     let _ = tx.send(WorkerEvent::Status("Checking Latest Version".to_string()));
     let summary = fetch_release_summary(&api_base_url, &installed_version, &session_content_key)?;
     let feed_candidates = collect_feed_candidates(
@@ -1204,6 +1233,16 @@ fn env_or_default(key: &str, fallback: &str) -> String {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| fallback.to_string())
+}
+
+fn env_truthy(key: &str) -> bool {
+    env::var(key)
+        .ok()
+        .map(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+        })
+        .unwrap_or(false)
 }
 
 fn extract_news_notes(summary: &ReleaseSummaryResponse) -> String {

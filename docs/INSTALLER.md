@@ -19,19 +19,15 @@ Windows-first install/update flow for Ambitions of Peace launcher/game runtime a
 - Retention policy: keep latest 3 versions in both feed and archive prefixes per channel.
 
 ## CI Trigger Rules
-Release workflow triggers on push to `main`/`master` when paths include:
-- `client-app/**`
-- `launcher-app/**`
-- `designer-client/**`
-- `sim-core/**`
-- `tooling-core/**`
-- `assets/content/**`
-- `scripts/**`
-- `tools/package_client_app_release.py`
-- `tools/package_designer_client_release.py`
-- `.github/workflows/release.yml`
+- `Release` workflow is now manual-only (`workflow_dispatch`) for PoC velocity.
+- `Deploy Backend` continues to auto-run on backend code changes (`backend/**`, excluding markdown-only changes).
+- Automatic push-triggered release paths are preserved as commented YAML in `.github/workflows/release.yml` for one-step rollback (uncomment the `push` block).
+- Practical PoC loop:
+  - iterate on gameplay/client/backend code,
+  - let backend changes deploy via backend workflow,
+  - build installer locally on Windows and install manually for runtime validation.
 
-Docs-only pushes do not trigger release workflow.
+Docs-only pushes do not trigger backend deploy workflow.
 
 ## Local Install Scripts (Windows)
 - Shared installer helper: `scripts/install_channel.ps1`
@@ -51,6 +47,16 @@ powershell -ExecutionPolicy Bypass -File scripts/install_designer_client.ps1
 Optional overrides:
 - pass `-FeedUrl` to target an explicit channel URL.
 - pass `-InstallDir` to customize install root.
+
+## Local PoC Installer Build (Windows)
+For fast local iteration without remote distribution:
+```powershell
+cargo build -p client-app --release --features bootstrap-shell --target x86_64-pc-windows-msvc
+cargo build -p launcher-app --release --target x86_64-pc-windows-msvc
+python tools/package_client_app_release.py --version 0.0.local --exe target/x86_64-pc-windows-msvc/release/client-app.exe --output-dir releases/game
+powershell -ExecutionPolicy Bypass -File scripts/build_game_installer.ps1 -Version 0.0.local -RuntimeZip releases/game/AmbitionsOfPeace-client-app-win-x64-0.0.local.zip -LauncherExe target/x86_64-pc-windows-msvc/release/launcher-app.exe -OutputDir releases/game
+```
+Install the resulting `releases/game/AmbitionsOfPeace-game-installer-win-x64-0.0.local.exe` manually.
 
 ## `latest.json` Contract
 - Game channel:
@@ -101,6 +107,8 @@ If handoff payload is invalid/expired or rejected by backend (`HTTP 401/403`), c
   - `--fullscreen`
 - After successful launch trigger, launcher minimizes and stays running.
 - Release launcher binary is built as a Windows GUI subsystem executable (no extra terminal window).
+- Local PoC override:
+  - set `AOP_SKIP_UPDATER=true` to bypass update/feed checks and directly launch the locally installed runtime from the launcher after login.
 
 ## Required CI Variables/Secrets
 Required for publish:

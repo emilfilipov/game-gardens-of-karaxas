@@ -1,22 +1,22 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    paths:
-      - "client-app/**"
-      - "launcher-app/**"
-      - "designer-client/**"
-      - "sim-core/**"
-      - "tooling-core/**"
-      - "assets/content/**"
-      - "scripts/**"
-      - "tools/package_client_app_release.py"
-      - "tools/package_designer_client_release.py"
-      - "tools/build_runtime_delta.py"
-      - ".github/workflows/release.yml"
+  # push:
+  #   branches:
+  #     - main
+  #     - master
+  #   paths:
+  #     - "client-app/**"
+  #     - "launcher-app/**"
+  #     - "designer-client/**"
+  #     - "sim-core/**"
+  #     - "tooling-core/**"
+  #     - "assets/content/**"
+  #     - "scripts/**"
+  #     - "tools/package_client_app_release.py"
+  #     - "tools/package_designer_client_release.py"
+  #     - "tools/build_runtime_delta.py"
+  #     - ".github/workflows/release.yml"
   workflow_dispatch:
 
 permissions:
