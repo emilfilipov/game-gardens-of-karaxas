@@ -20,6 +20,29 @@
 7. If a polled run fails, fetch failing logs, implement a fix, push again, and continue the poll/fix cycle.
 8. If a polled run succeeds, report success and wait for next instructions.
 
+## Windows Local Build/Test Mode (PoC)
+- Goal: maximize iteration speed by keeping distribution manual during PoC.
+- Active default:
+  - `Release` workflow is manual-only (`workflow_dispatch`).
+  - Backend deploy workflow remains automatic for backend code changes.
+- Rollback to original auto-release:
+  - In `.github/workflows/release.yml`, uncomment the `on.push` block at the top.
+  - Commit and push to restore push-triggered release builds.
+- Windows local packaging flow:
+  1. Build game runtime:
+     - `cargo build -p client-app --release --features bootstrap-shell --target x86_64-pc-windows-msvc`
+  2. Build launcher:
+     - `cargo build -p launcher-app --release --target x86_64-pc-windows-msvc`
+  3. Package runtime zip:
+     - `python tools/package_client_app_release.py --version 0.0.local --exe target/x86_64-pc-windows-msvc/release/client-app.exe --output-dir releases/game`
+  4. Build installer:
+     - `powershell -ExecutionPolicy Bypass -File scripts/build_game_installer.ps1 -Version 0.0.local -RuntimeZip releases/game/AmbitionsOfPeace-client-app-win-x64-0.0.local.zip -LauncherExe target/x86_64-pc-windows-msvc/release/launcher-app.exe -OutputDir releases/game`
+  5. Install manually:
+     - `releases/game/AmbitionsOfPeace-game-installer-win-x64-0.0.local.exe`
+- Local launcher bypass for manual installs:
+  - Set `AOP_SKIP_UPDATER=true` before launching, so Play skips feed/update checks and launches local runtime directly.
+  - PowerShell example: `$env:AOP_SKIP_UPDATER = "true"`
+
 ## UI Concept Iteration Cycle (Mandatory)
 For UI concept generation work, each pass must be executed strictly one at a time using this exact loop:
 1. Plan one pass (specific layout/art/composition goals).
